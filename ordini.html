@@ -11,12 +11,38 @@
         .text-m361-red { color: #b75252; }
         .bg-m361-red { background-color: #b75252; }
         .bg-m361-dark { background-color: #1e293b; }
-        .border-m361-red { border-color: #b75252; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: #b75252; ring: 1px solid #b75252; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        /* Ottimizzazione tabelle per mobile */
-        .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        table { min-width: 1000px; } 
+        
+        /* Layout Mobile per Prodotti */
+        @media (max-width: 768px) {
+            .product-header { display: none; }
+            .product-row { 
+                display: flex; 
+                flex-direction: column; 
+                gap: 10px; 
+                padding: 15px; 
+                border: 1px solid #e2e8f0; 
+                border-radius: 12px; 
+                margin-bottom: 15px;
+                background: white;
+            }
+            .product-row td { display: block; width: 100% !important; padding: 0 !important; text-align: left !important; border: none !important; }
+            .product-row td::before {
+                content: attr(data-label);
+                display: block;
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #94a3b8;
+                margin-bottom: 2px;
+            }
+            .da-ordinare-mobile {
+                background-color: #fef2f2;
+                padding: 10px !important;
+                border-radius: 8px;
+                text-align: center !important;
+            }
+        }
     </style>
 </head>
 <body class="pb-20">
@@ -32,7 +58,7 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto p-6">
+    <main class="max-w-7xl mx-auto p-4 md:p-6">
         <form id="orderForm">
             
             <!-- SEZIONE 1: DATI EMPORIO -->
@@ -42,7 +68,7 @@
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Città Emporio *</label>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Città *</label>
                         <select id="select-emporio" onchange="handleEmporioChange()" class="w-full border rounded-lg p-2.5 text-sm bg-gray-50 font-semibold">
                             <option value="Casalmaggiore">Casalmaggiore</option>
                             <option value="Cremona">Cremona</option>
@@ -51,24 +77,22 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Preso da *</label>
-                        <div class="flex gap-2">
-                            <select id="select-operator" required class="flex-1 border rounded-lg p-2.5 text-sm bg-gray-50">
-                                <!-- Popolato via JS -->
-                            </select>
-                        </div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Operatore *</label>
+                        <select id="select-operator" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
+                            <!-- Popolato via JS -->
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Data Ordine *</label>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Data *</label>
                         <input type="date" id="order-date" required class="w-full border rounded-lg p-2.5 text-sm">
                     </div>
                 </div>
             </div>
 
-            <!-- SEZIONE 2: DATI CLIENTI -->
+            <!-- SEZIONE 2: DATI CLIENTE -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <h2 class="text-xs font-bold text-gray-400 mb-6 tracking-widest uppercase flex items-center gap-2">
-                    <span class="w-1.5 h-4 bg-m361-red rounded-full"></span> Dati Clienti
+                    <span class="w-1.5 h-4 bg-m361-red rounded-full"></span> Dati Cliente
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div>
@@ -96,27 +120,30 @@
             </div>
 
             <!-- SEZIONE 3: PRODOTTI -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-                <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
-                    <h2 class="text-xs font-bold text-gray-400 tracking-widest uppercase">Lista Prodotti</h2>
-                    <button type="button" onclick="addRow()" class="text-[10px] bg-m361-dark text-white px-3 py-1.5 rounded-full hover:bg-m361-red transition-colors font-bold uppercase">
-                        + Aggiungi prodotto
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xs font-bold text-gray-400 tracking-widest uppercase flex items-center gap-2">
+                        <span class="w-1.5 h-4 bg-m361-red rounded-full"></span> Prodotti
+                    </h2>
+                    <button type="button" onclick="addRow()" class="text-[10px] bg-m361-dark text-white px-4 py-2 rounded-full hover:bg-m361-red transition-colors font-bold uppercase shadow-md">
+                        + Aggiungi
                     </button>
                 </div>
-                <div class="table-container">
+
+                <div class="overflow-x-hidden">
                     <table class="w-full text-left border-collapse">
-                        <thead>
+                        <thead class="product-header">
                             <tr class="text-[10px] text-gray-400 uppercase tracking-wider border-b">
-                                <th class="p-4 font-bold w-32">Codice</th>
-                                <th class="p-4 font-bold">Descrizione</th>
-                                <th class="p-4 font-bold w-20 text-center">Qtà</th>
-                                <th class="p-4 font-bold w-20 text-center">Parte</th>
-                                <th class="p-4 font-bold w-20 text-center bg-red-50 text-m361-red">Da Ord.</th>
-                                <th class="p-4 font-bold w-24 text-center">Ordinato</th>
-                                <th class="p-4 font-bold w-24 text-center">Fornitore</th>
-                                <th id="header-empori" class="p-4 font-bold w-40 text-center">Da Empori</th>
-                                <th class="p-4 font-bold w-40 text-center">Da Altri</th>
-                                <th class="p-4 w-10"></th>
+                                <th class="p-2 font-bold w-24">Codice</th>
+                                <th class="p-2 font-bold">Descrizione</th>
+                                <th class="p-2 font-bold w-16 text-center">Qtà</th>
+                                <th class="p-2 font-bold w-16 text-center">Parte</th>
+                                <th class="p-2 font-bold w-20 text-center bg-red-50 text-m361-red">Da Ord.</th>
+                                <th class="p-2 font-bold w-16 text-center">Ord.</th>
+                                <th class="p-2 font-bold w-16 text-center">Forn.</th>
+                                <th class="p-2 font-bold w-32 text-center">Da Empori</th>
+                                <th class="p-2 font-bold w-32 text-center">Da Altri</th>
+                                <th class="p-2 w-8"></th>
                             </tr>
                         </thead>
                         <tbody id="order-rows"></tbody>
@@ -124,17 +151,8 @@
                 </div>
             </div>
 
-            <!-- FOOTER -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <textarea placeholder="Note aggiuntive sull'ordine..." class="w-full h-full min-h-[120px] border rounded-2xl p-4 text-sm resize-none focus:ring-1 focus:ring-m361-red"></textarea>
-                </div>
-                <div class="flex flex-col justify-end gap-4">
-                    <div class="flex gap-4">
-                        <button type="button" class="flex-1 bg-gray-200 text-gray-600 font-bold py-4 rounded-xl uppercase text-xs tracking-widest hover:bg-gray-300 transition-all">Bozza</button>
-                        <button type="submit" class="flex-1 bg-m361-red text-white font-bold py-4 rounded-xl uppercase text-xs tracking-widest hover:opacity-90 shadow-lg shadow-red-200 transition-all">Invia Ordine</button>
-                    </div>
-                </div>
+            <div class="flex justify-end gap-4">
+                <button type="submit" class="w-full md:w-64 bg-m361-red text-white font-bold py-4 rounded-xl uppercase text-xs tracking-widest hover:opacity-90 shadow-lg shadow-red-200 transition-all">Invia Ordine</button>
             </div>
         </form>
     </main>
@@ -143,8 +161,8 @@
         const operatoriDB = {
             "Cremona": ["Emilio Mazzolari", "Chiara Monteverdi", "Giulia Galelli"],
             "Reggio Emilia": ["Marica Pioli", "Manuela Capanni", "Alessia Bartolomei"],
-            "Viadana": ["Roberta Alberini", "Giuseppina Amadini", "Ave Aroldi", "Carla Bellelli", "Mariagrazia Bertolini", "Tiziana Bortesi", "Carla Chittolini", "Donatella Falugi", "Franco Furlotti", "Sara Germani", "Elena Ghelfi", "Claudio Mortini", "Mirella Panato", "Barbara Piotrowska", "Alessia Rovina", "Marta Sanfelici", "Manuela Scazza"],
-            "Casalmaggiore": ["Barbara Araldi", "Erica Bossi", "Elena Maria Cattani", "Matilde Chiarini", "Miriam Federici", "Giulia Frigeri", "Giulia Galelli", "Ileana Galli", "Piero Gatti", "Francesco Lunardini", "Giuseppe Lunardini", "Vittoria Lunardini", "Teyssir Mabrouk", "Barbara Machetti", "Carla Maffei", "Michele Marchini", "Edoardo Pavesi", "Francesca Poli", "Giovanna Raineri", "Alessandra Rivetti", "Maria Marcella Scaravonati", "Roberta Vezzosi"]
+            "Viadana": ["Emilio Mazzolari", "Chiara Monteverdi", "Roberta Alberini", "Giuseppina Amadini", "Ave Aroldi", "Carla Bellelli", "Mariagrazia Bertolini", "Tiziana Bortesi", "Carla Chittolini", "Donatella Falugi", "Franco Furlotti", "Sara Germani", "Elena Ghelfi", "Claudio Mortini", "Mirella Panato", "Barbara Piotrowska", "Alessia Rovina", "Marta Sanfelici", "Manuela Scazza"],
+            "Casalmaggiore": ["Emilio Mazzolari", "Chiara Monteverdi", "Barbara Araldi", "Erica Bossi", "Elena Maria Cattani", "Matilde Chiarini", "Giulia Frigeri", "Ileana Galli", "Giuseppe Lunardini", "Francesco Lunardini", "Vittoria Lunardini", "Teyssir Mabrouk", "Carla Maffei", "Michele Marchini", "Edoardo Pavesi", "Giovanna Raineri", "Alessandra Rivetti", "Maria Marcella Scaravonati", "Roberta Vezzosi"]
         };
 
         const cittaLista = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
@@ -172,29 +190,29 @@
             const currentEmporio = document.getElementById('select-emporio').value;
             
             const row = document.createElement('tr');
-            row.className = "border-b hover:bg-gray-50/50 transition-colors";
+            row.className = "product-row border-b hover:bg-gray-50/50 transition-colors";
             row.id = `row-${rowId}`;
             
             row.innerHTML = `
-                <td class="p-3"><input type="text" class="w-full bg-gray-50 rounded p-1.5 text-xs font-mono uppercase" placeholder="Cod."></td>
-                <td class="p-3"><input type="text" required class="w-full bg-transparent border-b border-transparent focus:border-gray-200 py-1 text-sm" placeholder="Descrizione..."></td>
-                <td class="p-3"><input type="number" min="1" value="1" oninput="calc(${rowId})" id="qty-${rowId}" class="w-full text-center bg-gray-50 rounded p-1 text-sm font-bold"></td>
-                <td class="p-3"><input type="number" min="0" value="0" oninput="calc(${rowId})" id="parte-${rowId}" class="w-full text-center bg-gray-50 rounded p-1 text-sm"></td>
-                <td class="p-3 bg-red-50 text-center font-bold text-m361-red text-lg" id="total-${rowId}">1</td>
-                <td class="p-3 text-center"><input type="checkbox" class="w-5 h-5 accent-m361-red"></td>
-                <td class="p-3 text-center"><input type="checkbox" class="w-5 h-5 accent-m361-red"></td>
-                <td class="p-3">
-                    <select class="emporio-select w-full border rounded p-1 text-[11px] bg-white">
+                <td data-label="Codice" class="p-2"><input type="text" class="w-full bg-gray-50 rounded p-2 text-xs font-mono uppercase" placeholder="Cod."></td>
+                <td data-label="Descrizione" class="p-2"><input type="text" required class="w-full bg-transparent border-b border-gray-100 focus:border-m361-red py-2 text-sm" placeholder="Es. Pasta 500g"></td>
+                <td data-label="Quantità" class="p-2"><input type="number" min="1" value="1" oninput="calc(${rowId})" id="qty-${rowId}" class="w-full text-center bg-gray-50 rounded p-2 text-sm font-bold"></td>
+                <td data-label="Da Parte" class="p-2"><input type="number" min="0" value="0" oninput="calc(${rowId})" id="parte-${rowId}" class="w-full text-center bg-gray-50 rounded p-2 text-sm"></td>
+                <td data-label="Da Ordinare" class="p-2 da-ordinare-mobile font-bold text-m361-red text-lg" id="total-${rowId}">1</td>
+                <td data-label="Ordinato" class="p-2 text-center"><input type="checkbox" class="w-5 h-5 accent-m361-red"></td>
+                <td data-label="Da Fornitore" class="p-2 text-center"><input type="checkbox" class="w-5 h-5 accent-m361-red"></td>
+                <td data-label="Da Empori" class="p-2">
+                    <select class="emporio-select w-full border rounded p-2 text-[11px] bg-white">
                         ${getEmporioOptions(currentEmporio)}
                     </select>
                 </td>
-                <td class="p-3 text-center">
-                    <div class="flex flex-col gap-1">
-                        <input type="checkbox" class="w-4 h-4 accent-m361-red mx-auto">
-                        <input type="text" placeholder="Specifica..." class="text-[10px] w-full border-none bg-gray-50 rounded p-0.5 italic">
+                <td data-label="Da Altri" class="p-2">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" class="w-4 h-4 accent-m361-red">
+                        <input type="text" placeholder="Chi?" class="text-[10px] w-full bg-gray-50 rounded p-1.5 italic">
                     </div>
                 </td>
-                <td class="p-3 text-center"><button type="button" onclick="document.getElementById('row-${rowId}').remove()" class="text-gray-300 hover:text-red-500">✕</button></td>
+                <td class="p-2 text-right md:text-center"><button type="button" onclick="document.getElementById('row-${rowId}').remove()" class="text-gray-300 hover:text-red-500 font-bold p-2">Elimina ✕</button></td>
             `;
             tbody.appendChild(row);
         }
@@ -212,7 +230,7 @@
             document.querySelectorAll('.emporio-select').forEach(select => {
                 const prevVal = select.value;
                 select.innerHTML = getEmporioOptions(current);
-                select.value = prevVal; // Tenta di mantenere la selezione se ancora valida
+                select.value = prevVal;
             });
         }
 
@@ -220,19 +238,13 @@
             const q = parseInt(document.getElementById(`qty-${id}`).value) || 0;
             const p = parseInt(document.getElementById(`parte-${id}`).value) || 0;
             const res = q - p;
-            const cell = document.getElementById(`total-${id}`);
-            cell.innerText = res > 0 ? res : 0;
+            document.getElementById(`total-${id}`).innerText = res > 0 ? res : 0;
         }
 
         window.onload = () => {
             document.getElementById('order-date').valueAsDate = new Date();
             updateOperators();
             addRow();
-        };
-
-        document.getElementById('orderForm').onsubmit = (e) => {
-            e.preventDefault();
-            alert("Ordine registrato con successo!");
         };
     </script>
 </body>
