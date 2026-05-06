@@ -31,7 +31,6 @@
         input[type=number] { -moz-appearance: textfield; }
 
         .input-error { border-color: #ef4444 !important; background-color: #fef2f2 !important; color: #ef4444 !important; }
-
         .wa-disabled { filter: grayscale(1); opacity: 0.3; }
         .wa-icon { cursor: pointer; transition: all 0.3s ease; }
 
@@ -54,6 +53,7 @@
     </header>
 
     <main class="max-w-7xl mx-auto p-4 md:p-6">
+        <!-- SELEZIONE TIPO ORDINE -->
         <div id="order-type-selection" class="mb-8 text-center bg-white p-12 rounded-2xl shadow-sm border">
             <div class="flex justify-center gap-6">
                 <button onclick="initOrder('standard')" class="px-10 py-5 bg-m361-red text-white hover:opacity-90 rounded-xl font-bold transition-all shadow-lg text-lg uppercase">Ordine Standard</button>
@@ -62,7 +62,7 @@
         </div>
 
         <form id="orderForm" class="hidden" onsubmit="return validateSubmission(event)">
-            <!-- EMPORIO -->
+            <!-- SEZIONE EMPORIO -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
                     <span class="w-1.5 h-6 bg-m361-red rounded-full"></span> 
@@ -71,12 +71,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Città *</label>
-                        <select id="select-emporio" onchange="handleCittaChange(this); updateAllEmporiDropdowns()" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
+                        <select id="select-emporio" onchange="updateAllEmporiDropdowns()" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
                             <option value="" selected>Seleziona...</option>
                             <option value="Casalmaggiore">Casalmaggiore</option>
                             <option value="Cremona">Cremona</option>
                             <option value="Reggio Emilia">Reggio Emilia</option>
                             <option value="Viadana">Viadana</option>
+                            <option value="ADD_NEW">-- Aggiungi Città --</option>
                         </select>
                     </div>
                     <div>
@@ -84,7 +85,7 @@
                         <select id="select-operator" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
                             <option value="" selected>Seleziona...</option>
                             <option value="Operatore 1">Operatore 1</option>
-                            <option value="ADD_NEW">-- Aggiungi --</option>
+                            <option value="ADD_NEW">-- Aggiungi Operatore --</option>
                         </select>
                     </div>
                     <div>
@@ -94,13 +95,12 @@
                 </div>
             </div>
 
-            <!-- CLIENTE -->
+            <!-- SEZIONE CLIENTE -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
                     <span class="w-1.5 h-6 bg-m361-red rounded-full"></span> 
                     <span class="section-title text-[10px]">Cliente</span>
                 </h2>
-                <!-- WhatsApp integrato tra cellulare ed email -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                     <div class="md:col-span-2">
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nome *</label>
@@ -131,7 +131,7 @@
                 </div>
             </div>
 
-            <!-- PRODOTTI -->
+            <!-- SEZIONE PRODOTTI -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xs font-bold tracking-widest uppercase flex items-center gap-2">
@@ -163,35 +163,26 @@
                         <tbody id="order-rows"></tbody>
                         <tfoot class="border-t-4 border-gray-100">
                             <tr class="bg-slate-50">
-                                <td colspan="5" class="p-6 text-right">
-                                    <span class="text-xs font-bold uppercase text-slate-400 tracking-widest">Riepilogo Finale</span>
-                                </td>
-                                <!-- BLOCCO TOTALE -->
-                                <td colspan="2" class="p-4">
-                                    <div class="bg-white border-2 border-slate-200 rounded-xl p-3 shadow-sm text-center">
-                                        <div class="text-[9px] uppercase font-bold text-slate-400 mb-1">Totale Ordine</div>
-                                        <div id="grand-total" class="text-xl font-bold text-slate-700">€ 0.00</div>
+                                <td colspan="5" class="p-4 text-right font-bold text-xs uppercase text-gray-400 italic">Riepilogo:</td>
+                                <td colspan="2" class="p-2">
+                                    <div class="flex flex-col bg-white border p-2 rounded-lg text-center">
+                                        <span class="text-[8px] font-bold text-gray-400 uppercase">Totale Ordine</span>
+                                        <span id="grand-total" class="font-bold text-slate-800 text-lg">€ 0.00</span>
                                     </div>
                                 </td>
-                                <!-- BLOCCO ACCONTO -->
-                                <td colspan="2" class="p-4">
-                                    <div class="bg-white border-2 border-slate-200 rounded-xl p-3 shadow-sm text-center">
-                                        <div class="text-[9px] uppercase font-bold text-slate-400 mb-1">Acconto Versato</div>
-                                        <input type="text" id="acconto" 
-                                               onfocus="clearCurrency(this)" 
-                                               onblur="formatCurrency(this)" 
-                                               oninput="calcFinals()" 
-                                               class="w-full text-center text-xl font-bold text-m361-red bg-transparent outline-none" 
-                                               value="€ 0.00">
+                                <td colspan="2" class="p-2 border-x">
+                                    <div class="flex items-center justify-center gap-3 bg-white border p-2 rounded-lg h-full">
+                                        <span class="text-[9px] font-bold text-gray-400 uppercase">Acconto</span>
+                                        <input type="text" id="acconto" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcFinals()" class="w-24 text-right font-bold text-slate-700 bg-gray-50 rounded p-1 outline-none border" value="€ 0.00">
                                     </div>
                                 </td>
-                                <!-- BLOCCO DA PAGARE -->
-                                <td colspan="2" class="p-4">
-                                    <div class="bg-m361-red rounded-xl p-3 shadow-lg text-center text-white">
-                                        <div class="text-[9px] uppercase font-bold opacity-80 mb-1">Residuo da Pagare</div>
-                                        <div id="saldo-finale" class="text-xl font-bold">€ 0.00</div>
+                                <td colspan="1" class="p-2">
+                                    <div class="flex flex-col bg-m361-red text-white p-2 rounded-lg shadow-sm text-center">
+                                        <span class="text-[8px] font-bold uppercase">Saldo Finale</span>
+                                        <span id="saldo-finale" class="font-bold text-lg">€ 0.00</span>
                                     </div>
                                 </td>
+                                <td></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -201,21 +192,46 @@
             <!-- NOTE -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <h2 class="text-xs font-bold mb-4 tracking-widest uppercase flex items-center gap-2">
-                    <span class="w-1.5 h-6 bg-m361-red rounded-full"></span> 
+                    <span class="w-1.5 h-6 bg-slate-400 rounded-full"></span> 
                     <span class="section-title text-[10px]">Note</span>
                 </h2>
-                <textarea id="order-notes" rows="3" class="w-full border rounded-xl p-3 text-sm" placeholder="Aggiungi dettagli aggiuntivi..."></textarea>
+                <textarea id="order-notes" rows="3" class="w-full border rounded-xl p-3 text-sm" placeholder="Note interne o istruzioni speciali..."></textarea>
             </div>
 
             <div class="flex justify-end">
-                <button type="submit" class="w-full md:w-80 bg-m361-red text-white font-bold py-5 rounded-xl uppercase text-xs tracking-widest shadow-xl hover:bg-red-700 transition-colors">Salva Ordine</button>
+                <button type="submit" class="w-full md:w-80 bg-m361-red text-white font-bold py-5 rounded-xl uppercase text-xs tracking-widest shadow-xl hover:brightness-110 transition-all">Salva Ordine</button>
             </div>
         </form>
     </main>
 
     <script>
         let currentType = 'standard';
-        const ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
+        let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
+
+        // Gestione inserimento nuovi valori (Città/Operatore)
+        document.addEventListener('change', function(e) {
+            if (e.target && (e.target.id === 'select-emporio' || e.target.id === 'select-operator')) {
+                if (e.target.value === 'ADD_NEW') {
+                    const label = e.target.id === 'select-emporio' ? 'la nuova città' : 'il nuovo operatore';
+                    const newValue = prompt(`Inserisci ${label}:`);
+                    
+                    if (newValue && newValue.trim() !== "") {
+                        const option = document.createElement('option');
+                        option.value = newValue.trim();
+                        option.textContent = newValue.trim();
+                        e.target.insertBefore(option, e.target.lastElementChild);
+                        e.target.value = newValue.trim();
+
+                        if (e.target.id === 'select-emporio') {
+                            ALL_EMPORI.push(newValue.trim());
+                            updateAllEmporiDropdowns();
+                        }
+                    } else {
+                        e.target.value = "";
+                    }
+                }
+            }
+        });
 
         function formatCurrency(input) {
             let val = parseFloat(input.value.replace('€', '').trim()) || 0;
@@ -249,20 +265,14 @@
             row.id = `row-${id}`;
 
             let descField = currentType === 'bomboniere' 
-                ? `<textarea required class="w-full border rounded p-1.5 h-16" placeholder="Composizione..."></textarea>`
-                : `<input type="text" required class="w-full border rounded p-2">`;
+                ? `<textarea required class="w-full border rounded p-1.5 h-16" placeholder="Composizione bomboniera..."></textarea>`
+                : `<input type="text" required class="w-full border rounded p-2" placeholder="Descrizione prodotto">`;
 
             row.innerHTML = `
                 <td class="p-2"><input type="text" required id="cod-${id}" class="w-full border rounded p-2 font-mono uppercase"></td>
                 <td class="p-2">${descField}</td>
-                <td class="p-2">
-                    <input type="text" id="pr-u-${id}" 
-                           onfocus="clearCurrency(this)" 
-                           onblur="formatCurrency(this)" 
-                           oninput="calc(${id})" 
-                           class="w-full border rounded p-2 text-right" value="€ 0.00">
-                </td>
-                <td class="p-2 font-bold text-slate-400 italic">€ <span id="tot-riga-${id}">0.00</span></td>
+                <td class="p-2"><input type="text" id="pr-u-${id}" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calc(${id})" class="w-full border rounded p-2 text-right" value="€ 0.00"></td>
+                <td class="p-2 font-bold text-slate-400 italic text-center">€ <span id="tot-riga-${id}">0.00</span></td>
                 <td class="p-2"><input type="number" required id="qty-${id}" oninput="calc(${id})" class="w-full border rounded p-2 font-bold text-center" placeholder="0"></td>
                 <td class="p-2 bg-parte-green"><input type="number" id="parte-${id}" oninput="calc(${id})" class="w-full border rounded p-2 text-center bg-transparent" placeholder="0"></td>
                 <td class="p-2"><input type="number" id="forn-${id}" oninput="calc(${id})" class="w-full border rounded p-2 text-center" placeholder="0"></td>
@@ -288,8 +298,7 @@
         }
 
         function updateAllEmporiDropdowns() {
-            const selects = document.querySelectorAll('.emporio-dropdown');
-            selects.forEach(select => {
+            document.querySelectorAll('.emporio-dropdown').forEach(select => {
                 const rowId = select.id.split('-').pop();
                 updateEmporiDropdown(rowId);
             });
@@ -321,12 +330,12 @@
             
             const sommaDisponibili = p + f + eq + aq;
             const riga = document.getElementById(`row-${id}`);
-            const inputsDisponibilita = riga.querySelectorAll('input[id^="parte-"], input[id^="forn-"], input[id^="emp-q-"], input[id^="alt-q-"]');
+            const inputsDisp = riga.querySelectorAll('input[id^="parte-"], input[id^="forn-"], input[id^="emp-q-"], input[id^="alt-q-"]');
 
             if (sommaDisponibili > qty && qty > 0) {
-                inputsDisponibilita.forEach(el => el.classList.add('input-error'));
+                inputsDisp.forEach(el => el.classList.add('input-error'));
             } else {
-                inputsDisponibilita.forEach(el => el.classList.remove('input-error'));
+                inputsDisp.forEach(el => el.classList.remove('input-error'));
             }
 
             document.getElementById(`tot-riga-${id}`).innerText = (qty * pru).toFixed(2);
@@ -346,15 +355,13 @@
         function validateSubmission(event) {
             event.preventDefault();
             if (document.querySelectorAll('.input-error').length > 0) {
-                alert("Errore: Le quantità inserite superano la quantità totale ordinata.");
+                alert("Errore: Le quantità 'disponibili' superano la quantità totale del prodotto.");
                 return false;
             }
             alert("Ordine Salvato correttamente!");
             window.location.href = "ordini_incorso.html";
             return true;
         }
-
-        function handleCittaChange(el) {}
 
         window.onload = () => { 
             document.getElementById('order-date').valueAsDate = new Date(); 
