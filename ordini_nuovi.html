@@ -14,10 +14,7 @@
         .bg-parte-green { background-color: #dcfce7; }
         .bg-ord-red-light { background-color: #fee2e2; }
         input:focus, select:focus, textarea:focus { outline: none; ring: 2px; ring-color: #b75252; border-color: #b75252; }
-        .wa-disabled { filter: grayscale(1); opacity: 0.3; }
-        .wa-icon { cursor: pointer; transition: all 0.3s ease; }
         
-        /* Mobile handling */
         @media (max-width: 1024px) {
             .product-table thead { display: none; }
             .product-row { display: block; background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; }
@@ -41,7 +38,7 @@
         <!-- Selezione Iniziale -->
         <div id="order-type-selection" class="mb-8 text-center bg-white p-8 md:p-16 rounded-3xl shadow-sm border border-gray-100">
             <div class="flex flex-col md:flex-row justify-center gap-6">
-                <button onclick="initOrder('standard')" class="group px-10 py-6 bg-m361-red text-white hover:bg-m361-red hover:text-white rounded-2xl font-bold transition-all shadow-md text-lg uppercase flex items-center justify-center gap-3">
+                <button onclick="initOrder('standard')" class="group px-10 py-6 bg-m361-red text-white hover:opacity-90 rounded-2xl font-bold transition-all shadow-md text-lg uppercase flex items-center justify-center gap-3">
                     <i class="fas fa-shopping-bag"></i> Ordine Standard
                 </button>
                 <button onclick="initOrder('bomboniere')" class="group px-10 py-6 bg-m361-red text-white hover:opacity-90 rounded-2xl font-bold transition-all shadow-lg text-lg uppercase flex items-center justify-center gap-3">
@@ -52,7 +49,7 @@
 
         <form id="orderForm" class="hidden space-y-6" onsubmit="return validateSubmission(event)">
             
-            <!-- INFO CLIENTE E EMPORIO (Invariato) -->
+            <!-- INFO CLIENTE E EMPORIO -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
@@ -90,12 +87,10 @@
                 </div>
             </div>
 
-            <!-- CONTENITORE TIPOLOGIE/GRUPPI -->
-            <div id="groups-container" class="space-y-8">
-                <!-- Qui verranno iniettate le tipologie -->
-            </div>
+            <!-- CONTENITORE TIPOLOGIE -->
+            <div id="groups-container" class="space-y-8"></div>
 
-            <!-- BOTTONE AGGIUNGI TIPOLOGIA (Solo per Bomboniere) -->
+            <!-- AGGIUNGI TIPOLOGIA -->
             <div id="add-group-container" class="hidden flex justify-center">
                 <button type="button" onclick="addGroup()" class="bg-slate-800 text-white px-8 py-4 rounded-2xl font-bold uppercase text-xs shadow-lg hover:bg-slate-700 transition-all">
                     <i class="fas fa-layer-group mr-2"></i> Aggiungi Nuova Tipologia
@@ -142,12 +137,8 @@
             document.getElementById('orderForm').classList.remove('hidden');
             document.getElementById('status-badge').classList.remove('hidden');
             document.getElementById('header-title').innerText = type === 'bomboniere' ? 'Nuovo Ordine Bomboniere' : 'Nuovo Ordine Standard';
-            
-            if(type === 'bomboniere') {
-                document.getElementById('add-group-container').classList.remove('hidden');
-            }
-            
-            addGroup(); // Aggiunge il primo gruppo automaticamente
+            if(type === 'bomboniere') document.getElementById('add-group-container').classList.remove('hidden');
+            addGroup();
         }
 
         function addGroup() {
@@ -159,8 +150,8 @@
                 <div id="group-${groupId}" class="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative group-container">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                         <div class="flex items-center gap-3">
-                            <span class="flex items-center justify-center w-8 h-8 bg-m361-red text-white rounded-full font-bold text-sm">${groupId}</span>
-                            <input type="text" placeholder="Nome Tipologia (es: Tipologia Blu)" 
+                            <span class="w-1 h-6 bg-m361-red rounded-full"></span>
+                            <input type="text" placeholder="Nome Tipologia" 
                                    class="font-bold text-lg border-b-2 border-transparent focus:border-m361-red outline-none px-2 py-1" 
                                    value="${currentType === 'standard' ? 'Prodotti' : 'Tipologia ' + groupId}">
                         </div>
@@ -179,12 +170,13 @@
                                     <th class="pb-2 pl-4 text-left">Codice</th>
                                     <th class="pb-2 text-left">Descrizione</th>
                                     <th class="pb-2 w-24">Prezzo</th>
-                                    <th class="pb-2 w-20">Qtà</th>
-                                    <th class="pb-2 w-20 bg-green-50 text-green-700 rounded-t-lg">Da Parte</th>
-                                    <th class="pb-2 w-20">Da Forn</th>
-                                    <th class="pb-2 w-40">Da Empori</th>
-                                    <th class="pb-2 w-20 bg-red-50 text-m361-red rounded-t-lg">Da Ord</th>
-                                    <th class="pb-2 w-28 text-right pr-4">Totale</th>
+                                    <th class="pb-2 w-16">Qtà</th>
+                                    <th class="pb-2 w-16 bg-green-50 text-green-700 rounded-t-lg">Parte</th>
+                                    <th class="pb-2 w-16">Forn</th>
+                                    <th class="pb-2 w-32">Empori</th>
+                                    <th class="pb-2 w-32">Altri</th>
+                                    <th class="pb-2 w-16 bg-red-50 text-m361-red rounded-t-lg">Ord</th>
+                                    <th class="pb-2 w-24 text-right pr-4">Totale</th>
                                     <th class="pb-2 w-8"></th>
                                 </tr>
                             </thead>
@@ -200,19 +192,13 @@
                     </div>
                 </div>
             `;
-            
             container.insertAdjacentHTML('beforeend', groupHtml);
             addRow(groupId);
         }
 
-        function removeGroup(id) {
-            document.getElementById(`group-${id}`).remove();
-            calcGrandTotal();
-        }
-
         function addRow(groupId) {
             const tbody = document.getElementById(`rows-container-${groupId}`);
-            const rowId = Date.now();
+            const rowId = Date.now() + Math.random();
             const row = document.createElement('tr');
             row.className = "product-row group transition-all";
             row.id = `row-${rowId}`;
@@ -220,19 +206,25 @@
             row.innerHTML = `
                 <td data-label="Codice" class="p-2 lg:pl-4"><input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm font-mono uppercase bg-gray-50/50"></td>
                 <td data-label="Descrizione" class="p-2"><input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm"></td>
-                <td data-label="Prezzo" class="p-2"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow(${rowId}, ${groupId})" class="price-input w-full border-gray-200 border rounded-xl p-2 text-right text-sm" value="€ 0.00"></td>
-                <td data-label="Qtà" class="p-2"><input type="number" oninput="calcRow(${rowId}, ${groupId})" class="qty-input w-full border-gray-200 border rounded-xl p-2 font-bold text-center text-sm" value="0"></td>
-                <td data-label="Da Parte" class="p-2 bg-parte-green"><input type="number" oninput="calcRow(${rowId}, ${groupId})" class="parte-input w-full border-green-200 border rounded-xl p-2 text-center text-sm font-bold text-green-700" value="0"></td>
-                <td data-label="Da Forn" class="p-2"><input type="number" oninput="calcRow(${rowId}, ${groupId})" class="forn-input w-full border-gray-200 border rounded-xl p-2 text-center text-sm" value="0"></td>
-                <td data-label="Da Empori" class="p-2">
-                    <div class="flex gap-1">
-                        <input type="number" oninput="calcRow(${rowId}, ${groupId})" class="emp-q-input w-12 border-gray-200 border rounded-xl p-2 text-center text-sm" value="0">
-                        <select class="emporio-dropdown flex-1 border-gray-200 border rounded-xl p-1 text-[10px] bg-gray-50">${getEmporioOptions()}</select>
+                <td data-label="Prezzo" class="p-2"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow('${rowId}', ${groupId})" class="price-input w-full border-gray-200 border rounded-xl p-2 text-right text-sm" value="€ 0.00"></td>
+                <td data-label="Qtà" class="p-2"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="qty-input w-full border-gray-200 border rounded-xl p-2 font-bold text-center text-sm" value="0"></td>
+                <td data-label="Parte" class="p-2 bg-parte-green"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="parte-input w-full border-green-200 border rounded-xl p-2 text-center text-sm font-bold text-green-700" value="0"></td>
+                <td data-label="Forn" class="p-2"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="forn-input w-full border-gray-200 border rounded-xl p-2 text-center text-sm" value="0"></td>
+                <td data-label="Empori" class="p-2">
+                    <div class="flex flex-col gap-1">
+                        <input type="number" oninput="calcRow('${rowId}', ${groupId})" class="emp-q-input w-full border-gray-200 border rounded-lg p-1 text-center text-xs" value="0">
+                        <select class="emporio-dropdown w-full border-gray-200 border rounded-lg p-1 text-[9px] bg-gray-50">${getEmporioOptions()}</select>
                     </div>
                 </td>
-                <td data-label="Da Ord" class="p-2 bg-ord-red-light text-center font-bold text-m361-red" id="do-${rowId}">0</td>
+                <td data-label="Altri" class="p-2">
+                    <div class="flex flex-col gap-1">
+                        <input type="number" oninput="calcRow('${rowId}', ${groupId})" class="altri-q-input w-full border-gray-200 border rounded-lg p-1 text-center text-xs" value="0">
+                        <input type="text" placeholder="Specifica..." class="altri-desc-input w-full border-gray-200 border rounded-lg p-1 text-[9px]">
+                    </div>
+                </td>
+                <td data-label="Ord" class="p-2 bg-ord-red-light text-center font-bold text-m361-red" id="do-${rowId}">0</td>
                 <td data-label="Totale" class="p-2 text-right pr-4 font-bold text-slate-700">€ <span class="row-total" id="tot-riga-${rowId}">0.00</span></td>
-                <td class="p-2 text-center"><button type="button" onclick="removeRow(${rowId}, ${groupId})" class="text-gray-300 hover:text-red-500 transition-all">✕</button></td>
+                <td class="p-2 text-center"><button type="button" onclick="removeRow('${rowId}', ${groupId})" class="text-gray-300 hover:text-red-500 transition-all">✕</button></td>
             `;
             tbody.appendChild(row);
         }
@@ -240,15 +232,8 @@
         function getEmporioOptions() {
             const mainCitta = document.getElementById('select-emporio').value;
             let options = '<option value="">Dove?</option>';
-            ALL_EMPORI.forEach(e => {
-                if(e !== mainCitta) options += `<option value="${e}">${e}</option>`;
-            });
+            ALL_EMPORI.forEach(e => { if(e !== mainCitta) options += `<option value="${e}">${e}</option>`; });
             return options;
-        }
-
-        function removeRow(rowId, groupId) {
-            document.getElementById(`row-${rowId}`).remove();
-            calcSubtotal(groupId);
         }
 
         function calcRow(rowId, groupId) {
@@ -259,22 +244,19 @@
             const parte = +row.querySelector('.parte-input').value || 0;
             const forn = +row.querySelector('.forn-input').value || 0;
             const emp = +row.querySelector('.emp-q-input').value || 0;
+            const altri = +row.querySelector('.altri-q-input').value || 0;
 
-            // Calcolo Da Ordine
-            const daOrd = qty - (parte + forn + emp);
+            const daOrd = qty - (parte + forn + emp + altri);
             document.getElementById(`do-${rowId}`).innerText = daOrd > 0 ? daOrd : 0;
 
-            // Calcolo Totale Riga
             const total = qty * price;
             document.getElementById(`tot-riga-${rowId}`).innerText = total.toFixed(2);
-
             calcSubtotal(groupId);
         }
 
         function calcSubtotal(groupId) {
             let sub = 0;
-            const container = document.getElementById(`rows-container-${groupId}`);
-            container.querySelectorAll('.row-total').forEach(el => {
+            document.getElementById(`rows-container-${groupId}`).querySelectorAll('.row-total').forEach(el => {
                 sub += parseFloat(el.innerText) || 0;
             });
             document.getElementById(`subtotal-${groupId}`).innerText = `€ ${sub.toFixed(2)}`;
@@ -283,17 +265,15 @@
 
         function calcGrandTotal() {
             let grand = 0;
-            document.querySelectorAll('.row-total').forEach(el => {
-                grand += parseFloat(el.innerText) || 0;
-            });
-            
+            document.querySelectorAll('.row-total').forEach(el => grand += parseFloat(el.innerText) || 0);
             const acc = parseFloat(document.getElementById('acconto').value.replace('€', '').trim()) || 0;
-            
             document.getElementById('grand-total').innerText = `€ ${grand.toFixed(2)}`;
             document.getElementById('saldo-finale').innerText = `€ ${(grand - acc).toFixed(2)}`;
         }
 
-        // Utils (Invariate)
+        function removeGroup(id) { document.getElementById(`group-${id}`).remove(); calcGrandTotal(); }
+        function removeRow(rowId, groupId) { document.getElementById(`row-${rowId}`).remove(); calcSubtotal(groupId); }
+        
         function formatCurrency(input) {
             let val = parseFloat(input.value.replace('€', '').trim()) || 0;
             input.value = "€ " + val.toFixed(2);
