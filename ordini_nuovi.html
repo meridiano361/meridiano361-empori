@@ -11,6 +11,7 @@
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
         .text-m361-red { color: #b75252; }
         .bg-m361-red { background-color: #b75252; }
+        .border-m361-red { border-color: #b75252; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
         .wa-active { color: #25D366; }
@@ -48,19 +49,26 @@
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
-                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Emporio
+                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Sede e Operatore
                     </h2>
                     <div class="space-y-4">
                         <!-- CITTA -->
-                        <div id="citta-container">
-                            <select id="select-emporio" onchange="handleCittaChange(this)" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
-                                <option value="">Città *</option>
-                                <option value="Casalmaggiore">Casalmaggiore</option>
-                                <option value="Cremona">Cremona</option>
-                                <option value="Reggio Emilia">Reggio Emilia</option>
-                                <option value="Viadana">Viadana</option>
-                                <option value="NEW_CITY">+ Aggiungi nuova città...</option>
-                            </select>
+                        <div id="citta-wrapper" class="space-y-2">
+                            <div class="flex gap-2">
+                                <select id="select-emporio" onchange="handleCittaChange(this)" required class="flex-1 border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
+                                    <option value="">Città *</option>
+                                    <option value="Casalmaggiore">Casalmaggiore</option>
+                                    <option value="Cremona">Cremona</option>
+                                    <option value="Reggio Emilia">Reggio Emilia</option>
+                                    <option value="Viadana">Viadana</option>
+                                </select>
+                                <button type="button" onclick="addNewCityPrompt()" class="bg-red-50 px-3 rounded-xl hover:bg-red-100 text-m361-red" title="Aggiungi Città">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <button type="button" onclick="removeCurrentCity()" class="bg-red-50 px-3 rounded-xl hover:bg-red-200 text-m361-red" title="Rimuovi Città">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- CANALE CREMONA -->
@@ -79,10 +87,10 @@
                                 <select id="select-operatore" required class="flex-1 border-gray-200 border rounded-xl p-3 text-sm">
                                     <option value="">Seleziona Operatore *</option>
                                 </select>
-                                <button type="button" onclick="addNewOperatorPrompt()" class="bg-slate-100 px-3 rounded-xl hover:bg-slate-200 text-slate-600" title="Aggiungi Operatore">
+                                <button type="button" onclick="addNewOperatorPrompt()" class="bg-red-50 px-3 rounded-xl hover:bg-red-100 text-m361-red" title="Aggiungi Operatore">
                                     <i class="fas fa-plus"></i>
                                 </button>
-                                <button type="button" onclick="removeCurrentOperator()" class="bg-slate-100 px-3 rounded-xl hover:bg-red-100 text-red-500" title="Rimuovi Operatore selezionato">
+                                <button type="button" onclick="removeCurrentOperator()" class="bg-red-50 px-3 rounded-xl hover:bg-red-200 text-m361-red" title="Rimuovi Operatore">
                                     <i class="fas fa-trash-can"></i>
                                 </button>
                             </div>
@@ -95,7 +103,7 @@
                 <!-- CLIENTE -->
                 <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
-                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Cliente
+                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Anagrafica Cliente
                     </h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <input type="text" placeholder="Nome *" required class="border-gray-200 border rounded-xl p-3 text-sm">
@@ -125,7 +133,6 @@
                 </button>
             </div>
 
-            <!-- RIEPILOGO -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div class="flex flex-col md:flex-row justify-end items-stretch gap-4">
                     <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center min-w-[180px] text-center">
@@ -144,7 +151,7 @@
             </div>
 
             <div class="bg-white p-6 rounded-2xl border border-gray-100">
-                <textarea id="order-notes" rows="2" class="w-full border-gray-200 border rounded-2xl p-4 text-sm" placeholder="Note..."></textarea>
+                <textarea id="order-notes" rows="2" class="w-full border-gray-200 border rounded-2xl p-4 text-sm" placeholder="Note aggiuntive..."></textarea>
             </div>
 
             <button type="submit" id="submit-btn" class="w-full bg-m361-red text-white font-bold py-5 rounded-2xl uppercase tracking-widest shadow-xl hover:scale-[1.01] transition-all">
@@ -156,7 +163,7 @@
     <script>
         let currentType = 'standard';
         let groupCount = 0;
-        const ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
+        let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
 
         const OPERATORI_DATA = {
             "Cremona": ["Chiara Monteverdi", "Emilio Mazzolari", "Giulia Galelli"],
@@ -174,22 +181,15 @@
             addGroup();
         }
 
+        // --- GESTIONE CITTA ---
         function handleCittaChange(select) {
             const citta = select.value;
             const canaleContainer = document.getElementById('canale-cremona-container');
             const opSelect = document.getElementById('select-operatore');
 
-            if(citta === 'NEW_CITY') {
-                const parent = document.getElementById('citta-container');
-                parent.innerHTML = `<input type="text" id="custom-citta" placeholder="Nome Nuova Città *" required class="w-full border-m361-red border-2 rounded-xl p-3 text-sm bg-white">`;
-                opSelect.innerHTML = '<option value="">Seleziona Operatore *</option>';
-                return;
-            }
-
             canaleContainer.classList.toggle('hidden', citta !== 'Cremona');
             document.getElementById('select-canale').required = (citta === 'Cremona');
 
-            // Aggiorna Operatori
             opSelect.innerHTML = '<option value="">Seleziona Operatore *</option>';
             const operatori = OPERATORI_DATA[citta] || [];
             operatori.sort().forEach(op => {
@@ -198,10 +198,41 @@
                 opt.text = op;
                 opSelect.add(opt);
             });
-
             updateAllEmporiDropdowns();
         }
 
+        function addNewCityPrompt() {
+            const nuovaCitta = prompt("Inserisci il nome della nuova città:");
+            if (nuovaCitta && nuovaCitta.trim() !== "") {
+                const nome = nuovaCitta.trim();
+                if(!ALL_EMPORI.includes(nome)) {
+                    ALL_EMPORI.push(nome);
+                    const select = document.getElementById('select-emporio');
+                    const opt = document.createElement('option');
+                    opt.value = nome;
+                    opt.text = nome;
+                    select.add(opt);
+                    select.value = nome;
+                    handleCittaChange(select);
+                }
+            }
+        }
+
+        function removeCurrentCity() {
+            const select = document.getElementById('select-emporio');
+            if (select.selectedIndex > 0) {
+                if (confirm("Rimuovere la città selezionata dalla lista?")) {
+                    const valore = select.value;
+                    ALL_EMPORI = ALL_EMPORI.filter(c => c !== valore);
+                    select.remove(select.selectedIndex);
+                    handleCittaChange(select);
+                }
+            } else {
+                alert("Seleziona una città da rimuovere.");
+            }
+        }
+
+        // --- GESTIONE OPERATORI ---
         function addNewOperatorPrompt() {
             const nome = prompt("Inserisci il nome del nuovo operatore:");
             if (nome && nome.trim() !== "") {
@@ -263,7 +294,7 @@
                         <table class="w-full text-left border-separate border-spacing-y-2 product-table">
                             <thead>
                                 <tr class="text-[10px] text-gray-400 uppercase tracking-widest text-center">
-                                    <th class="pb-2 pl-4 text-left">Codice</th><th class="pb-2 text-left">Descrizione</th><th class="pb-2 w-24">Prezzo</th><th class="pb-2 w-16">Qtà</th>
+                                    <th class="pb-2 pl-4 text-left">Codice *</th><th class="pb-2 text-left">Descrizione *</th><th class="pb-2 w-24">Prezzo</th><th class="pb-2 w-16">Qtà</th>
                                     <th class="pb-2 w-16 bg-green-50 text-green-700">Da parte</th><th class="pb-2 w-16">Da forn.</th><th class="pb-2 w-32">Da empori</th><th class="pb-2 w-32">Da altri</th>
                                     <th class="pb-2 w-16 bg-red-50 text-m361-red">Da Ord</th><th class="pb-2 w-24 text-right pr-4">Totale</th><th class="pb-2 w-8"></th>
                                 </tr>
@@ -284,8 +315,8 @@
             row.className = "product-row transition-all";
             row.id = `row-${rowId}`;
             row.innerHTML = `
-                <td data-label="Codice" class="p-1 lg:pl-4"><input type="text" class="w-full border-gray-200 border rounded-lg p-2 uppercase"></td>
-                <td data-label="Descrizione" class="p-1"><input type="text" class="w-full border-gray-200 border rounded-lg p-2"></td>
+                <td data-label="Codice" class="p-1 lg:pl-4"><input type="text" required class="w-full border-gray-200 border rounded-lg p-2 uppercase"></td>
+                <td data-label="Descrizione" class="p-1"><input type="text" required class="w-full border-gray-200 border rounded-lg p-2"></td>
                 <td data-label="Prezzo" class="p-1"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow('${rowId}', ${groupId})" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0.00"></td>
                 <td data-label="Qtà" class="p-1"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="qty-input w-full border-gray-200 border rounded-lg p-2 font-bold text-center" value="0"></td>
                 <td data-label="Parte" class="p-1 bg-green-50"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="parte-input w-full border-green-200 border rounded-lg p-2 text-center font-bold text-green-700" value="0"></td>
