@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M361 - Nuovo Ordine Standard</title>
+    <title>M361 - Nuovo Ordine Standard/Bomboniere</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -11,31 +11,18 @@
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
         .text-m361-red { color: #b75252; }
         .bg-m361-red { background-color: #b75252; }
-        .bg-parte-green { background-color: #dcfce7; } /* Verde chiaro per "Da Parte" */
-        .bg-ord-red-light { background-color: #fee2e2; } /* Rosso chiaro per "Da Ord" */
-        
-        .section-title {
-            color: #475569;
-            background-color: rgba(183, 82, 82, 0.1);
-            padding: 4px 12px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-        }
-        
+        .bg-parte-green { background-color: #dcfce7; }
+        .bg-ord-red-light { background-color: #fee2e2; }
         input:focus, select:focus, textarea:focus { outline: none; ring: 2px; ring-color: #b75252; border-color: #b75252; }
         .wa-disabled { filter: grayscale(1); opacity: 0.3; }
         .wa-icon { cursor: pointer; transition: all 0.3s ease; }
-
+        
+        /* Mobile handling */
         @media (max-width: 1024px) {
-            thead { display: none; }
-            .product-row { 
-                display: block; background: white; border: 1px solid #e2e8f0; 
-                border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            }
+            .product-table thead { display: none; }
+            .product-row { display: block; background: #fff; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1rem; margin-bottom: 1rem; }
             .product-row td { display: flex; justify-content: space-between; align-items: center; width: 100% !important; padding: 0.5rem 0 !important; border: none !important; }
             .product-row td::before { content: attr(data-label); font-weight: 700; font-size: 0.75rem; color: #64748b; text-transform: uppercase; }
-            .product-row td:last-child { justify-content: center; border-top: 1px solid #f1f5f9; margin-top: 0.5rem; }
         }
     </style>
 </head>
@@ -43,14 +30,15 @@
 
     <header class="bg-white border-b p-4 px-6 md:px-8 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div class="flex items-center gap-4">
-            <a href="ordini.html"><img src="logom361_rosso.jpg" alt="Logo" class="h-8"></a>
-            <h1 class="font-bold text-lg border-l pl-4 text-slate-700 hidden md:block">Nuovo Ordine</h1>
+            <img src="logom361_rosso.jpg" alt="Logo" class="h-8">
+            <h1 id="header-title" class="font-bold text-lg border-l pl-4 text-slate-700 hidden md:block">Nuovo Ordine</h1>
         </div>
         <div id="status-badge" class="hidden px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider">Sessione Attiva</div>
     </header>
 
     <main class="max-w-[1600px] mx-auto p-4 md:p-6">
         
+        <!-- Selezione Iniziale -->
         <div id="order-type-selection" class="mb-8 text-center bg-white p-8 md:p-16 rounded-3xl shadow-sm border border-gray-100">
             <div class="flex flex-col md:flex-row justify-center gap-6">
                 <button onclick="initOrder('standard')" class="group px-10 py-6 bg-white border-2 border-m361-red text-m361-red hover:bg-m361-red hover:text-white rounded-2xl font-bold transition-all shadow-md text-lg uppercase flex items-center justify-center gap-3">
@@ -64,262 +52,270 @@
 
         <form id="orderForm" class="hidden space-y-6" onsubmit="return validateSubmission(event)">
             
-            <!-- INFO CLIENTE E EMPORIO -->
+            <!-- INFO CLIENTE E EMPORIO (Invariato) -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <!-- EMPORIO -->
                 <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
                         <span class="w-1 h-4 bg-m361-red rounded-full"></span> Emporio
                     </h2>
                     <div class="space-y-4">
                         <select id="select-emporio" onchange="updateAllEmporiDropdowns()" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
-                            <option value="" selected>Città *</option>
+                            <option value="">Città *</option>
                             <option value="Casalmaggiore">Casalmaggiore</option>
                             <option value="Cremona">Cremona</option>
                             <option value="Reggio Emilia">Reggio Emilia</option>
                             <option value="Viadana">Viadana</option>
                         </select>
-                        <select id="select-operator" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
-                            <option value="" selected>Operatore *</option>
-                            <option value="Operatore 1">Operatore 1</option>
-                        </select>
                         <input type="date" id="order-date" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                     </div>
                 </div>
 
-                <!-- CLIENTE -->
                 <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
                         <span class="w-1 h-4 bg-m361-red rounded-full"></span> Cliente
                     </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Nome *</label>
-                            <input type="text" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Cognome *</label>
-                            <input type="text" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Email</label>
-                            <input type="email" class="w-full border-gray-200 border rounded-xl p-3 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Cellulare *</label>
-                            <div class="flex items-center gap-2">
-                                <input type="tel" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
-                                <i id="wa-toggle" onclick="this.classList.toggle('wa-disabled')" class="fab fa-whatsapp wa-icon text-3xl text-green-500 shrink-0"></i>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Modalità *</label>
-                            <div class="flex gap-2 p-1 bg-gray-100 rounded-xl h-[46px] items-center">
-                                <label class="flex-1 flex items-center justify-center gap-2 text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white has-[:checked]:shadow-sm transition-all">
-                                    <input type="radio" name="mod_consegna" value="Ritiro" required class="hidden"> Ritiro
-                                </label>
-                                <label class="flex-1 flex items-center justify-center gap-2 text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white has-[:checked]:shadow-sm transition-all">
-                                    <input type="radio" name="mod_consegna" value="Spedizione" class="hidden"> Spedizione.
-                                </label>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <input type="text" placeholder="Nome *" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
+                        <input type="text" placeholder="Cognome *" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
+                        <input type="tel" placeholder="Cellulare *" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
+                        <div class="flex gap-2 p-1 bg-gray-100 rounded-xl h-[46px] items-center">
+                            <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
+                                <input type="radio" name="mod_consegna" value="Ritiro" checked class="hidden"> Ritiro
+                            </label>
+                            <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
+                                <input type="radio" name="mod_consegna" value="Spedizione" class="hidden"> Spedizione
+                            </label>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- PRODOTTI -->
-            <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                    <h2 class="text-xs font-bold tracking-widest uppercase flex items-center gap-2">
-                        <span class="w-1.5 h-6 bg-m361-red rounded-full"></span> 
-                        <span id="title-prodotti" class="section-title text-[10px]">Prodotti</span>
-                    </h2>
-                    <button type="button" onclick="addRow()" class="w-full md:w-auto bg-slate-800 text-white px-8 py-3 rounded-xl font-bold uppercase text-[10px] shadow-lg hover:bg-slate-700 transition-all">
-                        <i class="fas fa-plus mr-2"></i> Aggiungi
-                    </button>
-                </div>
+            <!-- CONTENITORE TIPOLOGIE/GRUPPI -->
+            <div id="groups-container" class="space-y-8">
+                <!-- Qui verranno iniettate le tipologie -->
+            </div>
 
-                <div class="overflow-x-auto lg:overflow-visible">
-                    <table class="w-full text-left border-separate border-spacing-y-2">
-                        <thead>
-                            <tr class="text-[10px] text-gray-400 uppercase tracking-widest px-2 text-center">
-                                <th class="pb-2 pl-4 text-left">Codice</th>
-                                <th class="pb-2 text-left">Descrizione</th>
-                                <th class="pb-2 w-24">Prezzo</th>
-                                <th class="pb-2 w-20">Qtà</th>
-                                <th class="pb-2 w-20 bg-green-50 rounded-t-lg text-green-700">Da Parte</th>
-                                <th class="pb-2 w-20">Da Forn</th>
-                                <th class="pb-2 w-48">Da Empori</th>
-                                <th class="pb-2 w-24">Da altri</th>
-                                <th class="pb-2 w-20 bg-red-50 rounded-t-lg text-m361-red">Da Ord</th>
-                                <th class="pb-2 w-28 text-right pr-4">Totale</th>
-                                <th class="pb-2 w-8"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="order-rows">
-                            <!-- Righe generate da JS -->
-                        </tbody>
-                    </table>
-                </div>
+            <!-- BOTTONE AGGIUNGI TIPOLOGIA (Solo per Bomboniere) -->
+            <div id="add-group-container" class="hidden flex justify-center">
+                <button type="button" onclick="addGroup()" class="bg-slate-800 text-white px-8 py-4 rounded-2xl font-bold uppercase text-xs shadow-lg hover:bg-slate-700 transition-all">
+                    <i class="fas fa-layer-group mr-2"></i> Aggiungi Nuova Tipologia
+                </button>
+            </div>
 
-                <!-- RIEPILOGO FINALE -->
-                <div class="mt-8 border-t pt-8 flex flex-col md:flex-row justify-end items-stretch gap-4">
-                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center min-w-[200px] h-20 text-center">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">Totale Ordine</span>
+            <!-- RIEPILOGO FINALE -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex flex-col md:flex-row justify-end items-stretch gap-4">
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-center min-w-[180px] text-center">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Totale Ordine</span>
                         <span id="grand-total" class="text-2xl font-bold text-slate-800">€ 0.00</span>
                     </div>
-                    <div class="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col justify-center items-center min-w-[200px] h-20">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase mb-1">Acconto</span>
-                        <input type="text" id="acconto" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcFinals()" 
+                    <div class="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col justify-center items-center min-w-[180px]">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Acconto</span>
+                        <input type="text" id="acconto" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcGrandTotal()" 
                                class="w-full text-center font-bold text-slate-700 bg-transparent text-2xl outline-none" value="€ 0.00">
                     </div>
-                    <div class="bg-m361-red p-4 rounded-2xl flex flex-col justify-center min-w-[200px] h-20 text-center shadow-lg shadow-red-100">
-                        <span class="text-[9px] font-bold text-white/80 uppercase mb-1 tracking-wider">Da Pagare</span>
+                    <div class="bg-m361-red p-4 rounded-2xl flex flex-col justify-center min-w-[180px] text-center shadow-lg">
+                        <span class="text-[9px] font-bold text-white/80 uppercase">Da Pagare</span>
                         <span id="saldo-finale" class="text-2xl font-bold text-white">€ 0.00</span>
                     </div>
                 </div>
             </div>
 
-            <!-- NOTE -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-xs font-bold mb-4 tracking-widest uppercase flex items-center gap-2 text-slate-400">
-                    <i class="fas fa-sticky-note"></i> Note Ordine
-                </h2>
-                <textarea id="order-notes" rows="3" class="w-full border-gray-200 border rounded-2xl p-4 text-sm focus:bg-slate-50 transition-all" placeholder="Scrivi..."></textarea>
+            <div class="bg-white p-6 rounded-2xl border border-gray-100">
+                <textarea id="order-notes" rows="2" class="w-full border-gray-200 border rounded-2xl p-4 text-sm" placeholder="Note generali ordine..."></textarea>
             </div>
 
-            <div class="flex justify-end">
-                <button type="submit" class="w-full md:w-80 bg-m361-red text-white font-bold py-5 rounded-2xl uppercase text-sm tracking-widest shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all">
-                    <i class="fas fa-save mr-2"></i> SALVA ORDINE
-                </button>
-            </div>
+            <button type="submit" class="w-full bg-m361-red text-white font-bold py-5 rounded-2xl uppercase tracking-widest shadow-xl hover:scale-[1.01] transition-all">
+                <i class="fas fa-save mr-2"></i> Salva Ordine
+            </button>
         </form>
     </main>
 
     <script>
         let currentType = 'standard';
-        let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
+        let groupCount = 0;
+        const ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
 
         function initOrder(type) {
             currentType = type;
             document.getElementById('order-type-selection').classList.add('hidden');
             document.getElementById('orderForm').classList.remove('hidden');
             document.getElementById('status-badge').classList.remove('hidden');
-            document.getElementById('title-prodotti').innerText = type === 'bomboniere' ? 'Bomboniere' : 'Prodotti';
-            addRow();
+            document.getElementById('header-title').innerText = type === 'bomboniere' ? 'Nuovo Ordine Bomboniere' : 'Nuovo Ordine Standard';
+            
+            if(type === 'bomboniere') {
+                document.getElementById('add-group-container').classList.remove('hidden');
+            }
+            
+            addGroup(); // Aggiunge il primo gruppo automaticamente
         }
 
-        function addRow() {
-            const tbody = document.getElementById('order-rows');
-            const id = Date.now();
+        function addGroup() {
+            groupCount++;
+            const groupId = groupCount;
+            const container = document.getElementById('groups-container');
+            
+            const groupHtml = `
+                <div id="group-${groupId}" class="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative group-container">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 bg-m361-red text-white rounded-full font-bold text-sm">${groupId}</span>
+                            <input type="text" placeholder="Nome Tipologia (es: Tipologia Blu)" 
+                                   class="font-bold text-lg border-b-2 border-transparent focus:border-m361-red outline-none px-2 py-1" 
+                                   value="${currentType === 'standard' ? 'Prodotti' : 'Tipologia ' + groupId}">
+                        </div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button type="button" onclick="addRow(${groupId})" class="flex-1 md:flex-none bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-bold text-[10px] uppercase hover:bg-slate-200 transition-all">
+                                <i class="fas fa-plus mr-1"></i> Aggiungi Riga
+                            </button>
+                            ${groupId > 1 ? `<button type="button" onclick="removeGroup(${groupId})" class="text-red-400 hover:text-red-600 p-2 text-sm">Rimuovi Tipologia</button>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-separate border-spacing-y-2 product-table">
+                            <thead>
+                                <tr class="text-[10px] text-gray-400 uppercase tracking-widest px-2 text-center">
+                                    <th class="pb-2 pl-4 text-left">Codice</th>
+                                    <th class="pb-2 text-left">Descrizione</th>
+                                    <th class="pb-2 w-24">Prezzo</th>
+                                    <th class="pb-2 w-20">Qtà</th>
+                                    <th class="pb-2 w-20 bg-green-50 text-green-700 rounded-t-lg">Da Parte</th>
+                                    <th class="pb-2 w-20">Da Forn</th>
+                                    <th class="pb-2 w-40">Da Empori</th>
+                                    <th class="pb-2 w-20 bg-red-50 text-m361-red rounded-t-lg">Da Ord</th>
+                                    <th class="pb-2 w-28 text-right pr-4">Totale</th>
+                                    <th class="pb-2 w-8"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="rows-container-${groupId}"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4 flex justify-end border-t pt-4">
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase block">Subtotale Tipologia</span>
+                            <span id="subtotal-${groupId}" class="text-xl font-bold text-slate-600">€ 0.00</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', groupHtml);
+            addRow(groupId);
+        }
+
+        function removeGroup(id) {
+            document.getElementById(`group-${id}`).remove();
+            calcGrandTotal();
+        }
+
+        function addRow(groupId) {
+            const tbody = document.getElementById(`rows-container-${groupId}`);
+            const rowId = Date.now();
             const row = document.createElement('tr');
             row.className = "product-row group transition-all";
-            row.id = `row-${id}`;
-
-            let descField = currentType === 'bomboniere' 
-                ? `<textarea required class="w-full border-gray-200 border rounded-xl p-2 text-sm h-12" placeholder="Dettagli..."></textarea>`
-                : `<input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm">`;
+            row.id = `row-${rowId}`;
 
             row.innerHTML = `
-                <td data-label="Codice" class="p-2 lg:pl-4"><input type="text" required class="w-full lg:w-28 border-gray-200 border rounded-xl p-2 text-sm font-mono uppercase bg-gray-50/50"></td>
-                <td data-label="Descrizione" class="p-2">${descField}</td>
-                <td data-label="Prezzo" class="p-2"><input type="text" id="pr-u-${id}" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calc(${id})" class="w-full border-gray-200 border rounded-xl p-2 text-right text-sm" value="€ 0.00"></td>
-                <td data-label="Qtà" class="p-2"><input type="number" required id="qty-${id}" oninput="calc(${id})" class="w-full border-gray-200 border rounded-xl p-2 font-bold text-center text-sm" placeholder="0"></td>
-                <td data-label="Da Parte" class="p-2 bg-parte-green"><input type="number" id="parte-${id}" oninput="calc(${id})" class="w-full border-green-200 border rounded-xl p-2 text-center text-sm font-bold text-green-700" value="0"></td>
-                <td data-label="Da Forn" class="p-2"><input type="number" id="forn-${id}" oninput="calc(${id})" class="w-full border-gray-200 border rounded-xl p-2 text-center text-sm" value="0"></td>
+                <td data-label="Codice" class="p-2 lg:pl-4"><input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm font-mono uppercase bg-gray-50/50"></td>
+                <td data-label="Descrizione" class="p-2"><input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm"></td>
+                <td data-label="Prezzo" class="p-2"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow(${rowId}, ${groupId})" class="price-input w-full border-gray-200 border rounded-xl p-2 text-right text-sm" value="€ 0.00"></td>
+                <td data-label="Qtà" class="p-2"><input type="number" oninput="calcRow(${rowId}, ${groupId})" class="qty-input w-full border-gray-200 border rounded-xl p-2 font-bold text-center text-sm" value="0"></td>
+                <td data-label="Da Parte" class="p-2 bg-parte-green"><input type="number" oninput="calcRow(${rowId}, ${groupId})" class="parte-input w-full border-green-200 border rounded-xl p-2 text-center text-sm font-bold text-green-700" value="0"></td>
+                <td data-label="Da Forn" class="p-2"><input type="number" oninput="calcRow(${rowId}, ${groupId})" class="forn-input w-full border-gray-200 border rounded-xl p-2 text-center text-sm" value="0"></td>
                 <td data-label="Da Empori" class="p-2">
                     <div class="flex gap-1">
-                        <input type="number" id="emp-q-${id}" oninput="calc(${id})" class="w-14 border-gray-200 border rounded-xl p-2 text-center text-sm" value="0">
-                        <select id="emp-select-${id}" class="flex-1 border-gray-200 border rounded-xl p-1 text-[10px] emporio-dropdown bg-gray-50"></select>
+                        <input type="number" oninput="calcRow(${rowId}, ${groupId})" class="emp-q-input w-12 border-gray-200 border rounded-xl p-2 text-center text-sm" value="0">
+                        <select class="emporio-dropdown flex-1 border-gray-200 border rounded-xl p-1 text-[10px] bg-gray-50">${getEmporioOptions()}</select>
                     </div>
                 </td>
-                <td data-label="Da Altri" class="p-2">
-                    <div class="flex flex-col gap-1">
-                        <input type="number" id="altri-q-${id}" oninput="calc(${id})" class="w-full border-gray-200 border rounded-xl p-1 text-center text-xs" placeholder="Qtà">
-                        <input type="text" id="altri-spec-${id}" class="w-full border-gray-200 border rounded-xl p-1 text-[10px]" placeholder="Specifica...">
-                    </div>
-                </td>
-                <td data-label="Da Ord" class="p-2 bg-ord-red-light text-center font-bold text-m361-red text-lg" id="do-${id}">0</td>
-                <td data-label="Totale" class="p-2 text-right pr-4 font-bold text-slate-700">€ <span id="tot-riga-${id}">0.00</span></td>
-                <td class="p-2 text-center"><button type="button" onclick="document.getElementById('row-${id}').remove(); calcFinals()" class="text-gray-300 hover:text-red-500 transition-all">✕</button></td>
+                <td data-label="Da Ord" class="p-2 bg-ord-red-light text-center font-bold text-m361-red" id="do-${rowId}">0</td>
+                <td data-label="Totale" class="p-2 text-right pr-4 font-bold text-slate-700">€ <span class="row-total" id="tot-riga-${rowId}">0.00</span></td>
+                <td class="p-2 text-center"><button type="button" onclick="removeRow(${rowId}, ${groupId})" class="text-gray-300 hover:text-red-500 transition-all">✕</button></td>
             `;
             tbody.appendChild(row);
-            updateEmporiDropdown(id);
         }
 
-        function updateAllEmporiDropdowns() {
-            document.querySelectorAll('.emporio-dropdown').forEach(select => {
-                const rowId = select.id.split('-').pop();
-                updateEmporiDropdown(rowId);
-            });
-        }
-
-        function updateEmporiDropdown(id) {
-            const select = document.getElementById(`emp-select-${id}`);
+        function getEmporioOptions() {
             const mainCitta = document.getElementById('select-emporio').value;
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">Dove?</option>';
-            ALL_EMPORI.forEach(emporio => {
-                if (emporio !== mainCitta) {
-                    const opt = document.createElement('option');
-                    opt.value = emporio;
-                    opt.textContent = emporio;
-                    if (emporio === currentValue) opt.selected = true;
-                    select.appendChild(opt);
-                }
+            let options = '<option value="">Dove?</option>';
+            ALL_EMPORI.forEach(e => {
+                if(e !== mainCitta) options += `<option value="${e}">${e}</option>`;
             });
+            return options;
         }
 
+        function removeRow(rowId, groupId) {
+            document.getElementById(`row-${rowId}`).remove();
+            calcSubtotal(groupId);
+        }
+
+        function calcRow(rowId, groupId) {
+            const row = document.getElementById(`row-${rowId}`);
+            const qty = +row.querySelector('.qty-input').value || 0;
+            const price = parseFloat(row.querySelector('.price-input').value.replace('€', '').trim()) || 0;
+            
+            const parte = +row.querySelector('.parte-input').value || 0;
+            const forn = +row.querySelector('.forn-input').value || 0;
+            const emp = +row.querySelector('.emp-q-input').value || 0;
+
+            // Calcolo Da Ordine
+            const daOrd = qty - (parte + forn + emp);
+            document.getElementById(`do-${rowId}`).innerText = daOrd > 0 ? daOrd : 0;
+
+            // Calcolo Totale Riga
+            const total = qty * price;
+            document.getElementById(`tot-riga-${rowId}`).innerText = total.toFixed(2);
+
+            calcSubtotal(groupId);
+        }
+
+        function calcSubtotal(groupId) {
+            let sub = 0;
+            const container = document.getElementById(`rows-container-${groupId}`);
+            container.querySelectorAll('.row-total').forEach(el => {
+                sub += parseFloat(el.innerText) || 0;
+            });
+            document.getElementById(`subtotal-${groupId}`).innerText = `€ ${sub.toFixed(2)}`;
+            calcGrandTotal();
+        }
+
+        function calcGrandTotal() {
+            let grand = 0;
+            document.querySelectorAll('.row-total').forEach(el => {
+                grand += parseFloat(el.innerText) || 0;
+            });
+            
+            const acc = parseFloat(document.getElementById('acconto').value.replace('€', '').trim()) || 0;
+            
+            document.getElementById('grand-total').innerText = `€ ${grand.toFixed(2)}`;
+            document.getElementById('saldo-finale').innerText = `€ ${(grand - acc).toFixed(2)}`;
+        }
+
+        // Utils (Invariate)
         function formatCurrency(input) {
             let val = parseFloat(input.value.replace('€', '').trim()) || 0;
             input.value = "€ " + val.toFixed(2);
         }
-
         function clearCurrency(input) {
             let val = input.value.replace('€', '').trim();
             input.value = (val == "0.00" || val == "0") ? "" : val;
         }
-
-        function getNumericValue(id) {
-            const el = document.getElementById(id);
-            if (!el) return 0;
-            return parseFloat(el.value.replace('€', '').trim()) || 0;
+        function updateAllEmporiDropdowns() {
+            document.querySelectorAll('.emporio-dropdown').forEach(select => {
+                const currentVal = select.value;
+                select.innerHTML = getEmporioOptions();
+                select.value = currentVal;
+            });
+        }
+        function validateSubmission(e) {
+            e.preventDefault();
+            alert("Ordine salvato con successo!");
+            return false;
         }
 
-        function calc(id) {
-            const qty = +document.getElementById(`qty-${id}`).value || 0;
-            const pru = getNumericValue(`pr-u-${id}`);
-            const p = +document.getElementById(`parte-${id}`).value || 0;
-            const f = +document.getElementById(`forn-${id}`).value || 0;
-            const eq = +document.getElementById(`emp-q-${id}`).value || 0;
-            const aq = +document.getElementById(`altri-q-${id}`).value || 0;
-            
-            const sommaDisponibili = p + f + eq + aq;
-            
-            document.getElementById(`tot-riga-${id}`).innerText = (qty * pru).toFixed(2);
-            const daOrd = qty - sommaDisponibili;
-            document.getElementById(`do-${id}`).innerText = daOrd > 0 ? daOrd : 0;
-            calcFinals();
-        }
-
-        function calcFinals() {
-            let total = 0;
-            document.querySelectorAll('[id^="tot-riga-"]').forEach(el => total += parseFloat(el.innerText) || 0);
-            const acc = getNumericValue('acconto');
-            document.getElementById('grand-total').innerText = `€ ${total.toFixed(2)}`;
-            document.getElementById('saldo-finale').innerText = `€ ${(total - acc).toFixed(2)}`;
-        }
-
-        function validateSubmission(event) {
-            event.preventDefault();
-            alert("Ordine Salvato correttamente!");
-            window.location.href = "ordini_incorso.html";
-            return true;
-        }
-
-        window.onload = () => { 
-            document.getElementById('order-date').valueAsDate = new Date(); 
-        };
+        window.onload = () => { document.getElementById('order-date').valueAsDate = new Date(); };
     </script>
 </body>
 </html>
