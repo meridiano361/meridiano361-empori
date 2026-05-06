@@ -15,6 +15,9 @@
         .bg-ord-red { background-color: rgba(183, 82, 82, 0.15); }
         .bg-m361-antracite { background-color: #334155; }
         
+        /* Colore uniforme per tutti i campi compilati dall'utente */
+        input, select, textarea { color: #334155 !important; }
+        
         .section-title {
             color: #475569;
             background-color: rgba(183, 82, 82, 0.15);
@@ -52,7 +55,6 @@
     </header>
 
     <main class="max-w-7xl mx-auto p-4 md:p-6">
-        <!-- SELEZIONE INIZIALE -->
         <div id="order-type-selection" class="mb-8 text-center bg-white p-12 rounded-2xl shadow-sm border">
             <div class="flex justify-center gap-6">
                 <button onclick="initOrder('standard')" class="px-10 py-5 bg-m361-red text-white hover:opacity-90 rounded-xl font-bold transition-all shadow-lg text-lg uppercase">Ordine Standard</button>
@@ -60,7 +62,7 @@
             </div>
         </div>
 
-        <form id="orderForm" class="hidden" onsubmit="return validateSubmission()">
+        <form id="orderForm" class="hidden" onsubmit="return validateSubmission(event)">
             <!-- EMPORIO -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
                 <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
@@ -70,19 +72,19 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Città *</label>
-                        <select id="select-emporio" onchange="handleCittaChange(this)" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
+                        <select id="select-emporio" onchange="handleCittaChange(this); updateAllEmporiDropdowns()" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
                             <option value="" selected>Seleziona...</option>
                             <option value="Casalmaggiore">Casalmaggiore</option>
                             <option value="Cremona">Cremona</option>
                             <option value="Reggio Emilia">Reggio Emilia</option>
                             <option value="Viadana">Viadana</option>
-                            <option value="ADD_NEW">-- Aggiungi --</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Operatore *</label>
-                        <select id="select-operator" onchange="handleOpChange(this)" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
+                        <select id="select-operator" required class="w-full border rounded-lg p-2.5 text-sm bg-gray-50">
                             <option value="" selected>Seleziona...</option>
+                            <option value="Operatore 1">Operatore 1</option>
                             <option value="ADD_NEW">-- Aggiungi --</option>
                         </select>
                     </div>
@@ -140,7 +142,7 @@
                                 <th class="p-2 font-bold min-w-[180px]">Descrizione *</th>
                                 <th class="p-2 font-bold w-24">Prezzo</th>
                                 <th class="p-2 font-bold w-20">Tot</th>
-                                <th class="p-2 font-bold w-16 text-center">Qtà</th>
+                                <th class="p-2 font-bold w-16 text-center">Qtà *</th>
                                 <th class="p-2 font-bold w-16 bg-parte-green text-center">Da Parte</th>
                                 <th class="p-2 font-bold w-16 text-center">Da Forn</th>
                                 <th class="p-2 font-bold w-48 text-center border-x">Da Empori</th>
@@ -188,7 +190,7 @@
                     <span class="w-1.5 h-6 bg-slate-400 rounded-full"></span> 
                     <span class="section-title text-[10px]">Note</span>
                 </h2>
-                <textarea id="order-notes" rows="3" class="w-full border rounded-xl p-3 text-sm" placeholder="scrivi"></textarea>
+                <textarea id="order-notes" rows="3" class="w-full border rounded-xl p-3 text-sm" placeholder="scrivi qui..."></textarea>
             </div>
 
             <div class="flex justify-end">
@@ -198,7 +200,8 @@
     </main>
 
     <script>
-        let hasErrors = false;
+        let currentType = 'standard';
+        const ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
 
         function formatCurrency(input) {
             let val = parseFloat(input.value.replace('€', '').trim()) || 0;
@@ -207,7 +210,7 @@
 
         function clearCurrency(input) {
             let val = input.value.replace('€', '').trim();
-            input.value = val == "0.00" ? "" : val;
+            input.value = (val == "0.00" || val == "0") ? "" : val;
         }
 
         function getNumericValue(id) {
@@ -217,20 +220,21 @@
         }
 
         function initOrder(type) {
+            currentType = type;
             document.getElementById('order-type-selection').classList.add('hidden');
             document.getElementById('orderForm').classList.remove('hidden');
             document.getElementById('title-prodotti').innerText = type === 'bomboniere' ? 'Configurazione Bomboniere' : 'Prodotti';
-            addRow(type);
+            addRow();
         }
 
-        function addRow(type) {
+        function addRow() {
             const tbody = document.getElementById('order-rows');
             const id = Date.now();
             const row = document.createElement('tr');
             row.className = "product-row border-b hover:bg-gray-50/50 transition-all text-xs";
             row.id = `row-${id}`;
 
-            let descField = type === 'bomboniere' 
+            let descField = currentType === 'bomboniere' 
                 ? `<textarea required class="w-full border rounded p-1.5 h-16" placeholder="Composizione..."></textarea>`
                 : `<input type="text" required class="w-full border rounded p-2">`;
 
@@ -244,14 +248,16 @@
                            oninput="calc(${id})" 
                            class="w-full border rounded p-2 text-right" value="€ 0.00">
                 </td>
-                <td class="p-2 font-bold text-slate-600">€ <span id="tot-riga-${id}">0.00</span></td>
-                <td class="p-2"><input type="number" id="qty-${id}" oninput="calc(${id})" class="w-full border rounded p-2 font-bold text-center" placeholder="0"></td>
+                <td class="p-2 font-bold text-slate-400 italic">€ <span id="tot-riga-${id}">0.00</span></td>
+                <td class="p-2"><input type="number" required id="qty-${id}" oninput="calc(${id})" class="w-full border rounded p-2 font-bold text-center" placeholder="0"></td>
                 <td class="p-2 bg-parte-green"><input type="number" id="parte-${id}" oninput="calc(${id})" class="w-full border rounded p-2 text-center bg-transparent" placeholder="0"></td>
                 <td class="p-2"><input type="number" id="forn-${id}" oninput="calc(${id})" class="w-full border rounded p-2 text-center" placeholder="0"></td>
                 <td class="p-2 border-x bg-gray-50/30">
                     <div class="flex gap-1">
                         <input type="number" id="emp-q-${id}" oninput="calc(${id})" class="w-12 border rounded p-1 text-center" placeholder="0">
-                        <select class="flex-1 border rounded p-1 text-[9px]"><option value="">Dove?</option><option value="CR">Cremona</option><option value="CS">Casalmaggiore</option></select>
+                        <select id="emp-select-${id}" class="flex-1 border rounded p-1 text-[9px] emporio-dropdown">
+                            <option value="">Dove?</option>
+                        </select>
                     </div>
                 </td>
                 <td class="p-2 bg-gray-50/30">
@@ -264,6 +270,34 @@
                 <td class="p-2 text-center"><button type="button" onclick="this.closest('tr').remove(); calcFinals()" class="text-gray-300 hover:text-red-500">✕</button></td>
             `;
             tbody.appendChild(row);
+            updateEmporiDropdown(id);
+        }
+
+        // Funzione per aggiornare i menu a tendina "Da Empori" in base alla città principale selezionata
+        function updateAllEmporiDropdowns() {
+            const selects = document.querySelectorAll('.emporio-dropdown');
+            selects.forEach(select => {
+                const rowId = select.id.split('-').pop();
+                updateEmporiDropdown(rowId);
+            });
+        }
+
+        function updateEmporiDropdown(id) {
+            const select = document.getElementById(`emp-select-${id}`);
+            const mainCitta = document.getElementById('select-emporio').value;
+            const currentValue = select.value;
+            
+            select.innerHTML = '<option value="">Dove?</option>';
+            
+            ALL_EMPORI.forEach(emporio => {
+                if (emporio !== mainCitta) {
+                    const opt = document.createElement('option');
+                    opt.value = emporio;
+                    opt.textContent = emporio;
+                    if (emporio === currentValue) opt.selected = true;
+                    select.appendChild(opt);
+                }
+            });
         }
 
         function calc(id) {
@@ -280,10 +314,8 @@
 
             if (sommaDisponibili > qty && qty > 0) {
                 inputsDisponibilita.forEach(el => el.classList.add('input-error'));
-                hasErrors = true;
             } else {
                 inputsDisponibilita.forEach(el => el.classList.remove('input-error'));
-                hasErrors = false;
             }
 
             document.getElementById(`tot-riga-${id}`).innerText = (qty * pru).toFixed(2);
@@ -300,16 +332,24 @@
             document.getElementById('saldo-finale').innerText = `€ ${(total - acc).toFixed(2)}`;
         }
 
-        function validateSubmission() {
+        function validateSubmission(event) {
+            event.preventDefault();
             if (document.querySelectorAll('.input-error').length > 0) {
-                alert("Errore: Le quantità inserite (da parte, fornitori, empori, altri) superano la quantità totale ordinata dal cliente.");
+                alert("Errore: Le quantità inserite superano la quantità totale ordinata.");
                 return false;
             }
-            alert("Ordine Salvato!");
+            alert("Ordine Salvato correttamente!");
+            window.location.href = "ordini_incorso.html";
             return true;
         }
 
-        window.onload = () => { document.getElementById('order-date').valueAsDate = new Date(); };
+        function handleCittaChange(el) {
+            // Logica esistente per gestire cambi città se necessaria
+        }
+
+        window.onload = () => { 
+            document.getElementById('order-date').valueAsDate = new Date(); 
+        };
     </script>
 </body>
 </html>
