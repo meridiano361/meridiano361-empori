@@ -13,6 +13,7 @@
         .bg-m361-red { background-color: #b75252; }
         .bg-parte-green { background-color: #dcfce7; }
         .bg-ord-red-light { background-color: #fee2e2; }
+        .row-error { background-color: #fee2e2 !important; border: 2px solid #ef4444 !important; }
         input:focus, select:focus, textarea:focus { outline: none; ring: 2px; ring-color: #b75252; border-color: #b75252; }
         
         @media (max-width: 1024px) {
@@ -53,7 +54,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
-                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Emporio
+                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Sede e Operatore
                     </h2>
                     <div class="space-y-4">
                         <select id="select-emporio" onchange="updateAllEmporiDropdowns()" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
@@ -63,13 +64,13 @@
                             <option value="Reggio Emilia">Reggio Emilia</option>
                             <option value="Viadana">Viadana</option>
                         </select>
-            <select id="select-operatore" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-white">
-                <option value="">Operatore *</option>
-                <option value="Operatore 1">Operatore 1</option>
-                <option value="Operatore 2">Operatore 2</option>
-                <option value="Operatore 3">Operatore 3</option>
-                <option value="Altro">Altro...</option>
-            </select>
+                        <select id="select-operatore" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-white">
+                            <option value="">Operatore *</option>
+                            <option value="Operatore 1">Operatore 1</option>
+                            <option value="Operatore 2">Operatore 2</option>
+                            <option value="Operatore 3">Operatore 3</option>
+                            <option value="Altro">Altro...</option>
+                        </select>
                         <input type="date" id="order-date" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                     </div>
                 </div>
@@ -82,7 +83,7 @@
                         <input type="text" placeholder="Nome *" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                         <input type="text" placeholder="Cognome *" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                         <input type="tel" placeholder="Cellulare *" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
-                                                <input type="tel" placeholder="Email" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
+                        <input type="email" placeholder="Email" class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                         <div class="flex gap-2 p-1 bg-gray-100 rounded-xl h-[46px] items-center">
                             <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
                                 <input type="radio" name="mod_consegna" value="Ritiro" checked class="hidden"> Ritiro
@@ -128,7 +129,7 @@
                 <textarea id="order-notes" rows="2" class="w-full border-gray-200 border rounded-2xl p-4 text-sm" placeholder="Note..."></textarea>
             </div>
 
-            <button type="submit" class="w-full bg-m361-red text-white font-bold py-5 rounded-2xl uppercase tracking-widest shadow-xl hover:scale-[1.01] transition-all">
+            <button type="submit" id="submit-btn" class="w-full bg-m361-red text-white font-bold py-5 rounded-2xl uppercase tracking-widest shadow-xl hover:scale-[1.01] transition-all">
                 <i class="fas fa-save mr-2"></i> Salva Ordine
             </button>
         </form>
@@ -191,7 +192,6 @@
                             <tbody id="rows-container-${groupId}"></tbody>
                         </table>
                     </div>
-
                     <div class="mt-4 flex justify-end border-t pt-4">
                         <div class="text-right">
                             <span class="text-[10px] font-bold text-slate-400 uppercase block">Subtotale Tipologia</span>
@@ -208,25 +208,25 @@
             const tbody = document.getElementById(`rows-container-${groupId}`);
             const rowId = Date.now() + Math.random();
             const row = document.createElement('tr');
-            row.className = "product-row group transition-all";
+            row.className = "product-row group transition-all rounded-xl overflow-hidden";
             row.id = `row-${rowId}`;
 
             row.innerHTML = `
                 <td data-label="Codice" class="p-2 lg:pl-4"><input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm font-mono uppercase bg-gray-50/50"></td>
                 <td data-label="Descrizione" class="p-2"><input type="text" required class="w-full border-gray-200 border rounded-xl p-2 text-sm"></td>
                 <td data-label="Prezzo" class="p-2"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow('${rowId}', ${groupId})" class="price-input w-full border-gray-200 border rounded-xl p-2 text-right text-sm" value="€ 0.00"></td>
-                <td data-label="Qtà" class="p-2"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="qty-input w-full border-gray-200 border rounded-xl p-2 font-bold text-center text-sm" value="0"></td>
-                <td data-label="Parte" class="p-2 bg-parte-green"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="parte-input w-full border-green-200 border rounded-xl p-2 text-center text-sm font-bold text-green-700" value="0"></td>
-                <td data-label="Forn" class="p-2"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="forn-input w-full border-gray-200 border rounded-xl p-2 text-center text-sm" value="0"></td>
+                <td data-label="Qtà" class="p-2"><input type="number" min="0" oninput="calcRow('${rowId}', ${groupId})" class="qty-input w-full border-gray-200 border rounded-xl p-2 font-bold text-center text-sm" value="0"></td>
+                <td data-label="Parte" class="p-2 bg-parte-green"><input type="number" min="0" oninput="calcRow('${rowId}', ${groupId})" class="parte-input w-full border-green-200 border rounded-xl p-2 text-center text-sm font-bold text-green-700" value="0"></td>
+                <td data-label="Forn" class="p-2"><input type="number" min="0" oninput="calcRow('${rowId}', ${groupId})" class="forn-input w-full border-gray-200 border rounded-xl p-2 text-center text-sm" value="0"></td>
                 <td data-label="Empori" class="p-2">
                     <div class="flex flex-col gap-1">
-                        <input type="number" oninput="calcRow('${rowId}', ${groupId})" class="emp-q-input w-full border-gray-200 border rounded-lg p-1 text-center text-xs" value="0">
+                        <input type="number" min="0" oninput="calcRow('${rowId}', ${groupId})" class="emp-q-input w-full border-gray-200 border rounded-lg p-1 text-center text-xs" value="0">
                         <select class="emporio-dropdown w-full border-gray-200 border rounded-lg p-1 text-[9px] bg-gray-50">${getEmporioOptions()}</select>
                     </div>
                 </td>
                 <td data-label="Altri" class="p-2">
                     <div class="flex flex-col gap-1">
-                        <input type="number" oninput="calcRow('${rowId}', ${groupId})" class="altri-q-input w-full border-gray-200 border rounded-lg p-1 text-center text-xs" value="0">
+                        <input type="number" min="0" oninput="calcRow('${rowId}', ${groupId})" class="altri-q-input w-full border-gray-200 border rounded-lg p-1 text-center text-xs" value="0">
                         <input type="text" placeholder="Specifica..." class="altri-desc-input w-full border-gray-200 border rounded-lg p-1 text-[9px]">
                     </div>
                 </td>
@@ -235,13 +235,6 @@
                 <td class="p-2 text-center"><button type="button" onclick="removeRow('${rowId}', ${groupId})" class="text-gray-300 hover:text-red-500 transition-all">✕</button></td>
             `;
             tbody.appendChild(row);
-        }
-
-        function getEmporioOptions() {
-            const mainCitta = document.getElementById('select-emporio').value;
-            let options = '<option value="">Dove?</option>';
-            ALL_EMPORI.forEach(e => { if(e !== mainCitta) options += `<option value="${e}">${e}</option>`; });
-            return options;
         }
 
         function calcRow(rowId, groupId) {
@@ -254,12 +247,48 @@
             const emp = +row.querySelector('.emp-q-input').value || 0;
             const altri = +row.querySelector('.altri-q-input').value || 0;
 
-            const daOrd = qty - (parte + forn + emp + altri);
-            document.getElementById(`do-${rowId}`).innerText = daOrd > 0 ? daOrd : 0;
+            const sommaProvenienze = parte + forn + emp + altri;
+            const daOrd = qty - sommaProvenienze;
+            
+            const displayOrd = document.getElementById(`do-${rowId}`);
+            
+            // CONTROLLO ERRORE: Somma provenienze > Quantità totale
+            if (sommaProvenienze > qty) {
+                row.classList.add('row-error');
+                displayOrd.innerText = "ERR";
+                displayOrd.title = "La somma delle provenienze supera la quantità totale!";
+            } else {
+                row.classList.remove('row-error');
+                displayOrd.innerText = daOrd;
+                displayOrd.title = "";
+            }
 
             const total = qty * price;
             document.getElementById(`tot-riga-${rowId}`).innerText = total.toFixed(2);
+            
+            validateGlobalErrors();
             calcSubtotal(groupId);
+        }
+
+        function validateGlobalErrors() {
+            const hasErrors = document.querySelectorAll('.row-error').length > 0;
+            const btn = document.getElementById('submit-btn');
+            if (hasErrors) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> Correggi errori nelle righe';
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Ordine';
+            }
+        }
+
+        function getEmporioOptions() {
+            const mainCitta = document.getElementById('select-emporio').value;
+            let options = '<option value="">Dove?</option>';
+            ALL_EMPORI.forEach(e => { if(e !== mainCitta) options += `<option value="${e}">${e}</option>`; });
+            return options;
         }
 
         function calcSubtotal(groupId) {
@@ -279,8 +308,8 @@
             document.getElementById('saldo-finale').innerText = `€ ${(grand - acc).toFixed(2)}`;
         }
 
-        function removeGroup(id) { document.getElementById(`group-${id}`).remove(); calcGrandTotal(); }
-        function removeRow(rowId, groupId) { document.getElementById(`row-${rowId}`).remove(); calcSubtotal(groupId); }
+        function removeGroup(id) { document.getElementById(`group-${id}`).remove(); calcGrandTotal(); validateGlobalErrors(); }
+        function removeRow(rowId, groupId) { document.getElementById(`row-${rowId}`).remove(); calcSubtotal(groupId); validateGlobalErrors(); }
         
         function formatCurrency(input) {
             let val = parseFloat(input.value.replace('€', '').trim()) || 0;
@@ -298,9 +327,12 @@
             });
         }
         function validateSubmission(e) {
-            e.preventDefault();
+            if (document.querySelectorAll('.row-error').length > 0) {
+                alert("Attenzione: ci sono errori nelle quantità inserite.");
+                return false;
+            }
             alert("Ordine salvato con successo!");
-            return false;
+            return true;
         }
 
         window.onload = () => { document.getElementById('order-date').valueAsDate = new Date(); };
