@@ -183,40 +183,87 @@ async function caricaOrdini() {
         return;
     }
 
-    // 3. Generazione Card
-    ordini.forEach(ord => {
-        // Gestione fallback se i nomi sono nulli
-        const nomeCompleto = `${ord.cliente_nome || 'Cliente'} ${ord.cliente_cognome || 'Generico'}`;
-        const cellulare = ord.cliente_cellulare || 'N/D';
-        const citta = ord.citta || 'Località non specificata';
-        const importo = ord.da_pagare ? parseFloat(ord.da_pagare).toFixed(2) : "0.00";
-
-        const card = `
-        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center mb-4">
-            <div class="flex-1 w-full">
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="status-badge ${ord.stato === 'Nuovo' ? 'status-waiting' : 'status-ready'}">${ord.stato || 'NUOVO'}</span>
-                    <span class="text-[10px] font-mono text-slate-400">#${ord.id.toString().slice(-5)}</span>
-                </div>
-                <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight">${nomeCompleto}</h3>
-                <p class="text-sm text-slate-500 flex items-center gap-2">
-                    <span>📍 ${citta}</span> | 
-                    <span>📞 ${cellulare}</span>
-                </p>
-            </div>
-            
-            <div class="flex-1 w-full text-right flex flex-col items-end">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Da incassare</p>
-                <p class="text-2xl font-black text-m361-red mb-4">€ ${importo}</p>
-                <div class="flex gap-2">
-                    <button class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-200">Dettagli</button>
-                </div>
-            </div>
-        </div>`;
-        container.insertAdjacentHTML('beforeend', card);
-    });
+  // Funzione per aggiornare un campo su Supabase (es. cliente_avvisato o merce_pronta)
+async function aggiornaStato(id, campo, valore) {
+    const { error } = await _supabase
+        .from('ordini_incorso')
+        .update({ [campo]: valore })
+        .eq('id', id);
+    
+    if (error) alert("Errore aggiornamento: " + error.message);
 }
 
+// Funzione per archiviare l'ordine
+async function archiviaOrdine(id, elementId) {
+    // 1. Recupera i dati dell'ordine corrente
+    const { data: ordine } = await _supabase
+        .from('ordini_incorso')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    // 2. Inserisci in ordini_archiviati (assicurati che la tabella esista)
+    const { error: errInsert } = await _supabase
+        .from('ordini_archiviati')
+        .insert([{ ...ordine, id: undefined, archiviato_il: new Date() }]);
+
+    if (!errInsert) {
+        // 3. Elimina da ordini_incorso
+        await _supabase.from('ordini_incorso').delete().eq('id', id);
+        
+        // Animazione e rimozione card
+        const el = document.getElementById(elementId);
+        el.classList.add('archive-anim');
+        setTimeout(() => el.remove(), 500);
+    } else {
+        alert("Errore archiviazione: " + errInsert.message);
+    }
+}
+
+// Modifica il tuo ciclo forEach dentro caricaOrdini()
+ordini.forEach(ord => {
+    const cardId = `card-${ord.id}`;
+    const card = `
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center mb-4 transition-all" id="${cardId}">
+        <div class="flex-1 w-full">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="status-badge ${ord.merce_pronta ? 'status-ready' : 'status-waiting'}">
+                    ${ord.merce_pronta ? 'Merce Pronta' : 'In Attesa'}
+                </span>
+                <span class="text-[10px] font-mono text-slate-400">#${ord.id.toString().slice(-5)}</span>
+            </div>
+            <h3 class="text-xl font-black text-slate-800 uppercase">${ord.cliente_nome} ${ord.cliente_cognome}</h3>
+            <p class="text-xs text-slate-500 mt-1">📦 <b>Merce:</b> ${ord.merce_ordinata || 'Nessun dettaglio'}</p>
+        </div>
+
+        <div class="flex-1 w-full flex flex-col gap-3 border-l border-r border-slate-100 px-6">
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" ${ord.merce_pronta ? 'checked' : ''} 
+                    onchange="aggiornaStato('${ord.id}', 'merce_pronta', this.checked)"
+                    class="w-5 h-5 accent-blue-600 rounded">
+                <span class="text-xs font-bold text-slate-700 uppercase">Merce Pronta</span>
+            </label>
+
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" ${ord.cliente_avvisato ? 'checked' : ''} 
+                    onchange="aggiornaStato('${ord.id}', 'cliente_avvisato', this.checked)"
+                    class="w-5 h-5 accent-blue-600 rounded">
+                <span class="text-xs font-bold text-slate-700 uppercase">Cliente Avvisato</span>
+            </label>
+        </div>
+
+        <div class="flex-1 w-full text-right flex flex-col items-end">
+            <p class="text-[10px] font-bold text-slate-400 uppercase">Da incassare</p>
+            <p class="text-2xl font-black text-m361-red mb-4">€ ${parseFloat(ord.da_pagare || 0).toFixed(2)}</p>
+            <button onclick="archiviaOrdine('${ord.id}', '${cardId}')" 
+                class="bg-m361-green text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:opacity-90">
+                Evadi Ordine
+            </button>
+        </div>
+    </div>`;
+    container.insertAdjacentHTML('beforeend', card);
+});
+    }
 // Avvia al caricamento
 window.onload = caricaOrdini;
 </script>
