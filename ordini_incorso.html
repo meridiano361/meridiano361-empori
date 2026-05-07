@@ -33,9 +33,14 @@
             <img src="logom361_rosso.jpg" alt="Logo" class="h-10">
             <h1 class="font-bold text-xl border-l pl-4 ml-2 text-slate-700 uppercase tracking-tight">Ordini in Corso</h1>
         </div>
-        <a href="ordini_nuovi.html" class="bg-[#b75252] text-white px-6 py-2.5 rounded-xl text-xs font-bold uppercase shadow-md hover:opacity-90 transition-all">
-            + NUOVO ORDINE
-        </a>
+        <div class="flex gap-4">
+            <a href="index.html" class="text-slate-500 px-4 py-2.5 text-xs font-bold uppercase hover:text-slate-800 transition-all flex items-center">
+                <i class="fas fa-home mr-2"></i> Dashboard
+            </a>
+            <a href="ordini_nuovi.html" class="bg-[#b75252] text-white px-6 py-2.5 rounded-xl text-xs font-bold uppercase shadow-md hover:opacity-90 transition-all">
+                + NUOVO ORDINE
+            </a>
+        </div>
     </header>
 
     <main class="max-w-7xl mx-auto p-8">
@@ -81,79 +86,59 @@
             else if (filtro === 'avvisati') query = query.eq('cliente_avvisato', true);
 
             const { data: ordini, error } = await query;
-            if (error) { container.innerHTML = "Errore."; return; }
+            if (error) { container.innerHTML = "<p class='text-center text-red-500'>Errore durante il caricamento.</p>"; return; }
 
-            container.innerHTML = ordini.length === 0 ? `<p class="text-center text-slate-400 py-20">Nessun ordine.</p>` : "";
+            container.innerHTML = ordini.length === 0 ? `<p class="text-center text-slate-400 py-20">Nessun ordine trovato per questo filtro.</p>` : "";
 
-      ordini.forEach(ord => {
-    const cardId = `card-${ord.id}`;
-    const nomeCliente = `${ord.cliente_nome || ''} ${ord.cliente_cognome || ''}`.trim().toUpperCase();
-    
-    // Recupero emporio/città
-    const emporio = (ord.emporio && ord.emporio.trim() !== "") 
-        ? ord.emporio.toUpperCase() 
-        : "CITTÀ NON SPECIFICATA";
-    
-    const isPronta = ord.merce_pronta === true;
-    const isAvvisato = ord.cliente_avvisato === true;
-    const daAvvisare = isPronta && !isAvvisato;
-    const completato = isPronta && isAvvisato;
+            ordini.forEach(ord => {
+                const cardId = `card-${ord.id}`;
+                const nomeCliente = `${ord.cliente_nome || ''} ${ord.cliente_cognome || ''}`.trim().toUpperCase();
+                
+                // Gestione colonna emporio
+                const emporio = (ord.emporio && ord.emporio.trim() !== "") 
+                                ? ord.emporio.toUpperCase() 
+                                : "EMPORIO NON SPECIFICATO";
+                
+                const isPronta = ord.merce_pronta === true;
+                const isAvvisato = ord.cliente_avvisato === true;
+                const daAvvisare = isPronta && !isAvvisato;
+                const completato = isPronta && isAvvisato;
 
-    // Inserimento HTML: nota che NON ci sono }); dentro le virgolette backtick ``
-    container.insertAdjacentHTML('beforeend', `
-        <div class="ordine-card bg-white border border-slate-200 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden ${completato ? 'card-completata' : ''}" id="${cardId}" data-search="${nomeCliente} ${emporio}">
-            
-            ${daAvvisare ? `<div class="absolute top-0 left-0 w-1.5 h-full bg-[#b75252]"></div>` : ''}
+                container.insertAdjacentHTML('beforeend', `
+                    <div class="ordine-card bg-white border border-slate-200 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden ${completato ? 'card-completata' : ''}" id="${cardId}" data-search="${nomeCliente} ${emporio}">
+                        
+                        ${daAvvisare ? `<div class="absolute top-0 left-0 w-1.5 h-full bg-[#b75252]"></div>` : ''}
 
-            <div class="w-full md:w-1/3 mb-4 md:mb-0">
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="status-badge ${isPronta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
-                        ${isPronta ? 'Merce Pronta' : 'Da Ordinare'}
-                    </span>
-                    <span class="text-[10px] text-slate-300 font-mono">#${ord.id.toString().slice(-5)}</span>
-                    <div class="flex gap-4 ml-2 items-center">
-                        <a href="ordini_modifica.html?id=${ord.id}" class="text-slate-400 hover:text-blue-500 transition-colors">
-                            <i class="fas fa-edit text-lg"></i>
-                        </a>
-                        <button onclick="eliminaOrdine('${ord.id}', '${cardId}')" class="text-red-200 hover:text-red-500 transition-colors">
-                            <i class="fas fa-trash-alt text-lg"></i>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <h2 class="text-2xl font-[900] text-slate-800 tracking-tight leading-none">${nomeCliente || 'CLIENTE ANONIMO'}</h2>
-                    <p class="text-[11px] font-bold text-[#b75252] mt-1 tracking-wider italic">${emporio}</p>
-                    ${daAvvisare ? `
-                        <div class="flex items-center gap-1.5 bg-red-50 px-2 py-1 rounded-md border border-red-100 mt-2 w-fit">
-                            <span class="relative flex h-2 w-2">
-                                <span class="ping-notify absolute inline-flex h-full w-full rounded-full opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-[#b75252]"></span>
-                            </span>
-                            <span class="text-[9px] font-bold text-[#b75252] uppercase">Da Avvisare</span>
+                        <div class="w-full md:w-1/3 mb-4 md:mb-0">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="status-badge ${isPronta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                                    ${isPronta ? 'Merce Pronta' : 'Da Ordinare'}
+                                </span>
+                                <span class="text-[10px] text-slate-300 font-mono">#${ord.id.toString().slice(-5)}</span>
+                                <div class="flex gap-4 ml-2 items-center">
+                                    <a href="ordini_modifica.html?id=${ord.id}" class="text-slate-400 hover:text-blue-500 transition-colors">
+                                        <i class="fas fa-edit text-lg"></i>
+                                    </a>
+                                    <button onclick="eliminaOrdine('${ord.id}', '${cardId}')" class="text-red-200 hover:text-red-500 transition-colors">
+                                        <i class="fas fa-trash-alt text-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-[900] text-slate-800 tracking-tight leading-none">${nomeCliente || 'CLIENTE ANONIMO'}</h2>
+                                <p class="text-[11px] font-bold text-[#b75252] mt-1 tracking-wider italic">${emporio}</p>
+                                
+                                ${daAvvisare ? `
+                                    <div class="flex items-center gap-1.5 bg-red-50 px-2 py-1 rounded-md border border-red-100 mt-2 w-fit">
+                                        <span class="relative flex h-2 w-2">
+                                            <span class="ping-notify absolute inline-flex h-full w-full rounded-full opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-[#b75252]"></span>
+                                        </span>
+                                        <span class="text-[9px] font-bold text-[#b75252] uppercase">Da Avvisare</span>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
-                    ` : ''}
-                </div>
-            </div>
-
-            <div class="w-full md:w-1/3 flex flex-col gap-3 justify-center border-l border-r border-slate-50 px-8">
-                <label class="flex items-center gap-4 cursor-pointer group">
-                    <input type="checkbox" ${isPronta ? 'checked' : ''} onchange="aggiornaStato('${ord.id}', 'merce_pronta', this.checked)" class="w-6 h-6 rounded-lg border-slate-300 accent-emerald-600">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-slate-800">Merce Pronta</span>
-                </label>
-                <label class="flex items-center gap-4 cursor-pointer group">
-                    <input type="checkbox" ${isAvvisato ? 'checked' : ''} onchange="aggiornaStato('${ord.id}', 'cliente_avvisato', this.checked)" class="w-6 h-6 rounded-lg border-slate-300 accent-blue-600">
-                    <span class="text-[11px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-slate-800">Cliente Avvisato</span>
-                </label>
-            </div>
-
-            <div class="w-full md:w-1/3 text-right flex items-center justify-end">
-                <button onclick="evadiOrdine('${ord.id}', '${cardId}')" class="bg-[#2d3748] text-white px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-900 shadow-lg active:scale-95 transition-all">
-                    RITIRATO / SPEDITO
-                </button>
-            </div>
-        </div>
-    `);
-}); // Chiusura corretta del forEach
 
                         <div class="w-full md:w-1/3 flex flex-col gap-3 justify-center border-l border-r border-slate-50 px-8">
                             <label class="flex items-center gap-4 cursor-pointer group">
@@ -179,11 +164,12 @@
         async function aggiornaStato(id, campo, valore) {
             await _supabase.from('ordini_incorso').update({ [campo]: valore }).eq('id', id);
             const activeBtn = document.querySelector('.active-filter');
+            // Ricarica con il filtro corrente
             caricaOrdini(activeBtn.innerText.toLowerCase().includes('tutti') ? 'tutti' : activeBtn.innerText.toLowerCase().includes('ordinare') ? 'da_ordinare' : activeBtn.innerText.toLowerCase().includes('pronta') ? 'merce_pronta' : activeBtn.innerText.toLowerCase().includes('avvisare') ? 'da_avvisare' : 'avvisati');
         }
 
         async function eliminaOrdine(id, elementId) {
-            if (confirm("Eliminare definitivamente?")) {
+            if (confirm("Eliminare definitivamente questo ordine?")) {
                 const { error } = await _supabase.from('ordini_incorso').delete().eq('id', id);
                 if (!error) document.getElementById(elementId).remove();
             }
@@ -192,10 +178,22 @@
         async function evadiOrdine(id, elementId) {
             if (confirm(`Spostare in archivio come consegnato?`)) {
                 const { data: ordine } = await _supabase.from('ordini_incorso').select('*').eq('id', id).single();
-                const { error: errInsert } = await _supabase.from('ordini_archiviati').insert([{ ...ordine, id: undefined, stato: 'Evaso', data_evasione: new Date() }]);
+                
+                // Rimuoviamo l'id originale per permettere a Supabase di generarne uno nuovo nell'archivio
+                const ordinePerArchivio = { ...ordine };
+                delete ordinePerArchivio.id;
+                
+                const { error: errInsert } = await _supabase.from('ordini_archiviati').insert([{ 
+                    ...ordinePerArchivio, 
+                    stato: 'Evaso', 
+                    data_evasione: new Date() 
+                }]);
+
                 if (!errInsert) {
                     await _supabase.from('ordini_incorso').delete().eq('id', id);
                     document.getElementById(elementId).remove();
+                } else {
+                    alert("Errore durante l'archiviazione: " + errInsert.message);
                 }
             }
         }
