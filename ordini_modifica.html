@@ -3,253 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M361 - Modifica Ordine</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Modifica Ordine Meridiano361 - V2</title>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
-        .text-m361-red { color: #b75252; }
-        .bg-m361-red { background-color: #b75252; }
-        .border-m361-red { border-color: #b75252; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .row-error { background-color: #fee2e2 !important; border: 2px solid #ef4444 !important; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 0 auto; padding: 20px; background-color: #f4f7f6; }
+        .container { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.1); }
+        h1, h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #eee; border-radius: 5px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 10px; position: relative; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        input, select, textarea { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 1em; }
+        
+        /* Emporio & Buttons */
+        .emporio-controls { display: flex; align-items: center; gap: 5px; }
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; }
+        .btn-plus { color: #27ae60; }
+        .btn-trash { color: #e74c3c; }
+        .wa-btn { color: #25d366; font-size: 1.5em; cursor: pointer; vertical-align: middle; margin-left: 10px; }
+
+        /* Prodotti Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+        th { background: #3498db; color: white; padding: 12px; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        .sub-input { font-size: 0.85em; margin-top: 5px; width: 90%; }
+        .row-error { background-color: #ffebee !important; }
+        
+        /* Totali */
+        .totali-box { background: #ecf0f1; padding: 20px; border-radius: 5px; margin-top: 20px; text-align: right; }
+        .total-row { font-size: 1.2em; margin-bottom: 10px; font-weight: bold; }
+        .saldo-finale { color: #c0392b; font-size: 1.5em; border-top: 2px solid #bdc3c7; padding-top: 10px; }
+
+        .hidden { display: none; }
     </style>
 </head>
-<body class="pb-20">
+<body>
 
-    <header class="bg-white border-b p-4 px-6 md:px-8 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <div class="flex items-center gap-4">
-            <img src="logom361_rosso.jpg" alt="Logo" class="h-8">
-            <h1 class="font-bold text-lg border-l pl-4 text-slate-700">Modifica Ordine</h1>
+<div class="container">
+    <h1>Modifica Ordine Meridiano361</h1>
+
+    <div class="section">
+        <h2>Dati Cliente</h2>
+        <div class="grid">
+            <div class="form-group">
+                <label>Nome e Cognome / Ragione Soc.</label>
+                <input type="text" id="cliente" value="Esempio Cliente">
+            </div>
+            <div class="form-group">
+                <label>Cellulare 
+                    <span class="wa-btn" title="Invia Notifica WhatsApp">✆</span>
+                </label>
+                <input type="tel" id="cellulare" value="3331234567">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" value="cliente@esempio.it">
+            </div>
         </div>
-        <button onclick="window.location.href='logistica.html'" class="flex items-center gap-2 text-slate-500 hover:text-m361-red transition-colors font-bold text-sm">
-            <i class="fas fa-arrow-left"></i> Indietro
+    </div>
+
+    <div class="section">
+        <h2>Gestione Emporio</h2>
+        <div class="grid">
+            <div class="form-group">
+                <label>Città Emporio</label>
+                <div class="emporio-controls">
+                    <select id="cittaEmporio" onchange="toggleCremona(this.value)">
+                        <option value="Cremona">Cremona</option>
+                        <option value="Casalmaggiore">Casalmaggiore</option>
+                        <option value="Viadana">Viadana</option>
+                    </select>
+                    <button class="btn-icon btn-plus">+</button>
+                    <button class="btn-icon btn-trash">🗑️</button>
+                </div>
+            </div>
+
+            <div id="canale-cremona-container" class="form-group">
+                <label>Canale (Cremona)</label>
+                <select id="canaleCremona">
+                    <option value="on-earth.it">on-earth.it</option>
+                    <option value="meridiano361.it">meridiano361.it</option>
+                    <option value="altro">Altro</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Operatore</label>
+                <div class="emporio-controls">
+                    <select id="operatore">
+                        <option value="Marta">Marta</option>
+                        <option value="Luca">Luca</option>
+                    </select>
+                    <button class="btn-icon btn-plus">+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Dettaglio Prodotti</h2>
+        <table id="prodottiTable">
+            <thead>
+                <tr>
+                    <th>Prodotto</th>
+                    <th>Prezzo Un.</th>
+                    <th>Quantità</th>
+                    <th>Provenienza (Dettaglio)</th>
+                    <th>Subtotale</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr id="row-1">
+                    <td><strong>Caffè Altromercato 250g</strong></td>
+                    <td>€ <span class="prezzo">5.50</span></td>
+                    <td><input type="number" value="10" class="qty" onchange="updateRow(1)"></td>
+                    <td>
+                        <div>
+                            <label>Da Empori:</label>
+                            <input type="number" class="da-empori sub-input" placeholder="Qta" onchange="checkSum(1)">
+                            <select class="sub-input">
+                                <option>Scegli Emporio...</option>
+                                <option>Cremona</option>
+                                <option>Casalmaggiore</option>
+                            </select>
+                        </div>
+                        <div style="margin-top:5px;">
+                            <label>Da Altri:</label>
+                            <input type="number" class="da-altri sub-input" placeholder="Qta" onchange="checkSum(1)">
+                            <input type="text" class="sub-input" placeholder="Specifica provenienza...">
+                        </div>
+                    </td>
+                    <td>€ <span class="subtotale">55.00</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <div class="grid">
+            <div class="form-group">
+                <label>Note sull'ordine</label>
+                <textarea rows="4" placeholder="Inserisci qui eventuali note o indicazioni per la logistica..."></textarea>
+            </div>
+            <div class="totali-box">
+                <div class="total-row">Totale Lordo: € <span id="totaleLordo">55.00</span></div>
+                <div class="total-row">
+                    Acconto già versato: € 
+                    <input type="number" id="acconto" value="0.00" step="0.50" style="width:100px;" onchange="calculateFinal()">
+                </div>
+                <div class="total-row saldo-finale">DA PAGARE: € <span id="saldoFinale">55.00</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align:right;">
+        <button style="padding:15px 40px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer; font-size:1.1em;">
+            Salva Modifiche
         </button>
-    </header>
+    </div>
+</div>
 
-    <main class="max-w-[1600px] mx-auto p-4 md:p-6">
-        <form id="editForm" class="space-y-6">
-            
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
-                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Emporio
-                    </h2>
-                    <div class="space-y-4">
-                        <select id="select-emporio" required class="w-full border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
-                            <option value="Casalmaggiore">Casalmaggiore</option>
-                            <option value="Cremona">Cremona</option>
-                            <option value="Reggio Emilia">Reggio Emilia</option>
-                            <option value="Viadana">Viadana</option>
-                        </select>
-                        <select id="select-operatore" required class="w-full border-gray-200 border rounded-xl p-3 text-sm"></select>
-                        <input type="date" id="order-date" class="w-full border-gray-200 border rounded-xl p-3 text-sm">
-                    </div>
-                </div>
-
-                <div class="lg:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 class="text-xs font-bold mb-6 tracking-widest uppercase flex items-center gap-2">
-                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Cliente
-                    </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                        <input type="text" id="cust-nome" placeholder="Nome" class="border-gray-200 border rounded-xl p-3 text-sm">
-                        <input type="text" id="cust-cognome" placeholder="Cognome" class="border-gray-200 border rounded-xl p-3 text-sm">
-                        <input type="tel" id="cust-tel" placeholder="Cellulare" class="border-gray-200 border rounded-xl p-3 text-sm">
-                        <input type="email" id="cust-email" placeholder="Email" class="border-gray-200 border rounded-xl p-3 text-sm">
-                        <select id="mod-consegna" class="border-gray-200 border rounded-xl p-3 text-sm bg-gray-50">
-                            <option value="Ritiro">Ritiro</option>
-                            <option value="Spedizione">Spedizione</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-bold text-slate-700 uppercase text-sm flex items-center gap-2">
-                        <span class="w-1 h-4 bg-m361-red rounded-full"></span> Prodotti
-                    </h3>
-                    <button type="button" onclick="addRow()" class="bg-slate-800 text-white px-4 py-2 rounded-xl font-bold text-[10px] uppercase hover:bg-black">+ aggiungi riga</button>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-separate border-spacing-y-2">
-                        <thead>
-                            <tr class="text-[10px] text-gray-400 uppercase tracking-widest text-center">
-                                <th class="pb-2 pl-4 text-left">Codice</th>
-                                <th class="pb-2 text-left">Descrizione</th>
-                                <th class="pb-2 w-24">Prezzo</th>
-                                <th class="pb-2 w-16">Qtà</th>
-                                <th class="pb-2 w-16 bg-green-50 text-green-700">Parte</th>
-                                <th class="pb-2 w-16 bg-slate-50">Forn.</th>
-                                <th class="pb-2 w-32 bg-slate-50">Empori</th>
-                                <th class="pb-2 w-32 bg-slate-50">Altri</th>
-                                <th class="pb-2 w-16 bg-red-50 text-m361-red">Da Ord</th>
-                                <th class="pb-2 w-24 text-right pr-4">Totale</th>
-                                <th class="pb-2 w-8"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="rows-container"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-end gap-4">
-                <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-center min-w-[150px]">
-                    <span class="text-[9px] font-bold text-slate-400 uppercase">Totale Ordine</span>
-                    <div id="grand-total" class="text-2xl font-bold text-slate-800">€ 0.00</div>
-                </div>
-                <div class="bg-m361-red p-4 rounded-2xl text-center min-w-[150px] shadow-lg">
-                    <span class="text-[9px] font-bold text-white/80 uppercase">Da Pagare</span>
-                    <div id="saldo-finale" class="text-2xl font-bold text-white">€ 0.00</div>
-                </div>
-            </div>
-
-            <button type="button" onclick="salvaModifiche()" id="submit-btn" class="w-full bg-slate-800 text-white font-bold py-5 rounded-2xl uppercase tracking-widest shadow-xl hover:bg-black transition-all">
-                <i class="fas fa-sync-alt mr-2"></i> Aggiorna Ordine
-            </button>
-        </form>
-    </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const ordineId = urlParams.get('id');
-
-        const ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
-        const OPERATORI_DATA = {
-            "Cremona": ["Chiara Monteverdi", "Emilio Mazzolari", "Giulia Galelli"],
-            "Casalmaggiore": ["Alessandra Rivetti", "Barbara Araldi", "Carla Maffei", "Chiara Monteverdi", "Edoardo Pavesi", "Emilio Mazzolari", "Erica Bossi", "Francesco Lunardini", "Giovanna Raineri", "Giulia Frigeri", "Giuseppe Lunardini", "Ileana Galli", "Maria Marcella Scaravonati", "Matilde Chiarini", "Michele Marchini", "Roberta Vezzosi", "Teyssir Mabrouk", "Vittoria Lunardini"],
-            "Viadana": ["Alessia Rovina", "Ave Aroldi", "Barbara Piotrowska", "Carla Bellelli", "Carla Chittolini", "Chiara Monteverdi", "Claudio Mortini", "Donatella Falugi", "Elena Ghelfi", "Emilio Mazzolari", "Franco Furlotti", "Giuseppina Amadini", "Manuela Scazza", "Marta Sanfelici", "Mariagrazia Bertolini", "Mirella Panato", "Roberta Alberini", "Sara Germani", "Tiziana Bortesi"],
-            "Reggio Emilia": ["Alessia Bartolomei", "Elsa Scarpa", "Manuela Capanni", "Marica Pioli"]
-        };
-
-        async function initModifica() {
-            if (!ordineId) return;
-
-            const { data: ord, error } = await _supabase.from('ordini_incorso').select('*').eq('id', ordineId).single();
-            if (error) { alert("Errore caricamento"); return; }
-
-            // Popola Anagrafica
-            document.getElementById('select-emporio').value = ord.citta || '';
-            popolaOperatori(ord.citta, ord.operatore);
-            document.getElementById('order-date').value = ord.data_ordine || '';
-            document.getElementById('cust-nome').value = ord.cliente_nome || '';
-            document.getElementById('cust-cognome').value = ord.cliente_cognome || '';
-            document.getElementById('cust-tel').value = ord.cliente_cellulare || '';
-            document.getElementById('cust-email').value = ord.cliente_email || '';
-            document.getElementById('mod-consegna').value = ord.modalita_consegna || 'Ritiro';
-
-            // Popola Articoli
-            const container = document.getElementById('rows-container');
-            container.innerHTML = '';
-            if (ord.articoli && ord.articoli.length > 0) {
-                ord.articoli.forEach(art => addRow(art));
-            } else {
-                addRow();
-            }
-            calcGrandTotal();
+<script>
+    function toggleCremona(val) {
+        const container = document.getElementById('canale-cremona-container');
+        if(val === 'Cremona') {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
         }
+    }
 
-        function popolaOperatori(citta, selezionato = "") {
-            const opSelect = document.getElementById('select-operatore');
-            opSelect.innerHTML = '';
-            const ops = OPERATORI_DATA[citta] || [];
-            ops.forEach(op => {
-                const opt = document.createElement('option');
-                opt.value = op; opt.text = op;
-                if(op === selezionato) opt.selected = true;
-                opSelect.add(opt);
-            });
+    function formatCurrency(input) {
+        let val = parseFloat(input.value);
+        if(!isNaN(val)) {
+            input.value = val.toFixed(2);
         }
+    }
 
-        function addRow(dati = null) {
-            const tbody = document.getElementById('rows-container');
-            const rowId = Date.now() + Math.random();
-            const row = document.createElement('tr');
-            row.className = "product-row transition-all";
-            row.id = `row-${rowId}`;
-            
-            row.innerHTML = `
-                <td class="p-1 pl-4"><input type="text" class="codice w-full border-gray-200 border rounded-lg p-2 text-xs" value="${dati?.codice || ''}"></td>
-                <td class="p-1"><input type="text" class="descrizione w-full border-gray-200 border rounded-lg p-2 text-xs" value="${dati?.descrizione || ''}"></td>
-                <td class="p-1"><input type="number" step="0.01" oninput="calcRow('${rowId}')" class="prezzo w-full border-gray-200 border rounded-lg p-2 text-right text-xs" value="${dati?.prezzo || 0}"></td>
-                <td class="p-1"><input type="number" oninput="calcRow('${rowId}')" class="qta w-full border-gray-200 border rounded-lg p-2 text-center text-xs" value="${dati?.qta || 1}"></td>
-                <td class="p-1 bg-green-50"><input type="number" oninput="calcRow('${rowId}')" class="da_parte w-full border-green-200 border rounded-lg p-2 text-center text-xs" value="${dati?.da_parte || 0}"></td>
-                <td class="p-1 bg-slate-50"><input type="number" oninput="calcRow('${rowId}')" class="da_forn w-full border-slate-200 border rounded-lg p-2 text-center text-xs" value="${dati?.da_forn || 0}"></td>
-                <td class="p-1 bg-slate-50"><input type="number" oninput="calcRow('${rowId}')" class="da_emp_q w-full border-slate-200 border rounded-lg p-1 text-center text-xs" value="${dati?.da_emp_q || 0}"></td>
-                <td class="p-1 bg-slate-50"><input type="number" oninput="calcRow('${rowId}')" class="da_altri_q w-full border-slate-200 border rounded-lg p-1 text-center text-xs" value="${dati?.da_altri_q || 0}"></td>
-                <td class="p-1 bg-red-50 text-center font-bold text-m361-red text-xs da_ord">0</td>
-                <td class="p-1 text-right pr-4 font-bold text-xs totale_riga">€ 0.00</td>
-                <td class="p-1 text-center"><button type="button" onclick="this.closest('tr').remove(); calcGrandTotal();" class="text-gray-300 hover:text-red-500">✕</button></td>
-            `;
-            tbody.appendChild(row);
-            calcRow(rowId);
+    function checkSum(rowId) {
+        const row = document.getElementById('row-' + rowId);
+        const totalQty = parseInt(row.querySelector('.qty').value);
+        const daEmpori = parseInt(row.querySelector('.da-empori').value) || 0;
+        const daAltri = parseInt(row.querySelector('.da-altri').value) || 0;
+
+        if((daEmpori + daAltri) > totalQty) {
+            row.classList.add('row-error');
+        } else {
+            row.classList.remove('row-error');
         }
+    }
 
-        function calcRow(rowId) {
-            const row = document.getElementById(`row-${rowId}`);
-            const qta = +row.querySelector('.qta').value || 0;
-            const prezzo = +row.querySelector('.prezzo').value || 0;
-            const sum = (+row.querySelector('.da_parte').value || 0) + (+row.querySelector('.da_forn').value || 0) + (+row.querySelector('.da_emp_q').value || 0) + (+row.querySelector('.da_altri_q').value || 0);
-            
-            const daOrd = qta - sum;
-            row.querySelector('.da_ord').innerText = daOrd > 0 ? daOrd : 0;
-            row.querySelector('.totale_riga').innerText = `€ ${(qta * prezzo).toFixed(2)}`;
-            calcGrandTotal();
-        }
+    function updateRow(id) {
+        const row = document.getElementById('row-' + id);
+        const price = parseFloat(row.querySelector('.prezzo').innerText);
+        const qty = parseInt(row.querySelector('.qty').value);
+        const subtotal = price * qty;
+        row.querySelector('.subtotale').innerText = subtotal.toFixed(2);
+        
+        calculateTotal();
+    }
 
-        function calcGrandTotal() {
-            let total = 0;
-            document.querySelectorAll('.totale_riga').forEach(el => {
-                total += parseFloat(el.innerText.replace('€', '').trim()) || 0;
-            });
-            document.getElementById('grand-total').innerText = `€ ${total.toFixed(2)}`;
-            document.getElementById('saldo-finale').innerText = `€ ${total.toFixed(2)}`; // Semplificato senza acconto per ora
-        }
+    function calculateTotal() {
+        let lordo = 0;
+        document.querySelectorAll('.subtotale').forEach(s => {
+            lordo += parseFloat(s.innerText);
+        });
+        document.getElementById('totaleLordo').innerText = lordo.toFixed(2);
+        calculateFinal();
+    }
 
-        async function salvaModifiche() {
-            const articoli = [];
-            document.querySelectorAll('.product-row').forEach(row => {
-                articoli.push({
-                    codice: row.querySelector('.codice').value,
-                    descrizione: row.querySelector('.descrizione').value,
-                    prezzo: parseFloat(row.querySelector('.prezzo').value),
-                    qta: parseInt(row.querySelector('.qta').value),
-                    da_parte: parseInt(row.querySelector('.da_parte').value),
-                    da_forn: parseInt(row.querySelector('.da_forn').value),
-                    da_emp_q: parseInt(row.querySelector('.da_emp_q').value),
-                    da_altri_q: parseInt(row.querySelector('.da_altri_q').value)
-                });
-            });
+    function calculateFinal() {
+        const lordo = parseFloat(document.getElementById('totaleLordo').innerText);
+        const acconto = parseFloat(document.getElementById('acconto').value) || 0;
+        const finale = lordo - acconto;
+        document.getElementById('saldoFinale').innerText = finale.toFixed(2);
+    }
+</script>
 
-            const updateData = {
-                citta: document.getElementById('select-emporio').value,
-                operatore: document.getElementById('select-operatore').value,
-                data_ordine: document.getElementById('order-date').value,
-                cliente_nome: document.getElementById('cust-nome').value,
-                cliente_cognome: document.getElementById('cust-cognome').value,
-                cliente_cellulare: document.getElementById('cust-tel').value,
-                articoli: articoli,
-                totale_ordine: parseFloat(document.getElementById('grand-total').innerText.replace('€', '').trim())
-            };
-
-            const { error } = await _supabase.from('ordini_incorso').update(updateData).eq('id', ordineId);
-            if (!error) {
-                alert("Modifiche salvate!");
-                window.location.href = 'logistica.html';
-            } else {
-                alert("Errore salvataggio");
-            }
-        }
-
-        window.onload = initModifica;
-        document.getElementById('select-emporio').onchange = (e) => popolaOperatori(e.target.value);
-    </script>
 </body>
 </html>
