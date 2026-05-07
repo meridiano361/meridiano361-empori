@@ -399,10 +399,57 @@
             }
         }
 
-        function validateSubmission(e) {
-            e.preventDefault();
-            alert("Ordine salvato con successo!");
-            return false;
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// Configurazione Supabase
+const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function validateSubmission(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio...';
+
+    try {
+        // Recupero dei dati dai campi del tuo HTML
+        const nuovoOrdine = {
+            citta: document.getElementById('select-emporio').value,
+            operatore: document.getElementById('select-operatore').value,
+            data_ordine: document.getElementById('order-date').value,
+            cliente_nome: document.querySelector('input[placeholder="Nome *"]').value,
+            cliente_cognome: document.querySelector('input[placeholder="Cognome *"]').value,
+            cliente_email: document.querySelector('input[placeholder="Email"]').value,
+            cliente_cellulare: document.querySelector('input[placeholder="Cellulare *"]').value,
+            modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
+            totale_ordine: parseFloat(document.getElementById('grand-total').innerText.replace('€', '').trim()) || 0,
+            da_pagare: parseFloat(document.getElementById('saldo-finale').innerText.replace('€', '').trim()) || 0,
+            stato: 'Nuovo'
+        };
+
+        // Inserimento nella tabella ordini_in_corso
+        const { data, error } = await _supabase
+            .from('ordini_in_corso')
+            .insert([nuovoOrdine]);
+
+        if (error) throw error;
+
+        alert("Ordine salvato correttamente!");
+        window.location.href = "ordini_incorso.html";
+
+    } catch (error) {
+        console.error("Errore Supabase:", error);
+        alert("Errore nel salvataggio: " + error.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Ordine';
+    }
+
+    return false;
+}
+</script>
         }
 
         window.onload = () => { document.getElementById('order-date').valueAsDate = new Date(); };
