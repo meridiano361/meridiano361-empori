@@ -26,6 +26,13 @@
             transform: translateX(100px);
             opacity: 0;
         }
+
+        /* Stile per i bottoni filtro attivi */
+        .filter-btn.active {
+            background-color: #1e293b;
+            color: white;
+            border-color: #1e293b;
+        }
     </style>
 </head>
 <body class="pb-20">
@@ -41,10 +48,11 @@
     <main class="max-w-7xl mx-auto p-4 md:p-8">
         
         <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <div class="flex gap-2">
-                <button id="btn-tutti" onclick="caricaOrdini('tutti')" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase">Tutti</button>
-                <button id="btn-da-ordinare" onclick="caricaOrdini('da_ordinare')" class="bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red">Merce da ordinare</button>
-                <button id="btn-da-avvisare" onclick="caricaOrdini('da_avvisare')" class="bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red">Clienti da avvisare</button>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="caricaOrdini('tutti')" class="filter-btn bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red transition-all">Tutti</button>
+                <button onclick="caricaOrdini('da_ordinare')" class="filter-btn bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red transition-all">Merce da ordinare</button>
+                <button onclick="caricaOrdini('da_avvisare')" class="filter-btn bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red transition-all">Clienti da avvisare</button>
+                <button onclick="caricaOrdini('avvisati')" class="filter-btn bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red transition-all">Clienti avvisati</button>
             </div>
             <div class="relative w-full md:w-80">
                 <input type="text" id="searchInput" placeholder="Cerca cliente..." class="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm focus:ring-1 focus:ring-m361-red outline-none">
@@ -63,14 +71,13 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Funzione per aggiornare il database quando spunti le checkbox
         async function aggiornaStato(id, campo, valore) {
             const { error } = await _supabase.from('ordini_incorso').update({ [campo]: valore }).eq('id', id);
             if (error) {
-                alert("Errore aggiornamento: " + error.message);
+                alert("Errore: " + error.message);
             } else {
-                // Se abbiamo cambiato lo stato della merce, ricarichiamo per aggiornare i badge/filtri
-                if(campo === 'merce_pronta') caricaOrdini();
+                // Rinfresca la lista per spostare l'ordine se un filtro è attivo
+                // caricaOrdini(attualeFiltro); 
             }
         }
 
@@ -95,37 +102,43 @@
         }
 
         function apriMenuEvasione(id, elementId) {
-            const scelta = confirm("L'ordine è RITIRATO (OK) o SPEDITO (Annulla)?");
+            const scelta = confirm("Premi OK se l'ordine è RITIRATO, ANNULLA se è SPEDITO");
             archiviaOrdine(id, elementId, scelta ? 'ritirato' : 'spedito');
         }
 
         async function caricaOrdini(filtro = 'tutti') {
             const container = document.getElementById('orders-container');
+            container.innerHTML = `<p class="text-center text-slate-400 py-10">Caricamento in corso...</p>`;
+            
             let query = _supabase.from('ordini_incorso').select('*').order('created_at', { ascending: false });
 
-            // LOGICA FILTRI RICHIESTA
+            // LOGICA FILTRI CORRETTA
             if (filtro === 'da_ordinare') {
                 query = query.eq('merce_pronta', false);
             } else if (filtro === 'da_avvisare') {
-                // Merce pronta MA cliente non ancora avvisato
                 query = query.eq('merce_pronta', true).eq('cliente_avvisato', false);
+            } else if (filtro === 'avvisati') {
+                query = query.eq('cliente_avvisato', true);
             }
 
             const { data: ordini, error } = await query;
-
             if (error) {
                 container.innerHTML = `<p class="text-center text-red-500">Errore: ${error.message}</p>`;
                 return;
             }
 
-            container.innerHTML = ordini.length === 0 ? `<p class="text-center text-slate-400 py-10">Nessun ordine trovato.</p>` : "";
+            container.innerHTML = ordini.length === 0 ? `<p class="text-center text-slate-400 py-10">Nessun ordine trovato per questa categoria.</p>` : "";
 
             ordini.forEach(ord => {
                 const cardId = `card-${ord.id}`;
                 const importo = ord.da_pagare ? parseFloat(ord.da_pagare).toFixed(2) : "0.00";
                 const nomeCliente = (ord.cliente_nome || "") + " " + (ord.cliente_cognome || "");
                 
-                // Badge basato sulla quantità "da parte" gestita all'inserimento
+                // Nascondi la riga merce se è vuota o contiene solo trattini
+                const merceDettaglio = (ord.merce_ordinata && ord.merce_ordinata !== "---") 
+                    ? `<p class="text-xs text-slate-500 mt-2"><span class="font-bold text-slate-700 uppercase text-[10px]">Merce:</span> ${ord.merce_ordinata}</p>` 
+                    : "";
+
                 const badgeTesto = ord.merce_pronta ? 'Merce Pronta' : 'Merce da ordinare';
                 const badgeClasse = ord.merce_pronta ? 'status-ready' : 'status-waiting';
 
@@ -138,35 +151,33 @@
                                 <span class="text-[10px] font-mono text-slate-400">#${ord.id.toString().slice(-5)}</span>
                             </div>
                             <div class="flex gap-4">
-                                <button onclick="window.location.href='ordini_nuovi.html?edit=${ord.id}'" class="text-[#6b8d53] hover:scale-110 transition-transform">
+                                <button onclick="window.location.href='ordini_nuovi.html?edit=${ord.id}'" class="text-[#6b8d53] p-1 hover:scale-110 transition-transform">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
-                                <button onclick="eliminaOrdine('${ord.id}', '${cardId}')" class="text-[#b75252] hover:scale-110 transition-transform">
+                                <button onclick="eliminaOrdine('${ord.id}', '${cardId}')" class="text-[#b75252] p-1 hover:scale-110 transition-transform">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                 </button>
                             </div>
                         </div>
-                        <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight">${nomeCliente.trim() || 'Senza Nome'}</h3>
-                        <p class="text-xs text-slate-500 mt-2">
-                            <span class="font-bold text-slate-700 uppercase text-[10px]">Merce:</span> ${ord.merce_ordinata || '---'}
-                        </p>
+                        <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight">${nomeCliente.trim() || 'Cliente senza nome'}</h3>
+                        ${merceDettaglio}
                     </div>
 
                     <div class="flex-1 w-full flex flex-col gap-3 border-l border-r border-slate-100 px-6">
-                        <label class="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" ${ord.merce_pronta ? 'checked' : ''} onchange="aggiornaStato('${ord.id}', 'merce_pronta', this.checked)" class="w-5 h-5 accent-blue-600">
-                            <span class="text-[11px] font-bold text-slate-600 uppercase group-hover:text-blue-600 transition-colors">Merce Pronta</span>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" ${ord.merce_pronta ? 'checked' : ''} onchange="aggiornaStato('${ord.id}', 'merce_pronta', this.checked)" class="w-5 h-5 accent-blue-600 rounded-lg">
+                            <span class="text-[11px] font-bold text-slate-600 uppercase">Merce Pronta</span>
                         </label>
-                        <label class="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" ${ord.cliente_avvisato ? 'checked' : ''} onchange="aggiornaStato('${ord.id}', 'cliente_avvisato', this.checked)" class="w-5 h-5 accent-blue-600">
-                            <span class="text-[11px] font-bold text-slate-600 uppercase group-hover:text-blue-600 transition-colors">Cliente Avvisato</span>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" ${ord.cliente_avvisato ? 'checked' : ''} onchange="aggiornaStato('${ord.id}', 'cliente_avvisato', this.checked)" class="w-5 h-5 accent-blue-600 rounded-lg">
+                            <span class="text-[11px] font-bold text-slate-600 uppercase">Cliente Avvisato</span>
                         </label>
                     </div>
 
                     <div class="flex-1 w-full text-right flex flex-col items-end justify-center">
                         <p class="text-[10px] font-bold text-slate-400 uppercase">Da incassare</p>
                         <p class="text-2xl font-black text-[#b75252] mb-4">€ ${importo}</p>
-                        <button onclick="apriMenuEvasione('${ord.id}', '${cardId}')" class="bg-slate-700 text-white px-6 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-900 shadow-sm transition-colors">
+                        <button onclick="apriMenuEvasione('${ord.id}', '${cardId}')" class="bg-slate-700 text-white px-6 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-900 shadow-sm">
                             Ritirato / Spedito
                         </button>
                     </div>
@@ -175,7 +186,7 @@
             });
         }
 
-        // Avvio unico al caricamento della pagina
+        // Avvio
         window.onload = () => caricaOrdini('tutti');
     </script>
 </body>
