@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M361 - Modifica Ordine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 font-['Inter'] p-8">
+
+    <div class="max-w-2xl mx-auto bg-white rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-[900] text-slate-800 uppercase tracking-tight">Modifica Ordine</h1>
+            <a href="logistica_ordini.html" class="text-slate-400 hover:text-slate-600 font-bold text-sm">ANNULLA</a>
+        </div>
+
+        <form id="edit-form" class="space-y-6">
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Nome</label>
+                    <input type="text" id="nome" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#b75252]/20 focus:border-[#b75252] transition-all" required>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Cognome</label>
+                    <input type="text" id="cognome" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#b75252]/20 focus:border-[#b75252] transition-all" required>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Note / Dettagli Ordine</label>
+                <textarea id="note" rows="4" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-[#b75252]/20 focus:border-[#b75252] transition-all"></textarea>
+            </div>
+
+            <button type="submit" class="w-full bg-[#b75252] text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-lg hover:opacity-90 active:scale-[0.98] transition-all">
+                Salva Modifiche
+            </button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 1. Prendi l'ID dell'ordine dall'URL
+        const params = new URLSearchParams(window.location.search);
+        const ordineId = params.get('id');
+
+        // 2. Carica i dati attuali
+        async function caricaDati() {
+            if (!ordineId) return;
+            const { data, error } = await _supabase.from('ordini_incorso').select('*').eq('id', ordineId).single();
+            
+            if (data) {
+                document.getElementById('nome').value = data.cliente_nome || '';
+                document.getElementById('cognome').value = data.cliente_cognome || '';
+                document.getElementById('note').value = data.note || '';
+            }
+        }
+
+        // 3. Salva le modifiche
+        document.getElementById('edit-form').onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const updates = {
+                cliente_nome: document.getElementById('nome').value,
+                cliente_cognome: document.getElementById('cognome').value,
+                note: document.getElementById('note').value
+            };
+
+            const { error } = await _supabase.from('ordini_incorso').update(updates).eq('id', ordineId);
+
+            if (!error) {
+                alert("Ordine aggiornato con successo!");
+                window.location.href = 'logistica_ordini.html'; // Torna alla lista
+            } else {
+                alert("Errore durante il salvataggio.");
+            }
+        };
+
+        window.onload = caricaDati;
+    </script>
+</body>
+</html>
