@@ -428,6 +428,40 @@
                 document.getElementById('order-date').valueAsDate = new Date();
             }
         };
+        <script>
+function getParametroEdit() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('edit');
+}
+
+async function caricaOrdineInModifica() {
+    const id = getParametroEdit();
+    if (!id) return;
+
+    const { data: ordine, error } = await _supabase
+        .from('ordini_incorso')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error || !ordine) {
+        console.error("Errore caricamento ordine", error);
+        return;
+    }
+
+    // ⚠️ QUI DEVI MAPPARE I CAMPI DEL TUO FORM
+    document.querySelector('[name="cliente_nome"]').value = ordine.cliente_nome || '';
+    document.querySelector('[name="cliente_cognome"]').value = ordine.cliente_cognome || '';
+    document.querySelector('[name="metodo_consegna"]').value = ordine.metodo_consegna || '';
+
+    // aggiungi altri campi se presenti
+}
+
+// avvio automatico
+window.onload = () => {
+    caricaOrdineInModifica();
+};
+</script>
     </script>
 </body>
 </html>
