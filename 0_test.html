@@ -5,111 +5,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M361 - Ordini in Corso</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; uppercase; }
+        .text-m361-red { color: #b75252; }
         .bg-m361-red { background-color: #b75252; }
+        .text-m361-green { color: #6b8d53; }
+        .bg-m361-green { background-color: #6b8d53; }
+        
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .status-waiting { background-color: #fef3c7; color: #92400e; }
+        .status-ready { background-color: #d1fae5; color: #065f46; }
+
+        .archive-anim {
+            transition: all 0.5s ease;
+            transform: translateX(100px);
+            opacity: 0;
+        }
     </style>
 </head>
 <body class="pb-20">
 
     <header class="bg-white border-b p-4 px-8 flex justify-between items-center sticky top-0 z-50">
         <div class="flex items-center gap-4">
-            <img src="logom361_rosso.jpg" alt="Logo" class="h-8">
-            <h1 class="font-bold text-lg border-l pl-4 ml-2 text-slate-700">Ordini in Corso</h1>
+            <a href="ordini.html">
+                <img src="logom361_rosso.jpg" alt="Logo" class="h-10">
+            </a>
+            <h1 class="font-bold text-xl border-l pl-4 ml-2 text-slate-700">Ordini in Corso</h1>
         </div>
-        <a href="nuovo_ordine.html" class="bg-m361-red text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md">+ NUOVO ORDINE</a>
+        <a href="nuovo_ordine.html" class="bg-m361-red text-white px-6 py-2 rounded-xl text-xs font-bold uppercase shadow-md hover:opacity-90 transition-all">+ Nuovo</a>
     </header>
 
-    <main class="max-w-7xl mx-auto p-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-50 text-[10px] text-gray-400 uppercase tracking-wider border-b">
-                        <th class="p-4 font-bold">Data</th>
-                        <th class="p-4 font-bold">Emporio</th>
-                        <th class="p-4 font-bold">Cliente</th>
-                        <th class="p-4 font-bold">Prodotti (Codici)</th>
-                        <th class="p-4 font-bold text-center">Da Fare</th>
-                        <th class="p-4 font-bold">Saldo</th>
-                        <th class="p-4 font-bold">Stato</th>
-                        <th class="p-4 w-10"></th>
-                    </tr>
-                </thead>
-                <tbody id="lista-ordini" class="divide-y divide-gray-100 text-sm">
-                    <tr id="loading-row">
-                        <td colspan="8" class="p-10 text-center text-gray-400 italic">Caricamento ordini in tempo reale...</td>
-                    </tr>
-                </tbody>
-            </table>
+    <main class="max-w-7xl mx-auto p-4 md:p-8">
+        
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <div class="flex gap-2" id="filter-buttons">
+                <button onclick="filterOrders('tutti')" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase filter-btn">Tutti</button>
+                <button onclick="filterOrders('da-avvisare')" class="bg-white border border-slate-200 text-slate-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:border-m361-red filter-btn">Da Avvisare</button>
+            </div>
+            <div class="relative w-full md:w-80">
+                <input type="text" id="search-input" oninput="searchOrders()" placeholder="Cerca cliente..." class="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm focus:ring-1 focus:ring-m361-red outline-none">
+                <svg class="w-4 h-4 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+        </div>
+
+        <div class="space-y-4" id="orders-container">
+            <div class="p-10 text-center text-slate-400 italic">Connessione al database in corso...</div>
         </div>
     </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // USA LE STESSE CHIAVI CHE HAI USATO NEL FILE NUOVO ORDINE
         const firebaseConfig = {
             apiKey: "IL_TUO_API_KEY",
-            authDomain: "IL_TUO_PROJECT_ID.firebaseapp.com",
             databaseURL: "https://IL_TUO_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "IL_TUO_PROJECT_ID",
-            storageBucket: "IL_TUO_PROJECT_ID.appspot.com",
-            messagingSenderId: "...",
-            appId: "..."
+            // ... incolla qui il resto del tuo config
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const ordiniRef = ref(db, 'ordini');
 
-        // ASCOLTO DEI DATI IN TEMPO REALE
+        // FUNZIONE PER RENDERE LE CARD
         onValue(ordiniRef, (snapshot) => {
             const data = snapshot.val();
-            const container = document.getElementById('lista-ordini');
-            container.innerHTML = ""; // Pulisce la tabella
+            const container = document.getElementById('orders-container');
+            container.innerHTML = "";
 
             if (!data) {
-                container.innerHTML = '<tr><td colspan="8" class="p-10 text-center text-gray-400">Nessun ordine in corso trovato.</td></tr>';
+                container.innerHTML = '<div class="text-center p-10 text-slate-400">Nessun ordine presente in database.</div>';
                 return;
             }
 
-            // Trasforma l'oggetto in array e lo inverte per vedere i più recenti in alto
-            const arrayOrdini = Object.entries(data).reverse();
-
-            arrayOrdini.forEach(([id, ordine]) => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition-colors";
-                
-                // Crea la stringa dei prodotti (es: "A01 (x2), B05 (x1)")
-                const codiciProdotti = ordine.prodotti.map(p => `${p.codice} (${p.quantita})`).join(", ");
-                
-                // Calcola totale pezzi "Da Fare"
+            Object.entries(data).reverse().forEach(([id, ordine]) => {
+                // Calcolo se l'ordine è pronto (se "da fare" è 0 per tutti i prodotti)
                 const totaleDaFare = ordine.prodotti.reduce((acc, p) => acc + parseInt(p.daFare || 0), 0);
+                const isPronto = totaleDaFare === 0;
+                const statusClass = isPronto ? 'status-ready' : 'status-waiting';
+                const statusLabel = isPronto ? 'Merce Pronta' : 'In attesa';
 
-                tr.innerHTML = `
-                    <td class="p-4 font-medium text-slate-600">${ordine.data}</td>
-                    <td class="p-4 text-slate-500">${ordine.citta}</td>
-                    <td class="p-4">
-                        <div class="font-bold text-slate-700">${ordine.cliente.nome} ${ordine.cliente.cognome}</div>
-                        <div class="text-[10px] text-gray-400">${ordine.cliente.cellulare}</div>
-                    </td>
-                    <td class="p-4 text-xs text-slate-500 max-w-xs truncate">${codiciProdotti}</td>
-                    <td class="p-4 text-center font-bold text-m361-red">${totaleDaFare}</td>
-                    <td class="p-4 font-bold text-slate-700">${ordine.saldo}</td>
-                    <td class="p-4">
-                        <span class="status-badge bg-orange-100 text-orange-600">${ordine.stato || 'In corso'}</span>
-                    </td>
-                    <td class="p-4 text-right">
-                        <button class="text-gray-300 hover:text-slate-600"><i class="fas fa-ellipsis-v"></i></button>
-                    </td>
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center transition-all";
+                card.id = `order-${id}`;
+                
+                card.innerHTML = `
+                    <div class="flex-1 w-full">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="status-badge ${statusClass}">${statusLabel}</span>
+                            <span class="text-[10px] font-mono text-slate-400 uppercase">${ordine.citta}</span>
+                        </div>
+                        <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight">${ordine.cliente.nome} ${ordine.cliente.cognome}</h3>
+                        <p class="text-sm text-slate-500 flex items-center gap-2">
+                            ${ordine.cliente.cellulare} 
+                            <span class="bg-emerald-50 text-emerald-600 text-[10px] px-1.5 rounded font-bold">WA</span>
+                        </p>
+                    </div>
+
+                    <div class="flex-1 w-full flex flex-col gap-3 border-l border-r border-slate-100 px-6">
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" ${ordine.avvisato ? 'checked' : ''} 
+                                   onchange="window.toggleAvvisato('${id}', this.checked)"
+                                   class="w-5 h-5 accent-blue-600 rounded">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-700 uppercase">Cliente Avvisato</span>
+                                <span class="text-[9px] text-slate-400 uppercase font-bold">Spunta dopo chiamata/WA</span>
+                            </div>
+                        </label>
+                        
+                        <hr class="border-slate-50">
+
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" onchange="window.archiveOrder('${id}')" class="w-5 h-5 accent-m361-green rounded">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-700 uppercase group-hover:text-m361-green">Consegnato / Ritirato</span>
+                                <span class="text-[9px] text-m361-green font-bold uppercase italic">Sposta in archivio</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex-1 w-full text-right flex flex-col items-end">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">Da incassare</p>
+                        <p class="text-2xl font-black text-m361-red mb-4">${ordine.saldo}</p>
+                        <div class="flex gap-2">
+                            <button onclick="window.editOrder('${id}')" class="text-slate-400 p-2 hover:text-slate-800">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2"/></svg>
+                            </button>
+                            <button class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-200">Dettagli</button>
+                        </div>
+                    </div>
                 `;
-                container.appendChild(tr);
+                container.appendChild(card);
             });
         });
+
+        // FUNZIONI GLOBALI (WINDOW) PER ESSERE CHIAMATE DALL'HTML
+        window.toggleAvvisato = (id, val) => {
+            update(ref(db, `ordini/${id}`), { avvisato: val });
+        };
+
+        window.archiveOrder = (id) => {
+            const el = document.getElementById(`order-${id}`);
+            setTimeout(() => {
+                el.classList.add('archive-anim');
+                setTimeout(() => {
+                    // Qui potresti spostare i dati in 'archivio' invece di eliminarli
+                    remove(ref(db, `ordini/${id}`));
+                    alert("Ordine archiviato!");
+                }, 500);
+            }, 300);
+        };
     </script>
 </body>
 </html>
