@@ -25,14 +25,16 @@
     <header class="bg-white border-b p-4 px-6 md:px-8 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div class="flex items-center gap-4">
             <img src="logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.style.display='none'">
-            <h1 id="header-title" class="font-bold text-lg border-l pl-4 text-slate-700 hidden md:block">Nuovo Ordine</h1>
+            <h1 id="header-title" class="font-bold text-lg border-l pl-4 text-slate-700">Nuovo Ordine</h1>
         </div>
-        
+        <button onclick="goBack()" id="back-btn" class="hidden text-sm font-bold text-slate-500 hover:text-m361-red transition-colors flex items-center gap-2">
+            <i class="fas fa-arrow-left"></i> Indietro
+        </button>
     </header>
 
     <main class="max-w-[1600px] mx-auto p-4 md:p-6">
         <div id="order-type-selection" class="mb-8 text-center bg-white p-8 md:p-16 rounded-3xl shadow-sm border border-gray-100">
-            <div class="flex flex-col md:flex-row justify-center gap-6 mb-6">
+            <div class="flex flex-col md:flex-row justify-center gap-6">
                 <button onclick="initOrder('standard')" class="px-10 py-6 bg-m361-red text-white hover:opacity-90 rounded-2xl font-bold transition-all shadow-md text-lg uppercase flex items-center justify-center gap-3">
                     <i class="fas fa-shopping-bag"></i> Ordine Standard
                 </button>
@@ -40,9 +42,6 @@
                     <i class="fas fa-gift"></i> Ordine Bomboniere
                 </button>
             </div>
-            <button onclick="window.location.href='menu_principale.html'" class="text-sm font-bold text-slate-500 hover:text-m361-red transition-colors">
-                <i class="fas fa-house mr-2"></i> Torna al menu principale
-            </button>
         </div>
 
         <form id="orderForm" class="hidden space-y-6" onsubmit="return validateSubmission(event)">
@@ -145,16 +144,6 @@
         </form>
     </main>
 
-    <footer class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
-        <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500">
-            <div class="flex items-center gap-2"><i class="fas fa-store"></i><span>Area Negozio</span></div>
-            <div class="flex items-center gap-2"><i class="fas fa-user"></i><span>Area Cliente</span></div>
-            <div class="flex items-center gap-2"><i class="fas fa-bag-shopping"></i><span>Ordini</span></div>
-            <div class="flex items-center gap-2"><i class="fas fa-box-open"></i><span>Archivio</span></div>
-            <div class="flex items-center gap-2"><i class="fas fa-message"></i><span>Messaggi</span></div>
-        </div>
-    </footer>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
@@ -172,9 +161,18 @@
             "Reggio Emilia": ["Alessia Bartolomei", "Elsa Scarpa", "Manuela Capanni", "Marica Pioli"]
         };
 
+        // Indietro: se il form è visibile torna alla scelta tipo ordine, altrimenti va agli ordini in corso
         function goBack() {
-            if (document.getElementById('orderForm').classList.contains('hidden')) window.location.href = 'menu_principale.html';
-            else window.location.reload();
+            if (!document.getElementById('orderForm').classList.contains('hidden')) {
+                document.getElementById('orderForm').classList.add('hidden');
+                document.getElementById('order-type-selection').classList.remove('hidden');
+                document.getElementById('header-title').innerText = 'Nuovo Ordine';
+                document.getElementById('back-btn').classList.add('hidden');
+                groupCount = 0;
+                document.getElementById('groups-container').innerHTML = '';
+            } else {
+                window.location.href = 'ordini_incorso.html';
+            }
         }
 
         function cleanStr(v) { return (v || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase(); }
@@ -205,6 +203,7 @@
             document.getElementById('order-type-selection').classList.add('hidden');
             document.getElementById('orderForm').classList.remove('hidden');
             document.getElementById('header-title').innerText = type === 'bomboniere' ? 'Ordine Bomboniere' : 'Ordine Standard';
+            document.getElementById('back-btn').classList.remove('hidden');
             if (type === 'bomboniere') document.getElementById('add-group-container').classList.remove('hidden');
             addGroup();
             refreshNumeroOrdinePreview();
@@ -244,12 +243,12 @@
             const nuovaCitta = prompt("Inserisci il nome della nuova città:");
             if (nuovaCitta && nuovaCitta.trim() !== "") {
                 const nome = nuovaCitta.trim();
-                if(!ALL_EMPORI.includes(nome)) {
+                if (!ALL_EMPORI.includes(nome)) {
                     ALL_EMPORI.push(nome);
                     const select = document.getElementById('select-emporio');
                     const opt = document.createElement('option');
                     opt.value = nome; opt.text = nome;
-                    select.add(opt); 
+                    select.add(opt);
                     select.value = nome;
                     handleCittaChange(select);
                 }
@@ -258,12 +257,10 @@
 
         function removeCurrentCity() {
             const select = document.getElementById('select-emporio');
-            if (select.selectedIndex > 0) {
-                if (confirm("Rimuovere la città selezionata?")) {
-                    ALL_EMPORI = ALL_EMPORI.filter(c => c !== select.value);
-                    select.remove(select.selectedIndex);
-                    handleCittaChange(select);
-                }
+            if (select.selectedIndex > 0 && confirm("Rimuovere la città selezionata?")) {
+                ALL_EMPORI = ALL_EMPORI.filter(c => c !== select.value);
+                select.remove(select.selectedIndex);
+                handleCittaChange(select);
             }
         }
 
@@ -273,7 +270,7 @@
                 const opSelect = document.getElementById('select-operatore');
                 const opt = document.createElement('option');
                 opt.value = nome.trim(); opt.text = nome.trim();
-                opSelect.add(opt); 
+                opSelect.add(opt);
                 opSelect.value = opt.value;
                 refreshNumeroOrdinePreview();
             }
@@ -337,7 +334,7 @@
             row.innerHTML = `
                 <td class="p-1 pl-4"><input type="text" placeholder="Codice" required class="w-full border-gray-200 border rounded-lg p-2"></td>
                 <td class="p-1"><input type="text" placeholder="Descrizione" required class="w-full border-gray-200 border rounded-lg p-2"></td>
-                <td class="p-1"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow('${rowId}', ${groupId}); refreshNumeroOrdinePreview();" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0.00"></td>
+                <td class="p-1"><input type="text" onfocus="clearCurrency(this)" onblur="formatCurrency(this)" oninput="calcRow('${rowId}', ${groupId})" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0.00"></td>
                 <td class="p-1"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="1"></td>
                 <td class="p-1 bg-green-50"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="parte-input w-full border-green-200 border rounded-lg p-2 text-center" value="0"></td>
                 <td class="p-1 bg-slate-50"><input type="number" oninput="calcRow('${rowId}', ${groupId})" class="forn-input w-full border-slate-200 border rounded-lg p-2 text-center" value="0"></td>
@@ -369,7 +366,7 @@
             row.classList.toggle('row-error', sumProv > qty);
             document.getElementById(`do-${rowId}`).innerText = (qty - sumProv) > 0 ? (qty - sumProv) : 0;
             document.getElementById(`tot-riga-${rowId}`).innerText = (qty * price).toFixed(2);
-            if(currentType === 'bomboniere') calcSubtotal(groupId);
+            if (currentType === 'bomboniere') calcSubtotal(groupId);
             calcGrandTotal();
             validateGlobal();
         }
@@ -384,7 +381,7 @@
         function calcSubtotal(groupId) {
             let sub = 0;
             const container = document.getElementById(`rows-container-${groupId}`);
-            if(container) {
+            if (container) {
                 container.querySelectorAll('.row-total').forEach(el => sub += parseFloat(el.innerText) || 0);
                 document.getElementById(`subtotal-${groupId}`).innerText = `€ ${sub.toFixed(2)}`;
             }
@@ -393,15 +390,14 @@
         function calcGrandTotal() {
             let grand = 0;
             document.querySelectorAll('.row-total').forEach(el => grand += parseFloat(el.innerText) || 0);
-            const accStr = document.getElementById('acconto').value.replace('€', '').trim();
-            const acc = parseFloat(accStr) || 0;
+            const acc = parseFloat(document.getElementById('acconto').value.replace('€', '').trim()) || 0;
             document.getElementById('grand-total').innerText = `€ ${grand.toFixed(2)}`;
             document.getElementById('saldo-finale').innerText = `€ ${(grand - acc).toFixed(2)}`;
         }
 
         function formatCurrency(input) { let val = parseFloat(input.value.replace('€', '').trim()) || 0; input.value = '€ ' + val.toFixed(2); }
-        function clearCurrency(input) { let val = input.value.replace('€', '').trim(); if(val == '0.00' || val == '0') input.value = ''; }
-        function removeRow(rowId, groupId) { const row = document.getElementById(`row-${rowId}`); if(row) { row.remove(); if(currentType === 'bomboniere') calcSubtotal(groupId); calcGrandTotal(); validateGlobal(); } }
+        function clearCurrency(input) { let val = input.value.replace('€', '').trim(); if (val == '0.00' || val == '0') input.value = ''; }
+        function removeRow(rowId, groupId) { const row = document.getElementById(`row-${rowId}`); if (row) { row.remove(); if (currentType === 'bomboniere') calcSubtotal(groupId); calcGrandTotal(); validateGlobal(); } }
 
         async function validateSubmission(e) {
             e.preventDefault();
@@ -432,8 +428,7 @@
                 const canale = citta === 'Cremona' ? document.getElementById('select-canale').value : null;
                 const numeroOrdine = buildNumeroOrdine(
                     document.getElementById('order-date').value,
-                    citta,
-                    canale,
+                    citta, canale,
                     document.getElementById('select-operatore').value,
                     document.getElementById('cust-nome').value,
                     document.getElementById('cust-cognome').value,
@@ -457,7 +452,6 @@
                     stato: 'Nuovo',
                     tipo_ordine: currentType,
                     articoli: articoli,
-                    wa_attivo: document.getElementById('wa-btn') ? document.getElementById('wa-btn').classList.contains('wa-active') : true,
                     canale: canale,
                     note: document.getElementById('order-notes').value
                 };
@@ -475,10 +469,10 @@
         }
 
         window.onload = () => {
-            if(document.getElementById('order-date')) document.getElementById('order-date').valueAsDate = new Date();
+            if (document.getElementById('order-date')) document.getElementById('order-date').valueAsDate = new Date();
         };
     </script>
- 
+
     <script src="/nav-script.js"></script>
 </body>
 </html>
