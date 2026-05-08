@@ -1,11 +1,10 @@
-// nav-script.js — header + menu condivisi
+// nav-script.js — header + bottom bar condivisi
 (function () {
   const NAV_ITEMS = [
-    { label: 'Home',     icon: 'fa-house',         href: '../../index.html' },
-    { label: 'Cassa',    icon: 'fa-cash-register', href: '../../pages/cassa/cassa.html' },
-    { label: 'Prodotti', icon: 'fa-box-open',      href: '../../pages/prodotti/prodotti.html' },
-    { label: 'Ordini',   icon: 'fa-clipboard-list', href: '../../pages/ordini/ordini.html' },
-    { label: 'Report',   icon: 'fa-chart-bar',     href: '../../pages/report/report.html' }
+    { label: 'Home',         icon: 'fa-house',       href: '../../index.html',               active: true },
+    { label: 'Area cliente', icon: 'fa-user',        href: '../../pages/area-cliente.html',   active: true },
+    { label: 'Area negozi',  icon: 'fa-shop',        href: '../../pages/area-negozi.html',    active: true },
+    { label: 'Cassa',        icon: 'fa-cash-register', href: '../../pages/cassa/cassa.html',  active: false },
   ];
 
   function buildHeader() {
@@ -27,18 +26,36 @@
   function buildNav() {
     const currentPath = window.location.pathname.replace(/\\/g, '/');
     const nav = document.createElement('nav');
-    nav.className = 'fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex justify-around items-center px-2 py-2 shadow-lg';
+    nav.className = 'fixed bottom-0 left-0 right-0 z-50 bg-[#b75252] text-white border-t border-[#a84545] flex justify-around items-center px-2 py-2 shadow-lg';
 
     NAV_ITEMS.forEach(item => {
       const itemPath = item.href.replace('../../', '');
-      const isActive = currentPath.includes(itemPath);
+      const isCurrent = currentPath.includes(itemPath);
+
       const a = document.createElement('a');
       a.href = item.href;
-      a.className = `flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all ${isActive ? 'text-[#b75252] font-black' : 'text-slate-400 hover:text-[#b75252]'}`;
+      a.className = `flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all ${
+        item.active
+          ? 'text-white hover:opacity-90'
+          : 'text-[#e5e7eb] opacity-70 cursor-not-allowed pointer-events-none'
+      }`;
+
       a.innerHTML = `
-        <i class='fas ${item.icon} text-lg'></i>
-        <span style='font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;'>${item.label}</span>
+        <i class="fas ${item.icon} text-lg ${item.active ? 'text-white' : 'text-[#d1d5db]'}"></i>
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;">
+          ${item.label}
+        </span>
       `;
+
+      if (!item.active) {
+        a.setAttribute('aria-disabled', 'true');
+        a.title = 'In costruzione';
+      }
+
+      if (isCurrent && item.active) {
+        a.classList.add('drop-shadow-sm');
+      }
+
       nav.appendChild(a);
     });
 
