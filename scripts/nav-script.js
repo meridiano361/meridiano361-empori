@@ -1,14 +1,16 @@
 (function () {
 
-  // Rileva il path corrente per impostare la voce attiva
   const path = window.location.pathname;
 
-  // Calcola il prefisso relativo in base alla profondità della pagina
+  // Calcola il base in modo preciso in base al path
   function getBase() {
-    const depth = (path.match(/\//g) || []).length - 1;
-    if (depth <= 1) return './';
-    if (depth === 2) return '../';
-    return '../../';
+    if (path.includes('/pages/ordini/') || path.includes('/pages/turni/') || path.includes('/pages/cassa/')) {
+      return '../../';
+    }
+    if (path.includes('/pages/')) {
+      return '../';
+    }
+    return './';
   }
   const base = getBase();
 
@@ -95,18 +97,16 @@
     }
   ];
 
-  // Costruisci il nav
   const nav = document.createElement('nav');
   nav.className = 'bottom-nav';
 
   voci.forEach(voce => {
-    const isActive = !voce.wip && (
-      path.endsWith(voce.href.replace(/^(\.\.\/)*/, '')) ||
-      (voce.href.includes('index.html') && (path === '/' || path.endsWith('index.html')))
+    const isActive = !voce.wip && path.includes(
+      voce.href.replace(/^(\.\/|\.\.\/|\.\.\/\.\.\/)/g, '')
     );
 
     const el = document.createElement(voce.wip ? 'span' : 'a');
-    el.className = 'nav-item' + (isActive ? ' active' : '') + (voce.wip ? ' wip' : '');
+    el.className = 'nav-item' + (isActive ? ' active' : '');
     if (!voce.wip) el.href = voce.href;
 
     el.innerHTML = voce.icon + `<span>${voce.label}</span>`;
