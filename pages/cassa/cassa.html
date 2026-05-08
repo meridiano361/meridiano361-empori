@@ -332,12 +332,14 @@ function weatherLabel(code) {
 async function autoWeather(emp) {
     const c = CITY_COORDS[emp];
     const el = document.getElementById('meteo-label');
-    if (!c) { el.textContent = '—'; return; }
+    if (!c) { el.value = 'variabile'; return; }
     try {
         const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=weather_code&timezone=Europe%2FRome`);
         const j = await r.json();
-        el.textContent = weatherLabel(j.current?.weather_code);
-    } catch { el.textContent = '—'; }
+        el.value = weatherLabel(j.current?.weather_code);
+    } catch {
+        el.value = 'variabile';
+    }
 }
 
 function fillDays() {
@@ -527,7 +529,7 @@ function fillForm(data) {
     if (data.note_mattino) document.getElementById('nota-mattino').value = data.note_mattino;
     if (data.note_pomeriggio) document.getElementById('nota-pomeriggio').value = data.note_pomeriggio;
     if (data.note_giornata) document.getElementById('nota-giornata').value = data.note_giornata;
-    if (data.meteo) document.getElementById('meteo-label').textContent = data.meteo;
+if (data.meteo) document.getElementById('meteo-label').value = data.meteo;
     if (data.arrivo_merci) document.getElementById('arrivo-merci').checked = true;
     if (data.iva_totale != null) document.getElementById('iva-totale').value = euro(data.iva_totale);
     if (data.iva_22 != null) document.getElementById('iva-22').value = euro(data.iva_22);
@@ -547,7 +549,7 @@ async function saveDay() {
         note_mattino: document.getElementById('nota-mattino').value || null,
         note_pomeriggio: document.getElementById('nota-pomeriggio').value || null,
         note_giornata: document.getElementById('nota-giornata').value || null,
-        meteo: document.getElementById('meteo-label').textContent || null,
+meteo: document.getElementById('meteo-label').value || null,
         arrivo_merci: document.getElementById('arrivo-merci').checked,
         iva_totale: parseEuro(document.getElementById('iva-totale').value),
         iva_22: parseEuro(document.getElementById('iva-22').value),
