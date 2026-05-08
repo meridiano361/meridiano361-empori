@@ -401,67 +401,66 @@
             }
         }
 
-        async function validateSubmission(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio...';
+       async function validateSubmission(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio...';
 
-            try {
-                const articoli = [];
-document.querySelectorAll('.product-row').forEach(row => {
-    const gId = row.closest('[id^="group-"]').id.replace('group-', '');
-    articoli.push({
-        gruppo_id: parseInt(gId),
-        codice: row.querySelector('td:nth-child(1) input').value,
-        descrizione: row.querySelector('td:nth-child(2) input').value,
-        prezzo: parseFloat(row.querySelector('.price-input').value.replace('€','').trim()) || 0,
-        qta: parseInt(row.querySelector('.qty-input').value) || 0,
-        da_parte: parseInt(row.querySelector('.parte-input').value) || 0,
-        da_forn: parseInt(row.querySelector('.forn-input').value) || 0,
-        da_emporio_qta: parseInt(row.querySelector('.emp-q-input').value) || 0,
-        da_emporio_nome: row.querySelector('.emporio-dropdown').value,
-        da_altri_qta: parseInt(row.querySelector('.altri-q-input').value) || 0,
-        da_altri_nome: row.querySelector('td:nth-child(8) input[type="text"]').value
-    });
-});
+    try {
+        const articoli = [];
+        document.querySelectorAll('.product-row').forEach(row => {
+            const gId = row.closest('[id^="group-"]').id.replace('group-', '');
+            articoli.push({
+                gruppo_id: parseInt(gId),
+                codice: row.querySelector('td:nth-child(1) input').value,
+                descrizione: row.querySelector('td:nth-child(2) input').value,
+                prezzo: parseFloat(row.querySelector('.price-input').value.replace('€','').trim()) || 0,
+                qta: parseInt(row.querySelector('.qty-input').value) || 0,
+                da_parte: parseInt(row.querySelector('.parte-input').value) || 0,
+                da_forn: parseInt(row.querySelector('.forn-input').value) || 0,
+                da_emporio_qta: parseInt(row.querySelector('.emp-q-input').value) || 0,
+                da_emporio_nome: row.querySelector('.emporio-dropdown').value,
+                da_altri_qta: parseInt(row.querySelector('.altri-q-input').value) || 0,
+                da_altri_nome: row.querySelector('td:nth-child(8) input[type="text"]').value
+            });
+        });
 
-const nuovoOrdine = {
-    // ... campi già presenti ...
-    articoli: articoli,
-    wa_attivo: document.querySelector('#wa-btn') ? document.querySelector('#wa-btn').classList.contains('wa-active') : true,
-    canale: document.getElementById('select-emporio').value === 'Cremona' ? document.getElementById('select-canale').value : null,
-    note: document.getElementById('order-notes').value
-};
-                const nuovoOrdine = {
-                    citta: document.getElementById('select-emporio').value,
-                    operatore: document.getElementById('select-operatore').value,
-                    data_ordine: document.getElementById('order-date').value,
-                    cliente_nome: document.getElementById('cust-nome').value,
-                    cliente_cognome: document.getElementById('cust-cognome').value,
-                    cliente_email: document.getElementById('cust-email').value,
-                    cliente_cellulare: document.getElementById('cust-tel').value,
-                    modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
-                    totale_ordine: parseFloat(document.getElementById('grand-total').innerText.replace('€', '').trim()) || 0,
-                    da_pagare: parseFloat(document.getElementById('saldo-finale').innerText.replace('€', '').trim()) || 0,
-                    stato: 'Nuovo',
-                    tipo_ordine: currentType
-                };
+        const nuovoOrdine = {
+            citta: document.getElementById('select-emporio').value,
+            operatore: document.getElementById('select-operatore').value,
+            data_ordine: document.getElementById('order-date').value,
+            cliente_nome: document.getElementById('cust-nome').value,
+            cliente_cognome: document.getElementById('cust-cognome').value,
+            cliente_email: document.getElementById('cust-email').value,
+            cliente_cellulare: document.getElementById('cust-tel').value,
+            modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
+            totale_ordine: parseFloat(document.getElementById('grand-total').innerText.replace('€', '').trim()) || 0,
+            acconto: parseFloat(document.getElementById('acconto').value.replace('€', '').trim()) || 0,
+            da_pagare: parseFloat(document.getElementById('saldo-finale').innerText.replace('€', '').trim()) || 0,
+            stato: 'Nuovo',
+            tipo_ordine: currentType,
+            articoli: articoli,
+            wa_attivo: document.getElementById('wa-btn') ? document.getElementById('wa-btn').classList.contains('wa-active') : true,
+            canale: document.getElementById('select-emporio').value === 'Cremona' ? document.getElementById('select-canale').value : null,
+            note: document.getElementById('order-notes').value
+        };
 
-                const { data, error } = await _supabase.from('ordini_incorso').insert([nuovoOrdine]);
-                if (error) throw error;
+        const { data, error } = await _supabase.from('ordini_incorso').insert([nuovoOrdine]);
+        if (error) throw error;
 
-                alert("Ordine salvato correttamente!");
-                window.location.reload(); // Oppure reindirizza: window.location.href = "ordini_incorso.html";
+        alert("Ordine salvato correttamente!");
+        window.location.reload();
 
-            } catch (error) {
-                console.error("Errore Supabase:", error);
-                alert("Errore nel salvataggio: " + error.message);
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Ordine';
-            }
-            return false;
+    } catch (error) {
+        console.error("Errore Supabase:", error);
+        alert("Errore nel salvataggio: " + error.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Ordine';
+    }
+    return false;
+}
         }
 
         window.onload = () => {
