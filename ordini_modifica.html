@@ -23,10 +23,10 @@
 
     <header class="bg-white border-b p-4 px-6 md:px-8 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div class="flex items-center gap-4">
-            <img src="logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.src='https://via.placeholder.com/150x50?text=M361'">
+            <img src="logom361_rosso.jpg" alt="Logo" class="h-8">
             <h1 id="header-title" class="font-bold text-lg border-l pl-4 text-slate-700">Modifica Ordine</h1>
         </div>
-        <button onclick="window.location.href='ordini_incorso.html'" class="flex items-center gap-2 text-slate-500 hover:text-m361-red transition-colors font-bold text-sm">
+        <button id="btn-annulla" class="flex items-center gap-2 text-slate-500 hover:text-m361-red transition-colors font-bold text-sm">
             <i class="fas fa-arrow-left"></i> Annulla
         </button>
     </header>
@@ -53,7 +53,6 @@
                             <option value="Reggio Emilia">Reggio Emilia</option>
                             <option value="Viadana">Viadana</option>
                         </select>
-
                         <div id="canale-cremona-container" class="hidden">
                             <select id="select-canale" class="w-full border-m361-red border-2 rounded-xl p-3 text-sm bg-red-50">
                                 <option value="">Canale (Cremona) *</option>
@@ -62,11 +61,9 @@
                                 <option value="on-earth.it">on-earth.it</option>
                             </select>
                         </div>
-
                         <select id="select-operatore" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                             <option value="">Seleziona Operatore *</option>
                         </select>
-
                         <input type="date" id="order-date" required class="w-full border-gray-200 border rounded-xl p-3 text-sm">
                     </div>
                 </div>
@@ -144,6 +141,12 @@
         
         const urlParams = new URLSearchParams(window.location.search);
         const orderId = urlParams.get('id');
+        const srcArchivio = urlParams.get('src') === 'archivio';
+        const TABLE = srcArchivio ? 'ordini_archiviati' : 'ordini_incorso';
+        const BACK_URL = srcArchivio ? 'ordini_archiviati.html' : 'ordini_incorso.html';
+
+        // Bottone annulla → torna alla pagina giusta
+        document.getElementById('btn-annulla').onclick = () => window.location.href = BACK_URL;
 
         const OPERATORI_DATA = {
             "Cremona": ["Chiara Monteverdi", "Emilio Mazzolari", "Giulia Galelli"],
@@ -152,23 +155,21 @@
             "Reggio Emilia": ["Alessia Bartolomei", "Elsa Scarpa", "Manuela Capanni", "Marica Pioli"]
         };
 
-        // Caricamento Dati Iniziali
         async function init() {
-            if (!orderId) { alert("ID Ordine non trovato"); window.location.href='ordini_incorso.html'; return; }
+            if (!orderId) { alert("ID Ordine non trovato"); window.location.href = BACK_URL; return; }
 
-            const { data: ord, error } = await _supabase.from('ordini_incorso').select('*').eq('id', orderId).single();
+            const { data: ord, error } = await _supabase.from(TABLE).select('*').eq('id', orderId).single();
             
             if (error || !ord) { alert("Errore nel recupero ordine"); return; }
 
             currentType = ord.tipo_ordine || 'standard';
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('orderForm').classList.remove('hidden');
-            document.getElementById('header-title').innerText = `Modifica Ordine ${currentType.toUpperCase()} #${orderId}`;
+            document.getElementById('header-title').innerText = `Modifica Ordine #${orderId.slice(-5)}${srcArchivio ? ' (Archivio)' : ''}`;
 
-            // Popolamento Campi
             document.getElementById('select-emporio').value = ord.citta;
             handleCittaChange(document.getElementById('select-emporio'), ord.operatore);
-            if(ord.citta === 'Cremona') document.getElementById('select-canale').value = ord.canale || '';
+            if (ord.citta === 'Cremona') document.getElementById('select-canale').value = ord.canale || '';
             
             document.getElementById('order-date').value = ord.data_ordine;
             document.getElementById('cust-nome').value = ord.cliente_nome;
@@ -177,28 +178,22 @@
             document.getElementById('cust-email').value = ord.cliente_email || '';
             document.getElementById('order-notes').value = ord.note || '';
             
-            // Radio Mod Consegna
             const radio = document.querySelector(`input[name="mod_consegna"][value="${ord.modalita_consegna}"]`);
-            if(radio) radio.checked = true;
+            if (radio) radio.checked = true;
 
-            // WhatsApp Toggle
-            if(!ord.wa_attivo) {
+            if (!ord.wa_attivo) {
                 const waBtn = document.getElementById('wa-btn');
                 waBtn.classList.replace('wa-active', 'wa-inactive');
             }
 
-            // Acconto
             const accontoField = document.getElementById('acconto');
             accontoField.value = "€ " + (ord.acconto || 0).toFixed(2);
 
-            if(currentType === 'bomboniere') {
+            if (currentType === 'bomboniere') {
                 document.getElementById('add-group-container').classList.remove('hidden');
-                // Se i dati articoli sono divisi per gruppi
-                if(ord.articoli && ord.articoli[0]?.gruppo_id) {
+                if (ord.articoli && ord.articoli[0]?.gruppo_id) {
                     const gruppi = [...new Set(ord.articoli.map(a => a.gruppo_id))];
-                    gruppi.forEach(gId => {
-                        addGroup(ord.articoli.filter(a => a.gruppo_id === gId));
-                    });
+                    gruppi.forEach(gId => addGroup(ord.articoli.filter(a => a.gruppo_id === gId)));
                 } else {
                     addGroup(ord.articoli);
                 }
@@ -213,12 +208,11 @@
             const citta = select.value;
             const opSelect = document.getElementById('select-operatore');
             document.getElementById('canale-cremona-container').classList.toggle('hidden', citta !== 'Cremona');
-            
             opSelect.innerHTML = '<option value="">Seleziona Operatore *</option>';
             (OPERATORI_DATA[citta] || []).sort().forEach(op => {
                 const opt = document.createElement('option');
                 opt.value = op; opt.text = op;
-                if(op === selectedOp) opt.selected = true;
+                if (op === selectedOp) opt.selected = true;
                 opSelect.add(opt);
             });
             updateAllEmporiDropdowns();
@@ -261,7 +255,7 @@
                 </div>`;
             container.insertAdjacentHTML('beforeend', groupHtml);
             
-            if(articoliEsistenti && articoliEsistenti.length > 0) {
+            if (articoliEsistenti && articoliEsistenti.length > 0) {
                 articoliEsistenti.forEach(art => addRow(groupId, art));
             } else {
                 addRow(groupId);
@@ -301,18 +295,15 @@
             calcRow(rowId, groupId);
         }
 
-        // --- Logica Calcoli (Identica all'originale) ---
         function calcRow(rowId, groupId) {
             const row = document.getElementById(`row-${rowId}`);
             const qty = +row.querySelector('.qty-input').value || 0;
             const price = parseFloat(row.querySelector('.price-input').value.replace('€', '').trim()) || 0;
             const sumProv = (+row.querySelector('.parte-input').value || 0) + (+row.querySelector('.forn-input').value || 0) + (+row.querySelector('.emp-q-input').value || 0) + (+row.querySelector('.altri-q-input').value || 0);
-            
             row.classList.toggle('row-error', sumProv > qty);
             document.getElementById(`do-${rowId}`).innerText = (qty - sumProv) > 0 ? (qty - sumProv) : 0;
             document.getElementById(`tot-riga-${rowId}`).innerText = (qty * price).toFixed(2);
-            
-            if(currentType === 'bomboniere') calcSubtotal(groupId);
+            if (currentType === 'bomboniere') calcSubtotal(groupId);
             calcGrandTotal();
         }
 
@@ -328,13 +319,13 @@
             let sub = 0;
             document.getElementById(`rows-container-${groupId}`)?.querySelectorAll('.row-total').forEach(el => sub += parseFloat(el.innerText) || 0);
             const label = document.getElementById(`subtotal-${groupId}`);
-            if(label) label.innerText = `€ ${sub.toFixed(2)}`;
+            if (label) label.innerText = `€ ${sub.toFixed(2)}`;
         }
 
         function getEmporioOptions(selected = "") {
             const mainCitta = document.getElementById('select-emporio').value;
             let options = '<option value="">Dove?</option>';
-            ALL_EMPORI.forEach(e => { if(e !== mainCitta) options += `<option value="${e}" ${e===selected?'selected':''}>${e}</option>`; });
+            ALL_EMPORI.forEach(e => { if (e !== mainCitta) options += `<option value="${e}" ${e===selected?'selected':''}>${e}</option>`; });
             return options;
         }
 
@@ -348,10 +339,9 @@
 
         function toggleWA(btn) { btn.classList.toggle('wa-active'); btn.classList.toggle('wa-inactive'); }
         function formatCurrency(input) { let val = parseFloat(input.value.replace('€', '').trim()) || 0; input.value = "€ " + val.toFixed(2); }
-        function clearCurrency(input) { if(input.value.replace('€', '').trim() == "0.00") input.value = ""; }
-        function removeRow(rowId, gId) { document.getElementById(`row-${rowId}`).remove(); if(currentType==='bomboniere') calcSubtotal(gId); calcGrandTotal(); }
+        function clearCurrency(input) { if (input.value.replace('€', '').trim() == "0.00") input.value = ""; }
+        function removeRow(rowId, gId) { document.getElementById(`row-${rowId}`).remove(); if (currentType==='bomboniere') calcSubtotal(gId); calcGrandTotal(); }
 
-        // --- SALVATAGGIO (UPDATE) ---
         async function handleUpdate(e) {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
@@ -394,15 +384,15 @@
                 note: document.getElementById('order-notes').value
             };
 
-            const { error } = await _supabase.from('ordini_incorso').update(updateData).eq('id', orderId);
+            const { error } = await _supabase.from(TABLE).update(updateData).eq('id', orderId);
 
             if (error) {
                 alert("Errore salvataggio: " + error.message);
                 btn.disabled = false;
-                btn.innerHTML = 'RIPROVA SALVATAGGIO';
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> Riprova Salvataggio';
             } else {
                 alert("Ordine aggiornato con successo!");
-                window.location.href = 'ordini_incorso.html';
+                window.location.href = BACK_URL;
             }
         }
 
