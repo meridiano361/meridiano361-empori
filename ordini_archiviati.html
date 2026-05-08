@@ -8,51 +8,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .section-title {
-            color: #475569;
-            background-color: rgba(183, 82, 82, 0.1);
-            padding: 4px 12px;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-        }
     </style>
 </head>
 <body class="pb-20">
 
-    <!-- Header -->
     <header class="bg-white border-b p-4 px-8 flex justify-between items-center sticky top-0 z-50">
         <div class="flex items-center gap-4">
-            <a href="ordini.html">
+            <a href="ordini_incorso.html">
                 <img src="logom361_rosso.jpg" alt="Logo" class="h-10 hover:opacity-80 transition-opacity">
             </a>
             <h1 class="font-bold text-xl border-l pl-4 ml-2 text-slate-700">Archivio Storico</h1>
         </div>
-        <a href="ordini.html" class="text-xs font-bold text-slate-400 hover:text-m361-red uppercase tracking-widest">
-            &larr; Torna al Menu
+        <a href="ordini_incorso.html" class="text-xs font-bold text-slate-400 hover:text-[#b75252] uppercase tracking-widest">
+            &larr; Torna agli Ordini
         </a>
     </header>
 
     <main class="max-w-7xl mx-auto p-4 md:p-8">
-        
+
         <!-- Filtri e Ricerca -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row gap-4 justify-between items-center">
             <div class="relative w-full md:w-96">
-                <input type="text" placeholder="Cerca cliente o numero ordine..." 
-                       class="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm focus:border-[#b75252] outline-none">
+                <input type="text" id="search-input" placeholder="Cerca cliente o numero ordine..." 
+                       oninput="filtra()" class="w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm focus:border-[#b75252] outline-none">
                 <svg class="w-5 h-5 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
             </div>
             <div class="flex gap-2">
-                <select class="border rounded-xl px-4 py-2 text-sm bg-slate-50 outline-none">
-                    <option>Tutte le Città</option>
-                    <option>Cremona</option>
+                <select id="filter-citta" onchange="filtra()" class="border rounded-xl px-4 py-2 text-sm bg-slate-50 outline-none">
+                    <option value="">Tutte le Città</option>
                     <option>Casalmaggiore</option>
+                    <option>Cremona</option>
                     <option>Reggio Emilia</option>
                     <option>Viadana</option>
                 </select>
-                <button class="bg-slate-800 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-slate-700 transition-all">FILTRA</button>
+                <select id="filter-anno" onchange="filtra()" class="border rounded-xl px-4 py-2 text-sm bg-slate-50 outline-none">
+                    <option value="">Tutti gli anni</option>
+                </select>
             </div>
         </div>
 
@@ -61,7 +54,7 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50 border-b text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-                        <th class="p-4">Data Conclusione</th>
+                        <th class="p-4">Data Evasione</th>
                         <th class="p-4">Cliente</th>
                         <th class="p-4">Emporio / Canale</th>
                         <th class="p-4">Operatore</th>
@@ -70,51 +63,185 @@
                         <th class="p-4 text-right">Azioni</th>
                     </tr>
                 </thead>
-                <tbody class="text-sm text-slate-600 divide-y">
-                    <!-- Esempio Riga Archiviata -->
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="p-4 font-mono text-xs">05/05/2026</td>
-                        <td class="p-4">
-                            <div class="font-bold text-slate-800">Mario Rossi</div>
-                            <div class="text-[10px] text-slate-400">333 1234567</div>
-                        </td>
-                        <td class="p-4">
-                            <span class="text-xs">Cremona</span>
-                            <div class="text-[10px] text-slate-400 italic">meridiano361.it</div>
-                        </td>
-                        <td class="p-4 text-xs text-slate-500">Giulia Galelli</td>
-                        <td class="p-4 text-center font-bold text-slate-800">€ 145,00</td>
-                        <td class="p-4 text-center">
-                            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold uppercase">Consegnato</span>
-                        </td>
-                        <td class="p-4 text-right">
-                            <button class="text-slate-400 hover:text-[#b75252] p-2" title="Visualizza Dettaglio">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-width="2"/></svg>
-                            </button>
-                        </td>
-                    </tr>
-                    <!-- Altre righe qui... -->
+                <tbody id="table-body" class="text-sm text-slate-600 divide-y">
+                    <tr><td colspan="7" class="p-8 text-center text-slate-400">Caricamento...</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- Footer con statistiche veloci -->
+        <!-- Statistiche -->
         <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-[#6b8d53] bg-opacity-10 p-4 rounded-xl border border-[#6b8d53] border-opacity-20 text-center">
                 <p class="text-[10px] font-bold text-[#6b8d53] uppercase">Ordini Totali Archiviati</p>
-                <p class="text-2xl font-black text-[#6b8d53]">1.240</p>
+                <p id="stat-totale" class="text-2xl font-black text-[#6b8d53]">-</p>
             </div>
             <div class="bg-[#b75252] bg-opacity-10 p-4 rounded-xl border border-[#b75252] border-opacity-20 text-center">
                 <p class="text-[10px] font-bold text-[#b75252] uppercase">Volume Affari Archivio</p>
-                <p class="text-2xl font-black text-[#b75252]">€ 45.200</p>
+                <p id="stat-volume" class="text-2xl font-black text-[#b75252]">-</p>
             </div>
             <div class="bg-slate-100 p-4 rounded-xl border border-slate-200 text-center text-slate-500">
-                <p class="text-[10px] font-bold uppercase">Ultimo aggiornamento</p>
-                <p class="text-lg font-bold">Oggi, 11:45</p>
+                <p class="text-[10px] font-bold uppercase">Ultimo Aggiornamento</p>
+                <p id="stat-data" class="text-lg font-bold">-</p>
+            </div>
+        </div>
+
+        <!-- Modal Dettaglio -->
+        <div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="font-bold text-xl text-slate-800">Dettaglio Ordine</h2>
+                    <button onclick="chiudiModal()" class="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
+                </div>
+                <div id="modal-content"></div>
             </div>
         </div>
 
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let tuttiOrdini = [];
+
+        async function caricaArchivio() {
+            const { data, error } = await _supabase
+                .from('ordini_archiviati')
+                .select('*')
+                .order('data_evasione', { ascending: false });
+
+            if (error) {
+                document.getElementById('table-body').innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-500">Errore: ${error.message}</td></tr>`;
+                return;
+            }
+
+            tuttiOrdini = data || [];
+
+            // Popola filtro anni
+            const anni = [...new Set(tuttiOrdini.map(o => o.data_evasione ? new Date(o.data_evasione).getFullYear() : null).filter(Boolean))].sort((a,b) => b-a);
+            const filterAnno = document.getElementById('filter-anno');
+            anni.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a; opt.text = a;
+                filterAnno.add(opt);
+            });
+
+            aggiornaStatistiche(tuttiOrdini);
+            renderTabella(tuttiOrdini);
+        }
+
+        function renderTabella(ordini) {
+            const tbody = document.getElementById('table-body');
+            if (ordini.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Nessun ordine trovato.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = ordini.map(ord => {
+                const dataEvasione = ord.data_evasione ? new Date(ord.data_evasione).toLocaleDateString('it-IT') : '-';
+                const nome = `${ord.cliente_nome || ''} ${ord.cliente_cognome || ''}`.trim();
+                const citta = ord.citta || '-';
+                const canale = ord.canale ? `<div class="text-[10px] text-slate-400 italic">${ord.canale}</div>` : '';
+                const totale = ord.totale_ordine ? `€ ${parseFloat(ord.totale_ordine).toFixed(2)}` : '€ 0.00';
+                const stato = ord.stato || 'Evaso';
+                return `
+                    <tr class="hover:bg-slate-50/50 transition-colors" data-search="${nome} ${citta} ${ord.id}">
+                        <td class="p-4 font-mono text-xs">${dataEvasione}</td>
+                        <td class="p-4">
+                            <div class="font-bold text-slate-800">${nome || 'N/D'}</div>
+                            <div class="text-[10px] text-slate-400">${ord.cliente_cellulare || ''}</div>
+                        </td>
+                        <td class="p-4">
+                            <span class="text-xs font-semibold">${citta}</span>
+                            ${canale}
+                        </td>
+                        <td class="p-4 text-xs text-slate-500">${ord.operatore || '-'}</td>
+                        <td class="p-4 text-center font-bold text-slate-800">${totale}</td>
+                        <td class="p-4 text-center">
+                            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold uppercase">${stato}</span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button onclick="apriDettaglio('${ord.id}')" class="text-slate-400 hover:text-[#b75252] p-2 transition-colors" title="Visualizza Dettaglio">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        function filtra() {
+            const testo = document.getElementById('search-input').value.toLowerCase();
+            const citta = document.getElementById('filter-citta').value.toLowerCase();
+            const anno = document.getElementById('filter-anno').value;
+
+            const filtrati = tuttiOrdini.filter(ord => {
+                const searchStr = `${ord.cliente_nome || ''} ${ord.cliente_cognome || ''} ${ord.id}`.toLowerCase();
+                const matchTesto = !testo || searchStr.includes(testo);
+                const matchCitta = !citta || (ord.citta || '').toLowerCase() === citta;
+                const matchAnno = !anno || (ord.data_evasione && new Date(ord.data_evasione).getFullYear() == anno);
+                return matchTesto && matchCitta && matchAnno;
+            });
+
+            aggiornaStatistiche(filtrati);
+            renderTabella(filtrati);
+        }
+
+        function aggiornaStatistiche(ordini) {
+            const volume = ordini.reduce((sum, o) => sum + (parseFloat(o.totale_ordine) || 0), 0);
+            document.getElementById('stat-totale').innerText = ordini.length;
+            document.getElementById('stat-volume').innerText = `€ ${volume.toFixed(2)}`;
+            const ora = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('stat-data').innerText = `Oggi, ${ora}`;
+        }
+
+        function apriDettaglio(id) {
+            const ord = tuttiOrdini.find(o => o.id == id);
+            if (!ord) return;
+            const nome = `${ord.cliente_nome || ''} ${ord.cliente_cognome || ''}`.trim();
+            const articoli = ord.articoli && ord.articoli.length > 0
+                ? `<table class="w-full text-xs mt-2 border-collapse">
+                    <thead><tr class="bg-slate-50 text-[10px] uppercase text-slate-400">
+                        <th class="p-2 text-left">Codice</th><th class="p-2 text-left">Descrizione</th>
+                        <th class="p-2 text-center">Qtà</th><th class="p-2 text-right">Prezzo</th><th class="p-2 text-right">Totale</th>
+                    </tr></thead><tbody class="divide-y">${ord.articoli.map(a => `
+                        <tr><td class="p-2">${a.codice||''}</td><td class="p-2">${a.descrizione||''}</td>
+                        <td class="p-2 text-center">${a.qta||0}</td>
+                        <td class="p-2 text-right">€ ${parseFloat(a.prezzo||0).toFixed(2)}</td>
+                        <td class="p-2 text-right font-bold">€ ${((a.qta||0)*(a.prezzo||0)).toFixed(2)}</td></tr>`
+                    ).join('')}</tbody></table>`
+                : '<p class="text-slate-400 text-xs mt-2">Nessun articolo registrato.</p>';
+
+            document.getElementById('modal-content').innerHTML = `
+                <div class="space-y-3 text-sm">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Cliente</span><p class="font-bold text-slate-800">${nome}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Cellulare</span><p>${ord.cliente_cellulare||'-'}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Emporio</span><p>${ord.citta||'-'}${ord.canale ? ' - ' + ord.canale : ''}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Operatore</span><p>${ord.operatore||'-'}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Data Ordine</span><p>${ord.data_ordine||'-'}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Data Evasione</span><p>${ord.data_evasione ? new Date(ord.data_evasione).toLocaleDateString('it-IT') : '-'}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Totale</span><p class="font-bold text-[#b75252]">€ ${parseFloat(ord.totale_ordine||0).toFixed(2)}</p></div>
+                        <div><span class="text-[10px] text-slate-400 uppercase font-bold">Note</span><p class="italic text-slate-500">${ord.note||'-'}</p></div>
+                    </div>
+                    <div class="mt-4 border-t pt-4">
+                        <p class="text-[10px] text-slate-400 uppercase font-bold mb-2">Articoli</p>
+                        ${articoli}
+                    </div>
+                </div>`;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function chiudiModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) chiudiModal();
+        });
+
+        window.onload = caricaArchivio;
+    </script>
 </body>
 </html>
