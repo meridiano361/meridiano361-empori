@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="stylesheet" href="/nav-style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M361 - Turni</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        .text-m361-red { color: #b75252; }
+        .bg-m361-red { background-color: #b75252; }
+        .btn-turno { transition: all 0.15s; border: 2px solid transparent; }
+        .btn-turno.active-mat { background-color: #fef9c3; border-color: #eab308; color: #854d0e; font-weight: 700; }
+        .btn-turno.active-pom { background-color: #dbeafe; border-color: #3b82f6; color: #1e40af; font-weight: 700; }
+        .btn-turno.active-full { background-color: #dcfce7; border-color: #22c55e; color: #14532d; font-weight: 700; }
+        .btn-assenza { transition: all 0.15s; border: 2px solid transparent; }
+        .btn-assenza.active { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; font-weight: 700; }
+        .badge-role { font-size: 9px; padding: 1px 6px; border-radius: 999px; font-weight: 600; }
+        .role-dip { background: #fee2e2; color: #991b1b; }
+        .role-sc  { background: #fef9c3; color: #854d0e; }
+        .role-vol { background: #f0fdf4; color: #166534; }
+        .row-assente { opacity: 0.45; }
+    </style>
+</head>
+<body class="pb-28">
+
+<header class="bg-white border-b p-4 px-6 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+    <div class="flex items-center gap-4">
+        <img src="logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.style.display='none'">
+        <h1 class="font-bold text-lg border-l pl-4 text-slate-700">Turni</h1>
+    </div>
+    <div class="flex items-center gap-3">
+        <input type="date" id="selected-date" class="border border-gray-200 rounded-xl p-2 text-sm text-slate-600">
+        <button onclick="openAddModal()" class="bg-m361-red text-white px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90">
+            <i class="fas fa-plus mr-1"></i> Aggiungi
+        </button>
+    </div>
+</header>
+
+<main class="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
+
+    <!-- Legenda -->
+    <div class="flex flex-wrap gap-3 items-center bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-xs">
+        <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Legenda:</span>
+        <span class="btn-turno active-mat px-3 py-1 rounded-lg">☀️ Mattino</span>
+        <span class="btn-turno active-pom px-3 py-1 rounded-lg">🌙 Pomeriggio</span>
+        <span class="btn-turno active-full px-3 py-1 rounded-lg">✅ Tutto il giorno</span>
+        <span class="btn-assenza active px-3 py-1 rounded-lg">🚫 Assente</span>
+        <span class="ml-auto flex gap-2">
+            <span class="badge-role role-dip">Dipendente</span>
+            <span class="badge-role role-sc">Serv. Civile</span>
+            <span class="badge-role role-vol">Volontario</span>
+        </span>
+    </div>
+
+    <!-- Empori tabs -->
+    <div id="empori-tabs" class="flex flex-wrap gap-2"></div>
+
+    <!-- Pannello turni -->
+    <div id="turni-panel"></div>
+
+</main>
+
+<!-- Modal aggiungi persona/emporio -->
+<div id="add-modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 space-y-5">
+        <h2 class="font-bold text-lg text-slate-700">Aggiungi</h2>
+        <div class="flex gap-3">
+            <button onclick="setModalTab('persona')" id="tab-persona" class="flex-1 py-2 rounded-xl font-bold text-sm bg-m361-red text-white">Persona</button>
+            <button onclick="setModalTab('emporio')" id="tab-emporio" class="flex-1 py-2 rounded-xl font-bold text-sm bg-slate-100 text-slate-600">Emporio</button>
+        </div>
+        <div id="form-persona" class="space-y-4">
+            <input type="text" id="new-nome" placeholder="Nome *" class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+            <input type="text" id="new-cognome" placeholder="Cognome" class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+            <select id="new-emporio" class="w-full border border-gray-200 rounded-xl p-3 text-sm"></select>
+            <select id="new-ruolo" class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+                <option value="volontario">Volontario</option>
+                <option value="dipendente">Dipendente</option>
+                <option value="servizio_civile">Servizio Civile</option>
+            </select>
+        </div>
+        <div id="form-emporio" class="hidden space-y-4">
+            <input type="text" id="new-emporio-nome" placeholder="Nome emporio *" class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+        </div>
+        <div class="flex gap-3 pt-2">
+            <button onclick="closeAddModal()" class="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-bold text-slate-500 hover:bg-gray-50">Annulla</button>
+            <button onclick="confirmAdd()" class="flex-1 py-3 rounded-xl bg-m361-red text-white text-sm font-bold hover:opacity-90">Salva</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let EMPORI = ['Cremona', 'Casalmaggiore', 'Viadana', 'Reggio Emilia'];
+let activeEmporio = 'Cremona';
+
+let PERSONALE = [
+    // Cremona - Dipendenti
+    { nome: 'Emilio',  cognome: 'Mazzolari',  emporio: 'Cremona', ruolo: 'dipendente' },
+    { nome: 'Chiara',  cognome: 'Monteverdi', emporio: 'Cremona', ruolo: 'dipendente' },
+    // Cremona - Servizio Civile
+    { nome: 'Noemi',   cognome: 'Capobianco', emporio: 'Cremona', ruolo: 'servizio_civile' },
+    { nome: 'Jacopo',  cognome: 'Denti',      emporio: 'Cremona', ruolo: 'servizio_civile' },
+    // Cremona - Volontari
+    { nome: 'Elena',   cognome: 'Cattani',    emporio: 'Cremona', ruolo: 'volontario' },
+    { nome: 'Barbara', cognome: 'Machetti',   emporio: 'Cremona', ruolo: 'volontario' },
+    { nome: 'Giulia',  cognome: 'Galelli',    emporio: 'Cremona', ruolo: 'volontario' },
+    { nome: 'Ileana',  cognome: 'Galli',      emporio: 'Cremona', ruolo: 'volontario' },
+    // Casalmaggiore - Volontari
+    { nome: 'Barbara',       cognome: 'Araldi',        emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Erica',         cognome: 'Bossi',         emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Matilde',       cognome: 'Chiarini',      emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Miriam',        cognome: 'Federici',      emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Giulia',        cognome: 'Frigeri',       emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Piero',         cognome: 'Gatti',         emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Francesco',     cognome: 'Lunardini',     emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Giuseppe',      cognome: 'Lunardini',     emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Vittoria',      cognome: 'Lunardini',     emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Teyssir',       cognome: 'Mabrouk',       emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Carla',         cognome: 'Maffei',        emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Michele',       cognome: 'Marchini',      emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Edoardo',       cognome: 'Pavesi',        emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Giovanna',      cognome: 'Raineri',       emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Alessandra',    cognome: 'Rivetti',       emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Maria Marcella',cognome: 'Scaravonati',   emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    { nome: 'Roberta',       cognome: 'Vezzosi',       emporio: 'Casalmaggiore', ruolo: 'volontario' },
+    // Viadana - Volontari
+    { nome: 'Roberta',     cognome: 'Alberini',   emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Giuseppina',  cognome: 'Amadini',    emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Ave',         cognome: 'Aroldi',     emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Carla',       cognome: 'Bellelli',   emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Mariagrazia', cognome: 'Bertolini',  emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Tiziana',     cognome: 'Bortesi',    emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Carla',       cognome: 'Chittolini', emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Donatella',   cognome: 'Falugi',     emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Franco',      cognome: 'Furlotti',   emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Sara',        cognome: 'Germani',    emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Elena',       cognome: 'Ghelfi',     emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Claudio',     cognome: 'Mortini',    emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Mirella',     cognome: 'Panato',     emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Barbara',     cognome: 'Piotrowska', emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Alessia',     cognome: 'Rovina',     emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Marta',       cognome: 'Sanfelici',  emporio: 'Viadana', ruolo: 'volontario' },
+    { nome: 'Manuela',     cognome: 'Scazza',     emporio: 'Viadana', ruolo: 'volontario' },
+    // Reggio Emilia - Dipendenti
+    { nome: 'Elsa',     cognome: 'Scarpa',      emporio: 'Reggio Emilia', ruolo: 'dipendente' },
+    { nome: 'Marica',   cognome: 'Pioli',       emporio: 'Reggio Emilia', ruolo: 'dipendente' },
+    { nome: 'Manuela',  cognome: 'Capanni',     emporio: 'Reggio Emilia', ruolo: 'dipendente' },
+    { nome: 'Alessia',  cognome: 'Bartolomei',  emporio: 'Reggio Emilia', ruolo: 'dipendente' },
+];
+
+// turni[dateStr][emporio][key] = { stato: 'mat'|'pom'|'full'|null, assente: bool, nota: '' }
+let turni = {};
+let note_giorno = {}; // note_giorno[dateStr][emporio] = ''
+let selectedDate = new Date().toISOString().split('T')[0];
+let modalTab = 'persona';
+
+window.onload = () => {
+    document.getElementById('selected-date').value = selectedDate;
+    document.getElementById('selected-date').addEventListener('change', e => {
+        selectedDate = e.target.value;
+        renderPanel();
+    });
+    populateEmporioSelect();
+    renderTabs();
+    renderPanel();
+};
+
+function populateEmporioSelect() {
+    document.getElementById('new-emporio').innerHTML = EMPORI.map(e => `<option value="${e}">${e}</option>`).join('');
+}
+
+function renderTabs() {
+    document.getElementById('empori-tabs').innerHTML = EMPORI.map(e => `
+        <button onclick="setEmporio('${e}')"
+            class="px-5 py-2 rounded-xl font-bold text-sm transition-all ${e === activeEmporio
+                ? 'bg-m361-red text-white shadow'
+                : 'bg-white border border-gray-200 text-slate-600 hover:border-red-300'}">
+            ${e}
+        </button>`).join('');
+}
+
+function setEmporio(e) { activeEmporio = e; renderTabs(); renderPanel(); }
+
+function getDayData() {
+    if (!turni[selectedDate]) turni[selectedDate] = {};
+    if (!turni[selectedDate][activeEmporio]) turni[selectedDate][activeEmporio] = {};
+    return turni[selectedDate][activeEmporio];
+}
+
+function getPersonaState(key) {
+    const d = getDayData();
+    if (!d[key]) d[key] = { stato: null, assente: false, nota: '' };
+    return d[key];
+}
+
+function renderPanel() {
+    const panel = document.getElementById('turni-panel');
+    const persone = PERSONALE.filter(p => p.emporio === activeEmporio);
+
+    const gruppi = [
+        { label: 'Dipendenti',      ruolo: 'dipendente',      badge: 'role-dip', persone: [] },
+        { label: 'Servizio Civile', ruolo: 'servizio_civile', badge: 'role-sc',  persone: [] },
+        { label: 'Volontari',       ruolo: 'volontario',      badge: 'role-vol', persone: [] },
+    ];
+    persone.forEach(p => {
+        const g = gruppi.find(g => g.ruolo === p.ruolo);
+        if (g) g.persone.push(p);
+    });
+
+    const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('it-IT', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    const noteVal = note_giorno[selectedDate]?.[activeEmporio] || '';
+    const presenti = countPresenti();
+
+    let html = `
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 class="font-bold text-slate-700 text-base capitalize">${dateLabel}</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">${activeEmporio}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm font-bold text-slate-700">${presenti.mat + presenti.pom + presenti.full}</span>
+                        <span class="text-xs text-slate-400"> presenti</span>
+                        <div class="text-[10px] text-slate-400 mt-0.5">
+                            ☀️ ${presenti.mat + presenti.full} mattino &nbsp; 🌙 ${presenti.pom + presenti.full} pomeriggio
+                        </div>
+                    </div>
+                </div>
+                <!-- Note giorno -->
+                <div class="mt-4">
+                    <input type="text" placeholder="📝 Note del giorno (es. inventario, eventi...)"
+                        value="${noteVal}"
+                        onchange="saveNoteGiorno(this.value)"
+                        class="w-full border border-gray-200 rounded-xl p-2.5 text-sm text-slate-600 bg-slate-50">
+                </div>
+            </div>
+    `;
+
+    gruppi.forEach(g => {
+        if (g.persone.length === 0) return;
+        html += `
+            <div class="p-6 border-b border-gray-50 last:border-0">
+                <h3 class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">${g.label}</h3>
+                <div class="space-y-2">`;
+        g.persone.forEach(p => {
+            const key = p.nome + ' ' + p.cognome;
+            const ps = getPersonaState(key);
+            html += renderPersonaRow(p, key, ps, g.badge);
+        });
+        html += `</div></div>`;
+    });
+
+    if (persone.length === 0) {
+        html += `<div class="p-12 text-center text-slate-400 text-sm">Nessun personale per questo emporio.</div>`;
+    }
+
+    html += `</div>`;
+    panel.innerHTML = html;
+}
+
+function renderPersonaRow(p, key, ps, badgeClass) {
+    const nomeCompleto = p.nome + (p.cognome ? ' ' + p.cognome : '');
+    const isM = ps.stato === 'mat' || ps.stato === 'full';
+    const isP = ps.stato === 'pom' || ps.stato === 'full';
+    const rowClass = ps.assente ? 'row-assente' : '';
+
+    return `
+        <div class="flex items-center gap-2 py-1.5 ${rowClass}">
+            <div class="flex-1 min-w-0">
+                <span class="font-semibold text-sm text-slate-700">${nomeCompleto}</span>
+                <span class="badge-role ${badgeClass} ml-2">${badgeLabel(p.ruolo)}</span>
+                ${ps.nota ? `<span class="ml-2 text-[10px] text-slate-400 italic">${ps.nota}</span>` : ''}
+            </div>
+            <div class="flex gap-1.5 items-center flex-wrap justify-end">
+                ${ps.assente ? `
+                <button onclick="toggleAssente('${key}')" class="btn-assenza active px-3 py-1.5 rounded-xl text-xs">
+                    🚫 Assente
+                </button>
+                <button onclick="openNota('${key}')" class="px-2 py-1.5 rounded-xl text-xs bg-slate-100 text-slate-500 hover:bg-slate-200">
+                    ✏️
+                </button>
+                ` : `
+                <button onclick="toggleTurno('${key}', 'mat')"
+                    class="btn-turno px-3 py-1.5 rounded-xl text-xs ${isM ? 'active-mat' : 'bg-slate-50 text-slate-400 border-slate-100'}">
+                    ☀️ Mattino
+                </button>
+                <button onclick="toggleTurno('${key}', 'pom')"
+                    class="btn-turno px-3 py-1.5 rounded-xl text-xs ${isP ? 'active-pom' : 'bg-slate-50 text-slate-400 border-slate-100'}">
+                    🌙 Pomeriggio
+                </button>
+                <button onclick="toggleAssente('${key}')" title="Segna assente"
+                    class="btn-assenza px-2 py-1.5 rounded-xl text-xs bg-slate-50 text-slate-300 border-slate-100 hover:bg-red-50 hover:text-red-400">
+                    🚫
+                </button>
+                <button onclick="openNota('${key}')" class="px-2 py-1.5 rounded-xl text-xs bg-slate-50 text-slate-300 hover:bg-slate-200">
+                    ✏️
+                </button>
+                `}
+            </div>
+        </div>`;
+}
+
+function badgeLabel(ruolo) {
+    if (ruolo === 'dipendente') return 'Dip.';
+    if (ruolo === 'servizio_civile') return 'SC';
+    return 'Vol.';
+}
+
+function countPresenti() {
+    const d = getDayData();
+    let mat = 0, pom = 0, full = 0;
+    Object.values(d).forEach(v => {
+        if (!v.assente) {
+            if (v.stato === 'mat') mat++;
+            else if (v.stato === 'pom') pom++;
+            else if (v.stato === 'full') full++;
+        }
+    });
+    return { mat, pom, full };
+}
+
+function toggleTurno(key, slot) {
+    const ps = getPersonaState(key);
+    const current = ps.stato;
+    if (slot === 'mat') {
+        if (current === 'mat')  ps.stato = null;
+        else if (current === 'pom')  ps.stato = 'full';
+        else if (current === 'full') ps.stato = 'pom';
+        else ps.stato = 'mat';
+    } else {
+        if (current === 'pom')  ps.stato = null;
+        else if (current === 'mat')  ps.stato = 'full';
+        else if (current === 'full') ps.stato = 'mat';
+        else ps.stato = 'pom';
+    }
+    renderPanel();
+    // TODO: salva su Supabase
+}
+
+function toggleAssente(key) {
+    const ps = getPersonaState(key);
+    ps.assente = !ps.assente;
+    if (ps.assente) ps.stato = null;
+    renderPanel();
+}
+
+function openNota(key) {
+    const ps = getPersonaState(key);
+    const nota = prompt('Nota per ' + key + ':', ps.nota || '');
+    if (nota !== null) { ps.nota = nota; renderPanel(); }
+}
+
+function saveNoteGiorno(val) {
+    if (!note_giorno[selectedDate]) note_giorno[selectedDate] = {};
+    note_giorno[selectedDate][activeEmporio] = val;
+}
+
+// ── MODAL ─────────────────────────────────────────────────────
+function openAddModal() {
+    setModalTab('persona');
+    document.getElementById('new-nome').value = '';
+    document.getElementById('new-cognome').value = '';
+    document.getElementById('new-ruolo').value = 'volontario';
+    document.getElementById('new-emporio').value = activeEmporio;
+    document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+
+function setModalTab(tab) {
+    modalTab = tab;
+    document.getElementById('form-persona').classList.toggle('hidden', tab !== 'persona');
+    document.getElementById('form-emporio').classList.toggle('hidden', tab !== 'emporio');
+    document.getElementById('tab-persona').className = `flex-1 py-2 rounded-xl font-bold text-sm ${tab === 'persona' ? 'bg-m361-red text-white' : 'bg-slate-100 text-slate-600'}`;
+    document.getElementById('tab-emporio').className = `flex-1 py-2 rounded-xl font-bold text-sm ${tab === 'emporio' ? 'bg-m361-red text-white' : 'bg-slate-100 text-slate-600'}`;
+}
+
+function confirmAdd() {
+    if (modalTab === 'persona') {
+        const nome = document.getElementById('new-nome').value.trim();
+        const cognome = document.getElementById('new-cognome').value.trim();
+        const emporio = document.getElementById('new-emporio').value;
+        const ruolo = document.getElementById('new-ruolo').value;
+        if (!nome) { alert('Inserisci almeno il nome.'); return; }
+        PERSONALE.push({ nome, cognome, emporio, ruolo });
+    } else {
+        const nomeEmp = document.getElementById('new-emporio-nome').value.trim();
+        if (!nomeEmp) { alert("Inserisci il nome dell'emporio."); return; }
+        if (!EMPORI.includes(nomeEmp)) { EMPORI.push(nomeEmp); populateEmporioSelect(); }
+    }
+    closeAddModal();
+    renderTabs();
+    renderPanel();
+}
+
+document.getElementById('add-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeAddModal();
+});
+</script>
+
+<script src="/nav-script.js"></script>
+</body>
+</html>
