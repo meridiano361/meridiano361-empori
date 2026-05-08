@@ -11,303 +11,411 @@
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
         .bg-m361-red { background-color: #b75252; }
         .text-m361-red { color: #b75252; }
-
-        /* Chip persona per ruolo */
-        .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
-                padding: 3px 8px; border-radius: 999px; cursor: pointer; transition: opacity 0.15s; }
-        .chip:hover { opacity: 0.75; }
-        .chip-dip  { background: #fee2e2; color: #991b1b; }
-        .chip-vol  { background: #dcfce7; color: #166534; }
-        .chip-sc   { background: #f1f5f9; color: #475569; }
-
-        /* Cella turno */
-        .turno-cell { min-height: 44px; }
-
-        /* Sticky colonna giorno */
-        .col-giorno { min-width: 80px; }
+        .chip { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600;
+                padding: 4px 10px; border-radius: 999px; cursor: pointer; transition: opacity 0.15s; }
+        .chip:hover { opacity: 0.7; }
+        .chip-dip { background: #fee2e2; color: #991b1b; }
+        .chip-vol { background: #dcfce7; color: #166534; }
+        .chip-sc  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .card-sel { transition: all 0.15s; }
+        .card-sel:hover { border-color: #b75252 !important; transform: translateY(-2px); box-shadow: 0 4px 20px rgba(183,82,82,0.15); }
+        .nota-badge { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
     </style>
 </head>
 <body class="pb-28">
 
-<!-- ── HEADER ───────────────────────────────────────────────── -->
-<header class="bg-white border-b p-4 px-6 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+<header class="bg-white border-b p-4 px-5 flex justify-between items-center sticky top-0 z-50 shadow-sm">
     <div class="flex items-center gap-4">
         <img src="logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.style.display='none'">
         <h1 id="header-title" class="font-bold text-lg border-l pl-4 text-slate-700">Turni</h1>
     </div>
-    <div id="header-controls" class="flex items-center gap-3"></div>
+    <div id="header-controls" class="flex items-center gap-2"></div>
 </header>
 
-<main class="max-w-6xl mx-auto p-4 md:p-6">
-
-    <!-- ── SELEZIONE EMPORIO ─────────────────────────────────── -->
-    <div id="view-empori" class="grid grid-cols-2 md:grid-cols-4 gap-5 mt-2">
-    </div>
-
-    <!-- ── VISTA MESE ────────────────────────────────────────── -->
-    <div id="view-mese" class="hidden space-y-3"></div>
-
+<main class="max-w-5xl mx-auto p-4 md:p-6">
+    <div id="view-empori"></div>
+    <div id="view-anni"   class="hidden"></div>
+    <div id="view-mesi"   class="hidden"></div>
+    <div id="view-mese"   class="hidden space-y-2"></div>
 </main>
 
-<!-- ── MODAL AGGIUNTA PERSONA ───────────────────────────────── -->
-<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7 space-y-4">
         <h2 class="font-bold text-slate-700 text-base" id="modal-title">Aggiungi al turno</h2>
-        <input id="modal-search" type="text" placeholder="Cerca nome..." oninput="filterModalList()"
-            class="w-full border border-gray-200 rounded-xl p-3 text-sm">
-        <div id="modal-list" class="space-y-1 max-h-64 overflow-y-auto"></div>
-        <button onclick="closeModal()" class="w-full py-3 rounded-xl border border-gray-200 text-sm font-bold text-slate-500 hover:bg-gray-50">Annulla</button>
+
+        <!-- Tab: seleziona / nuova persona -->
+        <div class="flex gap-2">
+            <button onclick="setModalTab('seleziona')" id="mtab-sel"
+                class="flex-1 py-2 rounded-xl text-sm font-bold bg-m361-red text-white">Seleziona</button>
+            <button onclick="setModalTab('nuova')" id="mtab-nuova"
+                class="flex-1 py-2 rounded-xl text-sm font-bold bg-slate-100 text-slate-600">+ Nuova persona</button>
+        </div>
+
+        <!-- Seleziona -->
+        <div id="mtab-body-sel" class="space-y-3">
+            <input id="modal-search" type="text" placeholder="🔍 Cerca nome..."
+                oninput="filterModalList()"
+                class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+            <div id="modal-list" class="space-y-1 max-h-56 overflow-y-auto"></div>
+        </div>
+
+        <!-- Nuova persona -->
+        <div id="mtab-body-nuova" class="hidden space-y-3">
+            <input id="np-nome" type="text" placeholder="Nome *"
+                class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+            <input id="np-cognome" type="text" placeholder="Cognome"
+                class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+            <select id="np-ruolo" class="w-full border border-gray-200 rounded-xl p-3 text-sm">
+                <option value="volontario">Volontario</option>
+                <option value="dipendente">Dipendente</option>
+                <option value="servizio_civile">Servizio Civile</option>
+            </select>
+            <button onclick="addNuovaPersona()"
+                class="w-full py-3 rounded-xl bg-m361-red text-white text-sm font-bold hover:opacity-90">
+                Aggiungi e inserisci nel turno
+            </button>
+        </div>
+
+        <button onclick="closeModal()"
+            class="w-full py-3 rounded-xl border border-gray-200 text-sm font-bold text-slate-500 hover:bg-gray-50">
+            Annulla
+        </button>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ── DATI ────────────────────────────────────────────────────────
-const EMPORI = ['Cremona', 'Casalmaggiore', 'Viadana', 'Reggio Emilia'];
+// ── DATI ──────────────────────────────────────────────────────
+const EMPORI = ['Cremona','Casalmaggiore','Viadana','Reggio Emilia'];
+const ANNI   = [2026, 2027, 2028, 2029];
+const MESI_NOMI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                   'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const GIORNI_SETT = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
 
-const PERSONALE = {
+let PERSONALE = {
     'Cremona': [
-        { nome: 'Emilio Mazzolari',  ruolo: 'dipendente' },
-        { nome: 'Chiara Monteverdi', ruolo: 'dipendente' },
-        { nome: 'Noemi Capobianco',  ruolo: 'servizio_civile' },
-        { nome: 'Jacopo Denti',      ruolo: 'servizio_civile' },
-        { nome: 'Elena Cattani',     ruolo: 'volontario' },
-        { nome: 'Barbara Machetti',  ruolo: 'volontario' },
-        { nome: 'Giulia Galelli',    ruolo: 'volontario' },
-        { nome: 'Ileana Galli',      ruolo: 'volontario' },
+        { nome: 'Emilio Mazzolari',   ruolo: 'dipendente' },
+        { nome: 'Chiara Monteverdi',  ruolo: 'dipendente' },
+        { nome: 'Noemi Capobianco',   ruolo: 'servizio_civile' },
+        { nome: 'Jacopo Denti',       ruolo: 'servizio_civile' },
+        { nome: 'Elena Cattani',      ruolo: 'volontario' },
+        { nome: 'Barbara Machetti',   ruolo: 'volontario' },
+        { nome: 'Giulia Galelli',     ruolo: 'volontario' },
+        { nome: 'Ileana Galli',       ruolo: 'volontario' },
     ],
     'Casalmaggiore': [
-        { nome: 'Barbara Araldi',         ruolo: 'volontario' },
-        { nome: 'Erica Bossi',            ruolo: 'volontario' },
-        { nome: 'Matilde Chiarini',       ruolo: 'volontario' },
-        { nome: 'Miriam Federici',        ruolo: 'volontario' },
-        { nome: 'Giulia Frigeri',         ruolo: 'volontario' },
-        { nome: 'Piero Gatti',            ruolo: 'volontario' },
-        { nome: 'Francesco Lunardini',    ruolo: 'volontario' },
-        { nome: 'Giuseppe Lunardini',     ruolo: 'volontario' },
-        { nome: 'Vittoria Lunardini',     ruolo: 'volontario' },
-        { nome: 'Teyssir Mabrouk',        ruolo: 'volontario' },
-        { nome: 'Carla Maffei',           ruolo: 'volontario' },
-        { nome: 'Michele Marchini',       ruolo: 'volontario' },
-        { nome: 'Edoardo Pavesi',         ruolo: 'volontario' },
-        { nome: 'Giovanna Raineri',       ruolo: 'volontario' },
-        { nome: 'Alessandra Rivetti',     ruolo: 'volontario' },
+        { nome: 'Barbara Araldi',          ruolo: 'volontario' },
+        { nome: 'Erica Bossi',             ruolo: 'volontario' },
+        { nome: 'Matilde Chiarini',        ruolo: 'volontario' },
+        { nome: 'Miriam Federici',         ruolo: 'volontario' },
+        { nome: 'Giulia Frigeri',          ruolo: 'volontario' },
+        { nome: 'Piero Gatti',             ruolo: 'volontario' },
+        { nome: 'Francesco Lunardini',     ruolo: 'volontario' },
+        { nome: 'Giuseppe Lunardini',      ruolo: 'volontario' },
+        { nome: 'Vittoria Lunardini',      ruolo: 'volontario' },
+        { nome: 'Teyssir Mabrouk',         ruolo: 'volontario' },
+        { nome: 'Carla Maffei',            ruolo: 'volontario' },
+        { nome: 'Michele Marchini',        ruolo: 'volontario' },
+        { nome: 'Edoardo Pavesi',          ruolo: 'volontario' },
+        { nome: 'Giovanna Raineri',        ruolo: 'volontario' },
+        { nome: 'Alessandra Rivetti',      ruolo: 'volontario' },
         { nome: 'Maria Marcella Scaravonati', ruolo: 'volontario' },
-        { nome: 'Roberta Vezzosi',        ruolo: 'volontario' },
+        { nome: 'Roberta Vezzosi',         ruolo: 'volontario' },
     ],
     'Viadana': [
-        { nome: 'Roberta Alberini',   ruolo: 'volontario' },
-        { nome: 'Giuseppina Amadini', ruolo: 'volontario' },
-        { nome: 'Ave Aroldi',         ruolo: 'volontario' },
-        { nome: 'Carla Bellelli',     ruolo: 'volontario' },
+        { nome: 'Roberta Alberini',    ruolo: 'volontario' },
+        { nome: 'Giuseppina Amadini',  ruolo: 'volontario' },
+        { nome: 'Ave Aroldi',          ruolo: 'volontario' },
+        { nome: 'Carla Bellelli',      ruolo: 'volontario' },
         { nome: 'Mariagrazia Bertolini', ruolo: 'volontario' },
-        { nome: 'Tiziana Bortesi',    ruolo: 'volontario' },
-        { nome: 'Carla Chittolini',   ruolo: 'volontario' },
-        { nome: 'Donatella Falugi',   ruolo: 'volontario' },
-        { nome: 'Franco Furlotti',    ruolo: 'volontario' },
-        { nome: 'Sara Germani',       ruolo: 'volontario' },
-        { nome: 'Elena Ghelfi',       ruolo: 'volontario' },
-        { nome: 'Claudio Mortini',    ruolo: 'volontario' },
-        { nome: 'Mirella Panato',     ruolo: 'volontario' },
-        { nome: 'Barbara Piotrowska', ruolo: 'volontario' },
-        { nome: 'Alessia Rovina',     ruolo: 'volontario' },
-        { nome: 'Marta Sanfelici',    ruolo: 'volontario' },
-        { nome: 'Manuela Scazza',     ruolo: 'volontario' },
+        { nome: 'Tiziana Bortesi',     ruolo: 'volontario' },
+        { nome: 'Carla Chittolini',    ruolo: 'volontario' },
+        { nome: 'Donatella Falugi',    ruolo: 'volontario' },
+        { nome: 'Franco Furlotti',     ruolo: 'volontario' },
+        { nome: 'Sara Germani',        ruolo: 'volontario' },
+        { nome: 'Elena Ghelfi',        ruolo: 'volontario' },
+        { nome: 'Claudio Mortini',     ruolo: 'volontario' },
+        { nome: 'Mirella Panato',      ruolo: 'volontario' },
+        { nome: 'Barbara Piotrowska',  ruolo: 'volontario' },
+        { nome: 'Alessia Rovina',      ruolo: 'volontario' },
+        { nome: 'Marta Sanfelici',     ruolo: 'volontario' },
+        { nome: 'Manuela Scazza',      ruolo: 'volontario' },
     ],
     'Reggio Emilia': [
-        { nome: 'Elsa Scarpa',       ruolo: 'dipendente' },
-        { nome: 'Marica Pioli',      ruolo: 'dipendente' },
-        { nome: 'Manuela Capanni',   ruolo: 'dipendente' },
-        { nome: 'Alessia Bartolomei',ruolo: 'dipendente' },
+        { nome: 'Elsa Scarpa',        ruolo: 'dipendente' },
+        { nome: 'Marica Pioli',       ruolo: 'dipendente' },
+        { nome: 'Manuela Capanni',    ruolo: 'dipendente' },
+        { nome: 'Alessia Bartolomei', ruolo: 'dipendente' },
     ],
 };
 
-// turni[emporio][dateStr][turno] = [{nome, ruolo}]
-const turni = {};
+// turniData[emporio][dateStr] = { mat:[], pom:[], nota:'' }
+const turniData = {};
 
-let activeEmporio = null;
-let activeYear, activeMonth;
-let modalContext = null; // { emporio, dateStr, turno }
+let ctx = { emporio: null, anno: null, mese: null };
+let modalCtx = null;
 
-// ── INIT ─────────────────────────────────────────────────────
-window.onload = () => {
-    const now = new Date();
-    activeYear  = now.getFullYear();
-    activeMonth = now.getMonth(); // 0-based
-    renderEmpori();
-};
+// ── NAVIGAZIONE ───────────────────────────────────────────────
+window.onload = () => showEmpori();
 
-// ── VISTA EMPORI ─────────────────────────────────────────────
-function renderEmpori() {
-    document.getElementById('view-empori').classList.remove('hidden');
-    document.getElementById('view-mese').classList.add('hidden');
-    document.getElementById('header-title').innerText = 'Turni';
-    document.getElementById('header-controls').innerHTML = '';
+function showEmpori() {
+    ctx = { emporio: null, anno: null, mese: null };
+    setHeader('Turni', '');
+    hide(['view-anni','view-mesi','view-mese']);
+    show('view-empori');
 
-    const container = document.getElementById('view-empori');
-    container.innerHTML = EMPORI.map(e => `
-        <div onclick="openEmporio('${e}')"
-            class="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-[#b75252] hover:shadow-md transition-all group">
-            <div class="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="#b75252" class="w-7 h-7">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                </svg>
-            </div>
-            <span class="font-bold text-slate-700 text-base text-center">${e}</span>
-        </div>
-    `).join('');
-}
-
-// ── APRI EMPORIO ─────────────────────────────────────────────
-function openEmporio(emporio) {
-    activeEmporio = emporio;
-    document.getElementById('view-empori').classList.add('hidden');
-    document.getElementById('view-mese').classList.remove('hidden');
-    document.getElementById('header-title').innerText = emporio;
-    renderHeaderControls();
-    renderMese();
-}
-
-function renderHeaderControls() {
-    document.getElementById('header-controls').innerHTML = `
-        <button onclick="changeMonth(-1)" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm">‹</button>
-        <span id="mese-label" class="font-bold text-slate-700 text-sm min-w-[120px] text-center"></span>
-        <button onclick="changeMonth(1)" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm">›</button>
-        <button onclick="renderEmpori()" class="ml-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm">← Empori</button>
-    `;
-    updateMeseLabel();
-}
-
-function updateMeseLabel() {
-    const label = new Date(activeYear, activeMonth, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-    const el = document.getElementById('mese-label');
-    if (el) el.innerText = label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function changeMonth(dir) {
-    activeMonth += dir;
-    if (activeMonth > 11) { activeMonth = 0; activeYear++; }
-    if (activeMonth < 0)  { activeMonth = 11; activeYear--; }
-    updateMeseLabel();
-    renderMese();
-}
-
-// ── VISTA MESE ───────────────────────────────────────────────
-const GIORNI_SETTIMANA = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-
-function renderMese() {
-    const container = document.getElementById('view-mese');
-    const daysInMonth = new Date(activeYear, activeMonth + 1, 0).getDate();
-    const oggi = new Date().toISOString().split('T')[0];
-
-    let html = '';
-    for (let d = 1; d <= daysInMonth; d++) {
-        const date = new Date(activeYear, activeMonth, d);
-        const dateStr = date.toISOString().split('T')[0];
-        const giorno = GIORNI_SETTIMANA[date.getDay()];
-        const isFestivo = date.getDay() === 0;
-        const isOggi = dateStr === oggi;
-
-        const matList  = getTurno(activeEmporio, dateStr, 'mat');
-        const pomList  = getTurno(activeEmporio, dateStr, 'pom');
-
-        html += `
-        <div class="bg-white rounded-2xl border ${isOggi ? 'border-[#b75252] shadow-md' : 'border-gray-100 shadow-sm'} overflow-hidden">
-            <!-- Intestazione giorno -->
-            <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-50 ${isFestivo ? 'bg-red-50' : 'bg-slate-50'}">
-                <div class="text-center min-w-[44px]">
-                    <div class="text-[10px] font-bold uppercase tracking-wider ${isFestivo ? 'text-m361-red' : 'text-slate-400'}">${giorno}</div>
-                    <div class="text-xl font-bold ${isOggi ? 'text-m361-red' : isFestivo ? 'text-m361-red' : 'text-slate-700'}">${d}</div>
+    document.getElementById('view-empori').innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mt-2">
+        ${EMPORI.map(e => `
+            <div onclick="showAnni('${e}')" class="card-sel bg-white rounded-3xl border border-gray-100 shadow-sm p-8
+                flex flex-col items-center justify-center gap-3 cursor-pointer">
+                <div class="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke-width="1.8" stroke="#b75252" class="w-7 h-7">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952
+                            4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07
+                            M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766
+                            l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0
+                            3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+                    </svg>
                 </div>
-                ${isOggi ? '<span class="text-[9px] font-bold bg-m361-red text-white px-2 py-0.5 rounded-full uppercase tracking-wider">Oggi</span>' : ''}
+                <span class="font-bold text-slate-700 text-base text-center">${e}</span>
             </div>
-            <!-- Turni -->
-            <div class="grid grid-cols-2 divide-x divide-gray-100">
-                <!-- MATTINO -->
-                <div class="p-3 turno-cell">
-                    <div class="text-[9px] font-bold uppercase tracking-widest text-amber-500 mb-2">☀️ Mattino</div>
-                    <div class="flex flex-wrap gap-1 mb-2" id="mat-${dateStr}">
-                        ${renderChips(matList, dateStr, 'mat')}
-                    </div>
-                    <button onclick="openModal('${dateStr}', 'mat')"
-                        class="text-[10px] text-slate-400 hover:text-m361-red font-semibold flex items-center gap-1 transition-colors">
-                        <span class="text-base leading-none">+</span> aggiungi
-                    </button>
-                </div>
-                <!-- POMERIGGIO -->
-                <div class="p-3 turno-cell">
-                    <div class="text-[9px] font-bold uppercase tracking-widest text-blue-400 mb-2">🌙 Pomeriggio</div>
-                    <div class="flex flex-wrap gap-1 mb-2" id="pom-${dateStr}">
-                        ${renderChips(pomList, dateStr, 'pom')}
-                    </div>
-                    <button onclick="openModal('${dateStr}', 'pom')"
-                        class="text-[10px] text-slate-400 hover:text-m361-red font-semibold flex items-center gap-1 transition-colors">
-                        <span class="text-base leading-none">+</span> aggiungi
-                    </button>
-                </div>
-            </div>
+        `).join('')}
         </div>`;
-    }
-
-    container.innerHTML = html;
 }
 
+function showAnni(emporio) {
+    ctx.emporio = emporio;
+    setHeader(emporio, backBtn('showEmpori()'));
+    hide(['view-empori','view-mesi','view-mese']);
+    show('view-anni');
+
+    document.getElementById('view-anni').innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mt-2">
+        ${ANNI.map(a => `
+            <div onclick="showMesi(${a})" class="card-sel bg-white rounded-2xl border border-gray-100
+                shadow-sm p-8 text-center cursor-pointer">
+                <span class="text-3xl font-bold text-slate-700">${a}</span>
+            </div>
+        `).join('')}
+        </div>`;
+}
+
+function showMesi(anno) {
+    ctx.anno = anno;
+    setHeader(`${ctx.emporio} — ${anno}`, backBtn(`showAnni('${ctx.emporio}')`));
+    hide(['view-empori','view-anni','view-mese']);
+    show('view-mesi');
+
+    document.getElementById('view-mesi').innerHTML = `
+        <div class="grid grid-cols-3 md:grid-cols-4 gap-4 mt-2">
+        ${MESI_NOMI.map((m, i) => `
+            <div onclick="showMese(${i})" class="card-sel bg-white rounded-2xl border border-gray-100
+                shadow-sm p-6 text-center cursor-pointer">
+                <span class="text-base font-bold text-slate-700">${m}</span>
+            </div>
+        `).join('')}
+        </div>`;
+}
+
+function showMese(mese) {
+    ctx.mese = mese;
+    const label = `${MESI_NOMI[mese]} ${ctx.anno}`;
+    setHeader(`${ctx.emporio} — ${label}`, backBtn(`showMesi(${ctx.anno})`));
+    hide(['view-empori','view-anni','view-mesi']);
+    show('view-mese');
+    renderMese();
+}
+
+// ── RENDER MESE ───────────────────────────────────────────────
+function renderMese() {
+    const { emporio, anno, mese } = ctx;
+    const daysInMonth = new Date(anno, mese + 1, 0).getDate();
+    const oggi = new Date().toISOString().split('T')[0];
+    const container = document.getElementById('view-mese');
+    container.innerHTML = '';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const date    = new Date(anno, mese, d);
+        const dateStr = date.toISOString().split('T')[0];
+        const gSett   = GIORNI_SETT[date.getDay()];
+        const isFest  = date.getDay() === 0;
+        const isOggi  = dateStr === oggi;
+        const nota    = turniData[emporio]?.[dateStr]?.nota || '';
+        const matList = getT(emporio, dateStr, 'mat');
+        const pomList = getT(emporio, dateStr, 'pom');
+
+        const row = document.createElement('div');
+        row.className = `bg-white rounded-2xl border ${isOggi ? 'border-[#b75252] ring-1 ring-[#b75252]/30' : 'border-gray-100'} shadow-sm overflow-hidden`;
+        row.innerHTML = `
+            <div class="flex min-h-[80px]">
+
+                <!-- GIORNO -->
+                <div class="flex flex-col items-center justify-center px-4 min-w-[72px]
+                    ${isFest ? 'bg-red-50' : 'bg-slate-50'} border-r border-gray-100">
+                    <span class="text-xs font-bold uppercase tracking-wider
+                        ${isFest ? 'text-m361-red' : 'text-slate-400'}">${gSett}</span>
+                    <span class="text-3xl font-bold leading-tight
+                        ${isOggi ? 'text-m361-red' : isFest ? 'text-m361-red' : 'text-slate-700'}">${d}</span>
+                    ${isOggi ? '<span class="text-[8px] font-bold text-m361-red uppercase tracking-wider">oggi</span>' : ''}
+                </div>
+
+                <!-- TURNI + NOTE -->
+                <div class="flex-1 divide-y divide-gray-50">
+
+                    <!-- Turni -->
+                    <div class="grid grid-cols-2 divide-x divide-gray-100">
+
+                        <!-- MATTINO -->
+                        <div class="p-3">
+                            <div class="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-2">
+                                ☀️ Mattino
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 mb-2" id="mat-${dateStr}">
+                                ${renderChips(matList, dateStr, 'mat')}
+                            </div>
+                            <button onclick="openModal('${dateStr}','mat')"
+                                class="text-xs text-slate-400 hover:text-m361-red font-semibold
+                                flex items-center gap-1 transition-colors mt-1">
+                                <span class="text-lg leading-none font-light">+</span> aggiungi
+                            </button>
+                        </div>
+
+                        <!-- POMERIGGIO -->
+                        <div class="p-3">
+                            <div class="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-2">
+                                🌙 Pomeriggio
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 mb-2" id="pom-${dateStr}">
+                                ${renderChips(pomList, dateStr, 'pom')}
+                            </div>
+                            <button onclick="openModal('${dateStr}','pom')"
+                                class="text-xs text-slate-400 hover:text-m361-red font-semibold
+                                flex items-center gap-1 transition-colors mt-1">
+                                <span class="text-lg leading-none font-light">+</span> aggiungi
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- NOTE -->
+                    <div class="px-3 py-2 flex items-center gap-2">
+                        <span class="text-[10px] text-amber-700 font-bold uppercase tracking-wider shrink-0">📝</span>
+                        <input type="text"
+                            placeholder="Note del giorno..."
+                            value="${nota.replace(/"/g,'&quot;')}"
+                            onchange="saveNota('${dateStr}', this.value)"
+                            class="flex-1 text-sm text-slate-600 bg-transparent outline-none placeholder-slate-300
+                            ${nota ? 'font-semibold text-amber-800' : ''}">
+                        ${nota ? `<span class="nota-badge text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">nota</span>` : ''}
+                    </div>
+
+                </div>
+            </div>`;
+        container.appendChild(row);
+    }
+}
+
+// ── CHIP ──────────────────────────────────────────────────────
 function renderChips(list, dateStr, turno) {
     return list.map((p, i) => `
-        <span class="chip ${chipClass(p.ruolo)}" title="Rimuovi ${p.nome}"
-            onclick="removePersona('${dateStr}', '${turno}', ${i})">
-            ${p.nome} <span class="opacity-50">×</span>
-        </span>
-    `).join('');
+        <span class="chip ${chipClass(p.ruolo)}" onclick="removePersona('${dateStr}','${turno}',${i})"
+            title="Rimuovi ${p.nome}">
+            ${p.nome} <span class="opacity-40 ml-0.5">×</span>
+        </span>`).join('');
 }
 
-function chipClass(ruolo) {
-    if (ruolo === 'dipendente')      return 'chip-dip';
-    if (ruolo === 'volontario')      return 'chip-vol';
-    if (ruolo === 'servizio_civile') return 'chip-sc';
+function chipClass(r) {
+    if (r === 'dipendente')      return 'chip-dip';
+    if (r === 'volontario')      return 'chip-vol';
+    if (r === 'servizio_civile') return 'chip-sc';
     return 'chip-sc';
 }
 
-// ── GESTIONE TURNI ────────────────────────────────────────────
-function getTurno(emporio, dateStr, turno) {
-    return turni[emporio]?.[dateStr]?.[turno] || [];
+// ── TURNI CRUD ────────────────────────────────────────────────
+function getT(emp, dateStr, turno) {
+    return turniData[emp]?.[dateStr]?.[turno] || [];
 }
 
-function addPersona(emporio, dateStr, turno, persona) {
-    if (!turni[emporio]) turni[emporio] = {};
-    if (!turni[emporio][dateStr]) turni[emporio][dateStr] = { mat: [], pom: [] };
-    // Evita duplicati nello stesso turno
-    if (!turni[emporio][dateStr][turno].find(p => p.nome === persona.nome)) {
-        turni[emporio][dateStr][turno].push(persona);
+function initDay(emp, dateStr) {
+    if (!turniData[emp]) turniData[emp] = {};
+    if (!turniData[emp][dateStr]) turniData[emp][dateStr] = { mat: [], pom: [], nota: '' };
+}
+
+function addPersona(emp, dateStr, turno, persona) {
+    initDay(emp, dateStr);
+    const list = turniData[emp][dateStr][turno];
+    if (!list.find(p => p.nome === persona.nome)) list.push(persona);
+}
+
+function removePersona(dateStr, turno, idx) {
+    const emp = ctx.emporio;
+    if (turniData[emp]?.[dateStr]?.[turno]) {
+        turniData[emp][dateStr][turno].splice(idx, 1);
+        refreshCell(dateStr, turno);
     }
 }
 
-function removePersona(dateStr, turno, index) {
-    if (turni[activeEmporio]?.[dateStr]?.[turno]) {
-        turni[activeEmporio][dateStr][turno].splice(index, 1);
-        refreshTurnoCell(dateStr, turno);
+function saveNota(dateStr, val) {
+    initDay(ctx.emporio, dateStr);
+    turniData[ctx.emporio][dateStr].nota = val;
+    // aggiorna il badge senza re-render completo
+    const row = document.getElementById(`mat-${dateStr}`)?.closest('.bg-white');
+    if (row) {
+        const badge = row.querySelector('.nota-badge');
+        const input = row.querySelector('input[type=text]');
+        if (val) {
+            input.classList.add('font-semibold','text-amber-800');
+            if (!badge) {
+                const span = document.createElement('span');
+                span.className = 'nota-badge text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0';
+                span.innerText = 'nota';
+                input.after(span);
+            }
+        } else {
+            input.classList.remove('font-semibold','text-amber-800');
+            if (badge) badge.remove();
+        }
     }
 }
 
-function refreshTurnoCell(dateStr, turno) {
+function refreshCell(dateStr, turno) {
     const el = document.getElementById(`${turno}-${dateStr}`);
-    if (el) el.innerHTML = renderChips(getTurno(activeEmporio, dateStr, turno), dateStr, turno);
+    if (el) el.innerHTML = renderChips(getT(ctx.emporio, dateStr, turno), dateStr, turno);
 }
 
 // ── MODAL ─────────────────────────────────────────────────────
+let modalTab = 'seleziona';
+
 function openModal(dateStr, turno) {
-    modalContext = { emporio: activeEmporio, dateStr, turno };
+    modalCtx = { dateStr, turno };
+    const turnoLabel = turno === 'mat' ? '☀️ Mattino' : '🌙 Pomeriggio';
+    const d = new Date(dateStr + 'T12:00:00');
     document.getElementById('modal-title').innerText =
-        `Aggiungi — ${turno === 'mat' ? '☀️ Mattino' : '🌙 Pomeriggio'} del ${formatDate(dateStr)}`;
-    document.getElementById('modal-search').value = '';
-    renderModalList('');
+        `${turnoLabel}  —  ${GIORNI_SETT[d.getDay()]} ${d.getDate()} ${MESI_NOMI[d.getMonth()]}`;
+    setModalTab('seleziona');
     document.getElementById('modal').classList.remove('hidden');
 }
 
 function closeModal() {
     document.getElementById('modal').classList.add('hidden');
-    modalContext = null;
+    modalCtx = null;
+}
+
+function setModalTab(tab) {
+    modalTab = tab;
+    const isSel = tab === 'seleziona';
+    document.getElementById('mtab-sel').className =
+        `flex-1 py-2 rounded-xl text-sm font-bold ${isSel ? 'bg-m361-red text-white' : 'bg-slate-100 text-slate-600'}`;
+    document.getElementById('mtab-nuova').className =
+        `flex-1 py-2 rounded-xl text-sm font-bold ${!isSel ? 'bg-m361-red text-white' : 'bg-slate-100 text-slate-600'}`;
+    document.getElementById('mtab-body-sel').classList.toggle('hidden', !isSel);
+    document.getElementById('mtab-body-nuova').classList.toggle('hidden', isSel);
+    if (isSel) {
+        document.getElementById('modal-search').value = '';
+        renderModalList('');
+    }
 }
 
 function filterModalList() {
@@ -315,36 +423,61 @@ function filterModalList() {
 }
 
 function renderModalList(query) {
-    if (!modalContext) return;
-    const persone = PERSONALE[modalContext.emporio] || [];
-    const giàNelTurno = getTurno(modalContext.emporio, modalContext.dateStr, modalContext.turno).map(p => p.nome);
-
-    const filtrati = persone.filter(p =>
-        p.nome.toLowerCase().includes(query) && !giàNelTurno.includes(p.nome)
-    );
+    if (!modalCtx) return;
+    const persone   = PERSONALE[ctx.emporio] || [];
+    const nelTurno  = getT(ctx.emporio, modalCtx.dateStr, modalCtx.turno).map(p => p.nome);
+    const filtrati  = persone.filter(p =>
+        p.nome.toLowerCase().includes(query) && !nelTurno.includes(p.nome));
 
     document.getElementById('modal-list').innerHTML = filtrati.length === 0
         ? '<p class="text-sm text-slate-400 text-center py-4">Nessuno disponibile</p>'
         : filtrati.map(p => `
-            <button onclick="selectPersona('${p.nome}', '${p.ruolo}')"
-                class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors text-left">
-                <span class="chip ${chipClass(p.ruolo)}">${p.nome}</span>
-            </button>
-        `).join('');
+            <button onclick="selectPersona('${p.nome}','${p.ruolo}')"
+                class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left">
+                <span class="chip ${chipClass(p.ruolo)} pointer-events-none">${p.nome}</span>
+            </button>`).join('');
 }
 
 function selectPersona(nome, ruolo) {
-    if (!modalContext) return;
-    addPersona(modalContext.emporio, modalContext.dateStr, modalContext.turno, { nome, ruolo });
-    refreshTurnoCell(modalContext.dateStr, modalContext.turno);
+    addPersona(ctx.emporio, modalCtx.dateStr, modalCtx.turno, { nome, ruolo });
+    refreshCell(modalCtx.dateStr, modalCtx.turno);
     closeModal();
 }
 
-function formatDate(dateStr) {
-    return new Date(dateStr + 'T12:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+function addNuovaPersona() {
+    const nome    = document.getElementById('np-nome').value.trim();
+    const cognome = document.getElementById('np-cognome').value.trim();
+    const ruolo   = document.getElementById('np-ruolo').value;
+    if (!nome) { alert('Inserisci almeno il nome.'); return; }
+    const nomeCompleto = cognome ? nome + ' ' + cognome : nome;
+    if (!PERSONALE[ctx.emporio]) PERSONALE[ctx.emporio] = [];
+    if (!PERSONALE[ctx.emporio].find(p => p.nome === nomeCompleto)) {
+        PERSONALE[ctx.emporio].push({ nome: nomeCompleto, ruolo });
+    }
+    addPersona(ctx.emporio, modalCtx.dateStr, modalCtx.turno, { nome: nomeCompleto, ruolo });
+    refreshCell(modalCtx.dateStr, modalCtx.turno);
+    document.getElementById('np-nome').value = '';
+    document.getElementById('np-cognome').value = '';
+    closeModal();
 }
 
-// Chiudi cliccando fuori
+// ── UTIL ──────────────────────────────────────────────────────
+function setHeader(title, controls) {
+    document.getElementById('header-title').innerText = title;
+    document.getElementById('header-controls').innerHTML = controls;
+}
+
+function backBtn(fn) {
+    return `<button onclick="${fn}"
+        class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100
+        hover:bg-slate-200 text-slate-600 font-bold text-sm transition-colors">
+        <span class="text-base">←</span> Indietro
+    </button>`;
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(ids) { ids.forEach(id => document.getElementById(id).classList.add('hidden')); }
+
 document.getElementById('modal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
 });
