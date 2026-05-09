@@ -288,6 +288,7 @@
             <div class="flex flex-wrap gap-4 items-end justify-between">
                 <!-- Filters -->
                 <div class="flex flex-wrap gap-2">
+                    <button class="filter-btn active" data-filter="tutti">Tutti</button>
                     <button class="filter-btn" data-filter="da_ordinare">Merce da ordinare</button>
                     <button class="filter-btn" data-filter="da_avvisare">Merce pronta cliente da avvisare</button>
                     <button class="filter-btn" data-filter="avvisati">Merce pronta cliente avvisato</button>
@@ -334,7 +335,7 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let allOrders = [];
-        let currentFilter = 'da_ordinare';
+        let currentFilter = 'tutti';
 
         async function loadOrders() {
             try {
@@ -344,13 +345,13 @@
                 const { data, error } = await _supabase
                     .from('ordini_incorso')
                     .select('*')
-                    .order('data_creazione', { ascending: true }); // Oldest first
+                    .order('data_creazione', { ascending: true });
 
                 if (error) throw error;
 
                 allOrders = data || [];
                 
-                // Check and update merce_pronta based on prodotti
+                // Check and update merce_pronta based on articoli
                 for (let order of allOrders) {
                     await checkAndUpdateMercePronta(order);
                 }
@@ -380,11 +381,10 @@
         }
 
         async function checkAndUpdateMercePronta(order) {
-            if (!order.prodotti || !Array.isArray(order.prodotti)) return;
+            if (!order.articoli || !Array.isArray(order.articoli)) return;
             
-            // Check if all products have da_parte === qta
             let allReady = true;
-            for (let product of order.prodotti) {
+            for (let product of order.articoli) {
                 const qta = parseInt(product.qta) || 0;
                 const daParte = parseInt(product.da_parte) || 0;
                 
@@ -394,7 +394,6 @@
                 }
             }
             
-            // Update if needed
             if (allReady && !order.merce_pronta) {
                 try {
                     await _supabase
@@ -412,7 +411,6 @@
             const loading = document.getElementById('loading');
             const emptyState = document.getElementById('empty-state');
             
-            // Clear existing order cards
             const existingCards = container.querySelectorAll('.order-card');
             existingCards.forEach(card => card.remove());
 
@@ -432,7 +430,6 @@
         function createOrderCard(order) {
             const card = document.createElement('div');
             
-            // Determine status
             const merce_pronta = order.merce_pronta || false;
             const cliente_avvisato = order.cliente_avvisato || false;
             const da_avvisare = merce_pronta && !cliente_avvisato;
@@ -445,30 +442,27 @@
             
             const dataCreazione = new Date(order.data_creazione).toLocaleDateString('it-IT');
             
-            // Delivery method icon
             const deliveryIcon = order.modalita_consegna === 'Spedizione' ? 'fa-truck' : 'fa-box';
             const deliveryText = order.modalita_consegna || 'Ritiro';
 
             card.innerHTML = `
                 <div class="grid grid-cols-12 gap-6 items-center">
                     
-                    <!-- LEFT SECTION -->
                     <div class="col-span-12 md:col-span-4">
                         <div class="flex items-center gap-3 mb-3 flex-wrap">
                             <span class="status-badge ${statusClass}">${statusText}</span>
                             ${da_avvisare ? '<span class="badge-da-avvisare"><i class="fas fa-circle"></i> DA AVVISARE</span>' : ''}
-                            <span class="order-number">#${order.numero_ordine}</span>
+                            <span class="order-number">#${order.numero_ordine || order.id.substring(0, 8)}</span>
                         </div>
                         <div class="customer-name">${order.cliente_nome} ${order.cliente_cognome}</div>
                         <div class="info-text">Data ordine: ${dataCreazione}</div>
-                        <div class="emporio-name">${order.emporio}</div>
+                        <div class="emporio-name">${order.emporio || order.citta}</div>
                         <div class="delivery-method">
                             <i class="fas ${deliveryIcon}"></i>
                             ${deliveryText}
                         </div>
                     </div>
                     
-                    <!-- MIDDLE SECTION - CHECKBOXES -->
                     <div class="col-span-12 md:col-span-4 flex flex-col gap-3">
                         <label class="checkbox-label">
                             <input type="checkbox" ${merce_pronta ? 'checked' : ''} onchange="toggleMercePronta('${order.id}', this.checked)">
@@ -480,7 +474,6 @@
                         </label>
                     </div>
                     
-                    <!-- RIGHT SECTION - ACTIONS -->
                     <div class="col-span-12 md:col-span-4 flex items-center justify-end gap-3">
                         <button class="btn-action btn-edit" onclick="editOrder('${order.id}')" title="Modifica">
                             <i class="fas fa-pen"></i>
@@ -551,8 +544,8 @@
         }
 
         function editOrder(orderId) {
-            // Redirect to edit page - create a simple edit page
-            window.location.href = `ordini_nuovi.html?edit=${orderId}`;
+            // Redirect to ordini_modifica.html with order ID
+            window.location.href = `ordini_modifica.html?id=${orderId}`;
         }
 
         async function deleteOrder(orderId) {
@@ -577,7 +570,6 @@
         function filterOrders(filter) {
             currentFilter = filter;
             
-            // Update active button
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (btn.getAttribute('data-filter') === filter) {
@@ -591,8 +583,7 @@
         function applyCurrentFilter() {
             let filtered = allOrders;
             
-            // Apply status filter
-            if (currentFilter) {
+            if (currentFilter !== 'tutti') {
                 filtered = filtered.filter(order => {
                     const merce_pronta = order.merce_pronta || false;
                     const cliente_avvisato = order.cliente_avvisato || false;
@@ -610,18 +601,16 @@
                 });
             }
 
-            // Apply search filter
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
             if (searchTerm) {
                 filtered = filtered.filter(order => 
                     (order.numero_ordine || '').toLowerCase().includes(searchTerm) ||
                     (order.cliente_nome || '').toLowerCase().includes(searchTerm) ||
                     (order.cliente_cognome || '').toLowerCase().includes(searchTerm) ||
-                    (order.emporio || '').toLowerCase().includes(searchTerm)
+                    (order.emporio || order.citta || '').toLowerCase().includes(searchTerm)
                 );
             }
 
-            // Apply date filter
             const filterDate = document.getElementById('filter-date').value;
             if (filterDate) {
                 filtered = filtered.filter(order => {
@@ -633,23 +622,14 @@
             renderOrders(filtered);
         }
 
-        // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
-            // Filter buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.addEventListener('click', () => filterOrders(btn.getAttribute('data-filter')));
             });
-            
-            // Set first filter as active by default
-            document.querySelector('.filter-btn').classList.add('active');
 
-            // Search input
             document.getElementById('search-input').addEventListener('input', applyCurrentFilter);
-            
-            // Date filter
             document.getElementById('filter-date').addEventListener('change', applyCurrentFilter);
 
-            // Load orders
             loadOrders();
         });
     </script>
