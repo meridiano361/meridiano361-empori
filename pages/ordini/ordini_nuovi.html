@@ -71,8 +71,12 @@
             border: none;
             cursor: pointer;
         }
-        .btn-submit:hover {
+        .btn-submit:hover:not(:disabled) {
             transform: scale(1.01);
+        }
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .section-card {
@@ -129,6 +133,21 @@
         .form-select:focus {
             outline: none;
             border-color: #b75252;
+        }
+
+        /* Product table styles */
+        .product-table th {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding-bottom: 8px;
+        }
+        
+        .product-table input, .product-table select {
+            font-size: 12px;
+            padding: 6px 8px;
+            border-radius: 8px;
         }
 
         .total-box {
@@ -212,19 +231,6 @@
         }
         .add-group-btn:hover {
             background: #334155;
-        }
-
-        .delete-btn {
-            color: #ef4444;
-            background: #fef2f2;
-            border: none;
-            padding: 8px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .delete-btn:hover {
-            background: #fee2e2;
         }
     </style>
 </head>
@@ -374,12 +380,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Initialize Supabase
         const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Global variables
         let currentType = 'standard';
         let groupCount = 0;
         let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Viadana"];
@@ -442,7 +446,6 @@
             }
         }
 
-        // NAVIGATION
         function goBack() {
             if (!document.getElementById('orderForm').classList.contains('hidden')) {
                 document.getElementById('orderForm').classList.add('hidden');
@@ -456,7 +459,6 @@
             }
         }
 
-        // INIT ORDER
         function initOrder(type) {
             currentType = type;
             document.getElementById('order-type-selection').classList.add('hidden');
@@ -476,7 +478,6 @@
             refreshNumeroOrdinePreview();
         }
 
-        // EMPORIO MANAGEMENT
         function handleCittaChange() {
             const citta = document.getElementById('select-emporio').value;
             const canaleContainer = document.getElementById('canale-cremona-container');
@@ -569,7 +570,7 @@
             btn.classList.toggle('wa-inactive');
         }
 
-        // GROUP MANAGEMENT
+        // GROUP MANAGEMENT WITH DETAILED PRODUCT TABLE
         function addGroup() {
             groupCount++;
             const groupId = groupCount;
@@ -594,13 +595,31 @@
                         <i class="fas fa-plus mr-1"></i> Aggiungi
                     </button>
                 </div>
-                <div id="rows-${groupId}" class="space-y-3"></div>
+                <div class="overflow-x-auto text-xs">
+                    <table class="w-full text-left border-separate border-spacing-y-2 product-table">
+                        <thead>
+                            <tr class="text-gray-400 text-center">
+                                <th class="pb-2 pl-4 text-left">Codice *</th>
+                                <th class="pb-2 text-left">Descrizione *</th>
+                                <th class="pb-2 w-24">Prezzo</th>
+                                <th class="pb-2 w-16">Qtà</th>
+                                <th class="pb-2 w-16 bg-green-50 text-green-700">Da parte</th>
+                                <th class="pb-2 w-16 bg-slate-50">Da forn.</th>
+                                <th class="pb-2 w-32 bg-slate-50">Da empori</th>
+                                <th class="pb-2 w-32 bg-slate-50">Da altri</th>
+                                <th class="pb-2 w-16 bg-red-50 text-m361-red">Da Ord</th>
+                                <th class="pb-2 w-24 text-right pr-4">Totale</th>
+                                <th class="pb-2 w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="rows-container-${groupId}"></tbody>
+                    </table>
+                </div>
                 ${subtotalSection}
             `;
 
             container.appendChild(groupDiv);
             
-            // Add event listener to add row button
             groupDiv.querySelector('.add-row-btn').addEventListener('click', function() {
                 addRow(groupId);
             });
@@ -609,169 +628,214 @@
         }
 
         function addRow(groupId) {
-            const rowsContainer = document.getElementById(`rows-${groupId}`);
-            const rowId = Date.now();
-            
-            const rowDiv = document.createElement('div');
-            rowDiv.id = `row-${rowId}`;
-            rowDiv.className = 'grid grid-cols-12 gap-3 items-center p-3 bg-slate-50 rounded-xl';
-            rowDiv.innerHTML = `
-                <input type="number" placeholder="Q.tà" min="1" class="col-span-2 form-input qty-input">
-                <input type="text" placeholder="Prodotto" class="col-span-4 form-input">
-                <input type="number" step="0.01" placeholder="Prezzo" class="col-span-2 form-input price-input">
-                <select class="col-span-2 form-select emporio-dropdown">
-                    ${getEmporioOptions()}
-                </select>
-                <span class="col-span-1 text-center font-bold text-slate-600">€ <span class="row-total">0,00</span></span>
-                <button type="button" class="col-span-1 delete-btn delete-row-btn" data-row="${rowId}" data-group="${groupId}">
-                    <i class="fas fa-trash"></i>
-                </button>
+            const tbody = document.getElementById(`rows-container-${groupId}`);
+            const rowId = Date.now() + Math.random();
+            const row = document.createElement('tr');
+            row.className = "product-row transition-all";
+            row.id = `row-${rowId}`;
+            row.innerHTML = `
+                <td class="p-1 pl-4"><input type="text" placeholder="Codice" required class="w-full border-gray-200 border rounded-lg p-2 codice-input"></td>
+                <td class="p-1"><input type="text" placeholder="Descrizione" required class="w-full border-gray-200 border rounded-lg p-2 desc-input"></td>
+                <td class="p-1"><input type="text" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0,00"></td>
+                <td class="p-1"><input type="number" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="1" min="1"></td>
+                <td class="p-1 bg-green-50"><input type="number" class="parte-input w-full border-green-200 border rounded-lg p-2 text-center" value="0" min="0"></td>
+                <td class="p-1 bg-slate-50"><input type="number" class="forn-input w-full border-slate-200 border rounded-lg p-2 text-center" value="0" min="0"></td>
+                <td class="p-1 bg-slate-50">
+                    <div class="flex flex-col gap-1">
+                        <input type="number" class="emp-q-input w-full border-slate-200 border rounded-lg p-1 text-center" value="0" min="0">
+                        <select class="emporio-dropdown w-full border-slate-200 border rounded-lg p-1 text-[9px] bg-white">${getEmporioOptions()}</select>
+                    </div>
+                </td>
+                <td class="p-1 bg-slate-50">
+                    <div class="flex flex-col gap-1">
+                        <input type="number" class="altri-q-input w-full border-slate-200 border rounded-lg p-1 text-center" value="0" min="0">
+                        <input type="text" placeholder="Specifica..." class="altri-spec-input w-full border-slate-200 border rounded-lg p-1 text-[9px] bg-white">
+                    </div>
+                </td>
+                <td class="p-1 bg-red-50 text-center font-bold text-m361-red do-value">0</td>
+                <td class="p-1 text-right pr-4 font-bold">€ <span class="row-total">0,00</span></td>
+                <td class="p-1 text-center"><button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button></td>
             `;
             
-            rowsContainer.appendChild(rowDiv);
+            tbody.appendChild(row);
             
-            // Add event listeners
-            rowDiv.querySelector('.qty-input').addEventListener('input', () => calcSubtotal(groupId));
-            rowDiv.querySelector('.price-input').addEventListener('input', () => calcSubtotal(groupId));
-            rowDiv.querySelector('.delete-row-btn').addEventListener('click', function() {
-                deleteRow(rowId, groupId);
+            // Add event listeners to inputs
+            row.querySelector('.price-input').addEventListener('focus', function() {
+                clearCurrency(this);
             });
+            row.querySelector('.price-input').addEventListener('blur', function() {
+                formatCurrency(this);
+            });
+            row.querySelector('.price-input').addEventListener('input', () => calcRow(rowId, groupId));
+            row.querySelector('.qty-input').addEventListener('input', () => calcRow(rowId, groupId));
+            row.querySelector('.parte-input').addEventListener('input', () => calcRow(rowId, groupId));
+            row.querySelector('.forn-input').addEventListener('input', () => calcRow(rowId, groupId));
+            row.querySelector('.emp-q-input').addEventListener('input', () => calcRow(rowId, groupId));
+            row.querySelector('.altri-q-input').addEventListener('input', () => calcRow(rowId, groupId));
+            row.querySelector('.delete-row-btn').addEventListener('click', () => removeRow(rowId, groupId));
         }
 
-        function deleteRow(rowId, groupId) {
-            document.getElementById(`row-${rowId}`)?.remove();
-            calcSubtotal(groupId);
-        }
-
-        // CALCULATIONS
-        function calcSubtotal(groupId) {
-            const rows = document.querySelectorAll(`#rows-${groupId} > div`);
-            let subtotal = 0;
+        function calcRow(rowId, groupId) {
+            const row = document.getElementById(`row-${rowId}`);
+            if (!row) return;
             
-            rows.forEach(row => {
-                const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-                const price = parseFloat(row.querySelector('.price-input').value) || 0;
-                const rowTotal = qty * price;
-                row.querySelector('.row-total').textContent = rowTotal.toFixed(2).replace('.', ',');
-                subtotal += rowTotal;
-            });
+            const qty = parseInt(row.querySelector('.qty-input').value) || 0;
+            const price = parseFloat(row.querySelector('.price-input').value.replace('€', '').replace(',', '.').trim()) || 0;
+            const parte = parseInt(row.querySelector('.parte-input').value) || 0;
+            const forn = parseInt(row.querySelector('.forn-input').value) || 0;
+            const empQ = parseInt(row.querySelector('.emp-q-input').value) || 0;
+            const altriQ = parseInt(row.querySelector('.altri-q-input').value) || 0;
             
-            const subtotalEl = document.getElementById(`subtotal-${groupId}`);
-            if (subtotalEl) {
-                subtotalEl.textContent = '€ ' + subtotal.toFixed(2).replace('.', ',');
+            const sumProv = parte + forn + empQ + altriQ;
+            const daOrd = Math.max(0, qty - sumProv);
+            
+            // Toggle error class if sum > qty
+            row.classList.toggle('row-error', sumProv > qty);
+            
+            // Update Da Ord
+            row.querySelector('.do-value').textContent = daOrd;
+            
+            // Update row total
+            const rowTotal = qty * price;
+            row.querySelector('.row-total').textContent = rowTotal.toFixed(2).replace('.', ',');
+            
+            if (currentType === 'bomboniere') {
+                calcSubtotal(groupId);
             }
-            
             calcGrandTotal();
+            validateGlobal();
+        }
+
+        function validateGlobal() {
+            const hasErrors = document.querySelectorAll('.row-error').length > 0;
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = hasErrors;
+        }
+
+        function calcSubtotal(groupId) {
+            let sub = 0;
+            const container = document.getElementById(`rows-container-${groupId}`);
+            if (container) {
+                container.querySelectorAll('.row-total').forEach(el => {
+                    sub += parseFloat(el.textContent.replace(',', '.')) || 0;
+                });
+                const subtotalEl = document.getElementById(`subtotal-${groupId}`);
+                if (subtotalEl) {
+                    subtotalEl.textContent = '€ ' + sub.toFixed(2).replace('.', ',');
+                }
+            }
         }
 
         function calcGrandTotal() {
-            let total = 0;
-            document.querySelectorAll('[id^="subtotal-"], .row-total').forEach(el => {
-                const text = el.textContent.replace('€', '').replace(',', '.').trim();
-                total += parseFloat(text) || 0;
+            let grand = 0;
+            document.querySelectorAll('.row-total').forEach(el => {
+                grand += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
             
-            document.getElementById('grand-total').textContent = '€ ' + total.toFixed(2).replace('.', ',');
+            document.getElementById('grand-total').textContent = '€ ' + grand.toFixed(2).replace('.', ',');
             
             const accontoText = document.getElementById('acconto').value.replace('€', '').replace(',', '.').trim();
             const acconto = parseFloat(accontoText) || 0;
-            const saldo = Math.max(0, total - acconto);
+            const saldo = Math.max(0, grand - acconto);
             
             document.getElementById('saldo-finale').textContent = '€ ' + saldo.toFixed(2).replace('.', ',');
         }
 
         function clearCurrency(input) {
-            input.value = input.value.replace('€', '').replace(',', '.').trim();
+            const val = input.value.replace('€', '').replace(',', '.').trim();
+            if (val === '0.00' || val === '0') {
+                input.value = '';
+            } else {
+                input.value = val;
+            }
         }
 
         function formatCurrency(input) {
-            const val = parseFloat(input.value) || 0;
+            const val = parseFloat(input.value.replace('€', '').replace(',', '.').trim()) || 0;
             input.value = '€ ' + val.toFixed(2).replace('.', ',');
-            calcGrandTotal();
+        }
+
+        function removeRow(rowId, groupId) {
+            const row = document.getElementById(`row-${rowId}`);
+            if (row) {
+                row.remove();
+                if (currentType === 'bomboniere') {
+                    calcSubtotal(groupId);
+                }
+                calcGrandTotal();
+                validateGlobal();
+            }
         }
 
         // FORM SUBMISSION
         async function validateSubmission(event) {
             event.preventDefault();
             
-            const rows = document.querySelectorAll('[id^="rows-"] > div');
-            let hasError = false;
-            
-            rows.forEach(row => {
-                const qty = row.querySelector('.qty-input').value;
-                const product = row.querySelectorAll('input[type="text"]')[0].value;
-                const price = row.querySelector('.price-input').value;
-                
-                if (!qty || !product || !price) {
-                    row.classList.add('row-error');
-                    hasError = true;
-                } else {
-                    row.classList.remove('row-error');
-                }
-            });
-            
-            if (hasError) {
-                alert('Completa tutti i campi evidenziati in rosso');
-                return false;
-            }
-            
-            const orderData = {
-                numero_ordine: document.getElementById('numero-ordine-preview').value,
-                tipo_ordine: currentType,
-                emporio: document.getElementById('select-emporio').value,
-                canale: document.getElementById('select-canale')?.value || null,
-                operatore: document.getElementById('select-operatore').value,
-                data_ordine: document.getElementById('order-date').value,
-                cliente_nome: document.getElementById('cust-nome').value,
-                cliente_cognome: document.getElementById('cust-cognome').value,
-                cliente_telefono: document.getElementById('cust-tel').value,
-                cliente_email: document.getElementById('cust-email').value,
-                cliente_whatsapp: document.getElementById('btn-wa').classList.contains('wa-active'),
-                modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
-                totale: parseFloat(document.getElementById('grand-total').textContent.replace('€', '').replace(',', '.').trim()),
-                acconto: parseFloat(document.getElementById('acconto').value.replace('€', '').replace(',', '.').trim()) || 0,
-                saldo: parseFloat(document.getElementById('saldo-finale').textContent.replace('€', '').replace(',', '.').trim()),
-                note: document.getElementById('order-notes').value,
-                stato: 'in_corso',
-                data_creazione: new Date().toISOString()
-            };
-            
-            const products = [];
-            rows.forEach(row => {
-                const qty = parseFloat(row.querySelector('.qty-input').value);
-                const product = row.querySelectorAll('input[type="text"]')[0].value;
-                const price = parseFloat(row.querySelector('.price-input').value);
-                const emporio = row.querySelector('.emporio-dropdown').value || orderData.emporio;
-                
-                products.push({
-                    quantita: qty,
-                    prodotto: product,
-                    prezzo_unitario: price,
-                    totale: qty * price,
-                    emporio: emporio
-                });
-            });
-            
-            orderData.prodotti = products;
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio...';
             
             try {
+                const articoli = [];
+                document.querySelectorAll('.product-row').forEach(row => {
+                    const gruppoId = parseInt(row.closest('[id^="group-"]').id.replace('group-', ''));
+                    articoli.push({
+                        gruppo_id: gruppoId,
+                        codice: row.querySelector('.codice-input').value,
+                        descrizione: row.querySelector('.desc-input').value,
+                        prezzo: parseFloat(row.querySelector('.price-input').value.replace('€', '').replace(',', '.').trim()) || 0,
+                        qta: parseInt(row.querySelector('.qty-input').value) || 0,
+                        da_parte: parseInt(row.querySelector('.parte-input').value) || 0,
+                        da_forn: parseInt(row.querySelector('.forn-input').value) || 0,
+                        da_emporio_qta: parseInt(row.querySelector('.emp-q-input').value) || 0,
+                        da_emporio_nome: row.querySelector('.emporio-dropdown').value,
+                        da_altri_qta: parseInt(row.querySelector('.altri-q-input').value) || 0,
+                        da_altri_spec: row.querySelector('.altri-spec-input').value,
+                        totale: parseFloat(row.querySelector('.row-total').textContent.replace(',', '.')) || 0
+                    });
+                });
+
+                const orderData = {
+                    numero_ordine: document.getElementById('numero-ordine-preview').value,
+                    tipo_ordine: currentType,
+                    emporio: document.getElementById('select-emporio').value,
+                    canale: document.getElementById('select-canale')?.value || null,
+                    operatore: document.getElementById('select-operatore').value,
+                    data_ordine: document.getElementById('order-date').value,
+                    cliente_nome: document.getElementById('cust-nome').value,
+                    cliente_cognome: document.getElementById('cust-cognome').value,
+                    cliente_telefono: document.getElementById('cust-tel').value,
+                    cliente_email: document.getElementById('cust-email').value,
+                    cliente_whatsapp: document.getElementById('btn-wa').classList.contains('wa-active'),
+                    modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
+                    totale: parseFloat(document.getElementById('grand-total').textContent.replace('€', '').replace(',', '.').trim()),
+                    acconto: parseFloat(document.getElementById('acconto').value.replace('€', '').replace(',', '.').trim()) || 0,
+                    saldo: parseFloat(document.getElementById('saldo-finale').textContent.replace('€', '').replace(',', '.').trim()),
+                    note: document.getElementById('order-notes').value,
+                    prodotti: articoli,
+                    stato: 'in_corso',
+                    data_creazione: new Date().toISOString()
+                };
+
                 const { data, error } = await _supabase
                     .from('ordini_incorso')
                     .insert([orderData]);
-                
+
                 if (error) throw error;
-                
+
                 alert('Ordine salvato con successo!');
                 window.location.href = 'ordini_incorso.html';
             } catch (error) {
                 console.error('Error saving order:', error);
                 alert('Errore nel salvataggio: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Ordine';
             }
-            
+
             return false;
         }
 
-        // INITIALIZE EVENT LISTENERS AFTER DOM IS LOADED
+        // INITIALIZE EVENT LISTENERS
         document.addEventListener('DOMContentLoaded', function() {
             // Order type buttons
             document.getElementById('btn-standard').addEventListener('click', () => initOrder('standard'));
