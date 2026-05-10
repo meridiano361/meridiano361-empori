@@ -383,17 +383,19 @@
         async function checkAndUpdateMercePronta(order) {
             if (!order.articoli || !Array.isArray(order.articoli)) return;
             
-            let allReady = true;
+            // Check if ALL products have merce_pronta === qta
+            let allReady = order.articoli.length > 0;
             for (let product of order.articoli) {
                 const qta = parseInt(product.qta) || 0;
-                const daParte = parseInt(product.da_parte) || 0;
+                const mercePronta = parseInt(product.merce_pronta) || 0;
                 
-                if (qta > 0 && daParte < qta) {
+                if (qta > 0 && mercePronta < qta) {
                     allReady = false;
                     break;
                 }
             }
             
+            // Update if needed
             if (allReady && !order.merce_pronta) {
                 try {
                     await _supabase
@@ -450,10 +452,10 @@
                     
                     <div class="col-span-12 md:col-span-4">
                         <div class="flex items-center gap-3 mb-3 flex-wrap">
-                            <span class="status-badge ${statusClass}">${statusText}</span>
                             ${da_avvisare ? '<span class="badge-da-avvisare"><i class="fas fa-circle"></i> DA AVVISARE</span>' : ''}
                             <span class="order-number">#${order.numero_ordine || order.id.substring(0, 8)}</span>
                         </div>
+                        ${merce_pronta ? '<div class="status-badge status-merce-pronta mb-2">MERCE PRONTA</div>' : ''}
                         <div class="customer-name">${order.cliente_nome} ${order.cliente_cognome}</div>
                         <div class="info-text">Data ordine: ${dataCreazione}</div>
                         <div class="emporio-name">${order.emporio || order.citta}</div>
@@ -510,7 +512,7 @@
 
         async function toggleClienteAvvisato(orderId, checked) {
             try {
-                const { error } = await _supabase
+                const { error} = await _supabase
                     .from('ordini_incorso')
                     .update({ cliente_avvisato: checked })
                     .eq('id', orderId);
@@ -544,7 +546,6 @@
         }
 
         function editOrder(orderId) {
-            // Redirect to ordini_modifica.html with order ID
             window.location.href = `ordini_modifica.html?id=${orderId}`;
         }
 
