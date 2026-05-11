@@ -257,12 +257,8 @@
     <!-- Quick Navigation Bar -->
     <div class="bg-white border-b px-6 md:px-8 py-3 flex items-center gap-3">
         <span class="text-xs font-bold text-slate-400 uppercase">Vai a:</span>
-        <a href="ordini_incorso.html" class="text-sm font-bold text-red-600 hover:text-red-700 px-4 py-2 rounded-lg border-2 border-red-600 hover:bg-red-50 flex items-center gap-2 transition-all">
-            <i class="fas fa-clock"></i> In Corso
-        </a>
-        <a href="ordini_archiviati.html" class="text-sm font-bold text-slate-600 hover:text-slate-800 px-4 py-2 rounded-lg border-2 border-slate-300 hover:bg-slate-50 flex items-center gap-2 transition-all">
-            <i class="fas fa-archive"></i> Archiviati
-        </a>
+        <a href="ordini_incorso.html" class="text-sm font-bold text-white bg-[#b75252] hover:bg-[#8f3d3d] px-4 py-2 rounded-lg border-2 border-[#b75252] flex items-center gap-2 transition-all"><i class="fas fa-clock"></i> In Corso</a>
+        <a href="ordini_archiviati.html" class="text-sm font-bold text-slate-600 hover:text-slate-800 px-4 py-2 rounded-lg border-2 border-slate-300 hover:bg-slate-50 flex items-center gap-2 transition-all"><i class="fas fa-archive"></i> Archiviati</a>
     </div>
 
 
@@ -801,7 +797,63 @@
             return el ? el.value : '';
         }
         
-async function validateSubmission(event) {
+
+        // AUTOMATIC ORDER NUMBER GENERATION
+        async function generateNumeroOrdine(emporio, data) {
+            // Get emporio abbreviation
+            const emporioMap = {
+                'Cremona': 'CR',
+                'Casalmaggiore': 'CA',
+                'Reggio Emilia': 'RE',
+                'Viadana': 'VI'
+            };
+            
+            const sigla = emporioMap[emporio] || 'XX';
+            const dateStr = data.replace(/-/g, ''); // 2026-05-11 -> 20260511
+            
+            try {
+                // Query database to find last order number for this emporio and date
+                const { data: existingOrders, error } = await _supabase
+                    .from('ordini_incorso')
+                    .select('numero_ordine')
+                    .like('numero_ordine', `${dateStr}${sigla}#%`)
+                    .order('numero_ordine', { ascending: false })
+                    .limit(1);
+                
+                let progressivo = 1;
+                
+                if (existingOrders && existingOrders.length > 0) {
+                    // Extract progressive number from last order
+                    const lastOrder = existingOrders[0].numero_ordine;
+                    const match = lastOrder.match(/#(\d+)$/);
+                    if (match) {
+                        progressivo = parseInt(match[1]) + 1;
+                    }
+                }
+                
+                // Format: 20260511CR#01
+                const numeroOrdine = `${dateStr}${sigla}#${String(progressivo).padStart(2, '0')}`;
+                return numeroOrdine;
+                
+            } catch (error) {
+                console.error('Error generating order number:', error);
+                // Fallback to basic generation
+                return `${dateStr}${sigla}#01`;
+            }
+        }
+        
+        // Auto-update order number when emporio or date changes
+        async function updateNumeroOrdine() {
+            const emporio = document.getElementById('select-emporio')?.value;
+            const data = document.getElementById('order-date')?.value;
+            const numeroField = document.getElementById('numero-ordine-preview');
+            
+            if (emporio && data && numeroField) {
+                numeroField.value = await generateNumeroOrdine(emporio, data);
+            }
+        }
+
+        async function validateSubmission(event) {
             event.preventDefault();
             
             const btn = document.getElementById('submit-btn');
@@ -878,10 +930,10 @@ async function validateSubmission(event) {
             document.getElementById('back-btn').addEventListener('click', goBack);
             
             // Emporio management
-            document.getElementById('select-emporio').addEventListener('change', handleCittaChange);
+            document.getElementById('select-emporio').addEventListener('change', function() { handleCittaChange(); updateNumeroOrdine(); });
             document.getElementById('select-canale').addEventListener('change', refreshNumeroOrdinePreview);
             document.getElementById('select-operatore').addEventListener('change', refreshNumeroOrdinePreview);
-            document.getElementById('order-date').addEventListener('change', refreshNumeroOrdinePreview);
+            document.getElementById('order-date').addEventListener('change', function() { refreshNumeroOrdinePreview(); updateNumeroOrdine(); });
             
             document.getElementById('btn-add-city').addEventListener('click', addNewCityPrompt);
             document.getElementById('btn-remove-city').addEventListener('click', removeCurrentCity);
