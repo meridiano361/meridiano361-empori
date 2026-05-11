@@ -427,6 +427,124 @@
         let allOrders = [];
         let currentFilter = 'tutti';
 
+        
+        // ORDER SUMMARY MODAL
+        function viewOrderSummary(orderId) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) return;
+            
+            const content = document.getElementById('order-summary-content');
+            const articoli = order.articoli || [];
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Order Info -->
+                    <div class="grid grid-cols-2 gap-4 pb-4 border-b">
+                        <div>
+                            <div class="text-xs font-bold text-slate-400 uppercase mb-1">Numero Ordine</div>
+                            <div class="font-mono font-bold text-lg">${order.numero_ordine || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-400 uppercase mb-1">Data</div>
+                            <div class="font-semibold">${new Date(order.data_ordine || order.data_creazione).toLocaleDateString('it-IT')}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-400 uppercase mb-1">Emporio</div>
+                            <div class="font-semibold">${order.emporio || order.citta || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-400 uppercase mb-1">Modalità Consegna</div>
+                            <div class="font-semibold">${order.modalita_consegna || 'Ritiro'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Customer Info -->
+                    <div class="pb-4 border-b">
+                        <div class="text-sm font-bold text-slate-400 uppercase mb-3">Cliente</div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><span class="text-slate-500">Nome:</span> <strong>${order.cliente_nome} ${order.cliente_cognome}</strong></div>
+                            <div><span class="text-slate-500">Telefono:</span> <strong>${order.cliente_cellulare || 'N/A'}</strong> ${order.wa_attivo ? '<i class="fab fa-whatsapp text-green-500 ml-1"></i>' : ''}</div>
+                            <div class="col-span-2"><span class="text-slate-500">Email:</span> ${order.cliente_email || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Products Table -->
+                    <div>
+                        <div class="text-sm font-bold text-slate-400 uppercase mb-3">Prodotti / Bomboniere</div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-slate-50 border-b">
+                                    <tr>
+                                        <th class="text-left p-2 font-bold text-xs uppercase text-slate-500">Codice</th>
+                                        <th class="text-left p-2 font-bold text-xs uppercase text-slate-500">Descrizione</th>
+                                        <th class="text-right p-2 font-bold text-xs uppercase text-slate-500">Prezzo</th>
+                                        <th class="text-center p-2 font-bold text-xs uppercase text-slate-500">Qtà</th>
+                                        <th class="text-center p-2 font-bold text-xs uppercase text-slate-500 bg-green-50">Pronta</th>
+                                        <th class="text-right p-2 font-bold text-xs uppercase text-slate-500">Totale</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${articoli.map(item => `
+                                        <tr>
+                                            <td class="p-2 font-mono text-xs">${item.codice || ''}</td>
+                                            <td class="p-2">${item.descrizione || ''}</td>
+                                            <td class="p-2 text-right font-mono">€ ${(item.prezzo || 0).toFixed(2)}</td>
+                                            <td class="p-2 text-center font-bold">${item.qta || 0}</td>
+                                            <td class="p-2 text-center ${(item.merce_pronta || 0) >= (item.qta || 0) ? 'bg-green-50 text-green-700 font-bold' : 'text-slate-400'}">
+                                                ${item.merce_pronta || 0}
+                                            </td>
+                                            <td class="p-2 text-right font-bold font-mono">€ ${(item.totale || 0).toFixed(2)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                                <tfoot class="border-t-2 bg-slate-50">
+                                    <tr>
+                                        <td colspan="5" class="p-3 text-right font-bold text-slate-700">TOTALE ORDINE</td>
+                                        <td class="p-3 text-right font-bold text-lg font-mono text-[#b75252]">€ ${(order.totale_ordine || 0).toFixed(2)}</td>
+                                    </tr>
+                                    ${order.acconto && order.acconto > 0 ? `
+                                    <tr>
+                                        <td colspan="5" class="p-2 text-right text-sm text-slate-600">Acconto</td>
+                                        <td class="p-2 text-right font-mono text-sm">€ ${order.acconto.toFixed(2)}</td>
+                                    </tr>
+                                    <tr class="bg-slate-100">
+                                        <td colspan="5" class="p-3 text-right font-bold text-slate-800">DA PAGARE</td>
+                                        <td class="p-3 text-right font-bold text-lg font-mono text-[#b75252]">€ ${(order.da_pagare || 0).toFixed(2)}</td>
+                                    </tr>
+                                    ` : ''}
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    ${order.note ? `
+                    <div class="pb-4">
+                        <div class="text-sm font-bold text-slate-400 uppercase mb-2">Note</div>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+                            ${order.note}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('order-summary-modal').classList.remove('hidden');
+        }
+        
+        function closeSummaryModal() {
+            document.getElementById('order-summary-modal').classList.add('hidden');
+        }
+        
+        // Close modal on ESC key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeSummaryModal();
+        });
+        
+        // Close modal on background click
+        document.getElementById('order-summary-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeSummaryModal();
+        });
+
         async function loadOrders() {
             try {
                 document.getElementById('loading').classList.remove('hidden');
@@ -629,10 +747,32 @@
 
                 if (fetchError) throw fetchError;
                 
-                // Prepare data for archiving (remove data_archiviazione field)
-                const archiveData = { ...orderData };
-                delete archiveData.id;
-                // Don't add data_archiviazione - column doesn't exist in schema
+                // Prepare data for archiving
+                // Only include columns that exist in ordini_archiviati table
+                const archiveData = {
+                    numero_ordine: orderData.numero_ordine,
+                    tipo_ordine: orderData.tipo_ordine,
+                    emporio: orderData.emporio,
+                    citta: orderData.citta,
+                    canale: orderData.canale,
+                    operatore: orderData.operatore,
+                    data_ordine: orderData.data_ordine,
+                    cliente_nome: orderData.cliente_nome,
+                    cliente_cognome: orderData.cliente_cognome,
+                    cliente_cellulare: orderData.cliente_cellulare,
+                    cliente_email: orderData.cliente_email,
+                    cliente_whatsapp: orderData.cliente_whatsapp,
+                    wa_attivo: orderData.wa_attivo,
+                    modalita_consegna: orderData.modalita_consegna,
+                    totale_ordine: orderData.totale_ordine,
+                    acconto: orderData.acconto,
+                    da_pagare: orderData.da_pagare,
+                    note: orderData.note,
+                    articoli: orderData.articoli,
+                    stato: orderData.stato,
+                    merce_pronta: orderData.merce_pronta,
+                    cliente_avvisato: orderData.cliente_avvisato
+                };
                 
                 const { error: insertError } = await _supabase
                     .from('ordini_archiviati')
@@ -655,6 +795,8 @@
                 alert('Errore durante archiviazione: ' + error.message);
             }
         }
+
+        
 
         
 
@@ -751,5 +893,21 @@
     </script>
 
     <script src="../../scripts/nav-script.js"></script>
+
+    <!-- Order Summary Modal -->
+    <div id="order-summary-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-slate-800">Riepilogo Ordine</h2>
+                <button onclick="closeSummaryModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="order-summary-content" class="p-6">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
