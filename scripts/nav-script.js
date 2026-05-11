@@ -247,6 +247,10 @@ body { font-family: 'Inter', sans-serif; padding-top: 56px; padding-bottom: 68px
     const currentId = getCurrentId();
     const userSections = getUserSections();
 
+    if (user && user.email === 'e.mazzolari@meridiano361.it') {
+  menu.push({ label: 'Admin', icon: 'fa-gear', href: 'impostazioni.html' });
+}
+
     const nav = document.createElement('nav');
     nav.id = 'm361-nav';
     nav.setAttribute('role', 'navigation');
