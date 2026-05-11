@@ -1,1 +1,462 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="stylesheet" href="../../assets/style/nav-style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M361 - Prenotazioni</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --red: #b75252; --red-dark: #8f3d3d; --red-light: #fff1f1;
+            --green: #6b8d53; --green-light: #ecfdf5;
+            --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
+            --slate-600: #475569; --slate-700: #334155; --slate-800: #1e293b;
+        }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .font-mono { font-family: 'DM Mono', monospace; }
 
+        /* Tabs */
+        .tab-bar { display: flex; gap: 4px; background: #fff; padding: 6px; border-radius: 16px; border: 1px solid var(--slate-200); flex-wrap: wrap; }
+        .tab-btn { padding: 10px 18px; border-radius: 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border: none; background: transparent; color: var(--slate-400); transition: all .15s; white-space: nowrap; }
+        .tab-btn:hover { color: var(--slate-700); background: var(--slate-50); }
+        .tab-btn.active { background: var(--red); color: #fff; }
+        .tab-btn.tab-sintesi.active { background: var(--slate-800); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Table */
+        .pren-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+        .pren-table thead th { background: var(--slate-50); padding: 8px 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--slate-400); border-bottom: 2px solid var(--slate-200); position: sticky; top: 0; z-index: 2; white-space: nowrap; }
+        .pren-table thead th.prod-header { background: var(--red-light); color: var(--red); min-width: 70px; text-align: center; }
+        .pren-table tbody td { padding: 6px; border-bottom: 1px solid var(--slate-100); vertical-align: middle; }
+        .pren-table tbody tr:hover { background: #fefce8; }
+        .pren-table .cb { width: 18px; height: 18px; cursor: pointer; accent-color: var(--green); }
+        .pren-table .cb-red { accent-color: var(--red); }
+        .pren-table input[type="text"], .pren-table input[type="tel"] { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 5px 6px; font-size: 12px; font-family: 'Inter', sans-serif; background: transparent; transition: all .15s; }
+        .pren-table input:focus { border-color: var(--red); background: #fff; outline: none; }
+        .pren-table input[type="number"] { width: 50px; text-align: center; border: 1px solid var(--slate-200); border-radius: 6px; padding: 4px 2px; font-family: 'DM Mono', monospace; font-weight: 700; font-size: 13px; }
+        .pren-table input[type="number"]:focus { border-color: var(--red); outline: none; }
+        .pren-table .row-total { font-family: 'DM Mono', monospace; font-weight: 700; text-align: right; padding-right: 10px; color: var(--slate-700); }
+        .pren-table tfoot td { background: var(--slate-50); padding: 8px 6px; font-weight: 800; border-top: 2px solid var(--slate-200); }
+        .pren-table tfoot .col-total { font-family: 'DM Mono', monospace; font-size: 14px; text-align: center; color: var(--red); }
+
+        /* Product header */
+        .prod-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .prod-desc { font-size: 10px; font-weight: 800; color: var(--red); }
+        .prod-code { font-size: 8px; font-weight: 600; color: var(--slate-400); font-family: 'DM Mono', monospace; }
+        .prod-price { font-size: 9px; font-weight: 700; color: var(--slate-500); font-family: 'DM Mono', monospace; }
+
+        /* Badges */
+        .badge-pronto { background: var(--green-light); color: var(--green); padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; }
+        .badge-avvisato { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; }
+
+        /* Delivery */
+        .del-radio { display: flex; gap: 4px; }
+        .del-radio label { font-size: 9px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; border: 1px solid var(--slate-200); color: var(--slate-400); transition: all .12s; }
+        .del-radio input:checked + label { background: var(--slate-800); color: #fff; border-color: var(--slate-800); }
+        .del-radio input { display: none; }
+
+        /* Sintesi */
+        .sint-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .sint-table th, .sint-table td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--slate-100); }
+        .sint-table thead th { background: var(--slate-800); color: #fff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+        .sint-table thead th:first-child { border-radius: 12px 0 0 0; }
+        .sint-table thead th:last-child { border-radius: 0 12px 0 0; }
+        .sint-table tbody td { font-family: 'DM Mono', monospace; font-weight: 700; font-size: 15px; }
+        .sint-table tbody td:first-child { font-family: 'Inter', sans-serif; font-weight: 800; text-align: left; color: var(--slate-700); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+        .sint-table tbody tr.sint-selected { background: var(--red-light); }
+        .sint-table tfoot td { background: var(--red); color: #fff; font-family: 'DM Mono', monospace; font-weight: 900; font-size: 16px; }
+        .sint-table tfoot td:first-child { font-family: 'Inter', sans-serif; border-radius: 0 0 0 12px; }
+        .sint-table tfoot td:last-child { border-radius: 0 0 12px 0; }
+        .sint-check { width: 20px; height: 20px; accent-color: var(--red); cursor: pointer; }
+
+        /* Section title */
+        .sec-title-r { font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--slate-400); display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .sec-title-r::before { content: ''; display: block; width: 3px; height: 16px; background: var(--red); border-radius: 2px; flex-shrink: 0; }
+
+        /* Card */
+        .card-r { background: #fff; border-radius: 20px; border: 1px solid var(--slate-200); box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+
+        /* Scroll wrapper */
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        /* Action bar */
+        .action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        @media (max-width: 768px) {
+            .tab-btn { padding: 8px 12px; font-size: 10px; }
+            .pren-table { font-size: 11px; }
+            .pren-table input[type="number"] { width: 42px; }
+        }
+    </style>
+</head>
+<body class="pb-20">
+    <script src="../../scripts/nav-script.js"></script>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-8">
+
+        <!-- TAB BAR -->
+        <div class="tab-bar mb-6" id="tab-bar">
+            <button class="tab-btn active" data-tab="cremona">Cremona</button>
+            <button class="tab-btn" data-tab="casalmaggiore">Casalmaggiore</button>
+            <button class="tab-btn" data-tab="reggioemilia">Reggio Emilia</button>
+            <button class="tab-btn" data-tab="viadana">Viadana</button>
+            <button class="tab-btn tab-sintesi" data-tab="sintesi">Sintesi</button>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+             PRODOTTI (definizione globale)
+        ═══════════════════════════════════════ -->
+        <div class="card-r p-4 md:p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="sec-title-r" style="margin-bottom:0">Prodotti della Prenotazione</div>
+                <button onclick="addProduct()" class="text-xs font-bold text-white bg-[#6b8d53] hover:bg-[#556f42] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Aggiungi
+                </button>
+            </div>
+            <div class="table-scroll">
+                <table class="w-full text-sm" id="products-table">
+                    <thead>
+                        <tr class="border-b-2 border-slate-200">
+                            <th class="text-left p-2 text-xs font-bold text-slate-400 uppercase" style="width:30px">#</th>
+                            <th class="text-left p-2 text-xs font-bold text-slate-400 uppercase">Descrizione</th>
+                            <th class="text-left p-2 text-xs font-bold text-slate-400 uppercase">Codice</th>
+                            <th class="text-right p-2 text-xs font-bold text-slate-400 uppercase">Prezzo</th>
+                            <th class="p-2" style="width:40px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="products-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+             EMPORIO TABS
+        ═══════════════════════════════════════ -->
+        <div class="tab-content active" data-tab="cremona">
+            <div class="card-r p-4 md:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Cremona</div>
+                    <div class="action-bar">
+                        <button onclick="addRow('cremona')" class="text-xs font-bold text-white bg-[#b75252] hover:bg-[#8f3d3d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+                            <i class="fas fa-plus"></i> Aggiungi cliente
+                        </button>
+                    </div>
+                </div>
+                <div class="table-scroll" id="table-cremona"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab="casalmaggiore">
+            <div class="card-r p-4 md:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Casalmaggiore</div>
+                    <div class="action-bar">
+                        <button onclick="addRow('casalmaggiore')" class="text-xs font-bold text-white bg-[#b75252] hover:bg-[#8f3d3d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+                            <i class="fas fa-plus"></i> Aggiungi cliente
+                        </button>
+                    </div>
+                </div>
+                <div class="table-scroll" id="table-casalmaggiore"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab="reggioemilia">
+            <div class="card-r p-4 md:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Reggio Emilia</div>
+                    <div class="action-bar">
+                        <button onclick="addRow('reggioemilia')" class="text-xs font-bold text-white bg-[#b75252] hover:bg-[#8f3d3d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+                            <i class="fas fa-plus"></i> Aggiungi cliente
+                        </button>
+                    </div>
+                </div>
+                <div class="table-scroll" id="table-reggioemilia"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab="viadana">
+            <div class="card-r p-4 md:p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Viadana</div>
+                    <div class="action-bar">
+                        <button onclick="addRow('viadana')" class="text-xs font-bold text-white bg-[#b75252] hover:bg-[#8f3d3d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+                            <i class="fas fa-plus"></i> Aggiungi cliente
+                        </button>
+                    </div>
+                </div>
+                <div class="table-scroll" id="table-viadana"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════
+             SINTESI
+        ═══════════════════════════════════════ -->
+        <div class="tab-content" data-tab="sintesi">
+            <div class="card-r p-4 md:p-6">
+                <div class="sec-title-r">Sintesi Prenotazioni</div>
+                <p class="text-xs text-slate-400 font-medium mb-4">Seleziona gli empori da sommare cliccando sulle checkbox. Il totale si aggiorna automaticamente.</p>
+                <div class="table-scroll" id="sintesi-container"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+    const { createClient } = supabase;
+    const db = createClient('https://hsalynvxazxqtmsvjrzc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8');
+
+    const EMPORI = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana'];
+    const EMPORI_LABELS = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana' };
+
+    // ─── STATE ───
+    let products = []; // [{id, descrizione, codice, prezzo}]
+    let bookings = {}; // { emporio: [{id, nome, cognome, cellulare, pronto, avvisato, consegna, qtys: {prodIdx: n}}] }
+
+    EMPORI.forEach(e => bookings[e] = []);
+
+    // ─── TABS ───
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
+            if (btn.dataset.tab === 'sintesi') renderSintesi();
+        });
+    });
+
+    // ─── PRODUCTS MANAGEMENT ───
+    function addProduct() {
+        products.push({ id: Date.now(), descrizione: '', codice: '', prezzo: 0 });
+        renderProducts();
+        renderAllTables();
+    }
+
+    function removeProduct(idx) {
+        if (!confirm('Rimuovere questo prodotto?')) return;
+        products.splice(idx, 1);
+        renderProducts();
+        renderAllTables();
+    }
+
+    function renderProducts() {
+        const body = document.getElementById('products-body');
+        body.innerHTML = products.map((p, i) => `
+            <tr class="border-b border-slate-100">
+                <td class="p-2 text-slate-400 font-mono text-xs font-bold">${i + 1}</td>
+                <td class="p-2"><input type="text" value="${p.descrizione}" onchange="products[${i}].descrizione=this.value; renderAllTables()" placeholder="Es: Colomba 750g" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#b75252] outline-none"></td>
+                <td class="p-2"><input type="text" value="${p.codice}" onchange="products[${i}].codice=this.value; renderAllTables()" placeholder="COD001" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:border-[#b75252] outline-none"></td>
+                <td class="p-2 text-right"><input type="number" step="0.01" value="${p.prezzo}" onchange="products[${i}].prezzo=parseFloat(this.value)||0; renderAllTables()" class="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-right focus:border-[#b75252] outline-none"></td>
+                <td class="p-2 text-center"><button onclick="removeProduct(${i})" class="text-slate-300 hover:text-red-500 transition-colors"><i class="fas fa-trash"></i></button></td>
+            </tr>
+        `).join('');
+    }
+
+    // ─── BOOKING TABLE PER EMPORIO ───
+    function addRow(emporio) {
+        bookings[emporio].push({
+            id: Date.now(), nome: '', cognome: '', cellulare: '',
+            pronto: false, avvisato: false, consegna: 'ritiro', qtys: {}
+        });
+        renderTable(emporio);
+    }
+
+    function removeRow(emporio, idx) {
+        bookings[emporio].splice(idx, 1);
+        renderTable(emporio);
+    }
+
+    function renderTable(emporio) {
+        const container = document.getElementById('table-' + emporio);
+        const rows = bookings[emporio];
+
+        const prodHeaders = products.map((p, i) => `
+            <th class="prod-header">
+                <div class="prod-info">
+                    <span class="prod-desc">${p.descrizione || 'Prod ' + (i+1)}</span>
+                    <span class="prod-code">${p.codice || ''}</span>
+                    <span class="prod-price">${p.prezzo ? '€' + p.prezzo.toFixed(2) : ''}</span>
+                </div>
+            </th>
+        `).join('');
+
+        const dataRows = rows.map((r, ri) => {
+            const prodCells = products.map((p, pi) => {
+                const qty = r.qtys[pi] || 0;
+                return `<td class="text-center"><input type="number" min="0" value="${qty}" onchange="bookings['${emporio}'][${ri}].qtys[${pi}]=parseInt(this.value)||0; updateRowTotal('${emporio}',${ri})"></td>`;
+            }).join('');
+
+            const total = products.reduce((sum, p, pi) => sum + (r.qtys[pi] || 0) * (p.prezzo || 0), 0);
+            const uid = emporio + '-' + ri;
+
+            return `<tr>
+                <td class="text-center"><input type="checkbox" class="cb" ${r.pronto ? 'checked' : ''} onchange="bookings['${emporio}'][${ri}].pronto=this.checked" title="Pronto"></td>
+                <td class="text-center"><input type="checkbox" class="cb cb-red" ${r.avvisato ? 'checked' : ''} onchange="bookings['${emporio}'][${ri}].avvisato=this.checked" title="Avvisato"></td>
+                <td><input type="text" value="${r.nome}" onchange="bookings['${emporio}'][${ri}].nome=this.value" placeholder="Nome"></td>
+                <td><input type="text" value="${r.cognome}" onchange="bookings['${emporio}'][${ri}].cognome=this.value" placeholder="Cognome"></td>
+                <td><input type="tel" value="${r.cellulare}" onchange="bookings['${emporio}'][${ri}].cellulare=this.value" placeholder="Cell."></td>
+                ${prodCells}
+                <td class="row-total" id="total-${uid}">€ ${total.toFixed(2)}</td>
+                <td class="text-center">
+                    <div class="del-radio">
+                        <input type="radio" name="del-${uid}" id="rit-${uid}" value="ritiro" ${r.consegna==='ritiro'?'checked':''} onchange="bookings['${emporio}'][${ri}].consegna='ritiro'">
+                        <label for="rit-${uid}" title="Ritiro"><i class="fas fa-store" style="font-size:10px"></i></label>
+                        <input type="radio" name="del-${uid}" id="dom-${uid}" value="domicilio" ${r.consegna==='domicilio'?'checked':''} onchange="bookings['${emporio}'][${ri}].consegna='domicilio'">
+                        <label for="dom-${uid}" title="Domicilio"><i class="fas fa-truck" style="font-size:10px"></i></label>
+                    </div>
+                </td>
+                <td class="text-center"><button onclick="removeRow('${emporio}',${ri})" class="text-slate-300 hover:text-red-500 transition-colors text-xs"><i class="fas fa-trash"></i></button></td>
+            </tr>`;
+        }).join('');
+
+        // Column totals
+        const colTotals = products.map((p, pi) => {
+            const sum = rows.reduce((s, r) => s + (r.qtys[pi] || 0), 0);
+            return `<td class="col-total">${sum}</td>`;
+        }).join('');
+        const grandTotal = rows.reduce((s, r) => s + products.reduce((ps, p, pi) => ps + (r.qtys[pi] || 0) * (p.prezzo || 0), 0), 0);
+
+        container.innerHTML = `
+            <table class="pren-table">
+                <thead><tr>
+                    <th style="width:36px">✓</th>
+                    <th style="width:36px"><i class="fas fa-bell" style="font-size:10px"></i></th>
+                    <th style="min-width:90px">Nome</th>
+                    <th style="min-width:90px">Cognome</th>
+                    <th style="min-width:90px">Cell.</th>
+                    ${prodHeaders}
+                    <th style="min-width:80px;text-align:right">Totale</th>
+                    <th style="width:70px">Cons.</th>
+                    <th style="width:36px"></th>
+                </tr></thead>
+                <tbody>${dataRows || '<tr><td colspan="99" class="text-center text-slate-400 py-8">Nessuna prenotazione. Clicca "Aggiungi cliente".</td></tr>'}</tbody>
+                <tfoot><tr>
+                    <td colspan="5" style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--slate-500)">Totali</td>
+                    ${colTotals}
+                    <td class="col-total" style="text-align:right;padding-right:10px">€ ${grandTotal.toFixed(2)}</td>
+                    <td></td><td></td>
+                </tr></tfoot>
+            </table>
+        `;
+    }
+
+    function updateRowTotal(emporio, ri) {
+        const r = bookings[emporio][ri];
+        const total = products.reduce((sum, p, pi) => sum + (r.qtys[pi] || 0) * (p.prezzo || 0), 0);
+        const el = document.getElementById('total-' + emporio + '-' + ri);
+        if (el) el.textContent = '€ ' + total.toFixed(2);
+    }
+
+    function renderAllTables() {
+        EMPORI.forEach(e => renderTable(e));
+    }
+
+    // ─── SINTESI ───
+    let sintesiSelection = {};
+    EMPORI.forEach(e => sintesiSelection[e] = true);
+
+    function renderSintesi() {
+        if (products.length === 0) {
+            document.getElementById('sintesi-container').innerHTML = '<p class="text-slate-400 text-sm py-8 text-center">Definisci almeno un prodotto per vedere la sintesi.</p>';
+            return;
+        }
+
+        const prodHeaders = products.map(p => `<th>${p.descrizione || '—'}</th>`).join('');
+
+        const emporiRows = EMPORI.map(emp => {
+            const selected = sintesiSelection[emp];
+            const cells = products.map((p, pi) => {
+                const sum = bookings[emp].reduce((s, r) => s + (r.qtys[pi] || 0), 0);
+                return `<td style="${sum > 0 ? 'color:var(--slate-800)' : 'color:var(--slate-300)'}">${sum}</td>`;
+            }).join('');
+            const rowTotal = products.reduce((s, p, pi) => s + bookings[emp].reduce((rs, r) => rs + (r.qtys[pi] || 0), 0), 0);
+            return `<tr class="${selected ? 'sint-selected' : ''}">
+                <td style="text-align:left">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                        <input type="checkbox" class="sint-check" data-emp="${emp}" ${selected ? 'checked' : ''} onchange="sintesiSelection['${emp}']=this.checked; renderSintesi()">
+                        ${EMPORI_LABELS[emp]}
+                    </label>
+                </td>
+                ${cells}
+                <td style="font-weight:900;color:var(--slate-800)">${rowTotal}</td>
+            </tr>`;
+        }).join('');
+
+        // Selected totals
+        const selectedEmpori = EMPORI.filter(e => sintesiSelection[e]);
+        const totalCells = products.map((p, pi) => {
+            const sum = selectedEmpori.reduce((s, emp) => s + bookings[emp].reduce((rs, r) => rs + (r.qtys[pi] || 0), 0), 0);
+            return `<td>${sum}</td>`;
+        }).join('');
+        const grandTotal = products.reduce((s, p, pi) => s + selectedEmpori.reduce((es, emp) => es + bookings[emp].reduce((rs, r) => rs + (r.qtys[pi] || 0), 0), 0), 0);
+
+        document.getElementById('sintesi-container').innerHTML = `
+            <table class="sint-table">
+                <thead><tr>
+                    <th style="text-align:left">Emporio</th>
+                    ${prodHeaders}
+                    <th>Totale</th>
+                </tr></thead>
+                <tbody>${emporiRows}</tbody>
+                <tfoot><tr>
+                    <td style="text-align:left">SOMMA SELEZIONATI</td>
+                    ${totalCells}
+                    <td>${grandTotal}</td>
+                </tr></tfoot>
+            </table>
+        `;
+    }
+
+    // ─── SUPABASE PERSISTENCE ───
+    async function saveAll() {
+        const payload = { id: 'prenotazioni_current', products, bookings, updated_at: new Date().toISOString() };
+        const { error } = await db.from('prenotazioni_data').upsert(payload, { onConflict: 'id' });
+        if (error) { console.error('Save error:', error); alert('Errore nel salvataggio: ' + error.message); }
+        else { showSaveToast(); }
+    }
+
+    async function loadAll() {
+        const { data, error } = await db.from('prenotazioni_data').select('*').eq('id', 'prenotazioni_current').maybeSingle();
+        if (data) {
+            products = data.products || [];
+            bookings = data.bookings || {};
+            EMPORI.forEach(e => { if (!bookings[e]) bookings[e] = []; });
+        }
+        renderProducts();
+        renderAllTables();
+    }
+
+    function showSaveToast() {
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 24px;border-radius:12px;font-size:12px;font-weight:700;z-index:9999;animation:fadeout 2s forwards';
+        toast.textContent = '✓ Salvato';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2200);
+    }
+
+    // Auto-save every 30 seconds
+    setInterval(saveAll, 30000);
+
+    // ─── SAVE BUTTON (floating) ───
+    const saveBtn = document.createElement('button');
+    saveBtn.innerHTML = '<i class="fas fa-save"></i> Salva';
+    saveBtn.style.cssText = 'position:fixed;bottom:72px;right:16px;background:#1e293b;color:#fff;border:none;padding:12px 20px;border-radius:12px;font-family:Inter,sans-serif;font-size:11px;font-weight:800;cursor:pointer;z-index:8999;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.08em;transition:all .15s';
+    saveBtn.onmouseover = () => saveBtn.style.background = '#334155';
+    saveBtn.onmouseout = () => saveBtn.style.background = '#1e293b';
+    saveBtn.onclick = saveAll;
+    document.body.appendChild(saveBtn);
+
+    // ─── INIT ───
+    loadAll();
+    </script>
+
+    <style>@keyframes fadeout { 0%,70% { opacity: 1; } 100% { opacity: 0; } }</style>
+    <script src="../../scripts/nav-script.js"></script>
+</body>
+</html>
