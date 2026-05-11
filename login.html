@@ -5,114 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M361 - Login</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2](https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2)"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    ```
+    <link href="[https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap)" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .bg-m361 { background-color: #b75252; }
+        .text-m361 { color: #b75252; }
+        .spinner {
+            display: none;
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner.show { display: block; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
 
-  const { createClient } = supabase;
-  const _supabase = createClient(
-    'https://hsalynvxazxqtmsvjrzc.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
-  );
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden">
+        <div class="bg-m361 p-8 text-white text-center">
+            <h1 class="text-2xl font-bold">Meridiano 361</h1>
+            <p class="opacity-80 text-sm mt-1">Gestione Empori — Accesso Riservato</p>
+        </div>
 
-  (async () => {
-    const { data: { session } } = await _supabase.auth.getSession();
-    if (session) window.location.href = 'index.html';
-  })();
+        <form id="login-form" class="p-8 space-y-6">
+            <div id="error-msg" class="hidden bg-red-50 text-red-600 p-3 rounded-lg text-sm font-medium border border-red-100"></div>
 
-  function showError(msg) {
-    const el = document.getElementById('error-msg');
-    el.textContent = msg;
-    el.classList.remove('hidden');
-  }
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Email</label>
+                <input type="email" id="email" required 
+                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-m361 focus:ring-2 focus:ring-red-100 outline-none transition-all"
+                    placeholder="tua@email.it">
+            </div>
 
-  function setLoading(loading) {
-    const btn = document.getElementById('submit-btn');
-    const label = document.getElementById('btn-label');
-    const spinner = btn.querySelector('.spinner');
-    btn.disabled = loading;
-    spinner.classList.toggle('show', loading);
-    label.textContent = loading ? 'Accesso in corso...' : 'Accedi al Sistema';
-  }
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Password</label>
+                <input type="password" id="password" required 
+                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-m361 focus:ring-2 focus:ring-red-100 outline-none transition-all"
+                    placeholder="••••••••">
+            </div>
 
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    document.getElementById('error-msg').classList.add('hidden');
-    setLoading(true);
+            <button type="submit" id="submit-btn" 
+                class="w-full bg-m361 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-red-100">
+                <span class="spinner"></span>
+                <span id="btn-label">Accedi al Sistema</span>
+            </button>
+        </form>
+    </div>
 
-    const email    = document.getElementById('email').value.trim().toLowerCase();
-    const password = document.getElementById('password').value;
+    <script>
+        // Inizializzazione Supabase
+        const { createClient } = supabase;
+        const _supabase = createClient(
+            '[https://hsalynvxazxqtmsvjrzc.supabase.co](https://hsalynvxazxqtmsvjrzc.supabase.co)',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+        );
 
-    try {
-      // 1) Auth Supabase (si basa su account creati in Auth)
-      const { data: authData, error: authError } =
-        await _supabase.auth.signInWithPassword({ email, password });
+        // Controllo sessione esistente
+        (async () => {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) window.location.href = 'index.html';
+        })();
 
-      if (authError) {
-        setLoading(false);
-        showError('Email o password errati. Riprova.');
-        return;
-      }
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
 
-      // 2) Recupera permessi
-      const { data: perms, error: permsError } = await _supabase
-        .from('user_permissions')
-        .select('*')
-        .eq('email', email)
-        .maybeSingle();
+        function setLoading(loading) {
+            const btn = document.getElementById('submit-btn');
+            const label = document.getElementById('btn-label');
+            const spinner = btn.querySelector('.spinner');
+            btn.disabled = loading;
+            spinner.classList.toggle('show', loading);
+            label.textContent = loading ? 'Accesso in corso...' : 'Accedi al Sistema';
+        }
 
-      if (permsError || !perms) {
-        await _supabase.auth.signOut();
-        setLoading(false);
-        showError('Account non autorizzato. Contatta l\'amministrazione.');
-        return;
-      }
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            document.getElementById('error-msg').classList.add('hidden');
 
-      // 3) Regola di autorizzazione richiesta:
-      // - ok se mail @meridiano361.it
-      // - oppure se validata (colonna nella tabella)
-      const emailAllowedByDomain = email.endsWith('@meridiano361.it');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-      // Serve una colonna in user_permissions:
-      // validated_by_admin boolean (true = validata da te)
-      const validatedByAdmin = !!perms.validated_by_admin;
+            try {
+                // 1) Login Auth
+                const { data: authData, error: authError } = await _supabase.auth.signInWithPassword({ email, password });
+                
+                if (authError) throw new Error('Email o password errati.');
 
-      const isAuthorized = emailAllowedByDomain || validatedByAdmin;
+                // 2) Recupero Permessi dalla tabella user_permissions
+                const { data: perms, error: permsError } = await _supabase
+                    .from('user_permissions')
+                    .select('*')
+                    .eq('email', email.toLowerCase())
+                    .single();
 
-      if (!isAuthorized) {
-        await _supabase.auth.signOut();
-        setLoading(false);
-        showError('Account non autorizzato. Contatta l\'amministrazione.');
-        return;
-      }
+                if (permsError || !perms) {
+                    await _supabase.auth.signOut();
+                    throw new Error('Utente non censito nel sistema permessi.');
+                }
 
-      // 4) Salva profilo utente (permessi)
-      const userProfile = {
-        email: perms.email,
-        nome: perms.nome_cognome,
-        ruolo: perms.ruolo,
-        emporio: perms.emporio_riferimento,
-        livello: perms.livello_accesso,
-        sezioni: (() => {
-          // allowed_sections nel CSV è salvato come array? o come stringa JSON?
-          // Gestiamo entrambe le possibilità.
-          if (Array.isArray(perms.allowed_sections)) return perms.allowed_sections;
-          if (typeof perms.allowed_sections === 'string') {
-            try { return JSON.parse(perms.allowed_sections); } catch { return []; }
-          }
-          return [];
-        })(),
-        loginAt: new Date().toISOString()
-      };
+                // 3) Salvataggio dati e reindirizzamento
+                const userProfile = {
+                    email: perms.email,
+                    nome: perms.nome_cognome,
+                    ruolo: perms.ruolo,
+                    emporio: perms.emporio_riferimento,
+                    sezioni: Array.isArray(perms.allowed_sections) ? perms.allowed_sections : JSON.parse(perms.allowed_sections || "[]")
+                };
 
-      localStorage.setItem('m361_user', JSON.stringify(userProfile));
-      window.location.href = 'index.html';
+                localStorage.setItem('m361_user', JSON.stringify(userProfile));
+                window.location.href = 'index.html';
 
-    } catch (err) {
-      console.error(err);
-      setLoading(false);
-      showError('Errore durante il login. Riprova.');
-    }
-  });
-</script>
+            } catch (err) {
+                showError(err.message);
+                setLoading(false);
+            }
+        });
+    </script>
+</body>
+</html>
