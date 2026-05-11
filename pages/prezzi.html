@@ -1,86 +1,279 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+    <link rel="stylesheet" href="../../assets/style/nav-style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M361 - Prezzi da Fare</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="assets/style/nav-style.css">
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .card { background: white; border-radius: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 2rem; }
-        .badge { padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-        .badge-frontalino { background-color: #dcfce7; color: #166534; }
-        .badge-etichetta { background-color: #fef9c3; color: #854d0e; }
-        .table-header { background-color: #f1f5f9; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        :root {
+            --red:#b75252; --red-dark:#8f3d3d; --red-light:#fff1f1;
+            --green:#059669; --green-bg:#dcfce7; --green-tx:#166534;
+            --yellow-bg:#fef9c3; --yellow-tx:#854d0e;
+            --slate-50:#f8fafc; --slate-100:#f1f5f9; --slate-200:#e2e8f0;
+            --slate-300:#cbd5e1; --slate-400:#94a3b8; --slate-500:#64748b;
+            --slate-600:#475569; --slate-700:#334155; --slate-800:#1e293b;
+        }
+        body { font-family:'Inter',sans-serif; background:#f0f2f5; }
+        .font-mono { font-family:'DM Mono',monospace; }
+
+        /* Section title */
+        .sec-t { font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--slate-400);display:flex;align-items:center;gap:10px; }
+        .sec-t::before { content:'';width:3px;height:16px;background:var(--red);border-radius:2px;flex-shrink:0; }
+
+        /* Cards */
+        .emp-card { background:#fff;border-radius:20px;border:1px solid var(--slate-200);box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden;transition:all .15s; }
+
+        /* Emporio header */
+        .emp-header { padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--slate-100); }
+        .emp-name { font-size:15px;font-weight:800;color:var(--slate-700);display:flex;align-items:center;gap:10px; }
+        .emp-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+        .emp-count { font-size:10px;font-weight:800;color:#fff;background:var(--red);border-radius:99px;padding:2px 8px;min-width:22px;text-align:center; }
+
+        /* Badges */
+        .badge { padding:3px 10px;border-radius:8px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap; }
+        .badge-frontalino { background:var(--green-bg);color:var(--green-tx); }
+        .badge-etichetta { background:var(--yellow-bg);color:var(--yellow-tx); }
+
+        /* Table */
+        .pz-table { width:100%;border-collapse:collapse;font-size:13px; }
+        .pz-table thead th { padding:8px 14px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--slate-400);text-align:left;background:var(--slate-50);border-bottom:1px solid var(--slate-200); }
+        .pz-table tbody td { padding:10px 14px;border-bottom:1px solid var(--slate-100);vertical-align:middle; }
+        .pz-table tbody tr:last-child td { border-bottom:none; }
+        .pz-table tbody tr:hover { background:#fefce8; }
+        .pz-table .prod-name { font-weight:700;color:var(--slate-700); }
+        .pz-table .done-row { opacity:.45;text-decoration:line-through; }
+
+        /* Checkbox custom */
+        .pz-check { width:18px;height:18px;accent-color:var(--green);cursor:pointer; }
+
+        /* Empty state */
+        .empty-state { padding:32px 16px;text-align:center;color:var(--slate-400);font-size:12px;font-weight:600; }
+
+        /* Add form */
+        .add-form { display:none;padding:12px 20px;background:var(--slate-50);border-top:1px solid var(--slate-200);gap:8px;flex-wrap:wrap;align-items:end; }
+        .add-form.show { display:flex; }
+        .add-form input, .add-form select {
+            border:1px solid var(--slate-200);border-radius:10px;padding:8px 12px;
+            font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border .15s;
+        }
+        .add-form input:focus, .add-form select:focus { border-color:var(--red); }
+
+        /* Floating counter */
+        .float-counter { position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:var(--slate-800);color:#fff;padding:8px 20px;border-radius:12px;font-size:11px;font-weight:800;z-index:8000;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25); }
+        .float-counter .fc-num { font-family:'DM Mono',monospace;font-size:16px;color:#fbbf24; }
+
+        /* Filters */
+        .filter-bar { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px; }
+        .fbtn { padding:6px 14px;border-radius:10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border:1.5px solid var(--slate-200);background:#fff;color:var(--slate-500);transition:all .12s; }
+        .fbtn:hover { border-color:var(--slate-400); }
+        .fbtn.active { background:var(--slate-800);color:#fff;border-color:var(--slate-800); }
+
+        @media(max-width:768px) {
+            .emp-header { padding:12px 14px; }
+            .pz-table thead th, .pz-table tbody td { padding:8px 10px; }
+            .add-form input, .add-form select { font-size:16px;padding:8px 10px; }
+        }
     </style>
 </head>
-<body class="p-4 pb-24">
+<body class="pb-20">
+    <script src="../../scripts/nav-script.js"></script>
 
-    <div class="max-w-md mx-auto">
-        <header class="mb-6">
-            <h1 class="text-2xl font-extrabold text-slate-800">Prezzi da Fare</h1>
-            <p class="text-slate-500 text-sm">Gestione stampe per emporio</p>
-        </header>
+    <main class="max-w-3xl mx-auto p-4 md:p-8">
 
-        <section class="mb-8">
-            <div class="flex items-center gap-2 mb-3 ml-2">
-                <i class="fas fa-location-dot text-[#b75252]"></i>
-                <h2 class="text-lg font-bold text-slate-700">Cremona</h2>
-            </div>
-            
-            <div class="card">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="table-header">
-                            <th class="p-4">Prodotto</th>
-                            <th class="p-4 text-center">Tipo</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <tr>
-                            <td class="p-4 text-sm font-medium text-slate-700">Frollini Libera Terra</td>
-                            <td class="p-4 text-center"><span class="badge badge-frontalino">Frontalino</span></td>
-                        </tr>
-                        <tr>
-                            <td class="p-4 text-sm font-medium text-slate-700">Coppia tazze verdi</td>
-                            <td class="p-4 text-center"><span class="badge badge-etichetta">Etichetta</span></td>
-                        </tr>
-                        <tr>
-                            <td class="p-4 text-sm font-medium text-slate-700">Sfera rametti</td>
-                            <td class="p-4 text-center"><span class="badge badge-etichetta">Etichetta</span></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        <!-- Filters -->
+        <div class="filter-bar">
+            <button class="fbtn active" data-filter="tutti" onclick="setFilter('tutti')">Tutti</button>
+            <button class="fbtn" data-filter="da_fare" onclick="setFilter('da_fare')">Da fare</button>
+            <button class="fbtn" data-filter="fatti" onclick="setFilter('fatti')">Fatti</button>
+            <button class="fbtn" data-filter="frontalino" onclick="setFilter('frontalino')">Frontalini</button>
+            <button class="fbtn" data-filter="etichetta" onclick="setFilter('etichetta')">Etichette</button>
+        </div>
 
-        <section class="mb-8 opacity-60">
-            <div class="flex items-center gap-2 mb-3 ml-2 text-slate-400">
-                <i class="fas fa-location-dot"></i>
-                <h2 class="text-lg font-bold">Casalmaggiore</h2>
-            </div>
-            <div class="p-8 text-center bg-slate-100 rounded-3xl border-2 border-dashed border-slate-200">
-                <p class="text-slate-400 text-sm font-medium">Nessuna richiesta di stampa</p>
-            </div>
-        </section>
+        <!-- Empori -->
+        <div id="empori-container"></div>
 
-        <section class="mb-8 opacity-60">
-            <div class="flex items-center gap-2 mb-3 ml-2 text-slate-400">
-                <i class="fas fa-location-dot"></i>
-                <h2 class="text-lg font-bold">Viadana</h2>
-            </div>
-            <div class="p-8 text-center bg-slate-100 rounded-3xl border-2 border-dashed border-slate-200">
-                <p class="text-slate-400 text-sm font-medium">Nessuna richiesta di stampa</p>
-            </div>
-        </section>
+    </main>
+
+    <!-- Floating counter -->
+    <div class="float-counter" id="float-counter">
+        Da fare: <span class="fc-num" id="fc-num">0</span>
     </div>
 
-    <script src="scripts/nav-script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+    const { createClient } = supabase;
+    const db = createClient('https://hsalynvxazxqtmsvjrzc.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8');
+
+    const EMPORI = [
+        { id:'cremona',       label:'Cremona',        color:'#b75252' },
+        { id:'casalmaggiore', label:'Casalmaggiore',  color:'#c78044' },
+        { id:'reggioemilia',  label:'Reggio Emilia',  color:'#6b8d53' },
+        { id:'viadana',       label:'Viadana',        color:'#4c6d90' },
+    ];
+
+    let items = []; // [{id, emporio, prodotto, tipo, fatto, created_at}]
+    let currentFilter = 'tutti';
+
+    // ─── FILTER ───
+    function setFilter(f) {
+        currentFilter = f;
+        document.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+        render();
+    }
+
+    function filterItems(list) {
+        if (currentFilter === 'tutti') return list;
+        if (currentFilter === 'da_fare') return list.filter(i => !i.fatto);
+        if (currentFilter === 'fatti') return list.filter(i => i.fatto);
+        return list.filter(i => i.tipo === currentFilter);
+    }
+
+    // ─── RENDER ───
+    function render() {
+        const container = document.getElementById('empori-container');
+        const daFare = items.filter(i => !i.fatto).length;
+        document.getElementById('fc-num').textContent = daFare;
+
+        container.innerHTML = EMPORI.map(emp => {
+            const empItems = items.filter(i => i.emporio === emp.id);
+            const filtered = filterItems(empItems);
+            const pendingCount = empItems.filter(i => !i.fatto).length;
+
+            const rows = filtered.map(item => `
+                <tr class="${item.fatto ? 'done-row' : ''}">
+                    <td style="width:36px;text-align:center">
+                        <input type="checkbox" class="pz-check" ${item.fatto ? 'checked' : ''}
+                               onchange="toggleDone('${item.id}', this.checked)">
+                    </td>
+                    <td class="prod-name">${item.prodotto}</td>
+                    <td style="text-align:center">
+                        <span class="badge badge-${item.tipo}">${item.tipo === 'frontalino' ? 'Frontalino' : 'Etichetta'}</span>
+                    </td>
+                    <td style="width:36px;text-align:center">
+                        <button onclick="removeItem('${item.id}')" class="text-slate-300 hover:text-red-500 transition-colors">
+                            <i class="fas fa-trash" style="font-size:11px"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            return `
+            <div class="emp-card mb-5">
+                <div class="emp-header">
+                    <div class="emp-name">
+                        <span class="emp-dot" style="background:${emp.color}"></span>
+                        ${emp.label}
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        ${pendingCount > 0 ? `<span class="emp-count">${pendingCount}</span>` : '<span style="font-size:10px;font-weight:700;color:var(--green)">✓ Tutto fatto</span>'}
+                        <button onclick="toggleForm('${emp.id}')" class="text-slate-400 hover:text-[#b75252] transition-colors" title="Aggiungi">
+                            <i class="fas fa-plus-circle" style="font-size:18px"></i>
+                        </button>
+                    </div>
+                </div>
+
+                ${filtered.length > 0 ? `
+                <table class="pz-table">
+                    <thead><tr>
+                        <th style="width:36px"></th>
+                        <th>Prodotto</th>
+                        <th style="text-align:center;width:100px">Tipo</th>
+                        <th style="width:36px"></th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                ` : `<div class="empty-state">
+                    ${currentFilter !== 'tutti' ? 'Nessun risultato con il filtro selezionato' : 'Nessuna richiesta di stampa'}
+                </div>`}
+
+                <div class="add-form" id="form-${emp.id}">
+                    <input type="text" id="input-${emp.id}" placeholder="Nome prodotto" style="flex:1;min-width:140px"
+                           onkeydown="if(event.key==='Enter')addItem('${emp.id}')">
+                    <select id="tipo-${emp.id}" style="width:130px">
+                        <option value="frontalino">Frontalino</option>
+                        <option value="etichetta">Etichetta</option>
+                    </select>
+                    <button onclick="addItem('${emp.id}')"
+                            style="background:var(--red);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">
+                        <i class="fas fa-plus"></i> Aggiungi
+                    </button>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function toggleForm(empId) {
+        const form = document.getElementById('form-' + empId);
+        form.classList.toggle('show');
+        if (form.classList.contains('show')) {
+            document.getElementById('input-' + empId).focus();
+        }
+    }
+
+    // ─── CRUD ───
+    async function addItem(empId) {
+        const input = document.getElementById('input-' + empId);
+        const tipo = document.getElementById('tipo-' + empId).value;
+        const prodotto = input.value.trim();
+        if (!prodotto) return;
+
+        const newItem = {
+            emporio: empId,
+            prodotto,
+            tipo,
+            fatto: false,
+            created_at: new Date().toISOString()
+        };
+
+        const { data, error } = await db.from('prezzi_da_fare').insert([newItem]).select().single();
+        if (error) {
+            // Fallback locale
+            newItem.id = 'local-' + Date.now();
+            items.push(newItem);
+        } else {
+            items.push(data);
+        }
+
+        input.value = '';
+        render();
+    }
+
+    async function toggleDone(id, fatto) {
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+        item.fatto = fatto;
+
+        if (!String(id).startsWith('local-')) {
+            await db.from('prezzi_da_fare').update({ fatto }).eq('id', id);
+        }
+        render();
+    }
+
+    async function removeItem(id) {
+        if (!confirm('Rimuovere questo prodotto?')) return;
+        items = items.filter(i => i.id !== id);
+
+        if (!String(id).startsWith('local-')) {
+            await db.from('prezzi_da_fare').delete().eq('id', id);
+        }
+        render();
+    }
+
+    // ─── LOAD ───
+    async function loadItems() {
+        const { data, error } = await db.from('prezzi_da_fare').select('*').order('created_at', { ascending: true });
+        if (data) items = data;
+        render();
+    }
+
+    loadItems();
+    </script>
+
+    <script src="../../scripts/nav-script.js"></script>
 </body>
 </html>
