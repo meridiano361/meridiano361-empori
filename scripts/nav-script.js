@@ -95,17 +95,17 @@
       { id: 'home', label: 'Home', icon: 'fa-house', href: 'index.html', section: null, active: true },
     ]},
     { group: 'Clienti', items: [
-      { id: 'ordini',       label: 'Ordini',       icon: 'fa-bag-shopping',   href: 'pages/ordini/ordini.html',      section: 'ordini',  active: true  },
-      { id: 'prenotazioni', label: 'Prenotazioni', icon: 'fa-calendar-check', href: 'pages/prenotazioni/index.html', section: null,      active: false },
-      { id: 'tessere',      label: 'Tessere',      icon: 'fa-id-card',        href: 'pages/tessere/index.html',      section: null,      active: false },
-      { id: 'info',         label: 'Info',         icon: 'fa-message',        href: 'pages/info/index.html',         section: null,      active: false },
+      { id: 'ordini',       label: 'Ordini',       icon: 'fa-bag-shopping',   href: 'pages/ordini/ordini.html',               section: 'ordini',  active: true  },
+      { id: 'prenotazioni', label: 'Prenotazioni', icon: 'fa-calendar-check', href: 'pages/prenotazioni/prenotazioni.html',   section: null,      active: true  },
+      { id: 'tessere',      label: 'Tessere',      icon: 'fa-id-card',        href: 'pages/tessere/index.html',               section: null,      active: false },
+      { id: 'info',         label: 'Info',         icon: 'fa-message',        href: 'pages/info/infoclienti.html',            section: null,      active: true  },
     ]},
     { group: 'Negozio', items: [
       { id: 'turni',        label: 'Turni',        icon: 'fa-users',          href: 'pages/turni/turni.html',        section: 'turni',   active: true  },
       { id: 'cassa',        label: 'Cassa',        icon: 'fa-cash-register',  href: 'pages/cassa/cassa.html',        section: 'cassa',   active: true  },
       { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: false },
       { id: 'rifornimento', label: 'Rifornimento', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: false },
-      { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/index.html',       section: null,      active: false },
+      { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/prezzi.html',      section: null,      active: true  },
     ]},
     { group: null, items: [
       { id: 'logout', label: 'Esci', icon: 'fa-right-from-bracket', href: '#', section: null, active: true, isLogout: true },
@@ -340,7 +340,8 @@ function buildNav() {
   }
 
   /**
-   * Applica le restrizioni se l'utente è in modalità sola lettura nel DB
+   * Applica le restrizioni SOLA LETTURA — versione completa
+   * Copre tutti i bottoni e form dell'intera app M361
    */
   async function checkPermissionsAndApply(user) {
     const _supabase = getSupabase();
@@ -350,34 +351,155 @@ function buildNav() {
       .from('user_permissions')
       .select('is_readonly')
       .eq('email', user.email)
-      .single();
+      .maybeSingle();
 
-    if (dbUser && dbUser.is_readonly) {
-      const style = document.createElement('style');
-      style.id = 'readonly-styles';
-      style.innerHTML = `
-        /* Nasconde i tasti di azione */
-        button[type="submit"], .btn-add, .btn-delete, .btn-save, #submit-btn, .admin-only { 
-            display: none !important; 
-        }
-        /* Blocca l'interazione con i campi */
-        input, select, textarea { 
-            pointer-events: none !important; 
-            opacity: 0.7; 
-            background: #f1f5f9 !important; 
-        }
-        /* Etichetta visiva */
-        body::after { 
-            content: "SOLA LETTURA ATTIVA"; 
-            position: fixed; top: 75px; left: 50%; transform: translateX(-50%); 
-            background: #fef9c3; color: #854d0e; padding: 2px 10px; 
-            font-size: 9px; font-weight: 800; border-radius: 5px; 
-            z-index: 10000; border: 1px solid #facc15; 
-        }
-      `;
-      document.head.appendChild(style);
-    }
+    if (!dbUser || !dbUser.is_readonly) return; // Niente da fare
+
+    // Salva stato nel localStorage per uso rapido
+    try {
+      const profile = JSON.parse(localStorage.getItem('m361_user') || '{}');
+      profile.is_readonly = true;
+      localStorage.setItem('m361_user', JSON.stringify(profile));
+    } catch {}
+
+    applyReadonlyMode();
   }
+
+  function applyReadonlyMode() {
+    // Inietta CSS che nasconde/blocca tutti gli elementi di modifica
+    if (document.getElementById('m361-readonly-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'm361-readonly-styles';
+    style.textContent = `
+      /* ══ SOLA LETTURA — nasconde tutti i bottoni di azione ══ */
+
+      /* Bottoni submit / salva / aggiungi */
+      button[type="submit"],
+      input[type="submit"],
+      button[onclick*="salva"],
+      button[onclick*="save"],
+      button[onclick*="submit"],
+      button[onclick*="add"],
+      button[onclick*="aggiungi"],
+      button[onclick*="Add"],
+      button[onclick*="nuov"],
+      button[onclick*="Nuov"],
+      button[onclick*="create"],
+      button[onclick*="insert"],
+      #submit-btn,
+      #btn-new,
+      .btn-save, .btn-add, .btn-create, .btn-submit,
+      .admin-only,
+
+      /* Bottoni SALVA ORDINE in basso */
+      button.btn-dark,
+      [style*="SALVA"],
+
+      /* Bottoni modifica / elimina / archivia */
+      .btn-action,
+      button[onclick*="edit"],
+      button[onclick*="delete"],
+      button[onclick*="remove"],
+      button[onclick*="archive"],
+      button[onclick*="complete"],
+      button[onclick*="modifica"],
+      button[onclick*="elimina"],
+      button[onclick*="archivia"],
+
+      /* Bottoni specifici per pagina */
+      button[onclick*="addRow"],
+      button[onclick*="addGroup"],
+      button[onclick*="addProduct"],
+      button[onclick*="addItem"],
+      button[onclick*="submitRequest"],
+      button[onclick*="sendResponse"],
+      button[onclick*="archiveRequest"],
+      button[onclick*="deleteRequest"],
+      button[onclick*="deleteOrder"],
+      button[onclick*="bulkDelete"],
+      button[onclick*="completeOrder"],
+      button[onclick*="toggleDone"],
+      button[onclick*="removeItem"],
+      button[onclick*="removeProduct"],
+      button[onclick*="removeRow"],
+      button[onclick*="saveAll"],
+      button[onclick*="salvaGiornata"],
+      button[onclick*="salvaDati"],
+
+      /* Pulsanti con icone specifiche (trash, edit, etc.) */
+      button:has(i.fa-trash),
+      button:has(i.fa-pen),
+      button:has(i.fa-plus),
+      button:has(i.fa-save),
+      button:has(i.fa-paper-plane),
+      button:has(i.fa-archive),
+      button:has(i.fa-check),
+      a[onclick*="addRow"],
+      a[onclick*="edit"],
+
+      /* "RITIRATO/SPEDITO" e simili */
+      [class*="btn-complete"],
+      button[style*="background:#1e293b"],
+      button[style*="background: #1e293b"],
+
+      /* Bottone flottante salva */
+      #save-btn-float,
+      button:has(i.fa-floppy-disk) {
+        display: none !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+      }
+
+      /* Disabilita tutti gli input / form */
+      input:not([type="checkbox"]):not([type="radio"]):not([type="search"]):not(#search-input),
+      select,
+      textarea {
+        pointer-events: none !important;
+        background: #f8fafc !important;
+        color: #94a3b8 !important;
+        cursor: not-allowed !important;
+        border-color: #e2e8f0 !important;
+      }
+
+      /* Disabilita checkbox interattivi (non quelli di sola visualizzazione) */
+      input[type="checkbox"].pz-check,
+      input[type="checkbox"].cb,
+      input[type="checkbox"].order-checkbox,
+      input[type="checkbox"].readonly-toggle {
+        pointer-events: none !important;
+        opacity: 0.5 !important;
+      }
+
+      /* Badge SOLA LETTURA nell'header */
+      #m361-header .hd-right::before {
+        content: "👁 SOLA LETTURA";
+        font-size: 8px;
+        font-weight: 900;
+        letter-spacing: .06em;
+        background: #fef9c3;
+        color: #92400e;
+        border: 1px solid #fde68a;
+        padding: 3px 8px;
+        border-radius: 6px;
+        margin-right: 4px;
+        white-space: nowrap;
+      }
+
+      /* Nascondi quick-nav bar "Vai a: Nuovo/In Corso/Archiviati"
+         solo i link di "Nuovo Ordine" */
+      a[href*="ordini_nuovi"] { display: none !important; }
+    `;
+    document.head.appendChild(style);
+
+    // Blocca anche i submit via JavaScript
+    document.addEventListener('submit', e => e.preventDefault(), true);
+
+    // Rendi i form non-interattivi a livello JS
+    window.__m361_readonly = true;
+  }
+
+  // Espone la funzione per uso in altre pagine
+  window.__m361ApplyReadonly = applyReadonlyMode;
 
   // Lancio dello script
   if (document.readyState === 'loading') {
