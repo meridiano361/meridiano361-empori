@@ -8,15 +8,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
-        .login-card { background: white; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
-        .btn-m361 { background-color: #1e293b; transition: all 0.2s; }
+        .login-card { background: white; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1); }
+        .btn-m361 { background-color: #1e293b; transition: all .2s; }
         .btn-m361:hover { background-color: #334155; transform: translateY(-1px); }
+        .btn-m361:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+        .spinner { display: none; }
+        .spinner.show { display: inline-block; }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
     <div class="login-card w-full max-w-md p-8 md:p-12">
         <div class="text-center mb-10">
+            <img src="assets/images/logom361_rosso.jpg" alt="M361" class="h-12 mx-auto mb-4" onerror="this.style.display='none'">
             <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Meridiano 361</h1>
             <p class="text-slate-500 mt-2 text-sm font-medium">Accesso consentito solo su invito</p>
         </div>
@@ -24,26 +28,28 @@
         <form id="login-form" class="space-y-6">
             <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Indirizzo Email</label>
-                <input type="email" id="email" required 
+                <input type="email" id="email" required autocomplete="email"
                     class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-slate-400 focus:ring-0 outline-none transition-all text-slate-700"
-                    placeholder="nome@meridiano361.it">
+                    placeholder="......">
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Password</label>
-                <input type="password" id="password" required 
+                <input type="password" id="password" required autocomplete="current-password"
                     class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-slate-400 focus:ring-0 outline-none transition-all text-slate-700"
                     placeholder="••••••••">
             </div>
 
-            <button type="submit" class="btn-m361 w-full text-white font-bold py-4 rounded-xl shadow-lg shadow-slate-200">
-                Accedi al Sistema
+            <button type="submit" id="submit-btn" class="btn-m361 w-full text-white font-bold py-4 rounded-xl shadow-lg shadow-slate-200 flex items-center justify-center gap-3">
+                <svg class="spinner animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span id="btn-label">Accedi al Sistema</span>
             </button>
         </form>
 
-        <div id="error-msg" class="hidden mt-6 p-4 rounded-xl bg-red-50 text-red-600 text-xs font-bold text-center">
-            Accesso negato. Utente non autorizzato o credenziali errate.
-        </div>
+        <div id="error-msg" class="hidden mt-6 p-4 rounded-xl bg-red-50 text-red-600 text-xs font-bold text-center"></div>
 
         <p class="mt-8 text-center text-[10px] text-slate-400 leading-relaxed">
             Se non hai ricevuto un invito, contatta l'amministrazione per richiedere l'abilitazione del tuo account.
@@ -53,29 +59,80 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const { createClient } = supabase;
-        const _supabase = createClient('https://hsalynvxazxqtmsvjrzc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8');
+        const _supabase = createClient(
+            'https://hsalynvxazxqtmsvjrzc.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+        );
+
+        // Se già loggato → vai all'app
+        (async () => {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                window.location.href = 'index.html';
+            }
+        })();
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function setLoading(loading) {
+            const btn = document.getElementById('submit-btn');
+            const label = document.getElementById('btn-label');
+            const spinner = btn.querySelector('.spinner');
+            btn.disabled = loading;
+            spinner.classList.toggle('show', loading);
+            label.textContent = loading ? 'Accesso in corso...' : 'Accedi al Sistema';
+        }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            document.getElementById('error-msg').classList.add('hidden');
+            setLoading(true);
+
+            const email    = document.getElementById('email').value.trim().toLowerCase();
             const password = document.getElementById('password').value;
-            const errorMsg = document.getElementById('error-msg');
 
-            // 1. Autenticazione Supabase
-            const { data, error } = await _supabase.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
+            // 1. Autenticazione Supabase Auth
+            const { data: authData, error: authError } = await _supabase.auth.signInWithPassword({ email, password });
 
-            if (error) {
-                errorMsg.classList.remove('hidden');
+            if (authError) {
+                setLoading(false);
+                showError('Email o password errati. Riprova.');
                 return;
             }
 
-            // 2. Controllo permessi personalizzati
-            // Qui reindirizziamo alla cassa.html. 
-            // In cassa.html leggeremo l'utente loggato per mostrare/nascondere le sezioni.
-            window.location.href = 'cassa.html';
+            // 2. Recupera permessi dalla tabella user_permissions
+            const { data: perms, error: permsError } = await _supabase
+                .from('user_permissions')
+                .select('*')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (permsError || !perms) {
+                // Utente autenticato ma non autorizzato nel sistema
+                await _supabase.auth.signOut();
+                setLoading(false);
+                showError('Account non autorizzato. Contatta l\'amministrazione.');
+                return;
+            }
+
+            // 3. Salva profilo utente in localStorage per uso nell'app
+            const userProfile = {
+                email:              perms.email,
+                nome:               perms.nome_cognome,
+                ruolo:              perms.ruolo,
+                emporio:            perms.emporio_riferimento,
+                livello:            perms.livello_accesso,
+                sezioni:            perms.allowed_sections || [],
+                loginAt:            new Date().toISOString()
+            };
+            localStorage.setItem('m361_user', JSON.stringify(userProfile));
+
+            // 4. Reindirizza all'app
+            window.location.href = 'index.html';
         });
     </script>
 </body>
