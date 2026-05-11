@@ -301,6 +301,29 @@ body { font-family: 'Inter', sans-serif; padding-top: 56px; padding-bottom: 68px
 
     // Guard sessione in background (NON blocca il rendering)
     guardSessionAsync();
+
+    // Nel tuo nav-script.js, dentro la funzione init():
+async function checkPermissionsAndApply() {
+    const user = JSON.parse(localStorage.getItem('m361_user'));
+    if (!user) return;
+
+    // Recupera lo stato aggiornato dal DB
+    const { data: dbUser } = await _supabase
+        .from('user_permissions')
+        .select('is_readonly, visible_sections')
+        .eq('email', user.email)
+        .single();
+
+    if (dbUser && dbUser.is_readonly) {
+        const style = document.createElement('style');
+        style.innerHTML = `
+            button[type="submit"], .btn-add, .btn-delete, #submit-btn { display: none !important; }
+            input, select, textarea { pointer-events: none !important; opacity: 0.7; background: #f1f5f9 !important; }
+            body::after { content: "SOLA LETTURA ATTIVA"; position: fixed; top: 75px; left: 50%; transform: translateX(-50%); background: #fef9c3; color: #854d0e; padding: 2px 10px; font-size: 9px; font-weight: 800; border-radius: 5px; z-index: 10000; border: 1px solid #facc15; }
+        `;
+        document.head.appendChild(style);
+    }
+}
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
