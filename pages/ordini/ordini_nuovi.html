@@ -241,10 +241,10 @@
             <img src="../../assets/images/logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.style.display='none'">
             <h1 id="header-title" class="font-bold text-lg border-l pl-4 text-slate-700">Nuovo Ordine</h1>
         </div>
-        <button id="back-btn" class="hidden text-sm font-bold text-slate-500 hover:text-m361-red transition-colors flex items-center gap-2">
-            <i class="fas fa-arrow-left"></i> Indietro
-        </button>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-3">
+            <button id="back-btn" class="hidden text-sm font-bold text-slate-500 hover:text-m361-red transition-colors flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Indietro
+            </button>
             <a href="ordini_incorso.html" class="text-xs font-bold text-slate-500 hover:text-m361-red transition-colors px-3 py-2 rounded-lg border border-slate-200 hover:border-m361-red flex items-center gap-2">
                 <i class="fas fa-clock"></i> In Corso
             </a>
@@ -447,9 +447,9 @@
             
             if (date && citta) {
                 const progressivo = await getProgressivoOrdine(date, citta);
-                document.getElementById('numero-ordine-preview').value = buildNumeroOrdine(date, citta, progressivo);
+                getValueSafe('numero-ordine-preview') = buildNumeroOrdine(date, citta, progressivo);
             } else {
-                document.getElementById('numero-ordine-preview').value = '';
+                getValueSafe('numero-ordine-preview') = '';
             }
         }
 
@@ -480,13 +480,13 @@
             addGroup();
             
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('order-date').value = today;
+            getValueSafe('order-date') = today;
             
             refreshNumeroOrdinePreview();
         }
 
         function handleCittaChange() {
-            const citta = document.getElementById('select-emporio').value;
+            const citta = getValueSafe('select-emporio');
             const canaleContainer = document.getElementById('canale-cremona-container');
             const opSelect = document.getElementById('select-operatore');
             
@@ -506,7 +506,7 @@
         }
 
         function getEmporioOptions() {
-            const mainCitta = document.getElementById('select-emporio').value;
+            const mainCitta = getValueSafe('select-emporio');
             let options = '<option value="">Dove?</option>';
             ALL_EMPORI.forEach(e => {
                 if (e !== mainCitta) {
@@ -775,7 +775,19 @@
         }
 
         // FORM SUBMISSION
-        async function validateSubmission(event) {
+        
+        // Helper function for safe element value retrieval
+        function getValueSafe(id, defaultValue = '') {
+            const el = document.getElementById(id);
+            return el ? el.value : defaultValue;
+        }
+        
+        function getCheckedValueSafe(name) {
+            const el = document.querySelector(`input[name="${name}"]:checked`);
+            return el ? el.value : '';
+        }
+        
+async function validateSubmission(event) {
             event.preventDefault();
             
             const btn = document.getElementById('submit-btn');
@@ -803,22 +815,22 @@
                 });
 
                 const orderData = {
-                    numero_ordine: document.getElementById('numero-ordine-preview').value,
+                    numero_ordine: getValueSafe('numero-ordine-preview'),
                     tipo_ordine: currentType,
-                    emporio: document.getElementById('select-emporio').value,
+                    emporio: getValueSafe('select-emporio'),
                     canale: document.getElementById('select-canale')?.value || null,
-                    operatore: document.getElementById('select-operatore').value,
-                    data_ordine: document.getElementById('order-date').value,
-                    cliente_nome: document.getElementById('cust-nome').value,
-                    cliente_cognome: document.getElementById('cust-cognome').value,
-                    cliente_cellulare: document.getElementById('cust-tel').value,
-                    cliente_email: document.getElementById('cust-email').value,
+                    operatore: getValueSafe('select-operatore'),
+                    data_ordine: getValueSafe('order-date'),
+                    cliente_nome: getValueSafe('cust-nome'),
+                    cliente_cognome: getValueSafe('cust-cognome'),
+                    cliente_cellulare: getValueSafe('cust-cel'),
+                    cliente_email: getValueSafe('cust-email'),
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),
-                    modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
-                    totale_ordine: parseFloat(document.getElementById('grand-total').textContent.replace('€', '').replace(',', '.').trim()),
-                    acconto: parseFloat(document.getElementById('acconto').value.replace('€', '').replace(',', '.').trim()) || 0,
-                    da_pagare: parseFloat(document.getElementById('saldo-finale').textContent.replace('€', '').replace(',', '.').trim()),
-                    note: document.getElementById('order-notes').value,
+                    modalita_consegna: getCheckedValueSafe('mod_consegna'),
+                    totale_ordine: parseFloat((document.getElementById('grand-total')?.textContent || '0').replace('€', '').replace(',', '.').trim()) || 0,
+                    acconto: parseFloat((getValueSafe('acconto') || '0').replace('€', '').replace(',', '.').trim()) || 0,
+                    da_pagare: parseFloat((document.getElementById('saldo-finale')?.textContent || '0').replace('€', '').replace(',', '.').trim()) || 0,
+                    note: getValueSafe('order-notes'),
                     articoli: articoli,
                     stato: 'in_corso',
                     data_creazione: new Date().toISOString()
@@ -881,7 +893,7 @@
             
             // Set today's date
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('order-date').value = today;
+            getValueSafe('order-date') = today;
         });
     </script>
     <script src="../../scripts/nav-script.js"></script>
