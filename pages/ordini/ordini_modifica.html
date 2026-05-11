@@ -313,9 +313,49 @@
             return params.get('id');
         }
 
+        function getSrcFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('src'); // 'archivio' se viene da ordini_archiviati
+        }
+
         // LOAD ORDER DATA
-        
-        // AUTOMATIC ORDER NUMBER GENERATION
+        async function loadOrderData() {
+            const orderId = getOrderIdFromURL();
+            const src = getSrcFromURL();
+            const table = src === 'archivio' ? 'ordini_archiviati' : 'ordini_incorso';
+            const backPage = src === 'archivio' ? 'ordini_archiviati.html' : 'ordini_incorso.html';
+
+            if (!orderId) {
+                alert('ID ordine mancante!');
+                window.location.href = backPage;
+                return;
+            }
+
+            currentOrderId = orderId;
+
+            // Update back button destination
+            const backBtn = document.getElementById('back-btn');
+            if (backBtn) backBtn.onclick = () => window.location.href = backPage;
+
+            try {
+                const { data, error } = await _supabase
+                    .from(table)
+                    .select('*')
+                    .eq('id', orderId)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!data) throw new Error('Ordine non trovato nella tabella ' + table);
+
+                populateForm(data);
+
+                document.getElementById('loading-overlay').remove();
+            } catch (error) {
+                console.error('Error loading order:', error);
+                alert('Errore nel caricamento dell\'ordine: ' + error.message);
+                window.location.href = backPage;
+            }
+        }
         async function generateNumeroOrdine(emporio, data) {
             // Get emporio abbreviation
             const emporioMap = {
@@ -757,15 +797,19 @@
                     articoli: articoli
                 };
 
+                const src = getSrcFromURL();
+                const table = src === 'archivio' ? 'ordini_archiviati' : 'ordini_incorso';
+                const backPage = src === 'archivio' ? 'ordini_archiviati.html' : 'ordini_incorso.html';
+
                 const { data, error } = await _supabase
-                    .from('ordini_incorso')
+                    .from(table)
                     .update(orderData)
                     .eq('id', currentOrderId);
 
                 if (error) throw error;
 
                 alert('Ordine aggiornato con successo!');
-                window.location.href = 'ordini_incorso.html';
+                window.location.href = backPage;
             } catch (error) {
                 console.error('Error updating order:', error);
                 alert('Errore nell\'aggiornamento: ' + error.message);
