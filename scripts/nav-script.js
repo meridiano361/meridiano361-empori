@@ -237,11 +237,35 @@ body {
   ═══════════════════════════════════════ */
   function getCurrentId() {
     const path = window.location.pathname.replace(/\\/g, '/').toLowerCase();
-    if (path === '/' || (path.endsWith('index.html') && path.split('/').filter(Boolean).length <= 1)) return 'home';
+
+    // Home check
+    const pathParts = path.split('/').filter(Boolean);
+    if (path === '/' || pathParts.length === 0) return 'home';
+    if (pathParts.length <= 1 && pathParts[0] === 'index.html') return 'home';
+
+    // Segmenti generici da ignorare nel confronto
+    const SKIP = new Set(['pages', 'assets', 'scripts', 'style', 'images', 'js', 'css', 'index']);
+
+    // Segmenti significativi dell'URL corrente (es. 'turni', 'cassa', 'ordini')
+    const currentSegs = pathParts
+      .map(p => p.replace('.html', '').replace('.js', '').replace('.css', ''))
+      .filter(s => s.length > 2 && !SKIP.has(s));
+
     for (const item of ALL_ITEMS) {
       if (item.id === 'home' || item.id === 'logout') continue;
-      const parts = item.href.split('/').filter(Boolean);
-      if (parts.some(p => { const seg = p.replace('.html','').toLowerCase(); return seg.length > 2 && path.includes('/' + seg); })) return item.id;
+
+      // Segmenti significativi dell'href del nav item
+      const itemSegs = item.href.split('/').filter(Boolean)
+        .map(p => p.replace('.html', ''))
+        .filter(s => s.length > 2 && !SKIP.has(s));
+
+      // Match: un segmento significativo dell'item è contenuto
+      // in uno dei segmenti significativi della pagina corrente
+      // Esempio: item seg 'ordini' matches path seg 'ordini_incorso'
+      const matched = itemSegs.some(iSeg =>
+        currentSegs.some(cSeg => cSeg === iSeg || cSeg.startsWith(iSeg + '_') || cSeg.startsWith(iSeg + '-'))
+      );
+      if (matched) return item.id;
     }
     return null;
   }
