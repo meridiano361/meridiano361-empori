@@ -178,9 +178,18 @@ body{font-family:Inter,sans-serif;background:#f0f2f5;color:#1e293b;padding-botto
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const SBURL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
-const SBKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const SBKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-prfxZ1PQp5T18a8';
 let db = null;
-try { db = supabase.createClient(SBURL, SBKEY); } catch(e) { console.error('Supabase init error:', e); }
+try {
+  if (window._m361db) {
+    db = window._m361db;
+  } else {
+    db = supabase.createClient(SBURL, SBKEY, {
+      auth: { storageKey: 'm361-turni-auth', autoRefreshToken: false, persistSession: false }
+    });
+    window._m361db = db;
+  }
+} catch(e) { console.error('Supabase init error:', e); }
 
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const MESISHORT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
@@ -263,8 +272,7 @@ function renderEmpGrid() {
   document.getElementById('emp-grid').innerHTML =
     ['Casalmaggiore','Cremona','Reggio Emilia','Viadana'].map(e => `
       <div class="emp-card" onclick="selectEmporio('${e}')">
-        <img src="../../assets/images/logo${e.toLowerCase().replace(/ /g,'')}.png" alt="${e}"
-             onerror="this.outerHTML='<div style=\'width:64px;height:64px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#b75252\'>${e.substring(0,2)}</div>'">
+        <div style="width:64px;height:64px;border-radius:50%;background:#fce4ec;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#b75252;">${e.substring(0,2).toUpperCase()}</div>
         <div class="name">${e}</div>
       </div>`).join('');
 }
@@ -710,7 +718,7 @@ async function saveStoreHours() {
 
 function showOperatorsModal(){
   const list = PERSONALE[currentEmporio] || [];
-document.getElementById('modal-add-title').textContent = 'Gestisci Operatori - ' + currentEmporio;
+  document.getElementById('modal-add-title').textContent = 'Gestisci Operatori - ' + currentEmporio;
   document.getElementById('modal-add-list').innerHTML =
     '<div style="margin-bottom:12px;">' +
       '<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px;">Aggiungi nuovo operatore</div>' +
