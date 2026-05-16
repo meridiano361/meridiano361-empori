@@ -173,24 +173,24 @@
         
         .customer-name {
             font-size: 18px;
-            font-weight: 800;
+            font-weight: 600;
             color: #1e293b;
             margin: 4px 0;
             text-transform: uppercase;
         }
-        
+
         .emporio-name {
             font-size: 15px;
             color: #B5453A;
-            font-weight: 700;
+            font-weight: 500;
             text-transform: uppercase;
             margin-top: 4px;
         }
-        
+
         .delivery-method {
             font-size: 13px;
             color: #64748b;
-            font-weight: 600;
+            font-weight: 500;
             margin-top: 8px;
             display: flex;
             align-items: center;
@@ -268,9 +268,8 @@
         }
 
         .badge-merce-ordinata {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #6ee7b7;
+            background: #8B5E3C;
+            color: white;
             padding: 3px 10px;
             border-radius: 6px;
             font-size: 10px;
@@ -308,7 +307,7 @@
             margin-top: 4px;
             font-size: 12px;
             color: #64748b;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         /* Bulk Selection */
@@ -379,18 +378,36 @@
                     <button class="filter-btn" data-filter="da_ordinare">Merce da ordinare</button>
                     <button class="filter-btn" data-filter="da_avvisare">Merce pronta → cliente da avvisare</button>
                     <button class="filter-btn" data-filter="avvisati">Merce pronta: cliente avvisato</button>
+                    <button class="filter-btn" data-filter="merce_ordinata" style="border-left:3px solid #8B5E3C">Merce ordinata</button>
                 </div>
                 
                 <!-- Search and Date Filter -->
                 <div class="flex gap-3 items-end">
                     <div class="relative">
                         <i class="fas fa-search absolute left-4 top-4 text-slate-400"></i>
-                        <input type="text" id="search-input" class="search-input" placeholder="Cerca cliente o emporio...">
+                        <input type="text" id="search-input" class="search-input" placeholder="Cerca numero ordine...">
                     </div>
                     <div class="date-filter-wrapper">
                         <label class="date-filter-label">Filtra per data</label>
                         <input type="date" id="filter-date" class="date-input">
                     </div>
+                </div>
+            </div>
+            <!-- Second row: client name + emporio filters -->
+            <div class="flex flex-wrap gap-3 items-end mt-3 pt-3 border-t border-slate-100">
+                <div class="date-filter-wrapper">
+                    <label class="date-filter-label">Cliente</label>
+                    <input type="text" id="filter-cliente" class="date-input" style="min-width:200px" placeholder="Cerca per nome cliente...">
+                </div>
+                <div class="date-filter-wrapper">
+                    <label class="date-filter-label">Emporio</label>
+                    <select id="filter-emporio" class="date-input" style="min-width:160px">
+                        <option value="">Tutti gli empori</option>
+                        <option value="Casalmaggiore">Casalmaggiore</option>
+                        <option value="Cremona">Cremona</option>
+                        <option value="Reggio Emilia">Reggio Emilia</option>
+                        <option value="Viadana">Viadana</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -586,17 +603,15 @@
         }
 
         function generateTitoloOrdine(order) {
-            const nomeCliente = `${order.cliente_nome || ''} ${order.cliente_cognome || ''}`.trim();
-            let categoria = '';
             const articoli = order.articoli;
-            if (articoli && Array.isArray(articoli) && articoli.length > 0) {
-                const words = (articoli[0].descrizione || '').split(' ');
-                categoria = words.slice(0, 3).join(' ');
-            }
-            const dataStr = order.data_ordine
-                ? new Date(order.data_ordine).toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'2-digit'})
-                : new Date().toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'2-digit'});
-            return [nomeCliente, categoria, dataStr].filter(Boolean).join(' – ');
+            if (!articoli || !Array.isArray(articoli) || articoli.length === 0) return '';
+            const descs = articoli.slice(0, 3)
+                .map(a => (a.descrizione || '').trim())
+                .filter(Boolean);
+            if (descs.length === 0) return '';
+            let titolo = descs.join(', ');
+            if (titolo.length > 35) titolo = titolo.substring(0, 35) + '…';
+            return titolo;
         }
 
         async function saveTitolo(orderId, titolo) {
@@ -925,12 +940,12 @@
 
         function applyCurrentFilter() {
             let filtered = allOrders;
-            
+
             if (currentFilter !== 'tutti') {
                 filtered = filtered.filter(order => {
                     const merce_pronta = order.merce_pronta || false;
                     const cliente_avvisato = order.cliente_avvisato || false;
-                    
+
                     switch(currentFilter) {
                         case 'da_ordinare':
                             return !merce_pronta;
@@ -938,23 +953,35 @@
                             return merce_pronta && !cliente_avvisato;
                         case 'avvisati':
                             return merce_pronta && cliente_avvisato;
+                        case 'merce_ordinata':
+                            return isMerceOrdinata(order);
                         default:
                             return true;
                     }
                 });
             }
 
-            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
             if (searchTerm) {
-                filtered = filtered.filter(order => 
-                    (order.numero_ordine || '').toLowerCase().includes(searchTerm) ||
-                    (order.cliente_nome || '').toLowerCase().includes(searchTerm) ||
-                    (order.cliente_cognome || '').toLowerCase().includes(searchTerm) ||
-                    (order.emporio || order.citta || '').toLowerCase().includes(searchTerm)
+                filtered = filtered.filter(order =>
+                    (order.numero_ordine || '').toLowerCase().includes(searchTerm)
                 );
             }
 
-            const filterDate = document.getElementById('filter-date').value;
+            const filterCliente = (document.getElementById('filter-cliente')?.value || '').toLowerCase().trim();
+            if (filterCliente) {
+                filtered = filtered.filter(order => {
+                    const nome = `${order.cliente_nome || ''} ${order.cliente_cognome || ''}`.toLowerCase();
+                    return nome.includes(filterCliente);
+                });
+            }
+
+            const filterEmporio = document.getElementById('filter-emporio')?.value || '';
+            if (filterEmporio) {
+                filtered = filtered.filter(order => (order.emporio || order.citta || '') === filterEmporio);
+            }
+
+            const filterDate = document.getElementById('filter-date')?.value;
             if (filterDate) {
                 filtered = filtered.filter(order => {
                     const orderDate = new Date(order.data_creazione).toISOString().split('T')[0];
@@ -972,6 +999,8 @@
 
             document.getElementById('search-input').addEventListener('input', applyCurrentFilter);
             document.getElementById('filter-date').addEventListener('change', applyCurrentFilter);
+            document.getElementById('filter-cliente').addEventListener('input', applyCurrentFilter);
+            document.getElementById('filter-emporio').addEventListener('change', applyCurrentFilter);
 
             loadOrders();
         });

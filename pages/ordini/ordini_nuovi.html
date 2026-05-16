@@ -330,10 +330,39 @@
 
                 <!-- CLIENTE SECTION -->
                 <div class="lg:col-span-3 section-card">
-                    <h2 class="section-title">Cliente</h2>
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="section-title" style="margin-bottom:0">Cliente</h2>
+                        <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold text-[#B5453A] border border-red-200 bg-red-50 rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-red-100 transition-colors">
+                            <i class="fas fa-plus"></i> Nuovo cliente
+                        </button>
+                    </div>
+                    <!-- Inline new client form -->
+                    <div id="nuovo-cliente-form" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Aggiungi alla rubrica</div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                            <input type="text" id="nc-nome" placeholder="Nome *" class="form-input">
+                            <input type="text" id="nc-cognome" placeholder="Cognome *" class="form-input">
+                            <input type="text" id="nc-tel" placeholder="Telefono" class="form-input">
+                            <select id="nc-emporio" class="form-select">
+                                <option value="">Emporio (opz.)</option>
+                                <option value="Casalmaggiore">Casalmaggiore</option>
+                                <option value="Cremona">Cremona</option>
+                                <option value="Reggio Emilia">Reggio Emilia</option>
+                                <option value="Viadana">Viadana</option>
+                            </select>
+                        </div>
+                        <textarea id="nc-note" placeholder="Note..." class="form-input mb-3" rows="2"></textarea>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="saveNuovoCliente()" class="bg-[#B5453A] text-white text-xs font-bold rounded-xl px-4 py-2">Salva cliente</button>
+                            <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold border border-slate-200 rounded-xl px-3 py-2 text-slate-500">Annulla</button>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input">
-                        <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input">
+                        <div class="relative">
+                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input">
+                            <div id="cognome-ac-dropdown" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
+                        </div>
                         <div class="relative">
                             <input type="cel" id="cust-cel" placeholder="Cellulare *" required class="form-input pr-10">
                             <button type="button" id="btn-wa" class="absolute right-3 top-3 transition-colors wa-active">
@@ -797,18 +826,87 @@
         }
 
         function autoGenerateTitolo() {
-            const nome = (document.getElementById('cust-nome')?.value || '').trim();
-            const cognome = (document.getElementById('cust-cognome')?.value || '').trim();
-            const nomeCliente = `${nome} ${cognome}`.trim();
-            const firstDesc = document.querySelector('.desc-input');
-            let categoria = '';
-            if (firstDesc && firstDesc.value.trim()) {
-                categoria = firstDesc.value.trim().split(' ').slice(0, 3).join(' ');
-            }
-            const today = new Date().toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'2-digit'});
-            const titolo = [nomeCliente, categoria, today].filter(Boolean).join(' – ');
+            const descs = [...document.querySelectorAll('.desc-input')]
+                .slice(0, 3)
+                .map(el => el.value.trim())
+                .filter(Boolean);
+            let titolo = descs.join(', ');
+            if (titolo.length > 35) titolo = titolo.substring(0, 35) + '…';
             const el = document.getElementById('titolo-ordine');
             if (el) el.value = titolo;
+        }
+
+        // RUBRICA CLIENTI AUTOCOMPLETE
+        let clientiResults = [];
+        let acTimer = null;
+
+        function escHtml(str) {
+            return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        async function searchClienti(q) {
+            try {
+                const { data } = await _supabase
+                    .from('clienti')
+                    .select('*')
+                    .ilike('cognome', `%${q}%`)
+                    .limit(8);
+
+                clientiResults = data || [];
+                const dropdown = document.getElementById('cognome-ac-dropdown');
+                if (clientiResults.length === 0) {
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+                dropdown.innerHTML = clientiResults.map((c, i) => `
+                    <div class="px-4 py-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                         onclick="selectCliente(${i})">
+                        <div style="font-weight:600;color:#334155">${escHtml(c.cognome)} ${escHtml(c.nome)}</div>
+                        ${c.telefono ? `<div style="font-size:11px;color:#94a3b8">${escHtml(c.telefono)}${c.emporio ? ' · ' + escHtml(c.emporio) : ''}</div>` : ''}
+                    </div>`).join('');
+                dropdown.classList.remove('hidden');
+            } catch(e) {
+                console.error('Error searching clienti:', e);
+            }
+        }
+
+        function selectCliente(idx) {
+            const c = clientiResults[idx];
+            if (!c) return;
+            document.getElementById('cust-nome').value = c.nome || '';
+            document.getElementById('cust-cognome').value = c.cognome || '';
+            document.getElementById('cust-cel').value = c.telefono || '';
+            document.getElementById('cognome-ac-dropdown').classList.add('hidden');
+        }
+
+        function toggleNuovoClienteForm() {
+            document.getElementById('nuovo-cliente-form').classList.toggle('hidden');
+        }
+
+        async function saveNuovoCliente() {
+            const nome = document.getElementById('nc-nome').value.trim();
+            const cognome = document.getElementById('nc-cognome').value.trim();
+            if (!nome || !cognome) { alert('Nome e cognome obbligatori'); return; }
+            const clienteData = {
+                nome,
+                cognome,
+                telefono: document.getElementById('nc-tel').value.trim() || null,
+                emporio: document.getElementById('nc-emporio').value || null,
+                note: document.getElementById('nc-note').value.trim() || null
+            };
+            try {
+                const { error } = await _supabase.from('clienti').insert([clienteData]);
+                if (error) throw error;
+                document.getElementById('cust-nome').value = nome;
+                document.getElementById('cust-cognome').value = cognome;
+                document.getElementById('cust-cel').value = clienteData.telefono || '';
+                ['nc-nome','nc-cognome','nc-tel','nc-note'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('nc-emporio').value = '';
+                toggleNuovoClienteForm();
+                alert(`${nome} ${cognome} aggiunto alla rubrica!`);
+            } catch(e) {
+                alert('Errore salvataggio cliente: ' + e.message);
+            }
         }
 
         // FORM SUBMISSION
@@ -970,8 +1068,21 @@
             
             // Customer fields
             document.getElementById('cust-nome').addEventListener('input', refreshNumeroOrdinePreview);
-            document.getElementById('cust-cognome').addEventListener('input', refreshNumeroOrdinePreview);
             document.getElementById('btn-wa').addEventListener('click', toggleWA);
+
+            // Autocomplete cognome
+            document.getElementById('cust-cognome').addEventListener('input', function() {
+                refreshNumeroOrdinePreview();
+                clearTimeout(acTimer);
+                const q = this.value.trim();
+                if (q.length < 2) { document.getElementById('cognome-ac-dropdown').classList.add('hidden'); return; }
+                acTimer = setTimeout(() => searchClienti(q), 300);
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#cognome-ac-dropdown') && e.target.id !== 'cust-cognome') {
+                    document.getElementById('cognome-ac-dropdown').classList.add('hidden');
+                }
+            });
             
             // Acconto
             const accontoInput = document.getElementById('acconto');
