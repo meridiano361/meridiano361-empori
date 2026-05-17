@@ -424,10 +424,18 @@ input[type=month].btn-export{min-width:160px;}
 
           <div class="coin-section-lbl">Conteggio contanti</div>
           <div id="mat-coin-list"></div>
+          <div class="fondo-box" style="margin-top:4px">
+            <span class="sum-label lbl-gray" style="text-transform:uppercase;font-size:10px;letter-spacing:.08em">Contanti Lordi</span>
+            <span class="sum-val" style="color:#64748b;font-family:'DM Mono',monospace" id="mat-lordi">€ 0,00</span>
+          </div>
           <hr class="sum-divider">
           <div class="fondo-box">
             <span class="sum-label lbl-gray">Fondo cassa</span>
             <span class="sum-val" style="color:#64748b;font-family:'DM Mono',monospace" id="fondo-cassa-inline-mat">€ 0,00</span>
+          </div>
+          <div class="fondo-box" style="margin-bottom:8px">
+            <span class="sum-label lbl-dark" style="text-transform:uppercase;font-size:10px;letter-spacing:.08em;font-weight:700">Contanti Netti</span>
+            <span class="sum-val" id="mat-netti">€ 0,00</span>
           </div>
 
           <div class="payments-wrap" id="mat-payments"></div>
@@ -522,10 +530,18 @@ input[type=month].btn-export{min-width:160px;}
 
           <div class="coin-section-lbl">Conteggio contanti</div>
           <div id="pom-coin-list"></div>
+          <div class="fondo-box" style="margin-top:4px">
+            <span class="sum-label lbl-gray" style="text-transform:uppercase;font-size:10px;letter-spacing:.08em">Contanti Lordi</span>
+            <span class="sum-val" style="color:#64748b;font-family:'DM Mono',monospace" id="pom-lordi">€ 0,00</span>
+          </div>
           <hr class="sum-divider">
           <div class="fondo-box">
             <span class="sum-label lbl-gray">Fondo cassa</span>
             <span class="sum-val" style="color:#64748b;font-family:'DM Mono',monospace" id="fondo-cassa-inline-pom">€ 0,00</span>
+          </div>
+          <div class="fondo-box" style="margin-bottom:8px">
+            <span class="sum-label lbl-dark" style="text-transform:uppercase;font-size:10px;letter-spacing:.08em;font-weight:700">Contanti Netti</span>
+            <span class="sum-val" id="pom-netti">€ 0,00</span>
           </div>
 
           <div class="payments-wrap" id="pom-payments"></div>
@@ -1189,6 +1205,7 @@ function calcAll() {
       const tot=qty*t; lordi+=tot;
       const el=document.getElementById(id+'_tot'); if(el) el.textContent=euro(tot);
     });
+    document.getElementById(turno+'-lordi').textContent=euro(lordi);
     const netti=Math.max(0,lordi-fondoCassa);
     document.getElementById(turno+'-netti').textContent=euro(netti);
     const disp=document.getElementById(turno+'_pay_contanti_display'); if(disp) disp.textContent=euro(netti);
@@ -1286,6 +1303,10 @@ function fillForm(data) {
   if(data.cassaforte!=null)        document.getElementById('cassaforte').value=euro(data.cassaforte);
   if(data.mat_cassaforte!=null)    document.getElementById('mat-cassaforte').value=euro(data.mat_cassaforte);
   if(data.num_scontrini!=null)      document.getElementById('global-scontrini').value=data.num_scontrini;
+  if(data.mat_contanti_lordi!=null) document.getElementById('mat-lordi').textContent=euro(data.mat_contanti_lordi);
+  if(data.mat_contanti_netti!=null) document.getElementById('mat-netti').textContent=euro(data.mat_contanti_netti);
+  if(data.pom_contanti_lordi!=null) document.getElementById('pom-lordi').textContent=euro(data.pom_contanti_lordi);
+  if(data.pom_contanti_netti!=null) document.getElementById('pom-netti').textContent=euro(data.pom_contanti_netti);
   if(data.chiuso_da_mat)  document.getElementById('chiuso-da-mat').value=data.chiuso_da_mat;
   if(data.chiuso_da_pom)  document.getElementById('chiuso-da-pom').value=data.chiuso_da_pom;
   if(data.note_mattino)   document.getElementById('nota-mattino').value=data.note_mattino;
@@ -1375,7 +1396,11 @@ async function saveDay() {
     pom_corrispettivi: getNum('pom-corrispettivi'),
     cassaforte:    getNum('cassaforte'),
     mat_cassaforte: tipo === 'solo_mattino' ? getNum('mat-cassaforte') : null,
-    fondo_residuo: parseEuro(document.getElementById(tipo === 'solo_mattino' ? 'mat-fondo-residuo' : 'fondo-residuo').textContent)
+    fondo_residuo: parseEuro(document.getElementById(tipo === 'solo_mattino' ? 'mat-fondo-residuo' : 'fondo-residuo').textContent),
+    mat_contanti_lordi: parseEuro(document.getElementById('mat-lordi').textContent),
+    mat_contanti_netti: parseEuro(document.getElementById('mat-netti').textContent),
+    pom_contanti_lordi: parseEuro(document.getElementById('pom-lordi').textContent),
+    pom_contanti_netti: parseEuro(document.getElementById('pom-netti').textContent),
   };
 
   TAGLI.forEach(t=>{
