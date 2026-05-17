@@ -1,6 +1,10 @@
--- Migration: align cassa_giorni with saveDay() payload (100 columns)
+-- Migration: align cassa_giorni with saveDay() payload
 -- Safe to run multiple times: all ADD COLUMN use IF NOT EXISTS.
--- Run in Supabase Dashboard → SQL Editor.
+-- Already executed 2026-05-17 via Node.js pg client.
+--
+-- NOTE on scontrini: DB column is global_scontrini (already existed).
+-- JS code was temporarily using num_scontrini (wrong) — reverted to global_scontrini.
+-- No ALTER needed for that column.
 
 -- ── UNIQUE constraint on chiave (required for upsert onConflict:'chiave') ─────
 DO $$ BEGIN

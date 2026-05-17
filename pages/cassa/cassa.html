@@ -1302,7 +1302,7 @@ function fillForm(data) {
   if(data.pom_corrispettivi!=null) document.getElementById('pom-corrispettivi').value=euro(data.pom_corrispettivi);
   if(data.cassaforte!=null)        document.getElementById('cassaforte').value=euro(data.cassaforte);
   if(data.mat_cassaforte!=null)    document.getElementById('mat-cassaforte').value=euro(data.mat_cassaforte);
-  if(data.num_scontrini!=null)      document.getElementById('global-scontrini').value=data.num_scontrini;
+  if(data.global_scontrini!=null)   document.getElementById('global-scontrini').value=data.global_scontrini;
   if(data.mat_contanti_lordi!=null) document.getElementById('mat-lordi').textContent=euro(data.mat_contanti_lordi);
   if(data.mat_contanti_netti!=null) document.getElementById('mat-netti').textContent=euro(data.mat_contanti_netti);
   if(data.pom_contanti_lordi!=null) document.getElementById('pom-lordi').textContent=euro(data.pom_contanti_lordi);
@@ -1384,7 +1384,7 @@ async function saveDay() {
     note_pomeriggio: getVal('nota-pomeriggio')||null,
     meteo:           getVal('meteo-label')||null,
     arrivo_merci:    document.getElementById('arrivo-merci').checked,
-    num_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
+    global_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
     turno_type:      tipo,
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
     iva_esente: getNum('iva-esente'),
@@ -1731,7 +1731,7 @@ async function loadCommercialeData() {
   tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
     let q = db.from('cassa_giorni')
-      .select('data,emporio,totale_corrispettivi,num_scontrini,meteo,arrivo_merci,note')
+      .select('data,emporio,totale_corrispettivi,global_scontrini,meteo,arrivo_merci,note')
       .order('data');
     if (emporio) q = q.eq('emporio', emporio);
     if (mese) q = q.gte('data', mese+'-01').lte('data', mese+'-31');
@@ -1743,7 +1743,7 @@ async function loadCommercialeData() {
     if (mese && annoConfronto) {
       const mesePrec = annoConfronto + '-' + mese.slice(5);
       let qp = db.from('cassa_giorni')
-        .select('data,emporio,totale_corrispettivi,num_scontrini');
+        .select('data,emporio,totale_corrispettivi,global_scontrini');
       if (emporio) qp = qp.eq('emporio', emporio);
       qp = qp.gte('data', mesePrec+'-01').lte('data', mesePrec+'-31');
       const { data: dp } = await qp;
@@ -1762,7 +1762,7 @@ async function loadCommercialeData() {
 
     tbody.innerHTML = data.map(r => {
       const inc  = parseFloat(r.totale_corrispettivi||0);
-      const nSc  = parseInt(r.num_scontrini||0);
+      const nSc  = parseInt(r.global_scontrini||0);
       const media = nSc > 0 ? inc/nSc : null;
       const key  = r.data.slice(8,10)+'||'+(r.emporio||'');
       const rP   = dPrec[key];
