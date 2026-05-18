@@ -166,6 +166,10 @@ body{font-family:'Inter',sans-serif;background:#f0f2f5;color:#1A1A1A;min-height:
 .op-mini-save{padding:9px 16px;background:#B5453A;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;}
 .op-mini-save:hover{background:#8c362d;}
 .op-mini-cancel{padding:9px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;color:#64748b;}
+.op-chips-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.op-chip{display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:3px 8px 3px 11px;font-size:11px;font-family:'Inter',sans-serif;color:#475569;line-height:1.4;}
+.op-chip-x{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;padding:0 1px;transition:color .1s;font-family:'Inter',sans-serif;}
+.op-chip-x:hover{color:#B5453A;}
 
 /* ── TIPO TURNO ── */
 .turno-type-wrap{background:#fdf1f0;border:1px solid #f0c0c0;border-radius:14px;padding:12px;margin-bottom:16px;}
@@ -492,6 +496,7 @@ input[type=month].btn-export{min-width:160px;}
                     <button class="op-mini-cancel" onclick="toggleOpModal('mat')">✕</button>
                   </div>
                 </div>
+                <div id="op-list-mat" class="op-chips-wrap"></div>
               </div>
 
               <div>
@@ -597,6 +602,7 @@ input[type=month].btn-export{min-width:160px;}
                     <button class="op-mini-cancel" onclick="toggleOpModal('pom')">✕</button>
                   </div>
                 </div>
+                <div id="op-list-pom" class="op-chips-wrap"></div>
               </div>
 
               <div>
@@ -1140,15 +1146,27 @@ function addOperatore(turno) {
 }
 
 function syncOperators() {
+  const ops=(OPERATORI[currentEmp]||[]).slice().sort();
   ['mat','pom'].forEach(turno=>{
     const sel=document.getElementById('chiuso-da-'+turno); if(!sel) return;
     const prev=sel.value;
     sel.innerHTML='<option value="">Seleziona operatore...</option>';
-    (OPERATORI[currentEmp]||[]).slice().sort().forEach(op=>{
+    ops.forEach(op=>{
       const o=document.createElement('option'); o.value=op; o.textContent=op; sel.appendChild(o);
     });
     if(prev) sel.value=prev;
+    const list=document.getElementById('op-list-'+turno); if(!list) return;
+    list.innerHTML=ops.map(op=>{
+      const safe=op.replace(/'/g,'\\x27');
+      return `<span class="op-chip">${op}<button class="op-chip-x" onclick="removeOperatore('${safe}')" title="Rimuovi dalla lista">×</button></span>`;
+    }).join('');
   });
+}
+
+function removeOperatore(nome) {
+  if(!OPERATORI[currentEmp]) return;
+  OPERATORI[currentEmp]=OPERATORI[currentEmp].filter(op=>op!==nome);
+  syncOperators();
 }
 
 /* ── FONDO CASSA PRECEDENTE ── */
