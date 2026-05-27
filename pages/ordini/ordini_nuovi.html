@@ -244,7 +244,8 @@
         .confez-cost-inp { width:80px; border:1px solid #ddd6fe; border-radius:8px; padding:4px 8px; font-size:11px; font-family:'DM Mono',monospace; text-align:right; background:#fff; }
         .confez-cost-inp:focus { outline:none; border-color:#7C3AED; }
 
-        .omaggio-sub-row td { padding:3px 4px 6px 16px !important; background:#f0fdf4; font-size:11px; color:#166534; border-left:3px solid #16A34A; }
+        .omaggio-sub-row { border-left:3px solid #16A34A; }
+        .omaggio-sub-row td { padding:3px 2px !important; font-size:11px; color:#166534; background:#f0fdf4; }
         .badge-omaggio { display:inline-block; background:#16A34A; color:#fff; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; padding:2px 7px; border-radius:4px; margin-left:6px; }
 
         .cartoncino-preview-sub-row td { padding:0 4px 10px 16px !important; background:#faf5ff; }
@@ -837,19 +838,21 @@
             // Update Da Ord
             row.querySelector('.do-value').textContent = daOrd;
             
-            // Confezionamento (bomboniere only)
-            let confezCost = 0;
+            // Confezionamento (bomboniere only) — total shown in separate sub-row
             if (currentType === 'bomboniere') {
                 const confezCb = document.getElementById(`cb-confez-${rowId}`);
+                let confezCost = 0;
                 if (confezCb?.checked) {
                     const costInp = document.getElementById(`confez-cost-inp-${rowId}`);
                     confezCost = parseFloat(costInp?.value.replace('€','').replace(',','.').trim()) || 3;
                 }
+                const confezTotalEl = document.getElementById(`confez-total-${rowId}`);
+                if (confezTotalEl) confezTotalEl.textContent = (qty * confezCost).toFixed(2).replace('.', ',');
                 updateOmaggio(rowId);
             }
 
-            // Update row total
-            const rowTotal = qty * (price + confezCost);
+            // Update row total — product cost only; confez is tracked separately
+            const rowTotal = qty * price;
             row.querySelector('.row-total').textContent = rowTotal.toFixed(2).replace('.', ',');
 
             if (currentType === 'bomboniere') {
@@ -872,6 +875,9 @@
                 container.querySelectorAll('.row-total').forEach(el => {
                     sub += parseFloat(el.textContent.replace(',', '.')) || 0;
                 });
+                container.querySelectorAll('.confez-total-cell').forEach(el => {
+                    sub += parseFloat(el.textContent.replace(',', '.')) || 0;
+                });
                 const subtotalEl = document.getElementById(`subtotal-${groupId}`);
                 if (subtotalEl) {
                     subtotalEl.textContent = '€ ' + sub.toFixed(2).replace('.', ',');
@@ -882,6 +888,9 @@
         function calcGrandTotal() {
             let grand = 0;
             document.querySelectorAll('.row-total').forEach(el => {
+                grand += parseFloat(el.textContent.replace(',', '.')) || 0;
+            });
+            document.querySelectorAll('.confez-total-cell').forEach(el => {
                 grand += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
 
@@ -1123,18 +1132,23 @@
 
                     // Add cartoncini omaggio as separate articolo for bomboniere
                     if (currentType === 'bomboniere') {
+                        const oQta    = parseInt(document.getElementById(`omaggio-qty-${rowId}`)?.value) || qta;
+                        const oPronte = parseInt(document.getElementById(`omaggio-pronta-${rowId}`)?.value) || 0;
+                        const oForn   = parseInt(document.getElementById(`omaggio-forn-${rowId}`)?.value) || 0;
+                        const oEmp    = parseInt(document.getElementById(`omaggio-emp-${rowId}`)?.value) || 0;
+                        const oAltri  = parseInt(document.getElementById(`omaggio-altri-${rowId}`)?.value) || 0;
                         articoli.push({
                             gruppo_id: gruppoId,
                             tipologia: tipologiaNome,
                             codice: 'CARTONCINI-OMAGGIO',
                             descrizione: 'Cartoncini omaggio',
                             prezzo: 0,
-                            qta,
-                            merce_pronta: 0,
-                            da_forn: qta,
-                            da_emporio_qta: 0,
+                            qta: oQta,
+                            merce_pronta: oPronte,
+                            da_forn: oForn,
+                            da_emporio_qta: oEmp,
                             da_emporio_nome: '',
-                            da_altri_qta: 0,
+                            da_altri_qta: oAltri,
                             da_altri_spec: '',
                             totale: 0,
                             is_omaggio: true
@@ -1190,7 +1204,7 @@
             confezRow.id = `confez-${rowId}`;
             confezRow.className = 'confez-sub-row';
             confezRow.innerHTML = `
-                <td colspan="11">
+                <td colspan="9">
                     <div class="confez-inner">
                         <label class="confez-toggle-label">
                             <input type="checkbox" id="cb-confez-${rowId}" onchange="toggleConfez('${rowId}',${groupId})">
@@ -1204,7 +1218,10 @@
                             <span style="font-size:11px;color:#94a3b8">× quantità</span>
                         </div>
                     </div>
-                </td>`;
+                </td>
+                <td id="confez-total-${rowId}" class="confez-total-cell"
+                    style="text-align:right;padding:4px 16px 4px 4px !important;font-weight:700;color:#5b21b6;font-family:'DM Mono',monospace;font-size:12px">0,00</td>
+                <td></td>`;
             tbody.appendChild(confezRow);
 
             // Cartoncino preview row (hidden until confezionamento checked)
@@ -1216,30 +1233,61 @@
                 <td colspan="11">
                     <div style="padding:8px 12px 12px;background:#faf5ff;border-radius:8px;border:1px solid #e9d5ff">
                         <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px">
-                            Anteprima Cartoncino — fronte / interno
+                            Anteprima Cartoncino — Lato Sinistro / Lato Destro
                         </div>
                         <div class="cartoncino-preview">
                             <div class="cartoncino-faccia">
-                                <textarea id="cart-fronte-${rowId}" placeholder="Testo fronte…"></textarea>
+                                <textarea id="cart-fronte-${rowId}" placeholder="Testo lato sinistro…"></textarea>
                             </div>
                             <div class="cartoncino-faccia">
-                                <textarea id="cart-interno-${rowId}" placeholder="Testo interno…"></textarea>
+                                <textarea id="cart-interno-${rowId}" placeholder="Testo lato destro…"></textarea>
                             </div>
                         </div>
                     </div>
                 </td>`;
             tbody.appendChild(cartRow);
 
-            // Cartoncini omaggio row
+            // Cartoncini omaggio row — behaves like a product row (price = 0)
             const omaggioRow = document.createElement('tr');
             omaggioRow.id = `omaggio-${rowId}`;
             omaggioRow.className = 'omaggio-sub-row';
             omaggioRow.innerHTML = `
-                <td colspan="9">
-                    🎁 Cartoncini omaggio: <strong id="omaggio-qty-${rowId}">1</strong> pz — € 0,00
+                <td style="padding:3px 2px 3px 10px !important;font-size:10px;font-weight:700">
+                    🎁 CART.-OMAGGIO
+                </td>
+                <td style="padding:3px 2px !important">
+                    <span style="font-size:10px">Cartoncini omaggio</span>
                     <span class="badge-omaggio">OMAGGIO</span>
                 </td>
-                <td colspan="2" style="text-align:right;padding-right:16px;font-weight:700;color:#16A34A">€ 0,00</td>`;
+                <td style="padding:3px 2px !important;text-align:right;font-size:11px;font-weight:600">€ 0,00</td>
+                <td style="padding:3px 2px !important;background:#dcfce7">
+                    <input type="number" id="omaggio-qty-${rowId}" value="1" min="0" readonly
+                           style="width:100%;border:1px solid #bbf7d0;border-radius:8px;padding:5px 2px;text-align:center;font-size:11px;font-weight:700;color:#166534;background:#dcfce7">
+                </td>
+                <td style="padding:3px 2px !important;background:#f0fdf4">
+                    <input type="number" id="omaggio-pronta-${rowId}" value="0" min="0"
+                           oninput="calcOmaggio('${rowId}')"
+                           style="width:100%;border:1px solid #bbf7d0;border-radius:8px;padding:5px 2px;text-align:center;font-size:11px;background:#f0fdf4">
+                </td>
+                <td style="padding:3px 2px !important;background:#f8fafc">
+                    <input type="number" id="omaggio-forn-${rowId}" value="0" min="0"
+                           oninput="calcOmaggio('${rowId}')"
+                           style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:5px 2px;text-align:center;font-size:11px;background:#f8fafc;color:#334155">
+                </td>
+                <td style="padding:3px 2px !important;background:#f8fafc">
+                    <input type="number" id="omaggio-emp-${rowId}" value="0" min="0"
+                           oninput="calcOmaggio('${rowId}')"
+                           style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:5px 2px;text-align:center;font-size:11px;background:#f8fafc;color:#334155">
+                </td>
+                <td style="padding:3px 2px !important;background:#f8fafc">
+                    <input type="number" id="omaggio-altri-${rowId}" value="0" min="0"
+                           oninput="calcOmaggio('${rowId}')"
+                           style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:5px 2px;text-align:center;font-size:11px;background:#f8fafc;color:#334155">
+                </td>
+                <td id="omaggio-daord-${rowId}"
+                    style="padding:3px 2px !important;background:#fef2f2;text-align:center;font-weight:700;color:#B5453A">0</td>
+                <td style="padding:3px 16px 3px 4px !important;text-align:right;font-weight:700;color:#16A34A">€ 0,00</td>
+                <td style="padding:3px 2px !important"></td>`;
             tbody.appendChild(omaggioRow);
         }
 
@@ -1257,7 +1305,25 @@
             if (!row) return;
             const qty = parseInt(row.querySelector('.qty-input').value) || 0;
             const qtyEl = document.getElementById(`omaggio-qty-${rowId}`);
-            if (qtyEl) qtyEl.textContent = qty;
+            if (qtyEl) qtyEl.value = qty;
+            calcOmaggio(rowId);
+        }
+
+        function calcOmaggio(rowId) {
+            const qtyEl = document.getElementById(`omaggio-qty-${rowId}`);
+            if (!qtyEl) return;
+            const qty = parseInt(qtyEl.value) || 0;
+            const pronta = parseInt(document.getElementById(`omaggio-pronta-${rowId}`)?.value) || 0;
+            const forn   = parseInt(document.getElementById(`omaggio-forn-${rowId}`)?.value) || 0;
+            const emp    = parseInt(document.getElementById(`omaggio-emp-${rowId}`)?.value) || 0;
+            const altri  = parseInt(document.getElementById(`omaggio-altri-${rowId}`)?.value) || 0;
+            const sumProv = pronta + forn + emp + altri;
+            const daOrd = Math.max(0, qty - sumProv);
+            const daOrdEl = document.getElementById(`omaggio-daord-${rowId}`);
+            if (daOrdEl) {
+                daOrdEl.textContent = daOrd;
+                daOrdEl.style.color = sumProv > qty ? '#ef4444' : '#B5453A';
+            }
         }
 
         function calcBomboniereBreakdown() {
@@ -1304,7 +1370,7 @@
                 const isConfez = confezCb?.checked || false;
                 const costInp = document.getElementById(`confez-cost-inp-${rowId}`);
                 const confezCost = isConfez ? (parseFloat(costInp?.value.replace('€','').replace(',','.').trim()) || 3) : 0;
-                const rowTotal = qty * (price + confezCost);
+                const rowTotal = qty * price;
                 subtotBomb += qty * price;
                 subtotConfez += qty * confezCost;
                 tableRows += `<tr>
@@ -1332,11 +1398,11 @@
                         <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Cartoncino — ${tipologia}</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                             <div style="background:#fffdf7;border:1px dashed #94a3b8;border-radius:4px;padding:8px;text-align:center;font-family:Georgia,serif">
-                                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px">FRONTE</div>
+                                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px">LATO SINISTRO</div>
                                 <div style="font-size:12px;white-space:pre-wrap">${fronte||'—'}</div>
                             </div>
                             <div style="background:#fffdf7;border:1px dashed #94a3b8;border-radius:4px;padding:8px;text-align:center;font-family:Georgia,serif">
-                                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px">INTERNO</div>
+                                <div style="font-size:9px;color:#94a3b8;margin-bottom:4px">LATO DESTRO</div>
                                 <div style="font-size:12px;white-space:pre-wrap">${interno||'—'}</div>
                             </div>
                         </div>
