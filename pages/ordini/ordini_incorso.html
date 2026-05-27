@@ -515,15 +515,6 @@
 
                 if (error) throw error;
 
-                // DEBUG — rimuovere dopo verifica
-                console.log('ORDINI DAL DB:', JSON.stringify((data || []).map(o => ({
-                    id: o.id,
-                    stato: o.stato,
-                    cliente_avvisato: o.cliente_avvisato,
-                    tipo_stato: typeof o.stato,
-                    tipo_avvisato: typeof o.cliente_avvisato
-                })), null, 2));
-
                 allOrders = data || [];
                 renderOrders(allOrders);
                 applyCurrentFilter();
@@ -581,6 +572,16 @@
             });
         }
 
+        function isMerceFisicamente(order) {
+            const articoli = order.articoli;
+            if (!articoli || !Array.isArray(articoli) || articoli.length === 0) return false;
+            return articoli.every(a => {
+                const qta = parseInt(a.qta) || 0;
+                if (qta === 0) return true;
+                return (parseInt(a.merce_pronta) || 0) >= qta;
+            });
+        }
+
         function generateTitoloOrdine(order) {
             const articoli = order.articoli;
             if (!articoli || !Array.isArray(articoli) || articoli.length === 0) return '';
@@ -610,7 +611,7 @@
         function createOrderCard(order) {
             const card = document.createElement('div');
 
-            const mercePronte = order.stato === 'merce_pronta';
+            const mercePronte = isMerceFisicamente(order);
             const cliente_avvisato = order.cliente_avvisato === true;
             const merceOrdinata = isMerceOrdinata(order);
             const da_avvisare = mercePronte && !cliente_avvisato;
@@ -917,19 +918,15 @@
 
             if (currentFilter !== 'tutti') {
                 filtered = filtered.filter(order => {
-                    const mercePronte = order.stato === 'merce_pronta';
-                    const cliente_avvisato = order.cliente_avvisato === true;
-                    const merceOrdinata = isMerceOrdinata(order);
-
                     switch(currentFilter) {
                         case 'da_ordinare':
-                            return !merceOrdinata && !mercePronte;
+                            return !isMerceOrdinata(order);
                         case 'merce_ordinata':
-                            return merceOrdinata && !mercePronte;
+                            return isMerceOrdinata(order) && !isMerceFisicamente(order);
                         case 'da_avvisare':
-                            return mercePronte && !cliente_avvisato;
+                            return isMerceFisicamente(order) && order.cliente_avvisato !== true;
                         case 'avvisati':
-                            return mercePronte && cliente_avvisato;
+                            return isMerceFisicamente(order) && order.cliente_avvisato === true;
                         default:
                             return true;
                     }
