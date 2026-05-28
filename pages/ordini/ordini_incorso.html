@@ -517,8 +517,19 @@
 
                 allOrders = data || [];
                 renderOrders(allOrders);
-                applyCurrentFilter();
-                
+
+                // Ripristina filtro e scroll dopo ritorno da modifica ordine
+                const savedFiltro = sessionStorage.getItem('ordini_filtro_attivo');
+                const savedScroll = sessionStorage.getItem('ordini_scroll');
+                if (savedFiltro) {
+                    filterOrders(savedFiltro);
+                } else {
+                    applyCurrentFilter();
+                }
+                if (savedScroll) setTimeout(() => window.scrollTo(0, parseInt(savedScroll)), 300);
+                sessionStorage.removeItem('ordini_filtro_attivo');
+                sessionStorage.removeItem('ordini_scroll');
+
                 document.getElementById('loading').classList.add('hidden');
                 
                 if (allOrders.length === 0) {
@@ -779,6 +790,8 @@
         
 
         function editOrder(orderId) {
+            sessionStorage.setItem('ordini_scroll', window.scrollY);
+            sessionStorage.setItem('ordini_filtro_attivo', currentFilter);
             window.location.href = `ordini_modifica.html?id=${orderId}`;
         }
 

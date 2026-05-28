@@ -57,6 +57,10 @@ body{font-family:'Inter',sans-serif;background:#f0f2f5;color:#1A1A1A;min-height:
 .day-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;}
 .day-title{font-size:22px;font-weight:900;color:#1e293b;}
 .day-emp-lbl{font-size:10px;font-weight:800;color:#B5453A;letter-spacing:.14em;text-transform:uppercase;margin-top:4px;}
+.nav-giorno{display:flex;align-items:center;gap:12px;}
+.btn-freccia{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;width:36px;height:36px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#1e293b;transition:all .15s;flex-shrink:0;}
+.btn-freccia:hover{background:#B5453A;color:#fff;border-color:#B5453A;}
+.btn-freccia:disabled{opacity:.3;pointer-events:none;}
 .back-link{font-size:11px;font-weight:700;color:#94a3b8;display:inline-flex;align-items:center;gap:6px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:10px;background:none;border:none;font-family:'Inter',sans-serif;transition:color .15s;}
 .back-link:hover{color:#B5453A;}
 .meta-chips{display:flex;gap:10px;flex-wrap:wrap;}
@@ -339,7 +343,11 @@ input[type=month].btn-export{min-width:160px;}
       <div class="day-header">
         <div>
           <button class="back-link" id="btn-back-date"><i class="fas fa-arrow-left"></i> Cambia data</button>
-          <div class="day-title" id="day-label"></div>
+          <div class="nav-giorno">
+            <button class="btn-freccia" id="btn-giorno-prec" onclick="giornoPrec()" title="Giorno precedente">&#8592;</button>
+            <div class="day-title" id="day-label"></div>
+            <button class="btn-freccia" id="btn-giorno-succ" onclick="giornoSucc()" title="Giorno successivo">&#8594;</button>
+          </div>
           <div class="day-emp-lbl" id="emporio-label"></div>
         </div>
         <div class="meta-chips">
@@ -955,7 +963,7 @@ function renderCalendar() {
     const isSel   = selectedDate&&day===selectedDate.d&&calMonth===selectedDate.m&&calYear===selectedDate.y;
     if(isToday&&!isSel) d.classList.add('today');
     if(isSel) d.classList.add('selected');
-    d.addEventListener('click',()=>{ selectedDate={y:calYear,m:calMonth,d:day}; renderCalendar(); });
+    d.addEventListener('click',()=>{ selectedDate={y:calYear,m:calMonth,d:day}; openDay(); });
     grid.appendChild(d);
   }
   const rem=(offset+dim)%7===0?0:7-((offset+dim)%7);
@@ -1344,6 +1352,28 @@ function fillForm(data) {
   toggleIvaAltro(); syncWeatherIcon(); calcIva();
 }
 
+/* ── NAVIGAZIONE GIORNO (frecce) ── */
+function giornoPrec() {
+  if (!selectedDate) return;
+  const curr = new Date(selectedDate.y, selectedDate.m, selectedDate.d);
+  curr.setDate(curr.getDate() - 1);
+  selectedDate = {y: curr.getFullYear(), m: curr.getMonth(), d: curr.getDate()};
+  calYear = selectedDate.y;
+  calMonth = selectedDate.m;
+  openDay();
+}
+function giornoSucc() {
+  if (!selectedDate) return;
+  const curr = new Date(selectedDate.y, selectedDate.m, selectedDate.d);
+  curr.setDate(curr.getDate() + 1);
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (curr > today) return;
+  selectedDate = {y: curr.getFullYear(), m: curr.getMonth(), d: curr.getDate()};
+  calYear = selectedDate.y;
+  calMonth = selectedDate.m;
+  openDay();
+}
+
 /* ── OPEN DAY ── */
 async function openDay() {
   if(!selectedDate) return alert('Seleziona una data dal calendario');
@@ -1358,6 +1388,12 @@ async function openDay() {
   const dateObj = new Date(y, m, d);
   document.getElementById('day-label').textContent     = GIORNI[dateObj.getDay()]+' '+d+' '+MESI[m]+' '+y;
   document.getElementById('emporio-label').textContent = currentEmp;
+
+  // Disabilita freccia destra se domani è futuro
+  const tomorrow = new Date(y, m, d); tomorrow.setDate(tomorrow.getDate() + 1);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const succBtn = document.getElementById('btn-giorno-succ');
+  if (succBtn) succBtn.disabled = tomorrow > today;
 
   document.getElementById('step-date').classList.add('hidden');
   document.getElementById('screen-day').classList.remove('hidden');
