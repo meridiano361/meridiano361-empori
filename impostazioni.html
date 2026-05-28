@@ -86,6 +86,9 @@
         .tabella-permessi tr:hover td { background: #f8fafc; }
         .perm-check { width: 18px; height: 18px; accent-color: #B5453A; cursor: pointer; }
         .perm-opera:disabled { opacity: .3; cursor: not-allowed; }
+        .check-tutti { margin-top: 4px; }
+        .check-tutti-label { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; font-weight: 400; color: #94a3b8; cursor: pointer; text-transform: lowercase; letter-spacing: 0; }
+        .check-tutti-label input { width: 14px; height: 14px; accent-color: #B5453A; }
 
         /* Badge stato salvato */
         #perm-save-status { font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 8px; display: none; }
@@ -157,8 +160,24 @@
                     <thead>
                         <tr>
                             <th>Sezione</th>
-                            <th style="text-align:center">Può vedere</th>
-                            <th style="text-align:center">Può operare</th>
+                            <th style="text-align:center">
+                                Può vedere
+                                <div class="check-tutti">
+                                    <label class="check-tutti-label">
+                                        <input type="checkbox" id="seleziona-tutti-vede" class="perm-check" checked onchange="selezionaTutti('vede', this.checked)">
+                                        <span>tutti</span>
+                                    </label>
+                                </div>
+                            </th>
+                            <th style="text-align:center">
+                                Può operare
+                                <div class="check-tutti">
+                                    <label class="check-tutti-label">
+                                        <input type="checkbox" id="seleziona-tutti-opera" class="perm-check" checked onchange="selezionaTutti('opera', this.checked)">
+                                        <span>tutti</span>
+                                    </label>
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="tbody-permessi"></tbody>
@@ -369,20 +388,22 @@
                     <input type="checkbox" class="perm-check perm-vede"
                            data-sezione="${sezione.id}"
                            ${perm.vede ? 'checked' : ''}
-                           onchange="toggleVede('${sezione.id}', this.checked)">
+                           onchange="toggleVede('${sezione.id}', this.checked); aggiornaCheckTutti()">
                 </td>
                 <td>
                     <input type="checkbox" class="perm-check perm-opera"
                            id="opera-${sezione.id}"
                            data-sezione="${sezione.id}"
                            ${perm.opera ? 'checked' : ''}
-                           ${!perm.vede ? 'disabled' : ''}>
+                           ${!perm.vede ? 'disabled' : ''}
+                           onchange="aggiornaCheckTutti()">
                 </td>
             `;
             tbody.appendChild(tr);
         });
 
         document.getElementById('modal-permessi').style.display = 'flex';
+        aggiornaCheckTutti();
     }
 
     function toggleVede(sezioneId, vede) {
@@ -393,6 +414,36 @@
         } else {
             operaCheck.disabled = false;
         }
+    }
+
+    function selezionaTutti(tipo, checked) {
+        if (tipo === 'vede') {
+            document.querySelectorAll('.perm-vede').forEach(cb => {
+                cb.checked = checked;
+                const sezioneId = cb.dataset.sezione;
+                const operaCb = document.getElementById('opera-' + sezioneId);
+                if (operaCb) {
+                    if (!checked) { operaCb.checked = false; operaCb.disabled = true; }
+                    else { operaCb.disabled = false; }
+                }
+            });
+            if (!checked) {
+                const tuttiOpera = document.getElementById('seleziona-tutti-opera');
+                if (tuttiOpera) tuttiOpera.checked = false;
+            }
+        }
+        if (tipo === 'opera') {
+            document.querySelectorAll('.perm-opera:not(:disabled)').forEach(cb => { cb.checked = checked; });
+        }
+    }
+
+    function aggiornaCheckTutti() {
+        const tutteVede = [...document.querySelectorAll('.perm-vede')].every(cb => cb.checked);
+        const tutteOpera = [...document.querySelectorAll('.perm-opera:not(:disabled)')].every(cb => cb.checked);
+        const tuttiVedeCb = document.getElementById('seleziona-tutti-vede');
+        const tuttiOperaCb = document.getElementById('seleziona-tutti-opera');
+        if (tuttiVedeCb) tuttiVedeCb.checked = tutteVede;
+        if (tuttiOperaCb) tuttiOperaCb.checked = tutteOpera;
     }
 
     async function salvaPermessi() {
