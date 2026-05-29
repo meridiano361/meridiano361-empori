@@ -772,72 +772,84 @@
         }
 
         // GROUP MANAGEMENT WITH DETAILED PRODUCT TABLE
-        function addGroup(tipologiaName) {
-            groupCount++;
-            const groupId = groupCount;
-            const container = document.getElementById('groups-container');
-            const groupTitle = currentType === 'bomboniere'
-                ? (tipologiaName || `Tipologia Confetti ${groupId}`)
-                : 'Prodotti';
-            const subtotalSection = currentType === 'bomboniere' ? `
-                <div class="mt-4 flex justify-end border-t pt-4">
-                    <div class="text-right">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase block">Subtotale Tipologia</span>
-                        <span id="subtotal-${groupId}" class="text-xl font-bold text-slate-600">€ 0,00</span>
-                    </div>
-                </div>
-            ` : '';
+       function addGroup(tipologiaName) {
+    groupCount++;
+    const groupId = groupCount;
+    const container = document.getElementById('groups-container');
 
-            const groupDiv = document.createElement('div');
-            groupDiv.id = `group-${groupId}`;
-            groupDiv.className = 'section-card';
+    const subtotalSection = currentType === 'bomboniere' ? `
+        <div class="mt-4 flex justify-end border-t pt-4">
+            <div class="text-right">
+                <span class="text-[10px] font-bold text-slate-400 uppercase block">Subtotale Tipologia</span>
+                <span id="subtotal-${groupId}" class="text-xl font-bold text-slate-600">€ 0,00</span>
+            </div>
+        </div>` : '';
 
-            const titleHtml = currentType === 'bomboniere'
-                ? `<div class="flex items-center gap-2">
-                       <span class="section-title" style="margin-bottom:0;white-space:nowrap">Tipologia:</span>
-                       <input type="text" value="${groupTitle}" class="form-input" style="max-width:280px;padding:8px 12px;font-weight:700;font-size:14px" id="tipologia-name-${groupId}">
-                   </div>`
-                : `<h3 class="section-title">${groupTitle}</h3>`;
+    const groupDiv = document.createElement('div');
+    groupDiv.id = `group-${groupId}`;
+    groupDiv.className = 'section-card';
 
-            groupDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-6">
-                    ${titleHtml}
-                    <button type="button" class="add-row-btn" data-group="${groupId}">
-                        <i class="fas fa-plus mr-1"></i> Aggiungi
-                    </button>
-                </div>
-                <div class="overflow-x-auto text-xs">
-                    <table class="w-full text-left border-separate border-spacing-y-2 product-table">
-                        <thead>
-                            <tr class="text-gray-400 text-center">
-                                <th class="pb-2 w-8"></th>
-                                <th class="pb-2 pl-4 text-left">Codice *</th>
-                                <th class="pb-2 text-left">Descrizione *</th>
-                                <th class="pb-2 w-24">Prezzo</th>
-                                <th class="pb-2 w-16">Qtà</th>
-                                <th class="pb-2 w-16 bg-green-50 text-green-700">Merce pronta</th>
-                                <th class="pb-2 w-16 bg-slate-50">Da forn.</th>
-                                <th class="pb-2 w-32 bg-slate-50">Da empori</th>
-                                <th class="pb-2 w-32 bg-slate-50">Da altri</th>
-                                <th class="pb-2 w-16 bg-red-50 text-m361-red">Da Ord</th>
-                                <th class="pb-2 w-24 text-right pr-4">Totale</th>
-                                <th class="pb-2 w-8"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="rows-container-${groupId}"></tbody>
-                    </table>
-                </div>
-                ${subtotalSection}
-            `;
+    const titleHtml = currentType === 'bomboniere'
+        ? `<div class="flex items-center gap-2 flex-wrap">
+               <span class="section-title" style="margin-bottom:0;white-space:nowrap;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8">
+                   Tipologia Bomboniera ${groupId}
+               </span>
+               <input type="text" value="${tipologiaName || ''}"
+                      placeholder="es. per invitati, per testimoni…"
+                      class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 focus:outline-none focus:border-[#B5453A]"
+                      style="min-width:220px;max-width:340px"
+                      id="tipologia-name-${groupId}">
+               <button type="button" onclick="removeGroup(${groupId})"
+                   class="ml-2 text-xs text-slate-400 hover:text-red-500 border border-slate-200 rounded-lg px-2 py-1 transition-colors">
+                   <i class="fas fa-trash-can"></i>
+               </button>
+           </div>`
+        : `<h3 class="section-title">Prodotti</h3>`;
 
-            container.appendChild(groupDiv);
-            
-            groupDiv.querySelector('.add-row-btn').addEventListener('click', function() {
-                addRow(groupId);
-            });
-            
-            addRow(groupId);
-        }
+    groupDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+            ${titleHtml}
+            <button type="button" class="add-row-btn" data-group="${groupId}">
+                <i class="fas fa-plus mr-1"></i> Aggiungi prodotto
+            </button>
+        </div>
+        <div class="overflow-x-auto text-xs">
+            <table class="w-full text-left border-separate border-spacing-y-0 product-table">
+                <thead>
+                    <tr class="text-gray-400 text-center">
+                        <th class="pb-2 w-8"></th>
+                        <th class="pb-2 pl-2 text-left" style="min-width:80px">Codice *</th>
+                        <th class="pb-2 text-left">Descrizione *</th>
+                        <th class="pb-2 w-24 text-right pr-2">Prezzo</th>
+                        <th class="pb-2 w-16">Qtà</th>
+                        <th class="pb-2 w-16 bg-green-50 text-green-700">Pronta</th>
+                        <th class="pb-2 w-16 bg-slate-50">Da forn.</th>
+                        <th class="pb-2 w-32 bg-slate-50">Da empori</th>
+                        <th class="pb-2 w-32 bg-slate-50">Da altri</th>
+                        <th class="pb-2 w-16 bg-red-50 text-m361-red">Da Ord</th>
+                        <th class="pb-2 w-24 text-right pr-4">Totale</th>
+                        <th class="pb-2 w-8"></th>
+                    </tr>
+                </thead>
+                <tbody id="rows-container-${groupId}"></tbody>
+            </table>
+        </div>
+        ${subtotalSection}
+    `;
+
+    container.appendChild(groupDiv);
+    groupDiv.querySelector('.add-row-btn').addEventListener('click', function() {
+        addRow(groupId);
+    });
+    addRow(groupId);
+}
+
+function removeGroup(groupId) {
+    if (!confirm('Rimuovere questa tipologia bomboniera?')) return;
+    const g = document.getElementById(`group-${groupId}`);
+    if (g) g.remove();
+    calcGrandTotal();
+}
 
         function addRow(groupId) {
             const tbody = document.getElementById(`rows-container-${groupId}`);
