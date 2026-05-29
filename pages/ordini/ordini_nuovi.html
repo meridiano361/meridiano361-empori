@@ -1477,22 +1477,59 @@ function removeGroup(groupId) {
         <td style="background:#B5453A;padding:3px 4px !important"></td>`;
     tbody.appendChild(omaggioRow);
 }
-            
-       function toggleConfez(rowId, groupId) {
-    const isChecked = document.getElementById(`cb-confez-${rowId}`)?.checked;
-    const gustoGrp  = document.getElementById(`confez-gusto-grp-${rowId}`);
-    const cartRow   = document.getElementById(`cartoncino-${rowId}`);
-    if (gustoGrp) gustoGrp.style.display = isChecked ? 'flex' : 'none';
-    if (cartRow)  cartRow.style.display   = isChecked ? '' : 'none';
-    calcRow(rowId, groupId);
+// Sincronizza qty confez e omaggio con il PRIMO prodotto del gruppo
+function syncConfezOmaggio(groupId) {
+    const tbody = document.getElementById(`rows-container-${groupId}`);
+    if (!tbody) return;
+    const firstRow = tbody.querySelector('.product-row');
+    const qty = firstRow ? (parseInt(firstRow.querySelector('.qty-input').value) || 1) : 1;
+
+    const confezQty = document.getElementById(`confez-qty-${groupId}`);
+    const omaggioQty = document.getElementById(`omaggio-qty-${groupId}`);
+    if (confezQty) confezQty.value = qty;
+    if (omaggioQty) omaggioQty.value = qty;
+
+    calcConfezOmaggio(groupId);
 }
 
-        function toggleGusto(rowId) {
-    const sel = document.getElementById(`confez-gusto-${rowId}`);
-    const altroInp = document.getElementById(`confez-gusto-altro-${rowId}`);
-    if (sel && altroInp) {
-        altroInp.style.display = sel.value === 'altro' ? 'inline-block' : 'none';
-    }
+// Ricalcola totale confezionamento
+function calcConfezOmaggio(groupId) {
+    const isChecked = document.getElementById(`cb-confez-${groupId}`)?.checked;
+    const qty = parseInt(document.getElementById(`confez-qty-${groupId}`)?.value) || 0;
+    const cost = isChecked
+        ? (parseFloat(document.getElementById(`confez-cost-inp-${groupId}`)?.value.replace('€','').replace(',','.').trim()) || 3)
+        : 0;
+    const totalEl = document.getElementById(`confez-total-${groupId}`);
+    if (totalEl) totalEl.textContent = (qty * cost).toFixed(2).replace('.', ',');
+    calcOmaggioDisp(groupId);
+    calcSubtotal(groupId);
+    calcGrandTotal();
+}
+
+function calcOmaggioDisp(groupId) {
+    const qty    = parseInt(document.getElementById(`omaggio-qty-${groupId}`)?.value) || 0;
+    const pronta = parseInt(document.getElementById(`omaggio-pronta-${groupId}`)?.value) || 0;
+    const forn   = parseInt(document.getElementById(`omaggio-forn-${groupId}`)?.value) || 0;
+    const emp    = parseInt(document.getElementById(`omaggio-emp-${groupId}`)?.value) || 0;
+    const altri  = parseInt(document.getElementById(`omaggio-altri-${groupId}`)?.value) || 0;
+    const daOrd  = Math.max(0, qty - pronta - forn - emp - altri);
+    const el = document.getElementById(`omaggio-daord-${groupId}`);
+    if (el) el.textContent = daOrd;
+}
+            
+      function toggleConfez(groupId) {
+    const isChecked = document.getElementById(`cb-confez-${groupId}`)?.checked;
+    const gustoGrp = document.getElementById(`confez-gusto-grp-${groupId}`);
+    const cartRow  = document.getElementById(`cartoncino-${groupId}`);
+    if (gustoGrp) gustoGrp.style.display = isChecked ? 'flex' : 'none';
+    if (cartRow)  cartRow.style.display   = isChecked ? '' : 'none';
+    calcConfezOmaggio(groupId);
+}
+
+function toggleGusto(groupId) {
+    const sel     = document.getElementById(`confez-gusto-${groupId}`);
+    const altroInp = document.getElementById(`confez-gusto-altro-${groupId}`);
+    if (altroInp) altroInp.style.display = sel?.value === 'altro' ? 'inline-block' : 'none';
 }
 
         function updateOmaggio(rowId) {
