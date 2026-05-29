@@ -54,15 +54,18 @@
         .badge-ruolo { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: .04em; }
         .badge-ruolo.amministrazione, .badge-ruolo.admin { background: #fee2e2; color: #B5453A; }
         .badge-ruolo.responsabile, .badge-ruolo.coordinatrice { background: #fef3c7; color: #92400e; }
-        .badge-ruolo.operatore, .badge-ruolo.volontaria, .badge-ruolo.dipendente { background: #f1f5f9; color: #475569; }
+        .badge-ruolo.operatore, .badge-ruolo.volontario, .badge-ruolo.volontaria, .badge-ruolo.dipendente, .badge-ruolo.emporio { background: #f1f5f9; color: #475569; }
+        .badge-ruolo.scu { background: #ede9fe; color: #5b21b6; }
 
         .empori-extra-lista { display: flex; flex-wrap: wrap; gap: 4px; }
         .badge-emporio-extra { font-size: 10px; background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
 
         .op-tel { color: #64748b; font-size: 12px; }
         .op-azioni-riga { display: flex; justify-content: flex-end; gap: 4px; }
-        .op-azioni-riga button { width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+        .op-azioni-riga button { width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .15s; }
         .op-azioni-riga button:hover { background: #e2e8f0; }
+        .btn-elimina-op { border-color: #fca5a5 !important; background: #fee2e2 !important; color: #B5453A; }
+        .btn-elimina-op:hover { background: #B5453A !important; color: #fff; border-color: #B5453A !important; }
 
         /* === MODALS === */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 16px; }
@@ -81,6 +84,12 @@
         .btn-secondary:hover { background: #e2e8f0; }
         .btn-danger    { background: #fee2e2; color: #B5453A; border: 1px solid #fecaca; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: all .15s; }
         .btn-danger:hover { background: #B5453A; color: #fff; }
+        .elimina-avviso { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; padding: 12px 16px; font-size: 14px; color: #B5453A; margin-bottom: 12px; }
+        .elimina-avviso strong { display: block; font-size: 16px; margin-top: 4px; color: #1e293b; }
+        .elimina-testo { font-size: 13px; color: #64748b; line-height: 1.5; }
+        #btn-conferma-elimina { background: #B5453A; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s; }
+        #btn-conferma-elimina:disabled { background: #fca5a5; cursor: not-allowed; }
+        #btn-conferma-elimina:not(:disabled):hover { background: #991b1b; }
 
         /* === FORM FIELDS === */
         .campo-gruppo { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
@@ -307,11 +316,13 @@
                 <div class="campo-gruppo">
                     <label>Ruolo</label>
                     <select id="edit-op-ruolo" class="campo-input">
-                        <option value="operatore">Operatore</option>
-                        <option value="responsabile">Responsabile</option>
-                        <option value="coordinatrice">Coordinatrice</option>
-                        <option value="volontaria">Volontaria</option>
                         <option value="dipendente">Dipendente</option>
+                        <option value="volontario">Volontario/a</option>
+                        <option value="scu">SCU - Servizio Civile Universale</option>
+                        <option value="coordinatrice">Coordinatrice</option>
+                        <option value="responsabile">Responsabile</option>
+                        <option value="admin">Admin</option>
+                        <option value="emporio">Emporio</option>
                         <option value="amministrazione">Amministrazione</option>
                     </select>
                 </div>
@@ -361,6 +372,38 @@
                 <div style="flex:1"></div>
                 <button class="btn-secondary" onclick="chiudiModalModifica()">Annulla</button>
                 <button class="btn-primary" onclick="salvaModificaOperatore()">✓ Salva</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MODAL ELIMINA OPERATORE ── -->
+    <div id="modal-elimina-op" class="modal-overlay" onclick="if(event.target===this)chiudiModalElimina()">
+        <div class="modal-box" style="max-width:400px">
+            <div class="modal-header">
+                <h3>Elimina operatore</h3>
+                <button onclick="chiudiModalElimina()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="elimina-op-id">
+                <div class="elimina-avviso">
+                    ⚠️ Stai per eliminare definitivamente:
+                    <strong id="elimina-op-nome"></strong>
+                </div>
+                <p class="elimina-testo">
+                    Questa azione rimuoverà l'operatore dal database e tutti i suoi permessi di accesso.
+                    <strong>Non può essere annullata.</strong>
+                </p>
+                <label class="check-flag" style="margin-top:12px">
+                    <input type="checkbox" id="check-conferma-elimina"
+                           onchange="document.getElementById('btn-conferma-elimina').disabled = !this.checked">
+                    <span>Confermo di voler eliminare questo operatore</span>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="chiudiModalElimina()">Annulla</button>
+                <button id="btn-conferma-elimina" disabled onclick="eseguiEliminaOperatore()">
+                    🗑 Elimina definitivamente
+                </button>
             </div>
         </div>
     </div>
@@ -598,6 +641,21 @@
         alert(`Funzione "Accessi gruppo ${empLabel}" — apre i permessi per ${ops.length} operatori.\n\nUsa il bottone 🔒 su ogni riga per gestirli singolarmente.`);
     }
 
+    function labelRuolo(ruolo) {
+        const labels = {
+            'dipendente':      'Dipendente',
+            'volontario':      'Volontario/a',
+            'volontaria':      'Volontario/a',
+            'scu':             'SCU',
+            'coordinatrice':   'Coordinatrice',
+            'responsabile':    'Responsabile',
+            'admin':           'Admin',
+            'emporio':         'Emporio',
+            'amministrazione': 'Amministrazione',
+        };
+        return labels[(ruolo || '').toLowerCase()] || ruolo || '—';
+    }
+
     function rigaOperatore(op) {
         const iniziali  = avatarIniziali(op.nome);
         const ruoloNorm = (op.ruolo || 'operatore').toLowerCase().replace(/\s+/g, '');
@@ -617,13 +675,14 @@
                         ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
                     </div>
                 </td>
-                <td><span class="badge-ruolo ${ruoloNorm}">${op.ruolo || '—'}</span></td>
+                <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
                 <td><div class="empori-extra-lista">${extraHTML || '<span style="color:#cbd5e1">—</span>'}</div></td>
                 <td class="op-tel">${op.telefono || '—'}</td>
                 <td>
                     <div class="op-azioni-riga">
                         <button onclick="apriModalModifica('${safeId}')" title="Modifica anagrafica">✏️</button>
                         <button onclick="apriModalPermessi('${safeId}','${safeName}')" title="Gestisci accessi">🔒</button>
+                        <button onclick="confermaEliminaOperatore('${safeId}','${safeName}')" title="Elimina operatore" class="btn-elimina-op">🗑</button>
                     </div>
                 </td>
             </tr>
@@ -663,11 +722,12 @@
         const empChiave = normalizzaEmporio(op.emporio);
         document.getElementById('edit-op-emporio').value = empChiave || 'cremona';
 
-        // Ruolo: trova corrispondenza nel select
-        const ruoloNorm = (op.ruolo || 'operatore').toLowerCase();
+        // Ruolo: normalizza (volontaria → volontario, vecchi valori → nuovi)
+        const ruoloRaw  = (op.ruolo || '').toLowerCase();
+        const ruoloNorm = ruoloRaw === 'volontaria' ? 'volontario' : ruoloRaw;
         const ruoloSel  = document.getElementById('edit-op-ruolo');
-        const optMatch  = [...ruoloSel.options].find(o => ruoloNorm.includes(o.value));
-        ruoloSel.value  = optMatch ? optMatch.value : 'operatore';
+        const optMatch  = [...ruoloSel.options].find(o => o.value === ruoloNorm);
+        ruoloSel.value  = optMatch ? optMatch.value : 'dipendente';
 
         // Empori aggiuntivi: normalizza a chiavi, poi seleziona checkbox
         const extra = (op.empori_aggiuntivi || []).map(normalizzaEmporio);
@@ -739,20 +799,56 @@
         loadUsers();
     }
 
-    async function eliminaOperatore() {
+    function eliminaOperatore() {
         const id   = document.getElementById('edit-op-id-orig').value;
         const nome = document.getElementById('edit-op-nome').value;
         if (!id) { alert('Impossibile eliminare: operatore non ancora salvato.'); return; }
-        if (!confirm(`⚠️ Eliminare definitivamente l'operatore "${nome}"?\nQuesta azione non è reversibile.`)) return;
-        if (!confirm(`Conferma eliminazione di: ${nome}`)) return;
+        chiudiModalModifica();
+        confermaEliminaOperatore(id, nome);
+    }
 
-        const { error } = await db.from('operatori').delete().eq('id', id);
-        if (error) { alert('Errore: ' + error.message); return; }
+    function confermaEliminaOperatore(id, nome) {
+        document.getElementById('elimina-op-nome').textContent = nome;
+        document.getElementById('elimina-op-id').value         = id;
+        document.getElementById('check-conferma-elimina').checked = false;
+        document.getElementById('btn-conferma-elimina').disabled  = true;
+        document.getElementById('modal-elimina-op').style.display = 'flex';
+    }
+
+    function chiudiModalElimina() {
+        document.getElementById('modal-elimina-op').style.display  = 'none';
+        document.getElementById('check-conferma-elimina').checked  = false;
+        document.getElementById('btn-conferma-elimina').disabled   = true;
+    }
+
+    async function eseguiEliminaOperatore() {
+        const id = document.getElementById('elimina-op-id').value;
 
         await db.from('utenti_permessi').delete().eq('utente_id', id);
 
-        chiudiModalModifica();
-        loadUsers();
+        const { error } = await db.from('operatori').delete().eq('id', id);
+        if (error) { alert('Errore eliminazione: ' + error.message); return; }
+
+        chiudiModalElimina();
+
+        // Rimuovi la riga senza ricaricare tutto
+        const riga = document.querySelector(`.riga-operatore[data-id="${id}"]`);
+        if (riga) {
+            const tbody  = riga.parentElement;
+            const gruppo = tbody.closest('.emporio-gruppo');
+            riga.remove();
+            if (gruppo) {
+                const rimasti  = tbody.querySelectorAll('.riga-operatore').length;
+                const countEl  = gruppo.querySelector('.emporio-count');
+                if (countEl) countEl.textContent = rimasti + ' operator' + (rimasti === 1 ? 'e' : 'i');
+                if (rimasti === 0) gruppo.remove();
+            }
+        }
+
+        // Aggiorna cache locale
+        utentiCache = utentiCache.filter(o => String(o.id) !== String(id));
+        const el = document.getElementById('stat-operatori');
+        if (el) el.textContent = utentiCache.filter(u => !ADMIN_EMAILS.includes(u.email)).length;
     }
 
     // ── MODAL PERMESSI ────────────────────────────────────────────────────
@@ -945,6 +1041,7 @@
         if (e.key === 'Escape') {
             chiudiModalPermessi();
             chiudiModalModifica();
+            chiudiModalElimina();
         }
     });
     </script>
