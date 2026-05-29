@@ -203,6 +203,16 @@
             align-items: center;
             justify-content: center;
         }
+        .campo-errore {
+            border-color: #B5453A !important;
+            background: #fee2e2 !important;
+            animation: shake .3s ease;
+        }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            25%      { transform: translateX(-6px); }
+            75%      { transform: translateX(6px); }
+        }
     </style>
 </head>
 <body class="pb-28">
@@ -791,9 +801,35 @@
         }
 
         // UPDATE ORDER
+        function validaFormOrdine() {
+            const campiObbligatori = [
+                { id: 'select-emporio', label: 'Emporio' },
+                { id: 'cust-nome',      label: 'Nome cliente' },
+                { id: 'cust-cognome',   label: 'Cognome cliente' },
+                { id: 'cust-cel',       label: 'Cellulare cliente' },
+            ];
+            for (const campo of campiObbligatori) {
+                const el = document.getElementById(campo.id);
+                if (!el || !el.value.trim()) {
+                    el?.focus();
+                    el?.classList.add('campo-errore');
+                    alert('Campo obbligatorio: ' + campo.label);
+                    return false;
+                }
+                el.classList.remove('campo-errore');
+            }
+            const righe = document.querySelectorAll('.product-row');
+            if (!righe.length) {
+                alert("Aggiungi almeno un prodotto all'ordine");
+                return false;
+            }
+            return true;
+        }
+
         async function validateUpdate(event) {
             event.preventDefault();
-            
+            if (!validaFormOrdine()) return;
+
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Aggiornamento...';

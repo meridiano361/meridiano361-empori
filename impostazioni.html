@@ -634,11 +634,47 @@
         freccia.textContent = isOpen ? '▶' : '▼';
     }
 
-    function apriPermessiEmporio(chiave, empLabel) {
-        // Apre i permessi in sequenza per tutti gli operatori dell'emporio
+    let _gruppoEmporioIds = null; // null = modalità singolo, array = modalità gruppo
+
+    async function apriPermessiEmporio(chiave, empLabel) {
         const ops = utentiCache.filter(op => normalizzaEmporio(op.emporio) === chiave && !ADMIN_EMAILS.includes(op.email));
         if (ops.length === 0) { alert(`Nessun operatore in ${empLabel}.`); return; }
-        alert(`Funzione "Accessi gruppo ${empLabel}" — apre i permessi per ${ops.length} operatori.\n\nUsa il bottone 🔒 su ogni riga per gestirli singolarmente.`);
+
+        _gruppoEmporioIds = ops.map(o => o.id);
+        operatoreCorrenteId = ops[0].id; // usato solo come template per caricare i permessi
+
+        document.getElementById('modal-permessi-titolo').textContent = `Accessi gruppo — ${empLabel} (${ops.length} operatori)`;
+        document.getElementById('perm-save-status').className  = '';
+        document.getElementById('perm-save-status').textContent = '';
+
+        // Carica permessi dal primo operatore come template
+        const { data } = await db
+            .from('utenti_permessi')
+            .select('*')
+            .eq('utente_id', ops[0].id);
+
+        const permMap = {};
+        if (data) data.forEach(p => { permMap[p.sezione] = { vede: p['può_vedere'], opera: p['può_operare'] }; });
+
+        const tbody = document.getElementById('tbody-permessi');
+        tbody.innerHTML = '';
+        SEZIONI_APP.forEach(sezione => {
+            const perm = permMap[sezione.id] || { vede: true, opera: true };
+            const tr   = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${sezione.nome}</strong></td>
+                <td><input type="checkbox" class="perm-check perm-vede" data-sezione="${sezione.id}"
+                        ${perm.vede ? 'checked' : ''}
+                        onchange="toggleVede('${sezione.id}', this.checked); aggiornaCheckTutti()"></td>
+                <td><input type="checkbox" class="perm-check perm-opera" id="opera-${sezione.id}" data-sezione="${sezione.id}"
+                        ${perm.opera ? 'checked' : ''} ${!perm.vede ? 'disabled' : ''}
+                        onchange="aggiornaCheckTutti()"></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('modal-permessi').style.display = 'flex';
+        aggiornaCheckTutti();
     }
 
     function labelRuolo(ruolo) {
@@ -936,31 +972,37 @@
 
     async function salvaPermessi() {
         const righe = document.querySelectorAll('#tbody-permessi tr');
-        const permessiDaSalvare = [];
+        const sezioniPerm = [];
         righe.forEach(tr => {
             const vedeCheck  = tr.querySelector('.perm-vede');
             const operaCheck = tr.querySelector('.perm-opera');
             if (!vedeCheck) return;
-            permessiDaSalvare.push({
-                utente_id:     operatoreCorrenteId,
-                sezione:       vedeCheck.dataset.sezione,
-                'può_vedere':  vedeCheck.checked,
-                'può_operare': operaCheck.checked,
-            });
+            sezioniPerm.push({ sezione: vedeCheck.dataset.sezione, vede: vedeCheck.checked, opera: operaCheck.checked });
         });
 
         const statusEl = document.getElementById('perm-save-status');
         statusEl.className = '';
         statusEl.textContent = '';
 
+        // In modalità gruppo salva per tutti gli operatori dell'emporio
+        const ids = _gruppoEmporioIds || [operatoreCorrenteId];
+        const permessiDaSalvare = ids.flatMap(uid =>
+            sezioniPerm.map(p => ({
+                utente_id:     uid,
+                sezione:       p.sezione,
+                'può_vedere':  p.vede,
+                'può_operare': p.opera,
+            }))
+        );
+
         const { error } = await db
             .from('utenti_permessi')
             .upsert(permessiDaSalvare, { onConflict: 'utente_id,sezione' });
 
         if (!error) {
-            statusEl.textContent = '✓ Salvato';
+            statusEl.textContent = ids.length > 1 ? `✓ Salvato per ${ids.length} operatori` : '✓ Salvato';
             statusEl.className   = 'ok';
-            setTimeout(chiudiModalPermessi, 1000);
+            setTimeout(chiudiModalPermessi, 1200);
         } else {
             statusEl.textContent = '✗ Errore: ' + error.message;
             statusEl.className   = 'err';
@@ -970,6 +1012,7 @@
     function chiudiModalPermessi() {
         document.getElementById('modal-permessi').style.display = 'none';
         operatoreCorrenteId = null;
+        _gruppoEmporioIds   = null;
     }
 
     // ── CATEGORIE ─────────────────────────────────────────────────────────
