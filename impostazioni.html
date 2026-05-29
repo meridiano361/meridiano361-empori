@@ -282,7 +282,7 @@
                 <button onclick="chiudiModalModifica()">×</button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="edit-op-email-orig">
+                <input type="hidden" id="edit-op-id-orig">
 
                 <div class="campo-gruppo">
                     <label>Nome e Cognome *</label>
@@ -428,6 +428,15 @@
     const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana'];
     const EMPORI_LABEL = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana' };
 
+    // Converte qualunque forma ('Cremona', 'cremona', 'Reggio Emilia') → chiave interna
+    function normalizzaEmporio(valore) {
+        if (!valore) return 'altro';
+        const lower = valore.toLowerCase().replace(/\s+/g, '');
+        if (EMPORI_LABEL[lower]) return lower;
+        const found = Object.keys(EMPORI_LABEL).find(k => EMPORI_LABEL[k].toLowerCase() === valore.toLowerCase());
+        return found || lower;
+    }
+
     let utentiCache = [];
 
     const currentUser = JSON.parse(localStorage.getItem('m361_user') || 'null');
@@ -472,20 +481,21 @@
     // ── CARICA OPERATORI ──────────────────────────────────────────────────
     async function loadUsers() {
         const container = document.getElementById('impostazioni-operatori');
-        const { data: users, error } = await db
-            .from('user_permissions')
+        const { data: operatori, error } = await db
+            .from('operatori')
             .select('*')
-            .order('nome_cognome', { ascending: true });
+            .order('emporio', { ascending: true })
+            .order('nome',    { ascending: true });
 
-        console.log('Operatori trovati:', users?.length, users);
+        console.log('Operatori caricati:', operatori?.length, operatori);
 
         if (error) {
-            container.innerHTML = `<div style="color:#dc2626;padding:16px;font-size:14px">Errore: ${error.message}</div>`;
+            container.innerHTML = `<div style="color:#dc2626;padding:16px;font-size:14px">Errore caricamento operatori: ${error.message}</div>`;
             return;
         }
 
-        utentiCache = users;
-        const filtrati = users.filter(u => !ADMIN_EMAILS.includes(u.email));
+        utentiCache = operatori;
+        const filtrati = operatori.filter(op => !ADMIN_EMAILS.includes(op.email));
 
         renderOperatori(filtrati);
         document.getElementById('stat-operatori').textContent = filtrati.length;
@@ -495,12 +505,12 @@
         const container = document.getElementById('impostazioni-operatori');
         container.innerHTML = '';
 
-        // Raggruppa per emporio (usa chiavi lowercase)
+        // Raggruppa per emporio (normalizza a chiave lowercase)
         const gruppi = {};
-        operatori.forEach(u => {
-            const chiave = u.emporio_riferimento || 'altro';
+        operatori.forEach(op => {
+            const chiave = normalizzaEmporio(op.emporio);
             if (!gruppi[chiave]) gruppi[chiave] = [];
-            gruppi[chiave].push(u);
+            gruppi[chiave].push(op);
         });
 
         const ordineChiavi = [...EMPORI_ORDER, ...Object.keys(gruppi).filter(k => !EMPORI_ORDER.includes(k))];
@@ -537,40 +547,42 @@
         });
     }
 
-    function rigaOperatore(u) {
-        const iniziali   = avatarIniziali(u.nome_cognome);
-        const ruoloNorm  = (u.ruolo || 'operatore').toLowerCase().replace(/\s+/g, '');
-        const extra      = (u.empori_aggiuntivi || []).filter(e => e !== u.emporio_riferimento);
-        const extraHTML  = extra.map(e => `<span class="badge-emporio-extra">${EMPORI_LABEL[e] || e}</span>`).join('');
-        const safeEmail  = u.email.replace(/'/g, "\\'");
-        const safeName   = (u.nome_cognome || '').replace(/'/g, "\\'");
+    function rigaOperatore(op) {
+        const iniziali  = avatarIniziali(op.nome);
+        const ruoloNorm = (op.ruolo || 'operatore').toLowerCase().replace(/\s+/g, '');
+        const empChiave = normalizzaEmporio(op.emporio);
+        const extra     = (op.empori_aggiuntivi || [])
+            .map(e => normalizzaEmporio(e))
+            .filter(e => e !== empChiave && EMPORI_LABEL[e]);
+        const extraHTML = extra.map(e => `<span class="badge-emporio-extra">${EMPORI_LABEL[e]}</span>`).join('');
+        const safeId    = String(op.id).replace(/'/g, "\\'");
+        const safeName  = (op.nome || '').replace(/'/g, "\\'");
         return `
-            <tr class="riga-operatore" data-email="${u.email}">
+            <tr class="riga-operatore" data-id="${op.id}">
                 <td>
                     <div class="op-nome-cella">
                         <div class="op-avatar-small">${iniziali}</div>
-                        <span>${u.nome_cognome || '—'}</span>
-                        ${u.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
+                        <span>${op.nome || '—'}</span>
+                        ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
                     </div>
                 </td>
-                <td><span class="badge-ruolo ${ruoloNorm}">${u.ruolo || '—'}</span></td>
+                <td><span class="badge-ruolo ${ruoloNorm}">${op.ruolo || '—'}</span></td>
                 <td><div class="empori-extra-lista">${extraHTML || '<span style="color:#cbd5e1">—</span>'}</div></td>
-                <td class="op-tel">${u.telefono || '—'}</td>
+                <td class="op-tel">${op.telefono || '—'}</td>
                 <td>
                     <div class="op-azioni-riga">
-                        <button onclick="apriModalModifica('${safeEmail}')" title="Modifica anagrafica">✏️</button>
-                        <button onclick="apriModalPermessi('${safeEmail}','${safeName}')" title="Gestisci accessi">🔒</button>
+                        <button onclick="apriModalModifica('${safeId}')" title="Modifica anagrafica">✏️</button>
+                        <button onclick="apriModalPermessi('${safeId}','${safeName}')" title="Gestisci accessi">🔒</button>
                     </div>
                 </td>
             </tr>
         `;
     }
 
-    function nuovoOperatore(emporio) {
-        // Pre-popola il modal modifica con l'emporio selezionato e campi vuoti
-        document.getElementById('edit-op-email-orig').value  = '';
+    function nuovoOperatore(empChiave) {
+        document.getElementById('edit-op-id-orig').value     = '';
         document.getElementById('edit-op-nome').value        = '';
-        document.getElementById('edit-op-emporio').value     = emporio || 'cremona';
+        document.getElementById('edit-op-emporio').value     = empChiave || 'cremona';
         document.getElementById('edit-op-ruolo').value       = 'operatore';
         document.getElementById('edit-op-readonly').value    = 'false';
         document.getElementById('edit-op-telefono').value    = '';
@@ -585,26 +597,29 @@
     }
 
     // ── MODAL MODIFICA OPERATORE ──────────────────────────────────────────
-    function apriModalModifica(email) {
-        const u = utentiCache.find(x => x.email === email);
-        if (!u) return;
+    function apriModalModifica(id) {
+        const op = utentiCache.find(x => String(x.id) === String(id));
+        if (!op) return;
 
-        document.getElementById('edit-op-email-orig').value   = email;
-        document.getElementById('edit-op-nome').value         = u.nome_cognome || '';
-        document.getElementById('edit-op-emporio').value      = u.emporio_riferimento || 'cremona';
-        document.getElementById('edit-op-readonly').value     = u.is_readonly ? 'true' : 'false';
-        document.getElementById('edit-op-telefono').value     = u.telefono || '';
-        document.getElementById('edit-op-email-field').value  = u.email || '';
-        document.getElementById('edit-op-note').value         = u.note || '';
+        document.getElementById('edit-op-id-orig').value      = op.id;
+        document.getElementById('edit-op-nome').value         = op.nome || '';
+        document.getElementById('edit-op-telefono').value     = op.telefono || '';
+        document.getElementById('edit-op-email-field').value  = op.email || '';
+        document.getElementById('edit-op-note').value         = op.note || '';
+        document.getElementById('edit-op-readonly').value     = op.is_readonly ? 'true' : 'false';
 
-        // Ruolo: normalizza al valore del select
-        const ruoloNorm = (u.ruolo || 'operatore').toLowerCase();
+        // Emporio principale: normalizza a chiave select
+        const empChiave = normalizzaEmporio(op.emporio);
+        document.getElementById('edit-op-emporio').value = empChiave || 'cremona';
+
+        // Ruolo: trova corrispondenza nel select
+        const ruoloNorm = (op.ruolo || 'operatore').toLowerCase();
         const ruoloSel  = document.getElementById('edit-op-ruolo');
         const optMatch  = [...ruoloSel.options].find(o => ruoloNorm.includes(o.value));
         ruoloSel.value  = optMatch ? optMatch.value : 'operatore';
 
-        // Empori aggiuntivi
-        const extra = u.empori_aggiuntivi || [];
+        // Empori aggiuntivi: normalizza a chiavi, poi seleziona checkbox
+        const extra = (op.empori_aggiuntivi || []).map(normalizzaEmporio);
         EMPORI_ORDER.forEach(k => {
             const cb = document.getElementById('extra-' + k);
             if (cb) cb.checked = extra.includes(k);
@@ -636,72 +651,55 @@
     }
 
     async function salvaModificaOperatore() {
-        const emailOrig   = document.getElementById('edit-op-email-orig').value.trim();
-        const emailNuova  = document.getElementById('edit-op-email-field').value.trim();
-        const nome        = document.getElementById('edit-op-nome').value.trim();
-        const isNuovo     = !emailOrig;
+        const idOrig  = document.getElementById('edit-op-id-orig').value.trim();
+        const nome    = document.getElementById('edit-op-nome').value.trim();
+        const isNuovo = !idOrig;
 
         if (!nome) { alert('Il nome è obbligatorio.'); return; }
-        if (isNuovo && !emailNuova) { alert('L\'email è obbligatoria per un nuovo operatore.'); document.getElementById('edit-op-email-field').focus(); return; }
 
-        const mainEmp = document.getElementById('edit-op-emporio').value;
-        const extra   = EMPORI_ORDER.filter(k => k !== mainEmp && document.getElementById('extra-' + k)?.checked);
+        // Emporio: converte la chiave select → display name per il DB
+        const empChiave  = document.getElementById('edit-op-emporio').value;
+        const empDisplay = EMPORI_LABEL[empChiave] || empChiave;
+
+        // Empori aggiuntivi: chiavi → display names
+        const extraChiavi   = EMPORI_ORDER.filter(k => k !== empChiave && document.getElementById('extra-' + k)?.checked);
+        const extraDisplay  = extraChiavi.map(k => EMPORI_LABEL[k] || k);
 
         const payload = {
-            email:              isNuovo ? emailNuova : emailOrig,
-            nome_cognome:       nome,
-            emporio_riferimento: mainEmp,
+            nome:               nome,
+            emporio:            empDisplay,
             ruolo:              document.getElementById('edit-op-ruolo').value,
             is_readonly:        document.getElementById('edit-op-readonly').value === 'true',
             telefono:           document.getElementById('edit-op-telefono').value.trim() || null,
-            empori_aggiuntivi:  extra.length > 0 ? extra : null,
+            email:              document.getElementById('edit-op-email-field').value.trim() || null,
+            empori_aggiuntivi:  extraDisplay.length > 0 ? extraDisplay : null,
             note:               document.getElementById('edit-op-note').value.trim() || null,
         };
 
         let error;
         if (isNuovo) {
-            ({ error } = await db.from('user_permissions').insert(payload));
+            ({ error } = await db.from('operatori').insert(payload));
         } else {
-            ({ error } = await db.from('user_permissions').update(payload).eq('email', emailOrig));
+            ({ error } = await db.from('operatori').update(payload).eq('id', idOrig));
         }
 
-        if (error) {
-            if (error.message && error.message.includes('column')) {
-                const payloadBase = {
-                    email:              payload.email,
-                    nome_cognome:       nome,
-                    emporio_riferimento: mainEmp,
-                    ruolo:              document.getElementById('edit-op-ruolo').value,
-                    is_readonly:        document.getElementById('edit-op-readonly').value === 'true',
-                };
-                let e2;
-                if (isNuovo) {
-                    ({ error: e2 } = await db.from('user_permissions').insert(payloadBase));
-                } else {
-                    ({ error: e2 } = await db.from('user_permissions').update(payloadBase).eq('email', emailOrig));
-                }
-                if (e2) { alert('Errore: ' + e2.message); return; }
-                alert('⚠️ Salvato parzialmente. Per abilitare telefono, empori aggiuntivi e note esegui su Supabase:\n\nALTER TABLE user_permissions\n  ADD COLUMN IF NOT EXISTS telefono text,\n  ADD COLUMN IF NOT EXISTS empori_aggiuntivi text[],\n  ADD COLUMN IF NOT EXISTS note text;');
-            } else {
-                alert('Errore: ' + error.message);
-                return;
-            }
-        }
+        if (error) { alert('Errore nel salvataggio: ' + error.message); return; }
 
         chiudiModalModifica();
         loadUsers();
     }
 
     async function eliminaOperatore() {
-        const email = document.getElementById('edit-op-email-orig').value;
-        const nome  = document.getElementById('edit-op-nome').value;
+        const id   = document.getElementById('edit-op-id-orig').value;
+        const nome = document.getElementById('edit-op-nome').value;
+        if (!id) { alert('Impossibile eliminare: operatore non ancora salvato.'); return; }
         if (!confirm(`⚠️ Eliminare definitivamente l'operatore "${nome}"?\nQuesta azione non è reversibile.`)) return;
-        if (!confirm(`Conferma eliminazione di: ${email}`)) return;
+        if (!confirm(`Conferma eliminazione di: ${nome}`)) return;
 
-        const { error } = await db.from('user_permissions').delete().eq('email', email);
+        const { error } = await db.from('operatori').delete().eq('id', id);
         if (error) { alert('Errore: ' + error.message); return; }
 
-        await db.from('utenti_permessi').delete().eq('utente_id', email);
+        await db.from('utenti_permessi').delete().eq('utente_id', id);
 
         chiudiModalModifica();
         loadUsers();
@@ -710,8 +708,8 @@
     // ── MODAL PERMESSI ────────────────────────────────────────────────────
     let operatoreCorrenteId = null;
 
-    async function apriModalPermessi(operatoreEmail, nomeOperatore) {
-        operatoreCorrenteId = operatoreEmail;
+    async function apriModalPermessi(operatoreId, nomeOperatore) {
+        operatoreCorrenteId = operatoreId;
         document.getElementById('modal-permessi-titolo').textContent = 'Accessi — ' + nomeOperatore;
         document.getElementById('perm-save-status').className  = '';
         document.getElementById('perm-save-status').textContent = '';
@@ -719,7 +717,7 @@
         const { data } = await db
             .from('utenti_permessi')
             .select('*')
-            .eq('utente_id', operatoreEmail);
+            .eq('utente_id', operatoreId);
 
         const permMap = {};
         if (data) data.forEach(p => { permMap[p.sezione] = { vede: p['può_vedere'], opera: p['può_operare'] }; });
