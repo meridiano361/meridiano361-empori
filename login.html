@@ -72,20 +72,20 @@
                 const { data: authData, error: authError } = await _supabase.auth.signInWithPassword({ email, password });
                 if (authError) throw new Error("Email o password non corretti.");
 
-                // 2. Controllo incrociato sulla tabella permessi
-                const { data: perms, error: pError } = await _supabase
-                    .from('user_permissions')
+                // 2. Verifica che l'utente esista nella tabella operatori
+                const { data: operatore, error: opError } = await _supabase
+                    .from('operatori')
                     .select('*')
                     .ilike('email', email)
                     .single();
 
-                if (pError || !perms) {
+                if (opError || !operatore) {
                     await _supabase.auth.signOut();
                     throw new Error("Accesso negato: utente non autorizzato.");
                 }
 
                 // 3. Salvataggio e redirect
-                localStorage.setItem('m361_user', JSON.stringify(perms));
+                localStorage.setItem('m361_user', JSON.stringify(operatore));
                 window.location.href = 'index.html';
 
             } catch (err) {

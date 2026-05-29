@@ -445,24 +445,35 @@ function buildNav() {
    */
   async function checkPermissionsAndApply(user) {
     const _supabase = getSupabase();
-    if (!_supabase) return;
+    if (!_supabase || !user.id) return;
 
-    const { data: dbUser } = await _supabase
-      .from('user_permissions')
-      .select('is_readonly')
-      .eq('email', user.email)
-      .maybeSingle();
+    const { data: permessi } = await _supabase
+      .from('utenti_permessi')
+      .select('sezione, può_vedere, può_operare')
+      .eq('utente_id', user.id);
 
-    if (!dbUser || !dbUser.is_readonly) return; // Niente da fare
+    if (!permessi?.length) return; // Nessun limite impostato = accesso completo
 
-    // Salva stato nel localStorage per uso rapido
-    try {
-      const profile = JSON.parse(localStorage.getItem('m361_user') || '{}');
-      profile.is_readonly = true;
-      localStorage.setItem('m361_user', JSON.stringify(profile));
-    } catch {}
+    // Nascondi voci di menu per sezioni non visibili
+    permessi.filter(p => !p['può_vedere']).forEach(p => {
+      document.querySelectorAll(`.mn-item[href*="${p.sezione}"]`)
+        .forEach(el => { el.style.display = 'none'; });
+    });
 
-    applyReadonlyMode();
+    // Controlla permessi per la sezione corrente
+    const currentId = typeof getCurrentId === 'function' ? getCurrentId() : '';
+    if (!currentId) return;
+
+    const permCorrente = permessi.find(p => p.sezione === currentId);
+    if (!permCorrente) return;
+
+    if (!permCorrente['può_vedere']) {
+      window.location.href = getBase() + 'index.html';
+      return;
+    }
+    if (!permCorrente['può_operare']) {
+      applyReadonlyMode();
+    }
   }
 
   function applyReadonlyMode() {
