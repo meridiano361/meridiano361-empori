@@ -195,7 +195,7 @@ body { font-family: 'Inter', sans-serif; padding-top: 56px; padding-bottom: 68px
       document.head.appendChild(m);
     }
     [
-      ['apple-mobile-web-app-capable', 'yes'],
+      ['mobile-web-app-capable', 'yes'],
       ['apple-mobile-web-app-status-bar-style', 'default'],
       ['apple-mobile-web-app-title', 'M361'],
     ].forEach(([n, v]) => {
