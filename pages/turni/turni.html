@@ -463,6 +463,111 @@ tr.cella-giorno.festivo { background: #fff8f8 !important; }
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* === CHIP OPERATORE ESPANDIBILE === */
+.chip-operatore-turno {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  margin: 3px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+  vertical-align: top;
+}
+.chip-op-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip-op-nome {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  flex: 1;
+}
+.chip-op-ore {
+  font-size: 13px;
+  font-weight: 700;
+  color: #B5453A;
+  white-space: nowrap;
+}
+.chip-toggle-orario {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  min-height: auto;
+  opacity: .5;
+}
+.chip-toggle-orario:hover { opacity: 1; }
+.chip-op-orario {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 6px;
+}
+.orario-op-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.orario-op-inputs input[type="time"] {
+  width: 110px;
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.btn-reset-orario {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #64748b;
+  min-height: auto;
+}
+
+/* === FASCIA SERALE === */
+.fascia-serale { border-top: 2px solid #e0e7ff; }
+.btn-aggiungi-serale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px dashed #94a3b8;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  margin: 8px 20px 12px;
+  width: calc(100% - 40px);
+  justify-content: center;
+}
+.btn-aggiungi-serale:hover {
+  border-color: #6366F1;
+  color: #6366F1;
+  background: rgba(99,102,241,.04);
+}
+.btn-rimuovi-serale {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,.5);
+  font-size: 18px;
+  padding: 0;
+  min-height: auto;
+  line-height: 1;
+  margin-left: auto;
+}
+.btn-rimuovi-serale:hover { color: #fff; }
 </style>
 </head>
 <body class="turni-page">
@@ -855,7 +960,7 @@ function renderMonth() {
     <div class="legenda-item"><span class="chip-op-calendario" style="pointer-events:none">Nome operatore</span></div>
   </div>`;
   return `<div class="card-r"><div class="tscroll"><table class="cal-table">
-    <thead><tr><th>Data</th><th>Mat.</th><th>Mattina Operatori</th><th>Pom.</th><th>Pomeriggio Operatori</th><th>Assenze</th><th>Note</th></tr></thead>
+    <thead><tr><th>Data</th><th>Mattina</th><th>Mattina Operatori</th><th>Pomeriggio</th><th>Pomeriggio Operatori</th><th>Assenze</th><th>Note</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table></div>${legenda}</div>`;
 }
 
@@ -1177,6 +1282,29 @@ function dateToTurnoKey(data, fascia) {
   return `${currentEmporio}|${parseInt(y)}|${parseInt(m)}|${parseInt(d)}|${fascia}`;
 }
 
+function creaChipHtml(o, i, key, ds, fascia) {
+  const sid = o.nome.replace(/[^a-zA-Z0-9]/g,'_');
+  const oreDisp = o.oremanuali != null ? o.oremanuali.toFixed(2)+'h' : '';
+  return `<div class="chip-operatore-turno">
+    <div class="chip-op-header">
+      <span class="chip-op-nome">${o.nome.split(' ').slice(0,2).join(' ')}</span>
+      <span class="chip-op-ore" id="ore-${sid}-${ds}-${fascia}">${oreDisp}</span>
+      <button class="chip-toggle-orario" onclick="toggleOrarioOp('${sid}','${ds}','${fascia}')" title="Orario personalizzato">🕐</button>
+      <button class="chip-remove" onclick="rimuoviChipOp('${key}',${i})" title="Rimuovi">×</button>
+    </div>
+    <div class="chip-op-orario" id="orario-${sid}-${ds}-${fascia}" style="display:none">
+      <div class="orario-op-inputs">
+        <input type="time" step="300" id="inizio-${sid}-${ds}-${fascia}"
+               onchange="calcolaOreOp('${sid}',${i},'${key}','${ds}','${fascia}')">
+        <span>→</span>
+        <input type="time" step="300" id="fine-${sid}-${ds}-${fascia}"
+               onchange="calcolaOreOp('${sid}',${i},'${key}','${ds}','${fascia}')">
+        <button onclick="resetOrarioOp('${sid}',${i},'${key}','${ds}','${fascia}')" class="btn-reset-orario">↺ Turno</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderGiornaliero() {
   const days = new Date(currentAnno, currentMese+1, 0).getDate();
   const FULL = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -1187,21 +1315,29 @@ function renderGiornaliero() {
     const labelGiorno = `${FULL[dow]} ${d} ${MESI[currentMese]} ${currentAnno}`;
     const mk = dateToTurnoKey(ds,'mattina');
     const pk = dateToTurnoKey(ds,'pomeriggio');
+    const sk = dateToTurnoKey(ds,'serale');
     const mD = turniData[mk] || {aperto: dow!==0, operatori:[]};
     const pD = turniData[pk] || {aperto: dow!==0, operatori:[]};
+    const sD = turniData[sk] || {aperto: false, operatori:[]};
     const matAp = dayHoursData[`${ds}_mattina_apertura`]   || storeHoursData.mat_open || '09:15';
     const matCh = dayHoursData[`${ds}_mattina_chiusura`]   || storeHoursData.mat_close || '13:00';
     const pomAp = dayHoursData[`${ds}_pomeriggio_apertura`]|| storeHoursData.pom_open || '15:00';
     const pomCh = dayHoursData[`${ds}_pomeriggio_chiusura`]|| storeHoursData.pom_close || '19:00';
+    const serAp = dayHoursData[`${ds}_serale_apertura`]    || '20:00';
+    const serCh = dayHoursData[`${ds}_serale_chiusura`]    || '22:30';
+    const hasSer = !!(turniData[sk]);
 
-    const chips = (key, td) => (td.operatori||[]).map((o,i)=>`
-      <span class="chip-operatore">${o.nome.split(' ').slice(0,2).join(' ')}
-        <button class="chip-remove" onclick="rimuoviChipOp('${key}',${i})" title="Rimuovi">×</button>
-      </span>`).join('');
+    const chips = (key, td, fascia) =>
+      (td.operatori||[]).map((o,i) => creaChipHtml(o,i,key,ds,fascia)).join('');
 
-    const fasciaHtml = (fascia, td, ap, ch, key) => `
-      <div class="fascia-turno">
-        <div class="fascia-header"><span class="turno-fascia-label">${fascia==='mattina'?'☀️ Mattina':'🌆 Pomeriggio'}</span></div>
+    const fasciaHtml = (fascia, td, ap, ch, key) => {
+      const label = fascia==='mattina'?'☀️ Mattina':fascia==='pomeriggio'?'🌆 Pomeriggio':'🌙 Serale';
+      return `
+      <div class="fascia-turno${fascia==='serale'?' fascia-serale':''}"${fascia==='serale'?` id="serale-${ds}" style="${hasSer?'':'display:none'}"`:''}">
+        <div class="fascia-header">
+          <span class="turno-fascia-label">${label}</span>
+          ${fascia==='serale'?`<button class="btn-rimuovi-serale" onclick="rimuoviSerale('${ds}')" title="Rimuovi fascia serale">×</button>`:''}
+        </div>
         <div class="turno-sezione">
           <div class="negozio-stato">
             <label class="radio-stato">
@@ -1227,10 +1363,11 @@ function renderGiornaliero() {
           </div>
         </div>
         <div class="turno-sezione">
-          <div class="operatori-chips" id="ops-${fascia}-${ds}">${chips(key,td)}</div>
+          <div class="operatori-chips" id="ops-${fascia}-${ds}">${chips(key,td,fascia)}</div>
           <button class="btn-aggiungi-op-turno" onclick="aggiungiOperatoreTurno('${ds}','${fascia}')">+ Aggiungi</button>
         </div>
       </div>`;
+    };
 
     html += `
     <div class="giorno-turno">
@@ -1245,6 +1382,12 @@ function renderGiornaliero() {
       </div>
       ${fasciaHtml('mattina',mD,matAp,matCh,mk)}
       ${fasciaHtml('pomeriggio',pD,pomAp,pomCh,pk)}
+      ${fasciaHtml('serale',sD,serAp,serCh,sk)}
+      <button class="btn-aggiungi-serale" id="btn-serale-${ds}"
+              onclick="aggiungiSerale('${ds}')"
+              style="${hasSer?'display:none':''}">
+        🌙 Aggiungi apertura serale
+      </button>
     </div>`;
   }
   return html + '</div>';
@@ -1279,10 +1422,7 @@ function rimuoviChipOp(key, idx) {
   const ds = `${parts[1]}-${parts[2].padStart(2,'0')}-${parts[3].padStart(2,'0')}`;
   const chipsDiv = document.getElementById(`ops-${fascia}-${ds}`);
   if (chipsDiv) {
-    chipsDiv.innerHTML = (turniData[key].operatori||[]).map((o,i)=>`
-      <span class="chip-operatore">${o.nome.split(' ').slice(0,2).join(' ')}
-        <button class="chip-remove" onclick="rimuoviChipOp('${key}',${i})" title="Rimuovi">×</button>
-      </span>`).join('');
+    chipsDiv.innerHTML = (turniData[key].operatori||[]).map((o,i) => creaChipHtml(o,i,key,ds,fascia)).join('');
   }
 }
 
@@ -1297,10 +1437,10 @@ function aggiungiChipOperatore(data, fascia, opId, opNome) {
   const chipsDiv = document.getElementById(`ops-${fascia}-${data}`);
   if (chipsDiv) {
     const idx = turniData[key].operatori.length - 1;
-    const chip = document.createElement('span');
-    chip.className = 'chip-operatore';
-    chip.innerHTML = `${opNome.split(' ').slice(0,2).join(' ')}<button class="chip-remove" onclick="rimuoviChipOp('${key}',${idx})" title="Rimuovi">×</button>`;
-    chipsDiv.appendChild(chip);
+    const o = turniData[key].operatori[idx];
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = creaChipHtml(o, idx, key, data, fascia);
+    chipsDiv.appendChild(wrapper.firstElementChild);
   }
 }
 
@@ -1329,14 +1469,17 @@ function eseguiCopiaGiorno() {
   const [sy,sm,sd] = src.split('-');
   const srcMk = `${currentEmporio}|${parseInt(sy)}|${parseInt(sm)}|${parseInt(sd)}|mattina`;
   const srcPk = `${currentEmporio}|${parseInt(sy)}|${parseInt(sm)}|${parseInt(sd)}|pomeriggio`;
+  const srcSk = `${currentEmporio}|${parseInt(sy)}|${parseInt(sm)}|${parseInt(sd)}|serale`;
   const srcMd = turniData[srcMk] ? {...turniData[srcMk], operatori:[...(turniData[srcMk].operatori||[])]} : null;
   const srcPd = turniData[srcPk] ? {...turniData[srcPk], operatori:[...(turniData[srcPk].operatori||[])]} : null;
+  const srcSd = turniData[srcSk] ? {...turniData[srcSk], operatori:[...(turniData[srcSk].operatori||[])]} : null;
   const selected = [...document.querySelectorAll('#modal-copia-content input:checked')].map(cb=>cb.value);
   if (!selected.length) { showToast('Seleziona almeno un giorno','err'); return; }
   selected.forEach(target => {
     const [ty,tm,td2] = target.split('-');
     if (srcMd) { const mk=`${currentEmporio}|${parseInt(ty)}|${parseInt(tm)}|${parseInt(td2)}|mattina`; turniData[mk]={...srcMd,operatori:[...srcMd.operatori]}; saveTurno(mk,turniData[mk]); }
     if (srcPd) { const pk=`${currentEmporio}|${parseInt(ty)}|${parseInt(tm)}|${parseInt(td2)}|pomeriggio`; turniData[pk]={...srcPd,operatori:[...srcPd.operatori]}; saveTurno(pk,turniData[pk]); }
+    if (srcSd) { const sk=`${currentEmporio}|${parseInt(ty)}|${parseInt(tm)}|${parseInt(td2)}|serale`; turniData[sk]={...srcSd,operatori:[...srcSd.operatori]}; saveTurno(sk,turniData[sk]); }
   });
   closeModal('modal-copia');
   showToast(`✓ Turno copiato su ${selected.length} giorni`,'ok');
@@ -1511,6 +1654,9 @@ function renderOperatoriView() {
     <p style="font-size:13px;color:#64748b;margin-bottom:16px">
       Definisci il turno predefinito per ogni operatore. Verrà applicato ai giorni tramite il bottone ⚡ Predefiniti nella vista Giorni.
     </p>
+    <div style="margin-bottom:12px">
+      <button class="btn-s" onclick="mostraRiepilogoOre()">📊 Riepilogo ore mese</button>
+    </div>
     <div style="margin-bottom:16px">
       <select id="filtro-emp-turni" onchange="caricaOperatoriEmporio(this.value)" class="f-sel">
         <option value="">Emporio corrente</option>
@@ -1579,6 +1725,120 @@ if (typeof isAdmin === 'function' && !isAdmin()) {
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){closeModal('modal-add');closeModal('modal-ass');closeModal('modal-copia');}
 });
+
+// ── FASCIA SERALE ────────────────────────────────────────────────────────────
+function aggiungiSerale(data) {
+  const div = document.getElementById('serale-' + data);
+  const btn = document.getElementById('btn-serale-' + data);
+  if (div) div.style.display = 'block';
+  if (btn) btn.style.display = 'none';
+  // Inizializza turnoData per la fascia serale
+  const key = dateToTurnoKey(data, 'serale');
+  if (!turniData[key]) { turniData[key] = {aperto:true, operatori:[]}; saveTurno(key, turniData[key]); }
+}
+function rimuoviSerale(data) {
+  const div = document.getElementById('serale-' + data);
+  const btn = document.getElementById('btn-serale-' + data);
+  if (div) div.style.display = 'none';
+  if (btn) btn.style.display = 'flex';
+}
+
+// ── CALCOLO ORE OPERATORI ────────────────────────────────────────────────────
+const DEC_MIN = { 0: 0, 15: 0.25, 30: 0.50, 45: 0.75 };
+
+function arrotondaOre(minuti) {
+  const ore = Math.floor(minuti / 60);
+  const min = minuti % 60;
+  const minArr = Math.round(min / 15) * 15;
+  const bonus = minArr === 60 ? 1 : 0;
+  return ore + bonus + DEC_MIN[minArr === 60 ? 0 : minArr];
+}
+
+function toggleOrarioOp(sid, ds, fascia) {
+  const div = document.getElementById(`orario-${sid}-${ds}-${fascia}`);
+  if (div) div.style.display = div.style.display === 'none' ? 'block' : 'none';
+}
+
+function mostraOreOp(sid, ds, fascia, ore) {
+  const el = document.getElementById(`ore-${sid}-${ds}-${fascia}`);
+  if (el) el.textContent = ore.toFixed(2) + 'h';
+}
+
+function calcolaOreOp(sid, idx, key, ds, fascia) {
+  const inizio = document.getElementById(`inizio-${sid}-${ds}-${fascia}`)?.value;
+  const fine   = document.getElementById(`fine-${sid}-${ds}-${fascia}`)?.value;
+
+  const _applica = (ap, ch) => {
+    if (!ap || !ch) return;
+    const [hI,mI] = ap.split(':').map(Number);
+    const [hF,mF] = ch.split(':').map(Number);
+    const min = (hF*60+mF)-(hI*60+mI);
+    if (min <= 0) return;
+    let ore = arrotondaOre(min);
+    const op = turniData[key]?.operatori[idx];
+    if (op?.ruolo === 'dipendente') ore += 0.25;
+    mostraOreOp(sid, ds, fascia, ore);
+    if (op) { op.oremanuali = ore; saveTurno(key, turniData[key]); }
+  };
+
+  if (inizio && fine) { _applica(inizio, fine); return; }
+  // fallback: orario del turno
+  const ap = dayHoursData[`${ds}_${fascia}_apertura`] ||
+    (fascia==='serale'?'20:00':fascia==='mattina'?storeHoursData.mat_open||'09:15':storeHoursData.pom_open||'15:00');
+  const ch = dayHoursData[`${ds}_${fascia}_chiusura`] ||
+    (fascia==='serale'?'22:30':fascia==='mattina'?storeHoursData.mat_close||'13:00':storeHoursData.pom_close||'19:00');
+  _applica(ap, ch);
+}
+
+function resetOrarioOp(sid, idx, key, ds, fascia) {
+  const inizio = document.getElementById(`inizio-${sid}-${ds}-${fascia}`);
+  const fine   = document.getElementById(`fine-${sid}-${ds}-${fascia}`);
+  if (inizio) inizio.value = '';
+  if (fine)   fine.value   = '';
+  const op = turniData[key]?.operatori[idx];
+  if (op) { op.oremanuali = null; saveTurno(key, turniData[key]); mostraOreOp(sid,ds,fascia,0); }
+}
+
+// ── RIEPILOGO ORE MENSILE ────────────────────────────────────────────────────
+function mostraRiepilogoOre() {
+  const matH = calcShiftHours('mattina');
+  const pomH = calcShiftHours('pomeriggio');
+  const riepilogo = {};
+  Object.entries(turniData).forEach(([key, td]) => {
+    if (!td.aperto) return;
+    const parts = key.split('|');
+    if (parseInt(parts[1]) !== currentAnno || parseInt(parts[2]) !== currentMese+1) return;
+    const fascia = parts[4];
+    const defOre = fascia==='mattina'?matH:fascia==='pomeriggio'?pomH:2.5;
+    (td.operatori||[]).forEach(o => {
+      if (!riepilogo[o.nome]) riepilogo[o.nome]={nome:o.nome,ruolo:o.ruolo||'',totale:0,mattina:0,pomeriggio:0,serale:0};
+      const ore = o.oremanuali!=null?o.oremanuali:defOre;
+      riepilogo[o.nome][fascia] = (riepilogo[o.nome][fascia]||0)+ore;
+      riepilogo[o.nome].totale += ore;
+    });
+  });
+  const fmt = n => n>0?n.toFixed(2)+'h':'—';
+  const rows = Object.values(riepilogo).sort((a,b)=>b.totale-a.totale);
+  const rowsHtml = rows.map(r=>`<tr>
+    <td style="font-weight:700;padding:5px 8px">${r.nome}</td>
+    <td style="text-align:center;padding:5px 8px;color:#F59E0B">${fmt(r.mattina)}</td>
+    <td style="text-align:center;padding:5px 8px;color:#6366F1">${fmt(r.pomeriggio)}</td>
+    <td style="text-align:center;padding:5px 8px;color:#6366F1;opacity:.7">${fmt(r.serale)}</td>
+    <td style="text-align:center;padding:5px 8px;font-weight:900;color:#B5453A">${fmt(r.totale)}</td>
+  </tr>`).join('');
+  document.getElementById('modal-add-title').textContent=`Riepilogo Ore — ${MESI[currentMese]} ${currentAnno}`;
+  document.getElementById('modal-add-list').innerHTML=`<div class="tscroll"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:#94a3b8;font-size:10px;text-transform:uppercase">
+      <th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e2e8f0">Operatore</th>
+      <th style="padding:4px 8px;border-bottom:1px solid #e2e8f0">Mattina</th>
+      <th style="padding:4px 8px;border-bottom:1px solid #e2e8f0">Pomeriggio</th>
+      <th style="padding:4px 8px;border-bottom:1px solid #e2e8f0">Serale</th>
+      <th style="padding:4px 8px;border-bottom:1px solid #e2e8f0">Totale</th>
+    </tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table></div>`;
+  document.getElementById('modal-add').classList.add('show');
+}
 
 // ── ORE ASSENZA ─────────────────────────────────────────────────────────────
 
