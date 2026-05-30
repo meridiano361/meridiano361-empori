@@ -370,6 +370,99 @@ input[type="time"]{font-size:15px!important}
   .input-ore { width: 70px; }
   .ore-valore { min-width: 70px; }
 }
+
+/* === CALENDARIO MENSILE — STATO FASCIA === */
+.date-cell { position: relative; }
+
+.fascia-mattina.aperta,
+.fascia-pomeriggio.aperta {
+  background: rgba(22, 163, 74, 0.08) !important;
+  border-left: 3px solid #16A34A !important;
+}
+.fascia-mattina.chiusa,
+.fascia-pomeriggio.chiusa {
+  background: rgba(181, 69, 58, 0.08) !important;
+  border-left: 3px solid #B5453A !important;
+}
+.fascia-stato-icon {
+  font-size: 14px;
+  margin-right: 4px;
+  font-weight: 800;
+}
+.fascia-mattina.aperta .fascia-stato-icon { color: #16A34A; }
+.fascia-mattina.chiusa .fascia-stato-icon { color: #B5453A; }
+.fascia-pomeriggio.aperta .fascia-stato-icon { color: #16A34A; }
+.fascia-pomeriggio.chiusa .fascia-stato-icon { color: #B5453A; }
+
+/* === CHIP OPERATORI CALENDARIO === */
+.chip-op-calendario {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin: 2px;
+  white-space: nowrap;
+}
+.chip-op-calendario::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #94a3b8;
+  flex-shrink: 0;
+}
+.fascia-mattina .chip-op-calendario::before { background: #F59E0B; }
+.fascia-pomeriggio .chip-op-calendario::before { background: #6366F1; }
+
+/* === RIGA GIORNO STATO === */
+tr.cella-giorno.tutto-aperto { background: rgba(22, 163, 74, 0.05); }
+tr.cella-giorno.parzialmente-aperto { background: rgba(245, 158, 11, 0.06); }
+tr.cella-giorno.tutto-chiuso { background: rgba(181, 69, 58, 0.06); }
+tr.cella-giorno.festivo { background: #fff8f8 !important; }
+
+.cella-stato-indicator {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 13px;
+  line-height: 1;
+}
+.cella-stato-indicator.aperto::after  { content: '●'; color: #16A34A; }
+.cella-stato-indicator.chiuso::after  { content: '●'; color: #B5453A; }
+.cella-stato-indicator.parziale::after { content: '●'; color: #D97706; }
+
+/* === LEGENDA CALENDARIO === */
+.calendario-legenda {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+  margin-top: 4px;
+}
+.legenda-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+.legenda-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 </style>
 </head>
 <body class="turni-page">
@@ -693,6 +786,17 @@ function calcShiftHours(shift) {
 }
 
 // ── RENDER MESE ────────────────────────────────────────────────────────────
+function getStatoGiorno(mD, pD) {
+  if (mD.aperto && pD.aperto) return 'tutto-aperto';
+  if (!mD.aperto && !pD.aperto) return 'tutto-chiuso';
+  return 'parzialmente-aperto';
+}
+function getIndicatoreStato(stato) {
+  if (stato === 'tutto-aperto') return 'aperto';
+  if (stato === 'tutto-chiuso') return 'chiuso';
+  return 'parziale';
+}
+
 function renderMonth() {
   const days = new Date(currentAnno, currentMese+1, 0).getDate();
   let rows = [];
@@ -707,24 +811,34 @@ function renderMonth() {
     const dayAssenze = Object.entries(assenzeData).filter(([k])=>k.startsWith(dayKey+'|')).map(([k,v])=>({nome:k.split('|').slice(4).join('|'),tipo:getAssenzaTipo(v),ore:getAssenzaOre(v)}));
     const note = noteData[dayKey]||'';
 
-    const renderOps = (key, td) => {
+    const statoGiorno = getStatoGiorno(mD, pD);
+    const indicatore = getIndicatoreStato(statoGiorno);
+
+    const renderOps = (key, td, fasciaLabel) => {
       if (!td.aperto) return '';
       return (td.operatori||[]).map((o,i)=>`
-        <span class="op-chip ${o.ruolo==='dipendente'?'c-dip':o.ruolo==='serviziocivile'?'c-scu':'c-vol'}">
+        <span class="chip-op-calendario">
           ${o.nome.split(' ')[0]}
           ${o.oremanuali!=null?`<input class="ore-inp" value="${o.oremanuali}" onchange="setOre('${key}',${i},this.value)" onclick="event.stopPropagation()" title="Ore manuali">`:''}
           <i class="fas fa-times rm" onclick="removeOp('${key}',${i})"></i>
         </span>`).join('')
-        +`<span class="op-add" onclick="openAddModal('${key}','${td===mD?'Mattina':'Pomeriggio'} ${d} ${MESISHORT[currentMese]}')"><i class="fas fa-plus"></i> Aggiungi</span>`;
+        +`<span class="op-add" onclick="openAddModal('${key}','${fasciaLabel} ${d} ${MESISHORT[currentMese]}')"><i class="fas fa-plus"></i> Aggiungi</span>`;
     };
 
     rows.push(`
-      <tr class="${isSun?'festivo':''}">
-        <td class="date-cell"><span class="dn">${GIORNI[dow]}</span><span style="font-size:16px;margin-left:6px">${d}</span></td>
-        <td><span class="st-btn ${mD.aperto?'st-open':'st-closed'}" onclick="toggleShift('${mk}')">${mD.aperto?'APERTO':'CHIUSO'}</span></td>
-        <td><div class="op-list">${renderOps(mk,mD)}</div></td>
-        <td><span class="st-btn ${pD.aperto?'st-open':'st-closed'}" onclick="toggleShift('${pk}')">${pD.aperto?'APERTO':'CHIUSO'}</span></td>
-        <td><div class="op-list">${renderOps(pk,pD)}</div></td>
+      <tr class="cella-giorno ${statoGiorno}${isSun?' festivo':''}">
+        <td class="date-cell">
+          <span class="cella-stato-indicator ${indicatore}"></span>
+          <span class="dn">${GIORNI[dow]}</span><span style="font-size:16px;margin-left:6px">${d}</span>
+        </td>
+        <td class="fascia-mattina ${mD.aperto?'aperta':'chiusa'}" style="cursor:pointer;white-space:nowrap" onclick="toggleShift('${mk}')">
+          <span class="fascia-stato-icon">${mD.aperto?'✓':'✗'}</span>
+        </td>
+        <td class="fascia-mattina ${mD.aperto?'aperta':'chiusa'}"><div class="op-list">${renderOps(mk,mD,'Mattina')}</div></td>
+        <td class="fascia-pomeriggio ${pD.aperto?'aperta':'chiusa'}" style="cursor:pointer;white-space:nowrap" onclick="toggleShift('${pk}')">
+          <span class="fascia-stato-icon">${pD.aperto?'✓':'✗'}</span>
+        </td>
+        <td class="fascia-pomeriggio ${pD.aperto?'aperta':'chiusa'}"><div class="op-list">${renderOps(pk,pD,'Pomeriggio')}</div></td>
         <td>
           <div style="display:flex;flex-direction:column;gap:2px">
             ${dayAssenze.map(a=>`<span class="ass-badge ass-${a.tipo}" onclick="removeAssenza('${dayKey}','${a.nome}','${a.tipo}')">${a.tipo.charAt(0).toUpperCase()+a.tipo.slice(1)} – ${a.nome.split(' ')[0]} <i class="fas fa-times" style="font-size:8px"></i></span>`).join('')}
@@ -734,9 +848,15 @@ function renderMonth() {
         <td class="note-cell"><textarea placeholder="..." onblur="saveNote('${dayKey}',this.value)">${note}</textarea></td>
       </tr>`);
   }
+  const legenda = `<div class="calendario-legenda">
+    <div class="legenda-item"><span class="legenda-dot" style="background:#16A34A"></span><span>Aperto</span></div>
+    <div class="legenda-item"><span class="legenda-dot" style="background:#D97706"></span><span>Parziale</span></div>
+    <div class="legenda-item"><span class="legenda-dot" style="background:#B5453A"></span><span>Chiuso</span></div>
+    <div class="legenda-item"><span class="chip-op-calendario" style="pointer-events:none">Nome operatore</span></div>
+  </div>`;
   return `<div class="card-r"><div class="tscroll"><table class="cal-table">
     <thead><tr><th>Data</th><th>Mat.</th><th>Mattina Operatori</th><th>Pom.</th><th>Pomeriggio Operatori</th><th>Assenze</th><th>Note</th></tr></thead>
-    <tbody>${rows.join('')}</tbody></table></div></div>`;
+    <tbody>${rows.join('')}</tbody></table></div>${legenda}</div>`;
 }
 
 // ── RENDER ORE MESE ────────────────────────────────────────────────────────
