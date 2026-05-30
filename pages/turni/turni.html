@@ -623,6 +623,87 @@ tr.riga-giorno.festivo .giorno-numero { color: #B5453A; }
   .cal-table.show-pom .col-pom { display: table-cell !important; }
   .btn-pom-toggle              { display: inline-flex; }
 }
+
+/* === STRUTTURA MACRO-SEZIONI === */
+.turni-macro-nav {
+  display: flex; gap: 0; padding: 16px 20px 0;
+  border-bottom: 2px solid #e2e8f0; background: #fff;
+}
+.macro-tab {
+  padding: 12px 24px; font-size: 15px; font-weight: 700;
+  border: none; background: none; color: #94a3b8; cursor: pointer;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: all .15s; min-height: auto; font-family: inherit;
+}
+.macro-tab.attivo { color: #1e293b; border-bottom-color: #B5453A; }
+.macro-tab:hover:not(.attivo) { color: #475569; }
+.macro-sezione { padding: 20px; }
+
+/* === ORARI SUB-TABS === */
+.orari-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.orari-tabs::-webkit-scrollbar { display: none; }
+.orari-tab {
+  padding: 9px 18px; font-size: 14px; font-weight: 600;
+  border: none; background: none; color: #94a3b8; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  min-height: auto; font-family: inherit; white-space: nowrap; transition: color .12s;
+}
+.orari-tab.attivo { color: #1e293b; border-bottom-color: #B5453A; }
+.orari-tab:hover:not(.attivo) { color: #475569; }
+
+/* === GESTIONE TURNI HEADER === */
+.turni-cal-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.turni-mese-titolo {
+  font-size: 20px; font-weight: 800; color: #1e293b;
+  min-width: 160px; text-align: center;
+}
+.turni-cal-header > .btn-nav-mese {
+  background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px;
+  width: 36px; height: 36px; font-size: 16px; cursor: pointer; min-height: 36px;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.turni-cal-header > .btn-nav-mese:hover { background: #1e293b; color: #fff; }
+.toggle-serale-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 600; color: #475569; cursor: pointer;
+  margin-left: auto; padding: 6px 12px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+}
+.toggle-serale-label input { accent-color: #1e293b; min-height: auto; width: 16px; height: 16px; }
+
+/* === GESTIONE TURNI SUB-TABS === */
+.turni-sub-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.turni-sub-tabs::-webkit-scrollbar { display: none; }
+.sub-tab {
+  padding: 9px 18px; font-size: 14px; font-weight: 600;
+  border: none; background: none; color: #94a3b8; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  min-height: auto; font-family: inherit; white-space: nowrap; transition: color .12s;
+}
+.sub-tab.attivo { color: #1e293b; border-bottom-color: #B5453A; }
+.sub-tab:hover:not(.attivo) { color: #475569; }
+
+@media (max-width: 768px) {
+  .turni-macro-nav { padding: 12px 12px 0; }
+  .macro-tab { padding: 10px 14px; font-size: 14px; }
+  .macro-sezione { padding: 12px; }
+  .turni-cal-header { gap: 8px; }
+  .turni-mese-titolo { font-size: 17px; min-width: 130px; }
+  .toggle-serale-label { margin-left: 0; width: 100%; justify-content: center; }
+  .sub-tab { padding: 8px 12px; font-size: 13px; }
+  .orari-tab { padding: 8px 12px; font-size: 13px; }
+}
 </style>
 </head>
 <body class="turni-page">
@@ -636,33 +717,88 @@ tr.riga-giorno.festivo .giorno-numero { color: #B5453A; }
   </div>
 
   <div id="step-turni" class="hidden">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <button class="btn-s" onclick="backToEmp()"><i class="fas fa-arrow-left"></i></button>
-      <h2 style="font-size:18px;font-weight:900;color:#1e293b" id="emp-title"></h2>
+
+    <!-- Topbar: back + emporio selector -->
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+      <button class="btn-s" onclick="backToEmp()" style="min-height:36px;padding:6px 12px;flex-shrink:0"><i class="fas fa-arrow-left"></i></button>
+      <label style="font-size:14px;font-weight:600;color:#64748b;white-space:nowrap">Emporio:</label>
+      <select id="emporio-corrente" onchange="cambiaEmporio(this.value)"
+              style="font-size:14px;font-weight:700;padding:6px 12px;border:1px solid #e2e8f0;border-radius:6px;color:#1e293b;background:#fff;flex:1;max-width:220px">
+        <option value="Casalmaggiore">Casalmaggiore</option>
+        <option value="Cremona">Cremona</option>
+        <option value="Reggio Emilia">Reggio Emilia</option>
+        <option value="Viadana">Viadana</option>
+      </select>
     </div>
-    <div class="store-hrs" id="store-hrs-display"></div>
-    <div class="view-tabs">
-      <button class="v-tab on" data-view="mese" onclick="setView('mese')"><i class="fas fa-table"></i> Mensile</button>
-      <button class="v-tab" data-view="ore" onclick="setView('ore')"><i class="fas fa-clock"></i> Ore</button>
-      <button class="v-tab" data-view="anno" onclick="setView('anno')"><i class="fas fa-calendar"></i> Annuale</button>
-      <button class="v-tab" data-view="giornaliero" onclick="setView('giornaliero')"><i class="fas fa-calendar-day"></i> Giorni</button>
-      <button class="v-tab" data-view="operatori" onclick="setView('operatori')"><i class="fas fa-users"></i> Operatori</button>
+
+    <!-- Macro-navigazione -->
+    <div class="turni-macro-nav">
+      <button class="macro-tab attivo" onclick="mostraSezione('orari')" id="tab-orari">🏪 Orari Negozio</button>
+      <button class="macro-tab" onclick="mostraSezione('turni')" id="tab-turni-macro">👥 Gestione Turni</button>
     </div>
-    <div class="month-bar" id="month-bar-top"></div>
-    <div class="filters">
-      <div class="f-grp">
-        <span class="f-lbl">Anno</span>
-        <select class="f-sel" id="filter-anno" onchange="reload()">
+
+    <!-- SEZIONE 1: ORARI NEGOZIO -->
+    <div id="sezione-orari" class="macro-sezione">
+      <div class="store-hrs" id="store-hrs-display" style="margin-bottom:16px"></div>
+      <div class="orari-tabs">
+        <button class="orari-tab attivo" onclick="mostraOrari('annuale')"     id="otab-annuale">📅 Annuale</button>
+        <button class="orari-tab"        onclick="mostraOrari('mensile')"     id="otab-mensile">📆 Mensile</button>
+        <button class="orari-tab"        onclick="mostraOrari('settimanale')" id="otab-settimanale">🗓 Settimanale</button>
+        <button class="orari-tab"        onclick="mostraOrari('giornaliero')" id="otab-giornaliero">📋 Giornaliero</button>
+      </div>
+      <div id="orari-annuale"></div>
+      <div id="orari-mensile" style="display:none"></div>
+      <div id="orari-settimanale" style="display:none">
+        <div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px"><i class="fas fa-tools" style="font-size:20px;display:block;margin-bottom:8px"></i>Vista settimanale disponibile prossimamente</div>
+      </div>
+      <div id="orari-giornaliero" style="display:none">
+        <div style="padding:20px">
+          <p style="font-size:14px;color:#64748b;margin-bottom:14px">Configura gli orari specifici giorno per giorno.</p>
+          <a href="orari_emporio.html" class="btn-p" style="text-decoration:none;display:inline-flex;gap:8px"><i class="fas fa-external-link-alt"></i> Apri Gestione Orari</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEZIONE 2: GESTIONE TURNI -->
+    <div id="sezione-turni" class="macro-sezione" style="display:none">
+
+      <!-- Header mese/anno + toggle serale -->
+      <div class="turni-cal-header">
+        <button class="btn-nav-mese" onclick="mesePrecedente()">◀</button>
+        <span class="turni-mese-titolo" id="turni-mese-label">Caricamento…</span>
+        <button class="btn-nav-mese" onclick="meseSuccessivo()">▶</button>
+        <select class="f-sel" id="filter-anno" onchange="reload()"
+                style="font-size:13px;padding:6px 10px;margin-left:4px">
           <option value="2025">2025</option>
           <option value="2026" selected>2026</option>
           <option value="2027">2027</option>
         </select>
+        <label class="toggle-serale-label">
+          <input type="checkbox" id="mostra-serale" onchange="toggleColonnaSerale(this.checked)">
+          <span>Mostra serale</span>
+        </label>
       </div>
-      <a href="orari_emporio.html" class="btn-s" style="text-decoration:none"><i class="fas fa-calendar-alt"></i> Gestione Orari</a>
-      <button class="btn-s" onclick="showOperatorsModal()"><i class="fas fa-users"></i> Operatori</button>
+
+      <!-- Barra mesi -->
+      <div class="month-bar" id="month-bar-top"></div>
+
+      <!-- Sub-tab -->
+      <div class="turni-sub-tabs">
+        <button class="sub-tab attivo" onclick="mostraSubSezione('calendario')" id="subtab-calendario">📅 Calendario</button>
+        <button class="sub-tab"        onclick="mostraSubSezione('giorni')"     id="subtab-giorni">📋 Giorni</button>
+        <button class="sub-tab"        onclick="mostraSubSezione('operatori')"  id="subtab-operatori">👤 Operatori</button>
+        <button class="sub-tab"        onclick="mostraSubSezione('assenze')"    id="subtab-assenze">🏖 Assenze</button>
+      </div>
+
+      <!-- Contenuto sub-sezioni -->
+      <div id="sub-calendario"></div>
+      <div id="sub-giorni"     style="display:none"></div>
+      <div id="sub-operatori"  style="display:none"></div>
+      <div id="sub-assenze"    style="display:none"></div>
+
+      <div class="month-bar" id="month-bar-bottom" style="margin-top:16px"></div>
     </div>
-    <div id="view-content"></div>
-    <div class="month-bar" id="month-bar-bottom" style="margin-top:16px"></div>
+
   </div>
 </div>
 
@@ -801,6 +937,8 @@ let currentEmporio = null;
 let currentMese = new Date().getMonth();
 let currentAnno = new Date().getFullYear();
 let currentView = 'mese';
+let currentSubSezione = 'calendario';
+let mostraSeraleGlobale = false;
 let turniData = {}, assenzeData = {}, noteData = {};
 let storeHoursData = {...DEFAULTHOURS};
 let yearData = {}, yearAssenzeData = {}, yearNoteData = {};
@@ -824,12 +962,14 @@ function renderEmpGrid() {
       </div>`).join('');
 }
 
-function selectEmporio(e) {
+async function selectEmporio(e) {
   currentEmporio = e;
   document.getElementById('step-emp').classList.add('hidden');
   document.getElementById('step-turni').classList.remove('hidden');
-  document.getElementById('emp-title').textContent = e;
-  reload();
+  const sel = document.getElementById('emporio-corrente');
+  if (sel) sel.value = e;
+  await reload();
+  mostraOrari('annuale');
 }
 
 function backToEmp() {
@@ -838,23 +978,163 @@ function backToEmp() {
   currentEmporio = null;
 }
 
-// ── VIEW ───────────────────────────────────────────────────────────────────
-function setView(v) {
-  currentView = v;
-  document.querySelectorAll('.v-tab').forEach(t => t.classList.toggle('on', t.dataset.view === v));
-  if (v === 'anno') loadYearData();
-  else render();
+// ── CAMBIO EMPORIO DA DROPDOWN ─────────────────────────────────────────────
+function cambiaEmporio(emp) {
+  currentEmporio = emp;
+  reload();
+}
+
+// ── MACRO-SEZIONI ──────────────────────────────────────────────────────────
+function mostraSezione(quale) {
+  document.getElementById('sezione-orari').style.display  = quale === 'orari'  ? 'block' : 'none';
+  document.getElementById('sezione-turni').style.display  = quale === 'turni'  ? 'block' : 'none';
+  document.getElementById('tab-orari').classList.toggle('attivo',      quale === 'orari');
+  document.getElementById('tab-turni-macro').classList.toggle('attivo', quale === 'turni');
+  if (quale === 'turni')  mostraSubSezione(currentSubSezione);
+  if (quale === 'orari')  mostraOrari('annuale');
+}
+
+// ── ORARI SUB-TABS ─────────────────────────────────────────────────────────
+async function mostraOrari(quale) {
+  ['annuale','mensile','settimanale','giornaliero'].forEach(s => {
+    const el  = document.getElementById('orari-' + s);
+    const tab = document.getElementById('otab-'  + s);
+    if (el)  el.style.display = s === quale ? '' : 'none';
+    if (tab) tab.classList.toggle('attivo', s === quale);
+  });
+  if (quale === 'annuale') {
+    const el = document.getElementById('orari-annuale');
+    if (el) {
+      el.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:22px"></i></div>';
+      await loadYearData();
+      el.innerHTML = renderYear();
+    }
+  } else if (quale === 'mensile') {
+    const el = document.getElementById('orari-mensile');
+    if (el) el.innerHTML = renderHours();
+  }
+}
+
+// ── GESTIONE TURNI SUB-SEZIONI ─────────────────────────────────────────────
+function mostraSubSezione(quale) {
+  currentSubSezione = quale;
+  ['calendario','giorni','operatori','assenze'].forEach(s => {
+    const el  = document.getElementById('sub-' + s);
+    const tab = document.getElementById('subtab-' + s);
+    if (el)  el.style.display = s === quale ? 'block' : 'none';
+    if (tab) tab.classList.toggle('attivo', s === quale);
+  });
+  if (quale === 'calendario') {
+    const el = document.getElementById('sub-calendario');
+    if (el) {
+      el.innerHTML = renderMonth();
+      const chk = document.getElementById('mostra-serale');
+      toggleColonnaSerale(chk ? chk.checked : mostraSeraleGlobale);
+    }
+  } else if (quale === 'giorni') {
+    const el = document.getElementById('sub-giorni');
+    if (el) el.innerHTML = renderGiornaliero();
+  } else if (quale === 'operatori') {
+    const el = document.getElementById('sub-operatori');
+    if (el) { el.innerHTML = renderOperatoriView(); caricaOperatoriEmporio(''); }
+  } else if (quale === 'assenze') {
+    renderAssenze();
+  }
+}
+
+// ── NAVIGAZIONE MESE ───────────────────────────────────────────────────────
+function mesePrecedente() {
+  if (currentMese === 0) {
+    currentMese = 11; currentAnno--;
+    const sel = document.getElementById('filter-anno'); if (sel) sel.value = currentAnno;
+  } else { currentMese--; }
+  reload();
+}
+function meseSuccessivo() {
+  if (currentMese === 11) {
+    currentMese = 0; currentAnno++;
+    const sel = document.getElementById('filter-anno'); if (sel) sel.value = currentAnno;
+  } else { currentMese++; }
+  reload();
+}
+
+function renderMonthLabel() {
+  const el = document.getElementById('turni-mese-label');
+  if (el) el.textContent = `${MESI[currentMese]} ${currentAnno}`;
+}
+
+// ── TOGGLE COLONNA SERALE ──────────────────────────────────────────────────
+function toggleColonnaSerale(mostra) {
+  mostraSeraleGlobale = !!mostra;
+  document.querySelectorAll('.col-serale, .header-fascia.serale').forEach(el => {
+    el.style.display = mostra ? '' : 'none';
+  });
+  localStorage.setItem('turni_mostra_serale', mostra ? 'true' : 'false');
+}
+
+// ── ASSENZE VIEW ───────────────────────────────────────────────────────────
+function renderAssenze() {
+  const days = new Date(currentAnno, currentMese+1, 0).getDate();
+  const righe = [];
+  for (let d=1; d<=days; d++) {
+    const dayKey = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}`;
+    const dow = new Date(currentAnno,currentMese,d).getDay();
+    Object.entries(assenzeData).filter(([k])=>k.startsWith(dayKey+'|')).forEach(([k,v])=>{
+      const nome = k.split('|').slice(4).join('|');
+      const tipo = getAssenzaTipo(v);
+      const ore  = getAssenzaOre(v);
+      righe.push(`<tr>
+        <td style="padding:7px 10px;font-weight:700;white-space:nowrap">${d} ${GIORNI[dow]}</td>
+        <td style="padding:7px 10px">${nome}</td>
+        <td style="padding:7px 10px;text-align:center"><span class="ass-badge ass-${tipo}">${tipo}</span></td>
+        <td style="padding:7px 10px;font-family:'DM Mono';text-align:center">${ore>0?ore.toFixed(2)+'h':'—'}</td>
+        <td style="padding:7px 10px;text-align:center">
+          <button class="btn-s" style="padding:3px 8px;font-size:9px;min-height:auto"
+                  onclick="removeAssenza('${dayKey}','${nome}');renderAssenze()">
+            <i class="fas fa-times"></i>
+          </button>
+        </td>
+      </tr>`);
+    });
+  }
+  const today = new Date();
+  const defDay = today.getMonth()===currentMese&&today.getFullYear()===currentAnno?today.getDate():1;
+  const dayOpts = Array.from({length:days},(_,i)=>i+1)
+    .map(d=>`<option value="${d}"${d===defDay?' selected':''}>${d} ${MESISHORT[currentMese]}</option>`).join('');
+  const el = document.getElementById('sub-assenze');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <select id="ass-giorno-sel" class="f-sel" style="min-width:110px">${dayOpts}</select>
+      <button class="btn-p" style="padding:8px 14px;font-size:12px"
+              onclick="openAssenzaModal('${currentEmporio}|${currentAnno}|${currentMese+1}|'+document.getElementById('ass-giorno-sel').value)">
+        <i class="fas fa-plus"></i> Aggiungi assenza
+      </button>
+    </div>
+    ${righe.length
+      ? `<div class="card-r"><div class="tscroll"><table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="font-size:9px;text-transform:uppercase;color:#94a3b8;letter-spacing:.08em">
+            <th style="padding:6px 10px;text-align:left;background:#f8fafc;border-bottom:2px solid #e2e8f0">Data</th>
+            <th style="padding:6px 10px;text-align:left;background:#f8fafc;border-bottom:2px solid #e2e8f0">Operatore</th>
+            <th style="padding:6px 10px;text-align:center;background:#f8fafc;border-bottom:2px solid #e2e8f0">Tipo</th>
+            <th style="padding:6px 10px;text-align:center;background:#f8fafc;border-bottom:2px solid #e2e8f0">Ore</th>
+            <th style="padding:6px 10px;background:#f8fafc;border-bottom:2px solid #e2e8f0"></th>
+          </tr></thead>
+          <tbody>${righe.join('')}</tbody>
+        </table></div></div>`
+      : `<p style="padding:28px;text-align:center;color:#94a3b8;font-size:13px">Nessuna assenza per ${MESI[currentMese]} ${currentAnno}</p>`
+    }`;
 }
 
 function setMese(m) {
   currentMese = m;
-  renderMonthBars();
   reload();
 }
 
 function renderMonthBars() {
   ['month-bar-top','month-bar-bottom'].forEach(id => {
-    document.getElementById(id).innerHTML = MESISHORT.map((m,i) =>
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = MESISHORT.map((m,i) =>
       `<button class="m-btn ${i===currentMese?'on':''}" onclick="setMese(${i})">${m}</button>`
     ).join('');
   });
@@ -862,8 +1142,9 @@ function renderMonthBars() {
 
 // ── DATA ───────────────────────────────────────────────────────────────────
 async function reload() {
-  currentAnno = parseInt(document.getElementById('filter-anno').value);
+  currentAnno = parseInt(document.getElementById('filter-anno')?.value || currentAnno);
   renderMonthBars();
+  renderMonthLabel();
   await loadData();
   render();
 }
@@ -995,7 +1276,7 @@ function renderMonth() {
           <span class="stato-icon ${pD.aperto?'aperto':'chiuso'}">${pD.aperto?'✓':'✗'}</span>
         </td>
         <td class="col-nomi col-pom col-pomeriggio"><div class="op-list">${renderOps(pk,pD,'Pomeriggio')}</div></td>
-        <td class="col-stato" onclick="toggleShift('${sk}')">
+        <td class="col-stato col-serale" onclick="toggleShift('${sk}')">
           <span class="stato-icon ${sD.aperto?'aperto':'chiuso'}">${sD.aperto?'✓':'✗'}</span>
         </td>
         <td class="col-nomi col-serale"><div class="op-list">${renderOps(sk,sD,'Serale')}</div></td>
@@ -1033,8 +1314,8 @@ function renderMonth() {
         <th class="col-nomi">Op.</th>
         <th class="col-stato col-pom">St.</th>
         <th class="col-nomi col-pom">Op.</th>
-        <th class="col-stato">St.</th>
-        <th class="col-nomi">Op.</th>
+        <th class="col-stato col-serale">St.</th>
+        <th class="col-nomi col-serale">Op.</th>
       </tr>
     </thead>
     <tbody>${rows.join('')}</tbody></table></div>${legenda}</div>`;
@@ -1093,7 +1374,6 @@ function renderHours() {
 // ── RENDER ANNO ────────────────────────────────────────────────────────────
 async function loadYearData() {
   if (!db) return;
-  document.getElementById('view-content').innerHTML = `<div style="padding:40px;text-align:center;color:#94a3b8"><i class="fas fa-spinner fa-spin" style="font-size:24px"></i><div style="margin-top:8px;font-size:13px">Caricamento anno ${currentAnno}…</div></div>`;
   yearData={}; yearAssenzeData={}; yearNoteData={};
   try {
     const {data,error} = await db.from('turni').select('*').eq('emporio',currentEmporio).eq('anno',currentAnno);
@@ -1106,8 +1386,7 @@ async function loadYearData() {
       const dayKey=`${r.emporio}|${r.anno}|${r.mese}|${r.giorno}`;
       if(r.note) yearNoteData[dayKey]=r.note;
     });
-  } catch(e){showToast('Errore: '+e.message,'err');return;}
-  document.getElementById('view-content').innerHTML = renderYear();
+  } catch(e){showToast('Errore: '+e.message,'err');}
 }
 
 function renderYear() {
@@ -1162,12 +1441,18 @@ function renderYear() {
 // ── MASTER RENDER ──────────────────────────────────────────────────────────
 function render() {
   renderStoreHoursDisplay();
-  const vc=document.getElementById('view-content');
-  if(currentView==='mese') vc.innerHTML=renderMonth();
-  else if(currentView==='ore') vc.innerHTML=renderHours();
-  else if(currentView==='giornaliero') vc.innerHTML=renderGiornaliero();
-  else if(currentView==='operatori') { vc.innerHTML=renderOperatoriView(); caricaOperatoriEmporio(''); }
-  else loadYearData();
+  renderMonthLabel();
+  const sezTurni = document.getElementById('sezione-turni');
+  const sezOrari = document.getElementById('sezione-orari');
+  if (sezTurni && sezTurni.style.display !== 'none') {
+    mostraSubSezione(currentSubSezione);
+  } else if (sezOrari && sezOrari.style.display !== 'none') {
+    const activeOtab = document.querySelector('.orari-tab.attivo')?.id?.replace('otab-','') || '';
+    if (activeOtab === 'mensile') {
+      const el = document.getElementById('orari-mensile');
+      if (el) el.innerHTML = renderHours();
+    }
+  }
 }
 
 // ── AZIONI ─────────────────────────────────────────────────────────────────
@@ -1777,11 +2062,13 @@ async function applicaTurnoDefault(data) {
 // ── INIT ───────────────────────────────────────────────────────────────────
 loadPersonaleLocale();
 renderEmpGrid();
+// Ripristina preferenza colonna serale
+mostraSeraleGlobale = localStorage.getItem('turni_mostra_serale') === 'true';
 if (typeof isAdmin === 'function' && !isAdmin()) {
   const _emp = typeof getEmporioLoggato === 'function' ? getEmporioLoggato() : null;
   if (_emp) {
     selectEmporio(_emp);
-    const backBtn = document.querySelector('#step-turni .btn-s[onclick="backToEmp()"]');
+    const backBtn = document.querySelector('[onclick="backToEmp()"]');
     if (backBtn) backBtn.style.display = 'none';
   }
 }
