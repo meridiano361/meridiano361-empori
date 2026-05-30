@@ -568,6 +568,61 @@ tr.cella-giorno.festivo { background: #fff8f8 !important; }
   margin-left: auto;
 }
 .btn-rimuovi-serale:hover { color: #fff; }
+
+/* === CALENDARIO MENSILE — NUOVE COLONNE === */
+.cal-table .col-giorno { width: 58px; min-width: 50px; }
+.cal-table .col-stato  { width: 32px; text-align: center !important; padding: 4px 2px !important; }
+.cal-table .col-nomi   { min-width: 95px; }
+
+.header-fascia { text-align: center !important; padding: 5px 8px !important; border-bottom: none !important; }
+.header-fascia.mattina    { color: #92400e !important; background: #fef3c7 !important; }
+.header-fascia.pomeriggio { color: #3730a3 !important; background: #ede9fe !important; }
+.header-fascia.serale     { color: #065f46 !important; background: #ccfbf1 !important; }
+
+.stato-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 11px; font-weight: 900; cursor: pointer;
+  border: 2px solid; transition: all .12s; line-height: 1;
+}
+.stato-icon.aperto { background: #dcfce7; color: #166534; border-color: #86efac; }
+.stato-icon.aperto:hover { background: #bbf7d0; }
+.stato-icon.chiuso { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.stato-icon.chiuso:hover { background: #fecaca; }
+
+.chip-nome-cal {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; border-radius: 5px;
+  padding: 2px 6px; margin: 1px; white-space: nowrap;
+  background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+}
+.col-mattina .chip-nome-cal    { background: #fef9c3; color: #92400e; border-color: #fde68a; }
+.col-pomeriggio .chip-nome-cal { background: #ede9fe; color: #3730a3; border-color: #c4b5fd; }
+.col-serale .chip-nome-cal     { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+.chip-nome-cal .rm { font-size: 9px; color: #cbd5e1; cursor: pointer; margin-left: 2px; }
+.chip-nome-cal .rm:hover { color: #ef4444; }
+.chip-nome-cal .ore-inp { width: 38px; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 3px; font-size: 10px; text-align: center; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+.giorno-numero { font-size: 16px; font-weight: 900; color: #1e293b; line-height: 1; }
+.giorno-nome   { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-top: 2px; }
+
+tr.riga-giorno.tutto-aperto        { background: rgba(22,163,74,.05); }
+tr.riga-giorno.parzialmente-aperto { background: rgba(245,158,11,.06); }
+tr.riga-giorno.tutto-chiuso        { background: rgba(181,69,58,.06); }
+tr.riga-giorno.festivo             { background: #fff8f8 !important; }
+tr.riga-giorno.festivo .giorno-numero { color: #B5453A; }
+
+.btn-pom-toggle {
+  display: none; font-size: 10px; padding: 5px 12px; margin: 6px 10px 2px;
+  border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc;
+  color: #64748b; font-weight: 700; cursor: pointer;
+  align-items: center; gap: 6px; font-family: inherit;
+}
+@media (max-width: 768px) {
+  .col-pom                     { display: none !important; }
+  .cal-table.show-pom .col-pom { display: table-cell !important; }
+  .btn-pom-toggle              { display: inline-flex; }
+}
 </style>
 </head>
 <body class="turni-page">
@@ -910,57 +965,78 @@ function renderMonth() {
     const isSun = dow===0;
     const mk = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|mattina`;
     const pk = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|pomeriggio`;
+    const sk = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|serale`;
     const mD = turniData[mk] || {aperto:!isSun, operatori:[]};
     const pD = turniData[pk] || {aperto:!isSun, operatori:[]};
+    const sD = turniData[sk] || {aperto:false, operatori:[]};
     const dayKey = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}`;
     const dayAssenze = Object.entries(assenzeData).filter(([k])=>k.startsWith(dayKey+'|')).map(([k,v])=>({nome:k.split('|').slice(4).join('|'),tipo:getAssenzaTipo(v),ore:getAssenzaOre(v)}));
     const note = noteData[dayKey]||'';
-
     const statoGiorno = getStatoGiorno(mD, pD);
-    const indicatore = getIndicatoreStato(statoGiorno);
 
     const renderOps = (key, td, fasciaLabel) => {
       if (!td.aperto) return '';
-      return (td.operatori||[]).map((o,i)=>`
-        <span class="chip-op-calendario">
-          ${o.nome.split(' ')[0]}
-          ${o.oremanuali!=null?`<input class="ore-inp" value="${o.oremanuali}" onchange="setOre('${key}',${i},this.value)" onclick="event.stopPropagation()" title="Ore manuali">`:''}
-          <i class="fas fa-times rm" onclick="removeOp('${key}',${i})"></i>
-        </span>`).join('')
-        +`<span class="op-add" onclick="openAddModal('${key}','${fasciaLabel} ${d} ${MESISHORT[currentMese]}')"><i class="fas fa-plus"></i> Aggiungi</span>`;
+      return (td.operatori||[]).map((o,i)=>
+        `<span class="chip-nome-cal">${o.nome.split(' ')[0]}${o.oremanuali!=null?`<input class="ore-inp" value="${o.oremanuali}" onchange="setOre('${key}',${i},this.value)" onclick="event.stopPropagation()" title="Ore manuali">`:''}<i class="fas fa-times rm" onclick="removeOp('${key}',${i})"></i></span>`
+      ).join('')+`<span class="op-add" onclick="openAddModal('${key}','${fasciaLabel} ${d} ${MESISHORT[currentMese]}')"><i class="fas fa-plus"></i></span>`;
     };
 
     rows.push(`
-      <tr class="cella-giorno ${statoGiorno}${isSun?' festivo':''}">
-        <td class="date-cell">
-          <span class="cella-stato-indicator ${indicatore}"></span>
-          <span class="dn">${GIORNI[dow]}</span><span style="font-size:16px;margin-left:6px">${d}</span>
+      <tr class="riga-giorno ${statoGiorno}${isSun?' festivo':''}">
+        <td class="col-giorno">
+          <div class="giorno-numero">${d}</div>
+          <div class="giorno-nome">${GIORNI[dow]}</div>
         </td>
-        <td class="fascia-mattina ${mD.aperto?'aperta':'chiusa'}" style="cursor:pointer;white-space:nowrap" onclick="toggleShift('${mk}')">
-          <span class="fascia-stato-icon">${mD.aperto?'✓':'✗'}</span>
+        <td class="col-stato" onclick="toggleShift('${mk}')">
+          <span class="stato-icon ${mD.aperto?'aperto':'chiuso'}">${mD.aperto?'✓':'✗'}</span>
         </td>
-        <td class="fascia-mattina ${mD.aperto?'aperta':'chiusa'}"><div class="op-list">${renderOps(mk,mD,'Mattina')}</div></td>
-        <td class="fascia-pomeriggio ${pD.aperto?'aperta':'chiusa'}" style="cursor:pointer;white-space:nowrap" onclick="toggleShift('${pk}')">
-          <span class="fascia-stato-icon">${pD.aperto?'✓':'✗'}</span>
+        <td class="col-nomi col-mattina"><div class="op-list">${renderOps(mk,mD,'Mattina')}</div></td>
+        <td class="col-stato col-pom" onclick="toggleShift('${pk}')">
+          <span class="stato-icon ${pD.aperto?'aperto':'chiuso'}">${pD.aperto?'✓':'✗'}</span>
         </td>
-        <td class="fascia-pomeriggio ${pD.aperto?'aperta':'chiusa'}"><div class="op-list">${renderOps(pk,pD,'Pomeriggio')}</div></td>
+        <td class="col-nomi col-pom col-pomeriggio"><div class="op-list">${renderOps(pk,pD,'Pomeriggio')}</div></td>
+        <td class="col-stato" onclick="toggleShift('${sk}')">
+          <span class="stato-icon ${sD.aperto?'aperto':'chiuso'}">${sD.aperto?'✓':'✗'}</span>
+        </td>
+        <td class="col-nomi col-serale"><div class="op-list">${renderOps(sk,sD,'Serale')}</div></td>
         <td>
           <div style="display:flex;flex-direction:column;gap:2px">
             ${dayAssenze.map(a=>`<span class="ass-badge ass-${a.tipo}" onclick="removeAssenza('${dayKey}','${a.nome}','${a.tipo}')">${a.tipo.charAt(0).toUpperCase()+a.tipo.slice(1)} – ${a.nome.split(' ')[0]} <i class="fas fa-times" style="font-size:8px"></i></span>`).join('')}
-            <span class="op-add" onclick="openAssenzaModal('${dayKey}')"><i class="fas fa-plus"></i> Assenza</span>
+            <span class="op-add" onclick="openAssenzaModal('${dayKey}')"><i class="fas fa-plus"></i> Ass.</span>
           </div>
         </td>
         <td class="note-cell"><textarea placeholder="..." onblur="saveNote('${dayKey}',this.value)">${note}</textarea></td>
       </tr>`);
   }
   const legenda = `<div class="calendario-legenda">
-    <div class="legenda-item"><span class="legenda-dot" style="background:#16A34A"></span><span>Aperto</span></div>
+    <div class="legenda-item"><span class="stato-icon aperto" style="pointer-events:none;font-size:10px;width:18px;height:18px">✓</span><span>Aperto</span></div>
+    <div class="legenda-item"><span class="stato-icon chiuso" style="pointer-events:none;font-size:10px;width:18px;height:18px">✗</span><span>Chiuso</span></div>
     <div class="legenda-item"><span class="legenda-dot" style="background:#D97706"></span><span>Parziale</span></div>
-    <div class="legenda-item"><span class="legenda-dot" style="background:#B5453A"></span><span>Chiuso</span></div>
-    <div class="legenda-item"><span class="chip-op-calendario" style="pointer-events:none">Nome operatore</span></div>
+    <div class="legenda-item"><span class="chip-nome-cal" style="background:#fef9c3;color:#92400e;border-color:#fde68a;pointer-events:none">Mat.</span></div>
+    <div class="legenda-item"><span class="chip-nome-cal" style="background:#ede9fe;color:#3730a3;border-color:#c4b5fd;pointer-events:none">Pom.</span></div>
+    <div class="legenda-item"><span class="chip-nome-cal" style="background:#d1fae5;color:#065f46;border-color:#a7f3d0;pointer-events:none">Ser.</span></div>
   </div>`;
-  return `<div class="card-r"><div class="tscroll"><table class="cal-table">
-    <thead><tr><th>Data</th><th>Mattina</th><th>Mattina Operatori</th><th>Pomeriggio</th><th>Pomeriggio Operatori</th><th>Assenze</th><th>Note</th></tr></thead>
+  return `<div class="card-r">
+    <button class="btn-pom-toggle" onclick="this.closest('.card-r').querySelector('.cal-table').classList.toggle('show-pom');this.querySelector('span').textContent=this.closest('.card-r').querySelector('.cal-table').classList.contains('show-pom')?'Nascondi Pomeriggio':'Mostra Pomeriggio'"><i class="fas fa-eye"></i><span>Mostra Pomeriggio</span></button>
+    <div class="tscroll"><table class="cal-table">
+    <thead>
+      <tr>
+        <th rowspan="2" class="col-giorno">Data</th>
+        <th colspan="2" class="header-fascia mattina">Mattina</th>
+        <th colspan="2" class="header-fascia pomeriggio col-pom">Pomeriggio</th>
+        <th colspan="2" class="header-fascia serale">Serale</th>
+        <th rowspan="2">Assenze</th>
+        <th rowspan="2">Note</th>
+      </tr>
+      <tr>
+        <th class="col-stato">St.</th>
+        <th class="col-nomi">Op.</th>
+        <th class="col-stato col-pom">St.</th>
+        <th class="col-nomi col-pom">Op.</th>
+        <th class="col-stato">St.</th>
+        <th class="col-nomi">Op.</th>
+      </tr>
+    </thead>
     <tbody>${rows.join('')}</tbody></table></div>${legenda}</div>`;
 }
 
