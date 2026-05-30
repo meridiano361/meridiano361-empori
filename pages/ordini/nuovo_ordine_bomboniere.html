@@ -122,8 +122,9 @@ select.f-inp{background:#fff}
 .riga-prodotto.row-error td{background:#fff5f5 !important}
 
 /* ARROWS */
-.col-frecce{display:flex;flex-direction:column;align-items:center;gap:1px}
-.btn-sposta{background:none;border:none;cursor:pointer;color:var(--slate-300);font-size:10px;padding:1px 3px;line-height:1;transition:color .12s}
+.col-frecce{display:flex;flex-direction:column;align-items:center;gap:2px}
+.col-frecce *{font-size:11px}
+.btn-sposta{background:none;border:none;cursor:pointer;color:var(--slate-300);font-size:11px;padding:1px 3px;line-height:1;transition:color .12s}
 .btn-sposta:hover{color:var(--slate-600)}
 
 /* CELL INPUTS */
@@ -147,8 +148,8 @@ select.f-inp{background:#fff}
 }
 .campo-codice-cb:focus{border-color:rgba(51,65,85,.3);background:#fff}
 .campo-descrizione-conf{
-  font-weight:600;color:var(--slate-700);font-size:12px;
-  padding-left:6px !important;
+  font-weight:600;color:#334155;font-size:13px;
+  padding-left:8px !important;
 }
 .conf-prezzo{
   width:68px;border:1px solid transparent;border-radius:5px;padding:4px 5px;
@@ -380,11 +381,10 @@ function showToast(msg, type='') {
 // ── TIPOLOGIA ─────────────────────────────────────────────────────────────────
 
 // Correzione 1: nessun popup — aggiunge direttamente
-function aggiungiTipologia(dati) {
-  tipologiaCount++;
-  const div = creaTipologia(tipologiaCount, dati || {});
+function aggiungiTipologia() {
+  const n = document.querySelectorAll('.tipologia-bomboniera').length + 1;
+  const div = creaTipologia(n);
   document.getElementById('contenitore-tipologie').appendChild(div);
-  calcTotale();
 }
 
 // Correzione 7: stessa funzione usata sia per nuovo che per caricamento dal DB
@@ -736,106 +736,180 @@ function calcTotale() {
 // Legge dal DOM → funziona anche prima del salvataggio
 
 function stampaPreventivo() {
-  const cliente = (getVal('nome-cliente') + ' ' + getVal('cognome-cliente')).trim() || '—';
-  const emporio = getVal('select-emporio') || '—';
-  const data    = new Date().toLocaleDateString('it-IT');
+  // Raccoglie i dati dal DOM (non dal DB)
+  // così funziona anche prima del salvataggio
 
+  const cliente = document.getElementById('nome-cliente')?.value || '—';
+  const emporio = document.getElementById('select-emporio')?.value || '—';
+  const data = new Date().toLocaleDateString('it-IT');
+
+  // Raccoglie tipologie dal DOM
   const tipologie = [];
   document.querySelectorAll('.tipologia-bomboniera').forEach((tip, i) => {
-    const n    = tip.id.replace('tip-','');
     const label = tip.querySelector('.tipologia-label-custom')?.value || '';
     const prodotti = [];
+
     tip.querySelectorAll('.riga-prodotto').forEach(r => {
       const codice = r.querySelector('.campo-codice')?.value;
       if (!codice) return;
       prodotti.push({
         codice,
         descrizione: r.querySelector('.campo-descrizione')?.value || '',
-        prezzo:      parseEuro(r.querySelector('.campo-prezzo')?.value),
-        qta:         parseInt(r.querySelector('.campo-qta')?.value) || 0,
-        totale:      r.querySelector('.campo-totale')?.textContent || '€ 0,00'
+        prezzo: parseEuro(r.querySelector('.campo-prezzo')?.value || '0'),
+        qta: r.querySelector('.campo-qta')?.value || 0,
+        totale: r.querySelector('.campo-totale')?.textContent || '€ 0,00'
       });
     });
-    const confAttivo = tip.querySelector('.check-confezionamento')?.checked;
-    const confPrezzo = parseEuro(tip.querySelector('.conf-prezzo')?.value) || 3;
-    const confQta    = parseInt(tip.querySelector('.conf-qta')?.value) || 0;
+
+    // Confezionamento
+    const confCheck = tip.querySelector('.check-confezionamento');
+    const confAttivo = confCheck?.checked;
+    const confPrezzo = parseEuro(tip.querySelector('.conf-prezzo')?.value || '3');
+    const confQta = tip.querySelector('.conf-qta')?.value || 0;
+
     tipologie.push({ numero: i+1, label, prodotti, confAttivo, confPrezzo, confQta });
   });
 
+  // Calcola totale generale
   let totale = 0;
   tipologie.forEach(t => {
-    t.prodotti.forEach(p => { totale += p.prezzo * p.qta; });
-    if (t.confAttivo) totale += t.confPrezzo * t.confQta;
+    t.prodotti.forEach(p => {
+      totale += parseFloat(p.prezzo||0) * parseInt(p.qta||0);
+    });
+    if (t.confAttivo) {
+      totale += parseFloat(t.confPrezzo||0) * parseInt(t.confQta||0);
+    }
   });
 
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Preventivo Bomboniere</title>
-<style>
-body{font-family:Inter,Arial,sans-serif;padding:30px;color:#1e293b;font-size:13px}
-.header{display:flex;justify-content:space-between;align-items:flex-start;
-        margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #B5453A}
-.logo{font-size:22px;font-weight:900;color:#B5453A}
-.info-ordine{text-align:right;font-size:12px;color:#64748b}
-.cliente-box{background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:20px}
-.cliente-nome{font-size:18px;font-weight:700}
-.tip-titolo{background:#1e293b;color:#fff;padding:8px 12px;font-size:13px;font-weight:700;
-            text-transform:uppercase;letter-spacing:.05em;margin:16px 0 0;border-radius:6px 6px 0 0}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:#f1f5f9;padding:6px 10px;text-align:left;font-size:11px;font-weight:700;
-   text-transform:uppercase;letter-spacing:.04em;color:#64748b}
-td{padding:7px 10px;border-bottom:1px solid #f1f5f9}
-.riga-conf td{background:rgba(51,65,85,.08);font-style:italic}
-.tot-row td{font-weight:700;font-size:14px;border-top:2px solid #1e293b;padding-top:10px}
-.tot-importo{color:#B5453A;font-size:18px}
-.footer{margin-top:30px;padding-top:12px;border-top:1px solid #e2e8f0;
-        font-size:11px;color:#94a3b8;text-align:center}
-@media print{body{padding:15px}}
-</style></head><body>
-<div class="header">
-  <div class="logo">meridiano361 🌿</div>
-  <div class="info-ordine">
-    <div><strong>PREVENTIVO BOMBONIERE</strong></div>
-    <div>Data: ${data}</div><div>Emporio: ${escHtml(emporio)}</div>
+  // Genera HTML stampa
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Preventivo Bomboniere</title>
+  <style>
+    body {
+      font-family: Inter, Arial, sans-serif;
+      padding: 30px;
+      color: #1e293b;
+      font-size: 13px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #B5453A;
+    }
+    .logo { font-size: 22px; font-weight: 900; color: #B5453A; }
+    .info-ordine { text-align: right; font-size: 12px; color: #64748b; }
+    .cliente-box { background: #f8fafc; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+    .cliente-nome { font-size: 18px; font-weight: 700; }
+    .tipologia-titolo {
+      background: #1e293b; color: #fff; padding: 8px 12px;
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; margin: 16px 0 0; border-radius: 6px 6px 0 0;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      background: #f1f5f9; padding: 6px 10px; text-align: left;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: #64748b;
+    }
+    td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; }
+    .riga-conf td { background: rgba(51,65,85,.08); font-style: italic; }
+    .riga-omaggio td { background: rgba(181,69,58,.08); color: #B5453A; }
+    .totale-row td { font-weight: 700; font-size: 14px; border-top: 2px solid #1e293b; padding-top: 10px; }
+    .totale-importo { color: #B5453A; font-size: 18px; }
+    .footer {
+      margin-top: 30px; padding-top: 12px; border-top: 1px solid #e2e8f0;
+      font-size: 11px; color: #94a3b8; text-align: center;
+    }
+    @media print { body { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">meridiano361 🌿</div>
+    <div class="info-ordine">
+      <div><strong>PREVENTIVO BOMBONIERE</strong></div>
+      <div>Data: ${data}</div>
+      <div>Emporio: ${emporio}</div>
+    </div>
   </div>
-</div>
-<div class="cliente-box">
-  <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em">Cliente</div>
-  <div class="cliente-nome">${escHtml(cliente)}</div>
-</div>
-${tipologie.map(t => `
-<div class="tip-titolo">Tipologia ${t.numero}${t.label ? ' — '+escHtml(t.label) : ''}</div>
-<table><thead><tr>
-  <th>Codice</th><th>Descrizione</th>
-  <th style="text-align:right">Prezzo</th>
-  <th style="text-align:center">Qtà</th>
-  <th style="text-align:right">Totale</th>
-</tr></thead><tbody>
-${t.prodotti.map(p=>`<tr>
-  <td>${escHtml(p.codice)}</td><td>${escHtml(p.descrizione)}</td>
-  <td style="text-align:right">€ ${p.prezzo.toFixed(2)}</td>
-  <td style="text-align:center">${p.qta}</td>
-  <td style="text-align:right">${escHtml(p.totale)}</td>
-</tr>`).join('')}
-${t.confAttivo ? `<tr class="riga-conf">
-  <td>CB</td><td>Confezionamento</td>
-  <td style="text-align:right">€ ${t.confPrezzo.toFixed(2)}</td>
-  <td style="text-align:center">${t.confQta}</td>
-  <td style="text-align:right">€ ${(t.confPrezzo*t.confQta).toFixed(2)}</td>
-</tr>` : ''}
-</tbody></table>`).join('')}
-<table style="margin-top:16px"><tbody>
-  <tr class="tot-row">
-    <td colspan="4">TOTALE ORDINE</td>
-    <td style="text-align:right"><span class="tot-importo">€ ${totale.toFixed(2)}</span></td>
-  </tr>
-</tbody></table>
-<div class="footer">Preventivo non vincolante — meridiano361 · ${
-  new Date().toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
-}</div>
-</body></html>`;
+
+  <div class="cliente-box">
+    <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em">Cliente</div>
+    <div class="cliente-nome">${cliente}</div>
+  </div>
+
+  ${tipologie.map(t => `
+    <div class="tipologia-titolo">
+      Tipologia Bomboniera ${t.numero}${t.label ? ' — ' + t.label : ''}
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Codice</th>
+          <th>Descrizione</th>
+          <th style="text-align:right">Prezzo</th>
+          <th style="text-align:center">Qtà</th>
+          <th style="text-align:right">Totale</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${t.prodotti.map(p => `
+          <tr>
+            <td>${p.codice}</td>
+            <td>${p.descrizione}</td>
+            <td style="text-align:right">€ ${parseFloat(p.prezzo).toFixed(2)}</td>
+            <td style="text-align:center">${p.qta}</td>
+            <td style="text-align:right">${p.totale}</td>
+          </tr>
+        `).join('')}
+        ${t.confAttivo ? `
+          <tr class="riga-conf">
+            <td>CB</td>
+            <td>Confezionamento</td>
+            <td style="text-align:right">€ ${parseFloat(t.confPrezzo).toFixed(2)}</td>
+            <td style="text-align:center">${t.confQta}</td>
+            <td style="text-align:right">€ ${(parseFloat(t.confPrezzo) * parseInt(t.confQta)).toFixed(2)}</td>
+          </tr>
+          <tr class="riga-omaggio">
+            <td>CO</td>
+            <td>Cartoncini omaggio</td>
+            <td style="text-align:right">€ 0,00</td>
+            <td style="text-align:center">${t.confQta}</td>
+            <td style="text-align:right">€ 0,00</td>
+          </tr>
+        ` : ''}
+      </tbody>
+    </table>
+  `).join('')}
+
+  <table style="margin-top:16px">
+    <tbody>
+      <tr class="totale-row">
+        <td colspan="4">TOTALE ORDINE</td>
+        <td style="text-align:right">
+          <span class="totale-importo">€ ${totale.toFixed(2)}</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Preventivo non vincolante — meridiano361 ·
+    ${new Date().toLocaleDateString('it-IT', {
+      weekday:'long', year:'numeric', month:'long', day:'numeric'
+    })}
+  </div>
+</body>
+</html>`;
 
   const win = window.open('', '_blank');
-  if (!win) { showToast('Abilita i popup per stampare', 'err'); return; }
   win.document.write(html);
   win.document.close();
   win.focus();
