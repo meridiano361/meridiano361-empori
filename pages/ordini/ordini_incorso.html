@@ -552,10 +552,9 @@
                 document.getElementById('loading').classList.remove('hidden');
                 document.getElementById('empty-state').classList.add('hidden');
 
-                const { data, error } = await _supabase
-                    .from('ordini_incorso')
-                    .select('*')
-                    .order('data_creazione', { ascending: false });
+                let _q = _supabase.from('ordini_incorso').select('*').order('data_creazione', { ascending: false });
+                if (typeof filtraPerEmporio === 'function') _q = filtraPerEmporio(_q);
+                const { data, error } = await _q;
 
                 if (error) throw error;
 
@@ -1027,10 +1026,15 @@
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.addEventListener('click', () => filterOrders(btn.getAttribute('data-filter')));
             });
+            // Blocca filtro emporio per operatori non-admin
+            if (typeof inizializzaSelectEmporio === 'function') {
+                inizializzaSelectEmporio('filtro-emporio');
+            }
             loadOrders();
         });
     </script>
 
+    <script src="../../scripts/auth.js"></script>
     <script src="../../scripts/nav-script.js"></script>
 
     <!-- ORDER SUMMARY MODAL -->

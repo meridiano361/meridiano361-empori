@@ -139,6 +139,7 @@
     </style>
 </head>
 <body class="pb-24">
+<script src="../../scripts/auth.js"></script>
 <script src="../../scripts/nav-script.js"></script>
 
 <main class="max-w-3xl mx-auto p-4 md:p-8" id="app"></main>
@@ -166,7 +167,15 @@ let items=[], V={page:'home',emp:null,tipo:'frontalino',filt:'tutti'};
 let editState={};
 
 // ── NAV ──
-const goHome    = ()=>{ V={page:'home',emp:null,tipo:'frontalino',filt:'tutti'}; editState={}; R(); };
+const goHome    = ()=>{
+    if(typeof isAdmin==='function' && !isAdmin()){
+        const mioEmp = typeof emporioToId==='function'
+            ? emporioToId(getEmporioLoggato())
+            : (getEmporioLoggato()||'').toLowerCase().replace(/\s+/g,'');
+        if(mioEmp){ V={page:'emp',emp:mioEmp,tipo:'frontalino',filt:'tutti'}; editState={}; R(); return; }
+    }
+    V={page:'home',emp:null,tipo:'frontalino',filt:'tutti'}; editState={}; R();
+};
 const goEmp     = e =>{ V={page:'emp', emp:e,   tipo:'frontalino',filt:'tutti'}; editState={}; R(); };
 const goSintesi = t =>{ V={page:'sint',emp:null, tipo:t,           filt:'tutti'}; editState={}; R(); };
 const setTipo   = t =>{ V.tipo=t; editState={}; R(); };
@@ -455,6 +464,15 @@ async function eliminaTuttiPrezziFatti(){
 async function loadItems(){
     const {data}=await db.from('prezzi_da_fare').select('*').order('created_at',{ascending:true});
     if(data)items=data;
+    // Per operatori non-admin: vai direttamente al loro emporio
+    if(typeof isAdmin==='function' && !isAdmin()){
+        const mioEmp = typeof emporioToId==='function'
+            ? emporioToId(getEmporioLoggato())
+            : (getEmporioLoggato()||'').toLowerCase().replace(/\s+/g,'');
+        if(mioEmp && EMPORI.find(e=>e.id===mioEmp)){
+            V.page='emp'; V.emp=mioEmp;
+        }
+    }
     R();
 }
 loadItems();

@@ -1858,6 +1858,27 @@ async function loadCommercialeData() {
   }
 }
 </script>
+<script src="../../scripts/auth.js"></script>
+<script>
+/* ── Filtro emporio per operatori non-admin ── */
+(function applyCassaEmporioFilter() {
+    if (typeof isAdmin !== 'function' || isAdmin()) return;
+    const emp = typeof getEmporioLoggato === 'function' ? getEmporioLoggato() : null;
+    if (!emp) return;
+
+    window.addEventListener('load', function() {
+        // Auto-seleziona emporio, skippa la schermata di selezione
+        if (typeof selectEmp === 'function') selectEmp(emp);
+        // Nascondi il pulsante "Indietro" (cambio emporio)
+        const backBtn = document.getElementById('btn-back-emp');
+        if (backBtn) backBtn.style.display = 'none';
+        // Blocca tutti i select emporio nelle sezioni secondarie
+        ['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','com-filter-emporio'].forEach(id => {
+            if (typeof inizializzaSelectEmporio === 'function') inizializzaSelectEmporio(id);
+        });
+    });
+})();
+</script>
 <script src="../../scripts/nav-script.js"></script>
 </body>
 </html>
