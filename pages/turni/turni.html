@@ -1580,7 +1580,7 @@ async function loadData() {
   } catch(e) { storeHoursData = {...DEFAULTHOURS}; }
 }
 
-async function saveTurno(key, turnoObj) {
+async function saveTurno(key, turnoObj, quiet = false) {
   if (!db) { showToast('DB non connesso','err'); return; }
   const parts = key.split('|');
   const emporio=parts[0], anno=parseInt(parts[1]), mese=parseInt(parts[2]),
@@ -1603,7 +1603,7 @@ async function saveTurno(key, turnoObj) {
       showToast('Errore: '+error.message,'err');
     } else {
       console.log('[saveTurno] OK:', data);
-      showToast('Salvato ✓','ok');
+      if (!quiet) showToast('Salvato ✓','ok');
     }
   } catch(e) { console.error('[saveTurno] EXCEPTION:', e); showToast('Errore: '+e.message,'err'); }
 }
@@ -3133,30 +3133,20 @@ async function applicaTurniMese(silenzioso = false) {
   const anno = currentAnno;
   const mese = currentMese + 1;
   try {
-    // Senza !inner (include righe anche se join è null)
-    // Senza .eq('non_disponibile',false) perché NULL ≠ false in Supabase
+    // Stessa query di applicaTurnoDefault (funziona): nessun filtro emporio lato DB
     const { data: pred, error } = await db.from('turni_predefiniti')
-      .select('*, operatori(id,nome,ruolo,emporio,empori_aggiuntivi)');
+      .select('*, operatori(nome, ruolo)')
+      .eq('non_disponibile', false);
     if (error) throw error;
-    console.log('[predefiniti] totale righe DB:', pred?.length, 'emporio:', emporio);
+    console.log('[predefiniti mese] totale righe DB:', pred?.length);
 
     if (!pred?.length) {
       if (!silenzioso) showToast('Nessun turno predefinito nel DB', 'err');
       return;
     }
 
-    // Filtro in JS: esclude non_disponibile (anche NULL=false), richiede operatori validi
-    const predEmporio = pred.filter(p =>
-      !p.non_disponibile &&
-      p.operatori &&
-      (p.operatori.emporio === emporio || (p.operatori.empori_aggiuntivi || []).includes(emporio))
-    );
-    console.log('[predefiniti] per emporio', emporio, ':', predEmporio.length);
-
-    if (!predEmporio.length) {
-      if (!silenzioso) showToast('Nessun predefinito per ' + emporio, 'err');
-      return;
-    }
+    const predValidi = pred.filter(p => p.operatori);
+    console.log('[predefiniti mese] con operatore valido:', predValidi.length);
 
     const giorniMese = new Date(anno, mese, 0).getDate();
     const NOMI_GIORNO = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -3165,7 +3155,7 @@ async function applicaTurniMese(silenzioso = false) {
     for (let g = 1; g <= giorniMese; g++) {
       const ds = `${anno}-${String(mese).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
       const nomeGiorno = NOMI_GIORNO[new Date(ds + 'T12:00:00').getDay()];
-      const predGiorno = predEmporio.filter(p => p.giorno === nomeGiorno);
+      const predGiorno = predValidi.filter(p => p.giorno === nomeGiorno);
       for (const p of predGiorno) {
         const op = p.operatori;
         for (const fascia of ['mattina', 'pomeriggio']) {
@@ -3174,14 +3164,14 @@ async function applicaTurniMese(silenzioso = false) {
           if (!turniData[key]) turniData[key] = { aperto: true, operatori: [] };
           if (!turniData[key].operatori.find(o => o.nome === op.nome)) {
             turniData[key].operatori.push({ nome: op.nome, ruolo: op.ruolo });
-            await saveTurno(key, turniData[key]);
+            await saveTurno(key, turniData[key], true); // quiet: no toast per ogni salvataggio
             count++;
           }
         }
       }
     }
 
-    console.log('[predefiniti] turni aggiunti:', count);
+    console.log('[predefiniti mese] turni aggiunti:', count);
     if (count > 0) {
       render();
       if (!silenzioso) showToast(`✓ Predefiniti applicati: ${count} turni aggiunti`);
@@ -3189,7 +3179,7 @@ async function applicaTurniMese(silenzioso = false) {
       showToast('Tutti i turni predefiniti già presenti ✓');
     }
   } catch(e) {
-    console.error('[predefiniti] errore:', e);
+    console.error('[predefiniti mese] errore:', e);
     if (!silenzioso) showToast('Errore: ' + e.message, 'err');
   }
 }
