@@ -1667,9 +1667,11 @@ function renderMonth() {
 
     const renderOps = (key, td, fasciaLabel) => {
       if (!td.aperto) return '';
+      const fascia = key.split('|')[4];
+      const ds = `${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       return (td.operatori||[]).map((o,i)=>
         `<span class="chip-nome-cal">${o.nome.split(' ')[0]}${o.oremanuali!=null?`<input class="ore-inp" value="${o.oremanuali}" onchange="setOre('${key}',${i},this.value)" onclick="event.stopPropagation()" title="Ore manuali">`:''}<i class="fas fa-times rm" onclick="removeOp('${key}',${i})"></i></span>`
-      ).join('')+`<span class="op-add" onclick="openAddModal('${key}','${fasciaLabel} ${d} ${MESISHORT[currentMese]}')"><i class="fas fa-plus"></i></span>`;
+      ).join('')+`<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)"><i class="fas fa-plus"></i></span>`;
     };
 
     const stM = mD.aperto ? 'aperto' : 'chiuso';
@@ -2145,7 +2147,7 @@ function salvaOrario(data, fascia, campo, valore) {
   dayHoursData[`${data}_${fascia}_${campo}`] = valore;
 }
 
-async function aggiungiOperatoreTurno(data, fascia) {
+async function aggiungiOperatoreTurno(data, fascia, btnEl = null) {
   try {
     const { data: ops } = await db.from('operatori')
       .select('id,nome,ruolo,emporio,empori_aggiuntivi')
@@ -2158,7 +2160,7 @@ async function aggiungiOperatoreTurno(data, fascia) {
     if (!filtrati.length) {
       showToast('Nessun operatore per ' + emporio, 'err'); return;
     }
-    mostraDropdownOperatori(data, fascia, filtrati);
+    mostraDropdownOperatori(data, fascia, filtrati, btnEl);
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
@@ -3070,7 +3072,7 @@ async function rimuoviOpEmporio(opId, nome) {
 }
 
 // ── DROPDOWN OPERATORI TURNO (Problema 4) ─────────────────────────────────
-function mostraDropdownOperatori(data, fascia, ops) {
+function mostraDropdownOperatori(data, fascia, ops, btnEl = null) {
   document.getElementById('dropdown-op-turno')?.remove();
   const div = document.createElement('div');
   div.id = 'dropdown-op-turno';
@@ -3094,17 +3096,20 @@ function mostraDropdownOperatori(data, fascia, ops) {
       Annulla
     </button>`;
 
-  const btnSel = document.querySelector(`[data-data="${data}"][data-fascia="${fascia}"] .btn-add-op-cal`) || document.activeElement;
-  const rect = btnSel?.getBoundingClientRect?.() || { bottom: 200, left: 100 };
-  const top = rect.bottom + 8;
-  const left = Math.min(rect.left, window.innerWidth - 240);
-  div.style.top = top + 'px';
-  div.style.left = left + 'px';
+  const anchor = btnEl || document.querySelector(`[data-data="${data}"][data-fascia="${fascia}"] .btn-add-op-cal`) || document.activeElement;
+  const rect = anchor?.getBoundingClientRect?.() || { top: 200, bottom: 208, left: 100 };
+  const spazioSotto = window.innerHeight - rect.bottom;
+  if (spazioSotto < 300) {
+    div.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+  } else {
+    div.style.top = (rect.bottom + 4) + 'px';
+  }
+  div.style.left = Math.min(rect.left, window.innerWidth - 240) + 'px';
   document.body.appendChild(div);
 
   setTimeout(() => {
     document.addEventListener('click', function h(e) {
-      if (!div.contains(e.target)) { div.remove(); document.removeEventListener('click', h); }
+      if (!div.contains(e.target) && e.target !== anchor) { div.remove(); document.removeEventListener('click', h); }
     });
   }, 100);
 }
