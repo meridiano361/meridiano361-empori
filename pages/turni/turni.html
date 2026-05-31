@@ -2153,21 +2153,12 @@ function salvaOrario(data, fascia, campo, valore) {
 async function aggiungiOperatoreTurno(data, fascia, btnEl = null) {
   try {
     const { data: ops, error: dbErr } = await db.from('operatori')
-      .select('id,nome,ruolo,emporio,empori_aggiuntivi,attivo')
+      .select('id,nome,ruolo')
+      .neq('attivo', false)
       .order('nome');
     if (dbErr) throw dbErr;
-    const emporio = currentEmporio;
-    console.log('[dropdown] DB totale operatori:', ops?.length);
-    console.table((ops||[]).map(o => ({nome:o.nome, emporio:o.emporio, aggiuntivi:JSON.stringify(o.empori_aggiuntivi), attivo:o.attivo})));
-    const filtrati = (ops || []).filter(o =>
-      o.attivo !== false &&
-      (o.emporio === emporio || (o.empori_aggiuntivi || []).includes(emporio))
-    );
-    console.log('[dropdown] filtrati per emporio "' + emporio + '":', filtrati.map(o => o.nome));
-    if (!filtrati.length) {
-      showToast('Nessun operatore per ' + emporio + ' — vedi console', 'err'); return;
-    }
-    mostraDropdownOperatori(data, fascia, filtrati, btnEl);
+    if (!ops?.length) { showToast('Nessun operatore nel DB', 'err'); return; }
+    mostraDropdownOperatori(data, fascia, ops, btnEl);
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
@@ -2983,7 +2974,7 @@ async function caricaAnagraficaOperatori() {
     const emporio = currentEmporio;
     const { data: tuttiOp } = await db.from('operatori')
       .select('id,nome,ruolo,emporio,empori_aggiuntivi,telefono')
-      .eq('attivo', true)
+      .neq('attivo', false)
       .order('nome');
     const opEmporio = (tuttiOp || []).filter(o =>
       o.emporio === emporio || (o.empori_aggiuntivi || []).includes(emporio)
@@ -3078,6 +3069,8 @@ function rigaOperatoreTurni(op, predefiniti) {
           </div>
         </div>
         <span class="riepilogo-turno-default" id="riepilogo-pred-${op.id}">${riepilogo}</span>
+        <button class="btn-rimuovi-op-emp" title="Rimuovi dall'emporio"
+                onclick="event.stopPropagation();rimuoviOpEmporio('${op.id}','${op.nome.replace(/'/g,"\\'")}')">✕</button>
         <span class="freccia-op" id="freccia-pred-${op.id}">▶</span>
       </div>
       <div class="card-op-corpo" id="corpo-pred-${op.id}" style="display:none">
