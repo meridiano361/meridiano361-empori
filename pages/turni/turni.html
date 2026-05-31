@@ -2155,7 +2155,7 @@ async function aggiungiOperatoreTurno(data, fascia, btnEl = null) {
     const emporio = currentEmporio;
     const { data: ops, error: dbErr } = await db.from('operatori')
       .select('id,nome,ruolo')
-      .neq('attivo', false)
+      .or('attivo.eq.true,attivo.is.null')
       .or(`emporio.eq.${emporio},empori_aggiuntivi.cs.{${emporio}}`)
       .order('nome');
     if (dbErr) throw dbErr;
@@ -2978,7 +2978,7 @@ async function caricaAnagraficaOperatori() {
     const emporio = currentEmporio;
     const { data: tuttiOp } = await db.from('operatori')
       .select('id,nome,ruolo,emporio,empori_aggiuntivi,telefono')
-      .neq('attivo', false)
+      .or('attivo.eq.true,attivo.is.null')
       .order('nome');
     const opEmporio = (tuttiOp || []).filter(o =>
       o.emporio === emporio || (o.empori_aggiuntivi || []).includes(emporio)
