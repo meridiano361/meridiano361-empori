@@ -2153,16 +2153,22 @@ function salvaOrario(data, fascia, campo, valore) {
 async function aggiungiOperatoreTurno(data, fascia, btnEl = null) {
   try {
     const emporio = currentEmporio;
-    const { data: ops, error: dbErr } = await db.from('operatori')
-      .select('id,nome,ruolo')
-      .or('attivo.eq.true,attivo.is.null')
-      .or(`emporio.eq.${emporio},empori_aggiuntivi.cs.{${emporio}}`)
+    const { data: tutti, error: dbErr } = await db.from('operatori')
+      .select('id,nome,ruolo,emporio,empori_aggiuntivi,attivo')
       .order('nome');
     if (dbErr) throw dbErr;
-    if (!ops?.length) {
+    const emp = emporio.trim().toLowerCase();
+    const filtrati = (tutti || []).filter(o => {
+      if (o.attivo === false) return false;
+      const oEmp = (o.emporio || '').trim().toLowerCase();
+      const oAgg = (o.empori_aggiuntivi || []).map(e => (e||'').trim().toLowerCase());
+      return oEmp === emp || oAgg.includes(emp);
+    });
+    showToast(`${emporio}: ${filtrati.length}/${tutti?.length} op`, 'ok');
+    if (!filtrati.length) {
       showToast(`Nessun operatore assegnato a ${emporio}`, 'err'); return;
     }
-    mostraDropdownOperatori(data, fascia, ops, btnEl);
+    mostraDropdownOperatori(data, fascia, filtrati, btnEl);
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
