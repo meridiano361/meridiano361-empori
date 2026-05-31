@@ -2152,21 +2152,17 @@ function salvaOrario(data, fascia, campo, valore) {
 
 async function aggiungiOperatoreTurno(data, fascia, btnEl = null) {
   try {
+    const emporio = currentEmporio;
     const { data: ops, error: dbErr } = await db.from('operatori')
-      .select('id,nome,ruolo,emporio,empori_aggiuntivi')
+      .select('id,nome,ruolo')
       .neq('attivo', false)
+      .or(`emporio.eq.${emporio},empori_aggiuntivi.cs.{${emporio}}`)
       .order('nome');
     if (dbErr) throw dbErr;
-    const emporio = currentEmporio;
-    const filtrati = (ops || []).filter(o => {
-      const emp = (o.emporio || '').trim();
-      const aggiuntivi = Array.isArray(o.empori_aggiuntivi) ? o.empori_aggiuntivi : [];
-      return emp === emporio || aggiuntivi.includes(emporio);
-    });
-    if (!filtrati.length) {
+    if (!ops?.length) {
       showToast(`Nessun operatore assegnato a ${emporio}`, 'err'); return;
     }
-    mostraDropdownOperatori(data, fascia, filtrati, btnEl);
+    mostraDropdownOperatori(data, fascia, ops, btnEl);
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
