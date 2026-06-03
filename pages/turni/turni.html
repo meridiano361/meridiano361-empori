@@ -177,7 +177,7 @@ input[type="time"]{font-size:15px!important}
 .op-nome-turno{font-size:14px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .op-emporio-badge{font-size:10px;font-weight:700;background:#f1f5f9;color:#64748b;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0}
 .riepilogo-turno-default{font-size:11px;color:#94a3b8;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.freccia-op{font-size:11px;color:#94a3b8;flex-shrink:0}
+.freccia-op{font-size:13px;color:#94a3b8;flex-shrink:0;display:inline-block;font-style:normal;transition:transform .15s}
 .card-op-corpo{padding:16px;border-top:1px solid #f1f5f9}
 .turni-default-griglia{display:flex;flex-direction:column;gap:6px;margin:12px 0}
 .riga-giorno-default{display:grid;grid-template-columns:100px 1fr 1fr 1fr;align-items:center;gap:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;font-size:14px}
@@ -1024,9 +1024,9 @@ tr.riga-giorno.tutto-chiuso { background: transparent !important; }
   <!-- SEZIONE 1: TURNI (default) -->
   <div id="sezione-turni" class="macro-sezione">
     <div class="turni-cal-header">
-      <button class="btn-nav-mese" onclick="mesePrecedente()">◀</button>
+      <button class="btn-nav-mese" onclick="mesePrecedente()"><i class="fas fa-chevron-left"></i></button>
       <span class="turni-mese-titolo" id="turni-mese-label">Caricamento…</span>
-      <button class="btn-nav-mese" onclick="meseSuccessivo()">▶</button>
+      <button class="btn-nav-mese" onclick="meseSuccessivo()"><i class="fas fa-chevron-right"></i></button>
       <label class="toggle-sera-label">
         <input type="checkbox" id="mostra-sera" onchange="toggleColonnaSera(this.checked)">
         <span>+ Sera</span>
@@ -1358,7 +1358,6 @@ const PERSONALE = {
   Cremona: [
     {nome:'Chiara Monteverdi',ruolo:'dipendente'},
     {nome:'Emilio Mazzolari',ruolo:'dipendente'},
-    {nome:'Giulia Galelli',ruolo:'volontario'},
   ],
   Casalmaggiore: [
     {nome:'Alessandra Rivetti',ruolo:'volontario'},
@@ -1444,6 +1443,7 @@ function mostraSezione(quale) {
     if (tab) tab.classList.toggle('attivo', s === quale);
   });
   if (quale === 'orari') initOrari();
+  if (quale === 'operatori') mostraOpSub('anagrafica');
 }
 
 // ── GESTIONE OPERATORI SUB-TABS ────────────────────────────────────────────
@@ -2323,7 +2323,7 @@ function renderOperatoriDefaults() {
           <span class="op-emporio-badge">${op.emporio||''}</span>
         </div>
         <span class="riepilogo-turno-default" id="riepilogo-${op.id}">—</span>
-        <span class="freccia-op" id="freccia-${op.id}">▶</span>
+        <span class="freccia-op" id="freccia-${op.id}">›</span>
       </div>
       <div class="card-op-corpo" id="corpo-op-${op.id}" style="display:none">
         <div class="turni-default-griglia">${grigliaHtml}</div>
@@ -2413,7 +2413,7 @@ function toggleTurnoOp(opId) {
   if (!corpo) return;
   const isOpen = corpo.style.display !== 'none';
   corpo.style.display = isOpen ? 'none' : 'block';
-  if (freccia) freccia.textContent = isOpen ? '▶' : '▼';
+  if (freccia) freccia.textContent = isOpen ? '›' : '▾';
 }
 
 function renderOperatoriView() {
@@ -2471,6 +2471,8 @@ currentEmporio = getEmporioCorrente();
 if (typeof isAdmin === 'function' && !isAdmin()) {
   const _emp = typeof getEmporioLoggato === 'function' ? getEmporioLoggato() : null;
   if (_emp) currentEmporio = _emp;
+  const _tabOp = document.getElementById('tab-operatori');
+  if (_tabOp) _tabOp.style.display = 'none';
 }
 mostraSeraGlobale = localStorage.getItem('turni_mostra_sera') === 'true';
 const _chk = document.getElementById('mostra-sera');
@@ -3210,7 +3212,7 @@ function rigaOperatoreTurni(op, predefiniti) {
         <span class="riepilogo-turno-default" id="riepilogo-pred-${op.id}">${riepilogo}</span>
         <button class="btn-rimuovi-op-emp" title="Rimuovi dall'emporio"
                 onclick="event.stopPropagation();rimuoviOpEmporio('${op.id}','${op.nome.replace(/'/g,"\\'")}')">✕</button>
-        <span class="freccia-op" id="freccia-pred-${op.id}">▶</span>
+        <span class="freccia-op" id="freccia-pred-${op.id}">›</span>
       </div>
       <div class="card-op-corpo" id="corpo-pred-${op.id}" style="display:none">
         <div class="turni-default-griglia">${grigliaHtml}</div>
@@ -3271,7 +3273,7 @@ function toggleTurniOp(opId) {
   if (!corpo) return;
   const aperto = corpo.style.display !== 'none';
   corpo.style.display = aperto ? 'none' : 'block';
-  if (freccia) freccia.textContent = aperto ? '▶' : '▼';
+  if (freccia) freccia.textContent = aperto ? '›' : '▾';
 }
 
 function aggiornaPredefinito(opId, giorno, fascia, valore) {
