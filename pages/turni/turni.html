@@ -90,6 +90,7 @@ body{font-family:var(--m-font);background:var(--m-sfondo);color:var(--m-scuro);p
 .ass-ferie{background:#dbeafe;color:#1e40af}
 .ass-malattia{background:#fef9c3;color:#854d0e}
 .ass-permesso{background:#fce7f3;color:#9d174d}
+.ass-altro{background:#f1f5f9;color:#334155}
 .note-cell{min-width:80px}
 .note-cell textarea{width:100%;min-height:28px;border:1px solid transparent;border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit;resize:vertical;background:transparent;transition:border .15s}
 .note-cell textarea:focus{border-color:#B5453A;background:#fff;outline:none}
@@ -1692,13 +1693,13 @@ function renderStoreHoursDisplay() {
     </div>`;
 }
 
-function calcShiftHours(shift) {
+function calcShiftHours(shift, ruolo = '') {
   const h = storeHoursData;
   const times = shift==='mattina' ? [h.mat_open||'09:15',h.mat_close||'13:00'] : [h.pom_open||'15:00',h.pom_close||'19:00'];
   const [h1,m1]=times[0].split(':').map(Number);
   const [h2,m2]=times[1].split(':').map(Number);
-  // Il dipendente inizia 15 minuti prima dell'apertura
-  return (h2*60+m2-(h1*60+m1-15))/60;
+  const base = minutiADecimale((h2*60+m2)-(h1*60+m1));
+  return ruolo==='dipendente' ? base + 0.25 : base;
 }
 
 // ── RENDER MESE ────────────────────────────────────────────────────────────
@@ -1734,10 +1735,15 @@ function renderMonth() {
       if (!td.aperto) return '';
       const fascia = key.split('|')[4];
       const ds = `${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      return (td.operatori||[]).map((o,i)=> o.rimosso ? '' :
-        `<span class="chip-nome-cal" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare">${o.nome.split(' ')[0]}${o.oremanuali!=null?`<span class="chip-ore-custom">${o.oremanuali.toFixed(2)}h</span>`:''}` +
-        `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`
-      ).join('')+`<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)">+</span>`;
+      return (td.operatori||[]).map((o,i) => {
+        if (o.rimosso) return '';
+        const defOre = calcShiftHours(fascia, o.ruolo);
+        const oreEff = o.oremanuali != null ? o.oremanuali : defOre;
+        const oreStyle = o.oremanuali != null ? '' : 'color:#94a3b8;font-size:8px';
+        const oreStr = oreEff ? `<span class="chip-ore-custom" style="${oreStyle}">${oreEff.toFixed(2)}h</span>` : '';
+        return `<span class="chip-nome-cal" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${oreStr}` +
+          `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`;
+      }).join('')+`<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)">+</span>`;
     };
 
     const stM = mD.aperto ? 'aperto' : 'chiuso';
@@ -1777,49 +1783,62 @@ function renderMonth() {
 function renderHours() {
   const pers = PERSONALE[currentEmporio]||[];
   const days = new Date(currentAnno, currentMese+1, 0).getDate();
-  const matH = calcShiftHours('mattina'), pomH = calcShiftHours('pomeriggio');
   const stats = pers.map(p => {
-    let oreLavoro=0,oreFerie=0,oreMalattia=0,orePermesso=0,oreSCU=0;
+    const isDipSCU = p.ruolo==='dipendente' || p.ruolo==='serviziocivile';
+    let oreLavoro=0, oreFerie=0, oreMalattia=0, orePermesso=0, oreAltro=0;
     for(let d=1;d<=days;d++){
       const mk=`${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|mattina`;
       const pk=`${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|pomeriggio`;
       const dayKey=`${currentEmporio}|${currentAnno}|${currentMese+1}|${d}`;
       const assKey=`${dayKey}|${p.nome}`;
-      if(assenzeData[assKey]){
+      if(isDipSCU && assenzeData[assKey]){
         const tipo=getAssenzaTipo(assenzeData[assKey]);
         const oreAss=getAssenzaOre(assenzeData[assKey]);
-        const addOre = oreAss > 0 ? oreAss : matH+pomH;
+        const defGiornata = calcShiftHours('mattina',p.ruolo)+calcShiftHours('pomeriggio',p.ruolo);
+        const addOre = oreAss > 0 ? oreAss : defGiornata;
         if(tipo==='ferie') oreFerie+=addOre;
         else if(tipo==='malattia') oreMalattia+=addOre;
         else if(tipo==='permesso') orePermesso+=addOre;
+        else oreAltro+=addOre;
         continue;
       }
       const mD=turniData[mk]; const pD=turniData[pk];
       const inMat=mD?.aperto&&mD.operatori.find(o=>o.nome===p.nome);
       const inPom=pD?.aperto&&pD.operatori.find(o=>o.nome===p.nome);
-      if(inMat) oreLavoro+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):matH;
-      if(inPom) oreLavoro+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):pomH;
-      if(p.ruolo==='serviziocivile'){
-        if(inMat) oreSCU+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):matH;
-        if(inPom) oreSCU+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):pomH;
-      }
+      if(inMat) oreLavoro+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):calcShiftHours('mattina',p.ruolo);
+      if(inPom) oreLavoro+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):calcShiftHours('pomeriggio',p.ruolo);
     }
-    return {nome:p.nome,ruolo:p.ruolo,oreLavoro,oreFerie,oreMalattia,orePermesso,oreSCU};
+    const totale = oreLavoro + oreFerie + oreMalattia + orePermesso + oreAltro;
+    return {nome:p.nome,ruolo:p.ruolo,isDipSCU,oreLavoro,oreFerie,oreMalattia,orePermesso,oreAltro,totale};
   });
-  const fmt=n=>n>0?n.toFixed(1):'–';
-  const cc=r=>r==='dipendente'?'c-dip':r==='serviziocivile'?'c-scu':'c-vol';
-  const rows=stats.map(s=>`<tr>
+  const fmt = n => n>0 ? n.toFixed(2) : '–';
+  const fmtAss = (s, n) => s.isDipSCU && n>0 ? n.toFixed(2) : '–';
+  const cc = r => r==='dipendente'?'c-dip':r==='serviziocivile'?'c-scu':'c-vol';
+  const rows = stats.map(s=>`<tr>
     <td><span class="op-chip ${cc(s.ruolo)}" style="font-size:11px">${s.nome}</span></td>
     <td style="font-weight:900;color:#1e293b">${fmt(s.oreLavoro)}</td>
-    <td style="color:#1e40af">${fmt(s.oreFerie)}</td>
-    <td style="color:#854d0e">${fmt(s.oreMalattia)}</td>
-    <td style="color:#9d174d">${fmt(s.orePermesso)}</td>
-    <td style="color:var(--m-scuro)">${fmt(s.oreSCU)}</td>
+    <td style="color:#1e40af">${fmtAss(s,s.oreFerie)}</td>
+    <td style="color:#9d174d">${fmtAss(s,s.orePermesso)}</td>
+    <td style="color:#854d0e">${fmtAss(s,s.oreMalattia)}</td>
+    <td style="color:#475569">${fmtAss(s,s.oreAltro)}</td>
+    <td style="font-weight:900;color:#B5453A">${fmt(s.totale)}</td>
   </tr>`).join('');
   return `<div class="card-r"><div class="tscroll"><table class="hrs-table">
-    <thead><tr><th style="text-align:left">Operatore</th><th>Ore Lavoro</th><th>Ferie</th><th>Malattia</th><th>Permessi</th><th>Ore SCU</th></tr></thead>
+    <thead><tr>
+      <th style="text-align:left">Operatore</th>
+      <th>In negozio</th><th>Ferie</th><th>Permesso</th><th>Malattia</th><th>Altro</th>
+      <th style="background:#B5453A">Totale</th>
+    </tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td>TOTALE</td><td>${fmt(stats.reduce((s,x)=>s+x.oreLavoro,0))}</td><td>${fmt(stats.reduce((s,x)=>s+x.oreFerie,0))}</td><td>${fmt(stats.reduce((s,x)=>s+x.oreMalattia,0))}</td><td>${fmt(stats.reduce((s,x)=>s+x.orePermesso,0))}</td><td>${fmt(stats.reduce((s,x)=>s+x.oreSCU,0))}</td></tr></tfoot>
+    <tfoot><tr>
+      <td>TOTALE</td>
+      <td>${fmt(stats.reduce((s,x)=>s+x.oreLavoro,0))}</td>
+      <td>${fmt(stats.reduce((s,x)=>s+x.oreFerie,0))}</td>
+      <td>${fmt(stats.reduce((s,x)=>s+x.orePermesso,0))}</td>
+      <td>${fmt(stats.reduce((s,x)=>s+x.oreMalattia,0))}</td>
+      <td>${fmt(stats.reduce((s,x)=>s+x.oreAltro,0))}</td>
+      <td>${fmt(stats.reduce((s,x)=>s+x.totale,0))}</td>
+    </tr></tfoot>
   </table></div></div>`;
 }
 
@@ -1843,7 +1862,6 @@ async function loadYearData() {
 
 function renderYear() {
   const pers=PERSONALE[currentEmporio]||[];
-  const matH=calcShiftHours('mattina'), pomH=calcShiftHours('pomeriggio');
   const fmt=n=>n>0?n.toFixed(0):'–';
   const cc=r=>r==='dipendente'?'c-dip':r==='serviziocivile'?'c-scu':'c-vol';
   const statsPerMese=pers.map(p=>{
@@ -1859,19 +1877,22 @@ function renderYear() {
         const mD=mT[mk]; const pD=mT[pk];
         const inMat=mD?.aperto&&mD.operatori.find(o=>o.nome===p.nome);
         const inPom=pD?.aperto&&pD.operatori.find(o=>o.nome===p.nome);
-        if(inMat) mesiOre[m-1]+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):matH;
-        if(inPom) mesiOre[m-1]+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):pomH;
+        if(inMat) mesiOre[m-1]+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):calcShiftHours('mattina',p.ruolo);
+        if(inPom) mesiOre[m-1]+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):calcShiftHours('pomeriggio',p.ruolo);
       }
     }
     return {nome:p.nome,ruolo:p.ruolo,mesiOre,totAnno:mesiOre.reduce((a,b)=>a+b,0)};
   });
   const ferieAnno=pers.map(p=>{
     let tot=0;
+    const isDipSCU = p.ruolo==='dipendente'||p.ruolo==='serviziocivile';
+    if(!isDipSCU) return tot;
     for(let m=1;m<=12;m++){
       const days=new Date(currentAnno,m,0).getDate();
       for(let d=1;d<=days;d++){
         const dayKey=`${currentEmporio}|${currentAnno}|${m}|${d}`;
-        if(yearAssenzeData[`${dayKey}|${p.nome}`]==='ferie') tot+=matH+pomH;
+        const val=yearAssenzeData[`${dayKey}|${p.nome}`];
+        if(getAssenzaTipo(val)==='ferie') tot+=calcShiftHours('mattina',p.ruolo)+calcShiftHours('pomeriggio',p.ruolo);
       }
     }
     return tot;
@@ -1929,7 +1950,7 @@ function openAddModal(key,title) {
 function addOp(key,nome,ruolo,withManualHrs) {
   if(!turniData[key]) turniData[key]={aperto:true,operatori:[]};
   const newOp={nome,ruolo};
-  if(withManualHrs) newOp.oremanuali=calcShiftHours(key.includes('mattina')?'mattina':'pomeriggio');
+  if(withManualHrs) newOp.oremanuali=calcShiftHours(key.includes('mattina')?'mattina':'pomeriggio',ruolo);
   turniData[key].operatori.push(newOp);
   saveTurno(key,turniData[key]);
   closeModal('modal-add');
@@ -1948,24 +1969,34 @@ function setOre(key,idx,val) {
 }
 
 function openAssenzaModal(dayKey) {
-  // Reset ore fields
   const oreEl = document.getElementById('assenza-ore');
   const minEl = document.getElementById('assenza-minuti');
   if (oreEl) oreEl.value = 0;
   if (minEl) minEl.value = 0;
   calcolaOreAssenza();
 
-  const pers=PERSONALE[currentEmporio]||[];
-  document.getElementById('modal-ass-list').innerHTML=pers.map(p=>{
+  const pers = (PERSONALE[currentEmporio]||[]).filter(p=>p.ruolo==='dipendente'||p.ruolo==='serviziocivile');
+  if (!pers.length) {
+    document.getElementById('modal-ass-list').innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun dipendente o servizio civile in questo emporio</p>';
+    document.getElementById('modal-ass').classList.add('show');
+    return;
+  }
+  document.getElementById('modal-ass-list').innerHTML = pers.map(p=>{
     const assKey=`${dayKey}|${p.nome}`;
     const current=getAssenzaTipo(assenzeData[assKey]);
-    return `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;font-weight:700">${p.nome}</span>
-      <div style="display:flex;gap:3px">
+    const roleLabel = p.ruolo==='dipendente' ? 'Dip.' : 'SCU';
+    const roleCls   = p.ruolo==='dipendente' ? 'c-dip' : 'c-scu';
+    return `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px;min-width:0">
+        <span class="op-chip ${roleCls}" style="font-size:9px;padding:2px 6px;flex-shrink:0">${roleLabel}</span>
+        <span style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</span>
+      </div>
+      <div style="display:flex;gap:3px;flex-wrap:wrap">
         <button onclick="setAssenza('${assKey}','ferie')" class="ass-badge ass-ferie" style="${current==='ferie'?'outline:2px solid #3b82f6':''}">Ferie</button>
-        <button onclick="setAssenza('${assKey}','malattia')" class="ass-badge ass-malattia" style="${current==='malattia'?'outline:2px solid #f59e0b':''}">Malattia</button>
         <button onclick="setAssenza('${assKey}','permesso')" class="ass-badge ass-permesso" style="${current==='permesso'?'outline:2px solid #ec4899':''}">Permesso</button>
-        ${current?`<button onclick="rimuoviAssenzaKey('${assKey}','${dayKey}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px">×</button>`:''}
+        <button onclick="setAssenza('${assKey}','malattia')" class="ass-badge ass-malattia" style="${current==='malattia'?'outline:2px solid #f59e0b':''}">Malattia</button>
+        <button onclick="setAssenza('${assKey}','altro')" class="ass-badge ass-altro" style="${current==='altro'?'outline:2px solid #64748b':''}">Altro</button>
+        ${current?`<button onclick="rimuoviAssenzaKey('${assKey}','${dayKey}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0 2px">×</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -2091,12 +2122,17 @@ function dateToTurnoKey(data, fascia) {
 
 function creaChipHtml(o, i, key, ds, fascia) {
   const sid = o.nome.replace(/[^a-zA-Z0-9]/g,'_');
-  const oreDisp = o.oremanuali != null ? o.oremanuali.toFixed(2)+'h' : '';
+  const defOre = calcShiftHours(fascia, o.ruolo);
+  const oreEff = o.oremanuali != null ? o.oremanuali : defOre;
+  const isOverride = o.oremanuali != null;
+  const oreDisp = oreEff != null ? oreEff.toFixed(2)+'h' : '';
+  const oreColor = isOverride ? 'color:#B5453A;font-weight:700' : 'color:#94a3b8;font-weight:500';
+  const overrideDot = isOverride ? ' title="Orario personalizzato ✎"' : '';
   return `<div class="chip-operatore-turno" ondblclick="toggleOrarioOp('${sid}','${ds}','${fascia}')" title="Doppio click per orario">
     <div class="chip-op-header">
       <span class="chip-op-nome">${o.nome.split(' ').slice(0,2).join(' ')}</span>
-      <span class="chip-op-ore" id="ore-${sid}-${ds}-${fascia}">${oreDisp}</span>
-      <button class="chip-toggle-orario" onclick="toggleOrarioOp('${sid}','${ds}','${fascia}')" title="Orario personalizzato">🕐</button>
+      <span class="chip-op-ore" id="ore-${sid}-${ds}-${fascia}" style="${oreColor}"${overrideDot}>${oreDisp}</span>
+      <button class="chip-toggle-orario" onclick="toggleOrarioOp('${sid}','${ds}','${fascia}')" title="Modifica orario">${isOverride?'✎':'🕐'}</button>
       <button class="chip-remove" onclick="rimuoviChipOp('${key}',${i})" title="Rimuovi">×</button>
     </div>
     <div class="chip-op-orario" id="orario-${sid}-${ds}-${fascia}" style="display:none">
@@ -2106,7 +2142,7 @@ function creaChipHtml(o, i, key, ds, fascia) {
         <span>→</span>
         <input type="time" step="300" id="fine-${sid}-${ds}-${fascia}"
                onchange="calcolaOreOp('${sid}',${i},'${key}','${ds}','${fascia}')">
-        <button onclick="resetOrarioOp('${sid}',${i},'${key}','${ds}','${fascia}')" class="btn-reset-orario">↺ Turno</button>
+        <button onclick="resetOrarioOp('${sid}',${i},'${key}','${ds}','${fascia}')" class="btn-reset-orario">↺ Standard</button>
       </div>
     </div>
   </div>`;
@@ -2761,17 +2797,16 @@ function salvaPopoverChip(key, idx) {
 
 // ── RIEPILOGO ORE MENSILE ────────────────────────────────────────────────────
 function mostraRiepilogoOre() {
-  const matH = calcShiftHours('mattina');
-  const pomH = calcShiftHours('pomeriggio');
   const riepilogo = {};
   Object.entries(turniData).forEach(([key, td]) => {
     if (!td.aperto) return;
     const parts = key.split('|');
     if (parseInt(parts[1]) !== currentAnno || parseInt(parts[2]) !== currentMese+1) return;
     const fascia = parts[4];
-    const defOre = fascia==='mattina'?matH:fascia==='pomeriggio'?pomH:2.5;
     (td.operatori||[]).forEach(o => {
+      if (o.rimosso) return;
       if (!riepilogo[o.nome]) riepilogo[o.nome]={nome:o.nome,ruolo:o.ruolo||'',totale:0,mattina:0,pomeriggio:0,sera:0};
+      const defOre = fascia==='sera' ? 2.5 : calcShiftHours(fascia, o.ruolo);
       const ore = o.oremanuali!=null?o.oremanuali:defOre;
       riepilogo[o.nome][fascia] = (riepilogo[o.nome][fascia]||0)+ore;
       riepilogo[o.nome].totale += ore;
@@ -2833,7 +2868,7 @@ function calcolaOreAssenza() {
 
 // Calcola totale ore assenza per operatore nell'anno (da dati in memoria)
 function calcolaTotaleOreOperatore(nomeOperatore, anno) {
-  const totali = { ferie: 0, malattia: 0, permesso: 0, assenza: 0, totale: 0 };
+  const totali = { ferie: 0, malattia: 0, permesso: 0, altro: 0, assenza: 0, totale: 0 };
   const prefix = `${currentEmporio}|${anno}|`;
   Object.entries(assenzeData).forEach(([k, v]) => {
     if (!k.startsWith(prefix)) return;
