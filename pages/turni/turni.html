@@ -2946,26 +2946,29 @@ function toggleOrSerale() {
 // ── CALCOLO CASCATA ────────────────────────────────────────────────────────
 function orCalcEffettivo(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
-  const mese = d.getMonth() + 1;
-  const sett = orGetISOWeek(d);
-  const anno = orGetISOWeekYear(d);
+  const anno  = d.getFullYear();
+  const mese  = d.getMonth() + 1;
+  const giorno = d.getDate();
+  const sett  = orGetISOWeek(d);
+  const annoSett = orGetISOWeekYear(d);
   let result = null, level = 'nessuno';
-  const ann = allOrari.find(o => o.tipo === 'annuale');
+  const ann = allOrari.find(o => o.livello === 'annuale');
   if (ann) { result = ann; level = 'annuale'; }
-  const men = allOrari.find(o => o.tipo === 'mensile' && o.mese === mese);
+  const men = allOrari.find(o => o.livello === 'mensile' && o.mese === mese);
   if (men) { result = men; level = 'mensile'; }
-  const set = allOrari.find(o => o.tipo === 'settimanale' && o.settimana === sett && o.anno_settimana === anno);
+  const set = allOrari.find(o => o.livello === 'settimanale' && o.settimana === sett && o.anno === annoSett);
   if (set) { result = set; level = 'settimanale'; }
-  const gio = allOrari.find(o => o.tipo === 'giornaliero' && o.data_specifica === dateStr);
+  const gio = allOrari.find(o => o.livello === 'giornaliero' && o.anno === anno && o.mese === mese && o.giorno === giorno);
   if (gio) { result = gio; level = 'giornaliero'; }
   if (result?.giorno_chiuso) return { chiuso: true, level };
-  const ser = allOrari.find(o => o.tipo === 'straordinaria_serale' && o.data_specifica === dateStr);
-  return { chiuso: false, level, result, serale: ser || null };
+  // serale è ora nel record giornaliero stesso (campo sera_apertura)
+  const serale = (gio?.sera_apertura) ? gio : null;
+  return { chiuso: false, level, result, serale };
 }
 
 // ── ANNUALE ────────────────────────────────────────────────────────────────
 function populateAnnuale() {
-  const r = allOrari.find(o => o.tipo === 'annuale');
+  const r = allOrari.find(o => o.livello === 'annuale');
   orSetV('ann-mat-ap', r?.mattina_apertura    || '09:15');
   orSetV('ann-mat-ch', r?.mattina_chiusura    || '13:00');
   orSetV('ann-pom-ap', r?.pomeriggio_apertura || '15:00');
@@ -2974,13 +2977,13 @@ function populateAnnuale() {
 async function saveAnnuale(btnEl) {
   setBtnLoading(btnEl, true);
   const p = {
-    emporio_id: currentEmporio, tipo: 'annuale', giorno_chiuso: false,
+    emporio_id: currentEmporio, livello: 'annuale', giorno_chiuso: false,
     mattina_apertura:    orV('ann-mat-ap') || null,
     mattina_chiusura:    orV('ann-mat-ch') || null,
     pomeriggio_apertura: orV('ann-pom-ap') || null,
     pomeriggio_chiusura: orV('ann-pom-ch') || null,
   };
-  const err = await orUpsert({ tipo: 'annuale' }, p);
+  const err = await orUpsert('annuale', {}, p);
   setBtnLoading(btnEl, false);
   if (!err) { showToast('Orario annuale salvato ✓'); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
@@ -2989,11 +2992,11 @@ async function saveAnnuale(btnEl) {
 // ── MENSILE ────────────────────────────────────────────────────────────────
 function populateMensile() {
   const mese = parseInt(orV('men-mese'));
-  const r = allOrari.find(o => o.tipo === 'mensile' && o.mese === mese);
+  const r = allOrari.find(o => o.livello === 'mensile' && o.mese === mese);
   const chiuso = r?.giorno_chiuso || false;
   document.getElementById('men-chiuso').checked = chiuso;
   orShowEl('men-orari-wrap', !chiuso);
-  const ann = allOrari.find(o => o.tipo === 'annuale');
+  const ann = allOrari.find(o => o.livello === 'annuale');
   orSetV('men-mat-ap', r?.mattina_apertura    || ann?.mattina_apertura    || '09:15');
   orSetV('men-mat-ch', r?.mattina_chiusura    || ann?.mattina_chiusura    || '13:00');
   orSetV('men-pom-ap', r?.pomeriggio_apertura || ann?.pomeriggio_apertura || '15:00');
@@ -3005,21 +3008,21 @@ async function saveMensile(btnEl) {
   const mese = parseInt(orV('men-mese'));
   const chiuso = document.getElementById('men-chiuso').checked;
   const p = {
-    emporio_id: currentEmporio, tipo: 'mensile', mese, giorno_chiuso: chiuso,
+    emporio_id: currentEmporio, livello: 'mensile', mese, giorno_chiuso: chiuso,
     mattina_apertura:    chiuso ? null : (orV('men-mat-ap') || null),
     mattina_chiusura:    chiuso ? null : (orV('men-mat-ch') || null),
     pomeriggio_apertura: chiuso ? null : (orV('men-pom-ap') || null),
     pomeriggio_chiusura: chiuso ? null : (orV('men-pom-ch') || null),
     note: orV('men-note') || null,
   };
-  const err = await orUpsert({ tipo: 'mensile', mese }, p);
+  const err = await orUpsert('mensile', { mese }, p);
   setBtnLoading(btnEl, false);
   if (!err) { showToast('Orario mensile salvato ✓'); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
 }
 async function resetMensile() {
   const mese = parseInt(orV('men-mese'));
-  const err = await orDelete({ tipo: 'mensile', mese });
+  const err = await orDelete('mensile', { mese });
   if (!err) { showToast('Override mensile rimosso ✓'); populateMensile(); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
 }
@@ -3039,11 +3042,11 @@ function orParseWeek() {
 }
 function populateSettimanale() {
   const pw = orParseWeek(); if (!pw) return;
-  const r = allOrari.find(o => o.tipo === 'settimanale' && o.settimana === pw.settimana && o.anno_settimana === pw.anno);
+  const r = allOrari.find(o => o.livello === 'settimanale' && o.settimana === pw.settimana && o.anno === pw.anno);
   const chiuso = r?.giorno_chiuso || false;
   document.getElementById('sett-chiuso').checked = chiuso;
   orShowEl('sett-orari-wrap', !chiuso);
-  const ann = allOrari.find(o => o.tipo === 'annuale');
+  const ann = allOrari.find(o => o.livello === 'annuale');
   orSetV('sett-mat-ap', r?.mattina_apertura    || ann?.mattina_apertura    || '09:15');
   orSetV('sett-mat-ch', r?.mattina_chiusura    || ann?.mattina_chiusura    || '13:00');
   orSetV('sett-pom-ap', r?.pomeriggio_apertura || ann?.pomeriggio_apertura || '15:00');
@@ -3056,22 +3059,22 @@ async function saveSettimanale(btnEl) {
   setBtnLoading(btnEl, true);
   const chiuso = document.getElementById('sett-chiuso').checked;
   const p = {
-    emporio_id: currentEmporio, tipo: 'settimanale',
-    settimana: pw.settimana, anno_settimana: pw.anno, giorno_chiuso: chiuso,
+    emporio_id: currentEmporio, livello: 'settimanale',
+    anno: pw.anno, settimana: pw.settimana, giorno_chiuso: chiuso,
     mattina_apertura:    chiuso ? null : (orV('sett-mat-ap') || null),
     mattina_chiusura:    chiuso ? null : (orV('sett-mat-ch') || null),
     pomeriggio_apertura: chiuso ? null : (orV('sett-pom-ap') || null),
     pomeriggio_chiusura: chiuso ? null : (orV('sett-pom-ch') || null),
     note: orV('sett-note') || null,
   };
-  const err = await orUpsert({ tipo: 'settimanale', settimana: pw.settimana, anno_settimana: pw.anno }, p);
+  const err = await orUpsert('settimanale', { anno: pw.anno, settimana: pw.settimana }, p);
   setBtnLoading(btnEl, false);
   if (!err) { showToast('Orario settimanale salvato ✓'); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
 }
 async function resetSettimanale() {
   const pw = orParseWeek(); if (!pw) return;
-  const err = await orDelete({ tipo: 'settimanale', settimana: pw.settimana, anno_settimana: pw.anno });
+  const err = await orDelete('settimanale', { anno: pw.anno, settimana: pw.settimana });
   if (!err) { showToast('Override settimanale rimosso ✓'); populateSettimanale(); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
 }
@@ -3082,10 +3085,14 @@ function initOrDateInput() {
   if (el) el.value = orToLocalISO(new Date());
   populateGiornaliero();
 }
+function orParseData(data) {
+  const d = new Date(data + 'T12:00:00');
+  return { anno: d.getFullYear(), mese: d.getMonth() + 1, giorno: d.getDate() };
+}
 function populateGiornaliero() {
   const data = orV('giorn-data'); if (!data) return;
-  const r  = allOrari.find(o => o.tipo === 'giornaliero' && o.data_specifica === data);
-  const rs = allOrari.find(o => o.tipo === 'straordinaria_serale' && o.data_specifica === data);
+  const { anno, mese, giorno } = orParseData(data);
+  const r = allOrari.find(o => o.livello === 'giornaliero' && o.anno === anno && o.mese === mese && o.giorno === giorno);
   const chiuso = r?.giorno_chiuso || false;
   document.getElementById('giorn-chiuso').checked = chiuso;
   orShowEl('giorn-orari-wrap', !chiuso);
@@ -3102,48 +3109,42 @@ function populateGiornaliero() {
     orSetV('giorn-pom-ap', base?.pomeriggio_apertura || '15:00');
     orSetV('giorn-pom-ch', base?.pomeriggio_chiusura || '19:00');
   }
-  const hasSerale = !!rs;
+  // serale è nel record giornaliero (sera_apertura/sera_chiusura)
+  const hasSerale = !!(r?.sera_apertura);
   document.getElementById('giorn-serale-on').checked = hasSerale;
   orShowEl('giorn-serale-wrap', hasSerale);
-  if (rs) { orSetV('giorn-ser-ap', rs.sera_apertura); orSetV('giorn-ser-ch', rs.sera_chiusura); }
+  if (hasSerale) { orSetV('giorn-ser-ap', r.sera_apertura); orSetV('giorn-ser-ch', r.sera_chiusura); }
   orSetV('giorn-note', r?.note || '');
 }
 async function saveGiornaliero(btnEl) {
   const data = orV('giorn-data');
   if (!data) { showToast('Seleziona una data', 'err'); return; }
   setBtnLoading(btnEl, true);
+  const { anno, mese, giorno } = orParseData(data);
   const chiuso = document.getElementById('giorn-chiuso').checked;
+  const serale = document.getElementById('giorn-serale-on').checked;
   const p = {
-    emporio_id: currentEmporio, tipo: 'giornaliero', data_specifica: data, giorno_chiuso: chiuso,
+    emporio_id: currentEmporio, livello: 'giornaliero',
+    anno, mese, giorno, giorno_chiuso: chiuso,
     mattina_apertura:    chiuso ? null : (orV('giorn-mat-ap') || null),
     mattina_chiusura:    chiuso ? null : (orV('giorn-mat-ch') || null),
     pomeriggio_apertura: chiuso ? null : (orV('giorn-pom-ap') || null),
     pomeriggio_chiusura: chiuso ? null : (orV('giorn-pom-ch') || null),
+    sera_apertura:  serale ? (orV('giorn-ser-ap') || null) : null,
+    sera_chiusura:  serale ? (orV('giorn-ser-ch') || null) : null,
     note: orV('giorn-note') || null,
   };
-  let err = await orUpsert({ tipo: 'giornaliero', data_specifica: data }, p);
-  if (err) { setBtnLoading(btnEl, false); showToast('Errore: ' + err.message, 'err'); return; }
-  if (document.getElementById('giorn-serale-on').checked) {
-    const ps = {
-      emporio_id: currentEmporio, tipo: 'straordinaria_serale', data_specifica: data,
-      sera_apertura: orV('giorn-ser-ap') || null,
-      sera_chiusura: orV('giorn-ser-ch') || null,
-    };
-    err = await orUpsert({ tipo: 'straordinaria_serale', data_specifica: data }, ps);
-  } else {
-    await orDelete({ tipo: 'straordinaria_serale', data_specifica: data });
-  }
+  const err = await orUpsert('giornaliero', { anno, mese, giorno }, p);
   setBtnLoading(btnEl, false);
   if (!err) { showToast('Orario giornaliero salvato ✓'); orRenderCalendar(); }
-  else showToast('Errore serale: ' + err.message, 'err');
+  else showToast('Errore: ' + err.message, 'err');
 }
 async function resetGiornaliero() {
   const data = orV('giorn-data'); if (!data) return;
-  await orDelete({ tipo: 'giornaliero', data_specifica: data });
-  await orDelete({ tipo: 'straordinaria_serale', data_specifica: data });
-  showToast('Override giornaliero rimosso ✓');
-  populateGiornaliero();
-  orRenderCalendar();
+  const { anno, mese, giorno } = orParseData(data);
+  const err = await orDelete('giornaliero', { anno, mese, giorno });
+  if (!err) { showToast('Override giornaliero rimosso ✓'); populateGiornaliero(); orRenderCalendar(); }
+  else showToast('Errore: ' + err.message, 'err');
 }
 
 // ── BUTTON LOADING STATE ───────────────────────────────────────────────────
@@ -3162,54 +3163,54 @@ function setBtnLoading(btnEl, loading) {
 }
 
 // ── DB HELPERS ─────────────────────────────────────────────────────────────
-async function orUpsert(filters, payload) {
+// Struttura definitiva colonne: id, emporio_id, livello, anno, mese, settimana,
+// giorno, giorno_chiuso, mattina_apertura, mattina_chiusura, pomeriggio_apertura,
+// pomeriggio_chiusura, sera_apertura, sera_chiusura, note, created_at, updated_at
+
+async function orUpsert(livello, keys, payload) {
   if (!db) { console.error('[orUpsert] db non inizializzato'); return new Error('DB non connesso'); }
-  console.log('[orUpsert] tabella: orari_emporio | emporio:', currentEmporio, '| filters:', filters, '| payload:', payload);
+  console.log('[orUpsert] livello:', livello, '| emporio:', currentEmporio, '| keys:', keys, '| payload:', payload);
   try {
-    let delQ = db.from('orari_emporio').delete().eq('emporio_id', currentEmporio).eq('tipo', filters.tipo);
-    if (filters.mese           != null) delQ = delQ.eq('mese', filters.mese);
-    if (filters.settimana      != null) delQ = delQ.eq('settimana', filters.settimana).eq('anno_settimana', filters.anno_settimana);
-    if (filters.data_specifica != null) delQ = delQ.eq('data_specifica', filters.data_specifica);
-    const { error: delErr } = await delQ;
+    let q = db.from('orari_emporio').delete().eq('emporio_id', currentEmporio).eq('livello', livello);
+    Object.entries(keys).forEach(([k, v]) => { q = q.eq(k, v); });
+    const { error: delErr } = await q;
     if (delErr) {
       console.error('[orUpsert] DELETE FALLITO — codice:', delErr.code, '| messaggio:', delErr.message, '| hint:', delErr.hint);
-      if (delErr.code === 'PGRST204' || delErr.message?.includes('schema cache') || delErr.message?.includes('not found')) {
-        return new Error('Tabella orari_emporio non trovata nel DB. Eseguire il blocco SQL di setup su Supabase.');
-      }
+      return delErr;
     }
     const { error } = await db.from('orari_emporio').insert(payload);
     if (error) {
       console.error('[orUpsert] INSERT FALLITO — codice:', error.code, '| messaggio:', error.message, '| hint:', error.hint, '| payload:', JSON.stringify(payload));
       return error;
     }
-    console.log('[orUpsert] OK | tipo:', filters.tipo, '| emporio:', currentEmporio);
+    console.log('[orUpsert] OK | livello:', livello, '| emporio:', currentEmporio);
     await loadOrari();
     return null;
   } catch(e) { console.error('[orUpsert] eccezione:', e); return e; }
 }
-async function orDelete(filters) {
+
+async function orDelete(livello, keys) {
   if (!db) { console.error('[orDelete] db non inizializzato'); return new Error('DB non connesso'); }
-  console.log('[orDelete] tabella: orari_emporio | emporio:', currentEmporio, '| filters:', filters);
+  console.log('[orDelete] livello:', livello, '| emporio:', currentEmporio, '| keys:', keys);
   try {
-    let q = db.from('orari_emporio').delete().eq('emporio_id', currentEmporio).eq('tipo', filters.tipo);
-    if (filters.mese           != null) q = q.eq('mese', filters.mese);
-    if (filters.settimana      != null) q = q.eq('settimana', filters.settimana).eq('anno_settimana', filters.anno_settimana);
-    if (filters.data_specifica != null) q = q.eq('data_specifica', filters.data_specifica);
+    let q = db.from('orari_emporio').delete().eq('emporio_id', currentEmporio).eq('livello', livello);
+    Object.entries(keys).forEach(([k, v]) => { q = q.eq(k, v); });
     const { error } = await q;
     if (error) {
       console.error('[orDelete] FALLITO — codice:', error.code, '| messaggio:', error.message);
       return error;
     }
-    console.log('[orDelete] OK | tipo:', filters.tipo);
+    console.log('[orDelete] OK | livello:', livello);
     await loadOrari();
     return null;
   } catch(e) { console.error('[orDelete] eccezione:', e); return e; }
 }
+
 async function orCheckTabella() {
   if (!db) return;
   const { data, error } = await db.from('orari_emporio').select('id').limit(1);
   if (error) {
-    console.error('[orCheck] TABELLA orari_emporio NON RAGGIUNGIBILE:', error.message);
+    console.error('[orCheck] TABELLA orari_emporio NON RAGGIUNGIBILE:', error.message, '— eseguire il blocco SQL di setup su Supabase');
     showToast('⚠ Tabella orari non configurata — vedi console', 'err');
   } else {
     console.log('[orCheck] Tabella orari_emporio OK, record trovati:', data?.length ?? 0);
