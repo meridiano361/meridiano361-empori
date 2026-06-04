@@ -950,16 +950,6 @@ tr.riga-giorno.tutto-chiuso { background: transparent !important; }
   .ore-filtro-grp { width: 100%; }
 }
 
-/* ── CHIP TURNO PROPRIO ────────────────────────────────────────────────────── */
-.chip-nome-cal.chip-own {
-  background: #B5453A !important;
-  color: #fff !important;
-  border-color: #9b3a30 !important;
-  font-weight: 800 !important;
-}
-.chip-nome-cal.chip-own .rm { color: rgba(255,255,255,.6) !important; }
-.chip-nome-cal.chip-own .rm:hover { color: #fff !important; }
-.chip-nome-cal.chip-own .chip-ore-custom { color: rgba(255,255,255,.85) !important; }
 
 /* ── MODALITÀ SOLA LETTURA ─────────────────────────────────────────────────── */
 body.turni-readonly .chip-nome-cal .rm { display: none !important; }
@@ -1192,10 +1182,9 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
         <span>+ Sera</span>
       </label>
     </div>
-    <!-- Tab vista: Tabella / Giornate -->
+    <!-- Tab vista -->
     <div class="turni-view-tabs">
-      <button class="turni-view-tab on" id="vtab-tabella" onclick="setTurniView('tabella')">📅 Tabella</button>
-      <button class="turni-view-tab" id="vtab-giornate" onclick="setTurniView('giornate')">📋 Giornate</button>
+      <button class="turni-view-tab on" id="vtab-tabella">📅 Turni Emporio</button>
     </div>
     <!-- Vista TABELLA -->
     <div id="turni-view-tabella">
@@ -1229,12 +1218,9 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
           <div class="legenda-item"><span class="stato-icon chiuso" style="pointer-events:none;font-size:10px;width:18px;height:18px">✗</span><span>Chiuso</span></div>
           <div class="legenda-item"><span class="legenda-dot" style="background:#D97706"></span><span>Parziale</span></div>
           <div class="legenda-item"><span class="chip-nome-cal" style="pointer-events:none">Op.</span></div>
-          <div class="legenda-item"><span class="chip-nome-cal chip-own" style="pointer-events:none">Tu</span><span>Il tuo turno</span></div>
         </div>
       </div>
     </div>
-    <!-- Vista GIORNATE (card mobile-friendly) -->
-    <div id="turni-view-giornate" style="display:none"></div>
   </div>
 
   <!-- SEZIONE 2: ORARI EMPORIO (inline) -->
@@ -1905,11 +1891,9 @@ function renderMonth() {
       return (td.operatori||[]).map((o,i) => {
         if (o.rimosso) return '';
         const defOre = calcShiftHours(fascia, o.ruolo);
-        const oreEff = o.oremanuali != null ? o.oremanuali : defOre;
-        const oreStyle = o.oremanuali != null ? '' : 'color:#94a3b8;font-size:8px';
-        const oreStr = oreEff ? `<span class="chip-ore-custom" style="${oreStyle}">${oreEff.toFixed(2)}h</span>` : '';
-        const ownCls = isCurrentUser(o.nome) ? ' chip-own' : '';
-        return `<span class="chip-nome-cal${ownCls}" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${oreStr}` +
+        const isPartial = o.oremanuali != null && o.oremanuali < defOre;
+        const partialStr = isPartial ? `<span title="Orario parziale" style="font-size:9px;opacity:.65;margin-left:1px">◐</span>` : '';
+        return `<span class="chip-nome-cal" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${partialStr}` +
           `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`;
       }).join('')+`<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)">+</span>`;
     };
@@ -2297,16 +2281,11 @@ function renderYear() {
 // ── MASTER RENDER ──────────────────────────────────────────────────────────
 function render() {
   renderMonthLabel();
-  if (currentView === 'giornate') {
-    const elG = document.getElementById('turni-view-giornate');
-    if (elG && elG.style.display !== 'none') elG.innerHTML = renderGiornaliero();
-  } else {
-    const tbody = document.getElementById('cal-tbody');
-    if (tbody) {
-      tbody.innerHTML = renderMonth();
-      const chk = document.getElementById('mostra-sera');
-      toggleColonnaSera(chk ? chk.checked : mostraSeraGlobale);
-    }
+  const tbody = document.getElementById('cal-tbody');
+  if (tbody) {
+    tbody.innerHTML = renderMonth();
+    const chk = document.getElementById('mostra-sera');
+    toggleColonnaSera(chk ? chk.checked : mostraSeraGlobale);
   }
 }
 
@@ -2523,7 +2502,7 @@ function creaChipHtml(o, i, key, ds, fascia) {
   const oreDisp = oreEff != null ? oreEff.toFixed(2)+'h' : '';
   const oreColor = isOverride ? 'color:#B5453A;font-weight:700' : 'color:#94a3b8;font-weight:500';
   const overrideDot = isOverride ? ' title="Orario personalizzato ✎"' : '';
-  const ownStyle = isCurrentUser(o.nome) ? ' style="border-color:#B5453A;background:rgba(181,69,58,0.06)"' : '';
+  const ownStyle = '';
   return `<div class="chip-operatore-turno"${ownStyle} ondblclick="toggleOrarioOp('${sid}','${ds}','${fascia}')" title="Doppio click per orario">
     <div class="chip-op-header">
       <span class="chip-op-nome">${o.nome.split(' ').slice(0,2).join(' ')}</span>
@@ -2544,93 +2523,6 @@ function creaChipHtml(o, i, key, ds, fascia) {
   </div>`;
 }
 
-function renderGiornaliero() {
-  const days = new Date(currentAnno, currentMese+1, 0).getDate();
-  const FULL = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
-  let html = '<div class="turni-container">';
-  for (let d=1; d<=days; d++) {
-    const dow = new Date(currentAnno, currentMese, d).getDay();
-    const ds = `${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const labelGiorno = `${FULL[dow]} ${d} ${MESI[currentMese]} ${currentAnno}`;
-    const mk = dateToTurnoKey(ds,'mattina');
-    const pk = dateToTurnoKey(ds,'pomeriggio');
-    const sk = dateToTurnoKey(ds,'sera');
-    const mD = turniData[mk] || {aperto: !isGiornoFestivo(currentAnno, currentMese+1, d), operatori:[]};
-    const pD = turniData[pk] || {aperto: !isGiornoFestivo(currentAnno, currentMese+1, d), operatori:[]};
-    const sD = turniData[sk] || {aperto: false, operatori:[]};
-    const matAp = dayHoursData[`${ds}_mattina_apertura`]   || storeHoursData.mat_open || '09:15';
-    const matCh = dayHoursData[`${ds}_mattina_chiusura`]   || storeHoursData.mat_close || '13:00';
-    const pomAp = dayHoursData[`${ds}_pomeriggio_apertura`]|| storeHoursData.pom_open || '15:00';
-    const pomCh = dayHoursData[`${ds}_pomeriggio_chiusura`]|| storeHoursData.pom_close || '19:00';
-    const serAp = dayHoursData[`${ds}_sera_apertura`]    || '20:00';
-    const serCh = dayHoursData[`${ds}_sera_chiusura`]    || '22:30';
-    const hasSer = !!(turniData[sk]);
-
-    const chips = (key, td, fascia) =>
-      (td.operatori||[]).map((o,i) => o.rimosso ? '' : creaChipHtml(o,i,key,ds,fascia)).join('');
-
-    const fasciaHtml = (fascia, td, ap, ch, key) => {
-      const label = fascia==='mattina'?'☀️ Mattina':fascia==='pomeriggio'?'🌆 Pomeriggio':'🌙 Sera';
-      return `
-      <div class="fascia-turno${fascia==='sera'?' fascia-sera':''}"${fascia==='sera'?` id="sera-${ds}" style="${hasSer?'':'display:none'}"`:''}">
-        <div class="fascia-header">
-          <span class="turno-fascia-label">${label}</span>
-          ${fascia==='sera'?`<button class="btn-rimuovi-sera" onclick="rimuoviSera('${ds}')" title="Rimuovi fascia sera">×</button>`:''}
-        </div>
-        <div class="turno-sezione">
-          <div class="negozio-stato">
-            <label class="radio-stato">
-              <input type="radio" name="${fascia}-stato-${ds}" value="aperto" ${td.aperto?'checked':''}
-                     onchange="aggiornaNegozio('${ds}','${fascia}','aperto')">
-              <span class="radio-label aperto">● Aperto</span>
-            </label>
-            <label class="radio-stato">
-              <input type="radio" name="${fascia}-stato-${ds}" value="chiuso" ${!td.aperto?'checked':''}
-                     onchange="aggiornaNegozio('${ds}','${fascia}','chiuso')">
-              <span class="radio-label chiuso">● Chiuso</span>
-            </label>
-          </div>
-          <div class="negozio-orari${td.aperto?'':' nascosto'}" id="orari-${fascia}-${ds}">
-            <div class="orario-campo">
-              <label>Apertura</label>
-              <input type="time" step="300" value="${ap}" onchange="salvaOrario('${ds}','${fascia}','apertura',this.value)">
-            </div>
-            <div class="orario-campo">
-              <label>Chiusura</label>
-              <input type="time" step="300" value="${ch}" onchange="salvaOrario('${ds}','${fascia}','chiusura',this.value)">
-            </div>
-          </div>
-        </div>
-        <div class="turno-sezione">
-          <div class="operatori-chips" id="ops-${fascia}-${ds}">${chips(key,td,fascia)}</div>
-          <button class="btn-aggiungi-op-turno" onclick="aggiungiOperatoreTurno('${ds}','${fascia}')">+ Aggiungi</button>
-        </div>
-      </div>`;
-    };
-
-    html += `
-    <div class="giorno-turno">
-      <div class="giorno-header">
-        <span class="data-turno">${labelGiorno}</span>
-        <div class="giorno-azioni">
-          <button onclick="copiaGiorno('${ds}')" title="Copia su altri giorni"
-                  style="background:none;border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:4px 8px;color:#fff;cursor:pointer;font-size:13px">📋</button>
-          <button onclick="applicaTurnoDefault('${ds}')"
-                  style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:4px 10px;color:#fff;cursor:pointer;font-size:12px;font-weight:700">⚡ Predefiniti</button>
-        </div>
-      </div>
-      ${fasciaHtml('mattina',mD,matAp,matCh,mk)}
-      ${fasciaHtml('pomeriggio',pD,pomAp,pomCh,pk)}
-      ${fasciaHtml('sera',sD,serAp,serCh,sk)}
-      <button class="btn-aggiungi-sera" id="btn-sera-${ds}"
-              onclick="aggiungiSera('${ds}')"
-              style="${hasSer?'display:none':''}">
-        🌙 Aggiungi apertura sera
-      </button>
-    </div>`;
-  }
-  return html + '</div>';
-}
 
 function aggiornaNegozio(data, fascia, stato) {
   if(!canEditTurni()){showToast('Non hai i permessi per modificare i turni','err');return;}
@@ -2972,20 +2864,13 @@ function isCurrentUser(nome) {
   return (u.nome || '').trim().toLowerCase() === (nome || '').trim().toLowerCase();
 }
 
-// ── VISTA TURNI (tabella / giornate) ──────────────────────────────────────
+// ── VISTA TURNI ────────────────────────────────────────────────────────────
 function setTurniView(v) {
-  currentView = v;
+  currentView = 'tabella';
   const elT = document.getElementById('turni-view-tabella');
-  const elG = document.getElementById('turni-view-giornate');
-  const vtT = document.getElementById('vtab-tabella');
-  const vtG = document.getElementById('vtab-giornate');
   const seraTgl = document.getElementById('toggle-sera-wrap');
-  if (elT) elT.style.display = v === 'tabella' ? '' : 'none';
-  if (elG) elG.style.display = v === 'giornate' ? '' : 'none';
-  if (vtT) vtT.classList.toggle('on', v === 'tabella');
-  if (vtG) vtG.classList.toggle('on', v === 'giornate');
-  if (seraTgl) seraTgl.style.display = v === 'tabella' ? '' : 'none';
-  if (v === 'giornate' && elG) elG.innerHTML = renderGiornaliero();
+  if (elT) elT.style.display = '';
+  if (seraTgl) seraTgl.style.display = '';
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────
@@ -3006,8 +2891,9 @@ if (typeof getOperatoreLoggato === 'function') {
 mostraSeraGlobale = localStorage.getItem('turni_mostra_sera') === 'true';
 const _chk = document.getElementById('mostra-sera');
 if (_chk) _chk.checked = mostraSeraGlobale;
-// Usa vista giornate di default su mobile, tabella su desktop
-setTurniView(window.innerWidth < 768 ? 'giornate' : 'tabella');
+setTurniView('tabella');
+const _vtab = document.getElementById('vtab-tabella');
+if (_vtab) _vtab.textContent = '📅 Turni Emporio ' + currentEmporio;
 reload();
 // Popola automaticamente turni predefiniti per i prossimi 2 mesi
 (async () => {
