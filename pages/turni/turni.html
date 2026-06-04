@@ -2070,7 +2070,7 @@ async function aggiornaOre() {
   try {
     const [turniRes, opRes] = await Promise.all([
       (() => { let q = db.from('turni').select('*').eq('emporio', currentEmporio).eq('anno', anno); if (!annuale) q = q.eq('mese', mese); return q; })(),
-      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi,ore_settimanali').or('attivo.eq.true,attivo.is.null').order('nome'),
+      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom').or('attivo.eq.true,attivo.is.null').order('nome'),
     ]);
     if (turniRes.error) throw turniRes.error;
     const turniRows = turniRes.data || [];
@@ -2089,7 +2089,7 @@ async function aggiornaOre() {
     const assenzeObj = {};
     turniRows.forEach(r => { if (r.assenze) Object.assign(assenzeObj, r.assenze); });
     const pers = opNomeAttivo ? opDB.filter(p => p.nome === opNomeAttivo) : opDB;
-    const stats = pers.map(p => calcOreStats(p.nome, p.ruolo, p.ore_settimanali || 0, turniRows, assenzeObj, anno, mese, annuale));
+    const stats = pers.map(p => calcOreStats(p.nome, p.ruolo, p, turniRows, assenzeObj, anno, mese, annuale));
     wrap.innerHTML = renderOreTable(stats, annuale, anno, mese);
   } catch (e) {
     console.error('[aggiornaOre]', e);
@@ -2097,82 +2097,97 @@ async function aggiornaOre() {
   }
 }
 
-// Conta i giorni lun-ven in un mese (indipendente da festività, che sono comunque retribuite)
-function giorniLavorativiMese(anno, mese) {
-  const days = new Date(anno, mese, 0).getDate();
-  let count = 0;
-  for (let d = 1; d <= days; d++) {
-    const dow = new Date(anno, mese - 1, d).getDay();
-    if (dow !== 0 && dow !== 6) count++;
+// Ore previste per uno specifico giorno di un operatore.
+// Usa ore_previste_[giorno] se impostato; fallback uniforme su ore_settimanali/5 (lun-ven).
+function getOrePrevisteGiorno(opData, anno, mese, giorno) {
+  const dow = new Date(anno, mese - 1, giorno).getDay(); // 0=Dom … 6=Sab
+  const KEYS = ['dom','lun','mar','mer','gio','ven','sab'];
+  const val  = opData['ore_previste_' + KEYS[dow]];
+  if (val !== null && val !== undefined) return parseFloat(val) || 0;
+  // Fallback: distribuzione uniforme Mon-Fri se solo ore_settimanali è noto
+  if (opData.ore_settimanali && dow >= 1 && dow <= 5) {
+    return parseFloat((opData.ore_settimanali / 5).toFixed(2));
   }
-  return count;
+  return 0;
 }
 
-// Ore contrattuali del periodo: (lun-ven / 5) × ore_settimanali
-function calcOreContrattuali(anno, mese, oreSettimanali, annuale) {
-  if (!oreSettimanali || oreSettimanali <= 0) return 0;
+// Somma le ore previste per tutti i giorni del periodo (mese o anno).
+function calcOrePrevistePeriodo(opData, anno, mese, annuale) {
+  function sumMonth(a, m) {
+    const days = new Date(a, m, 0).getDate();
+    let tot = 0;
+    for (let d = 1; d <= days; d++) tot += getOrePrevisteGiorno(opData, a, m, d);
+    return tot;
+  }
   if (annuale) {
-    let totGiorni = 0;
-    for (let m = 1; m <= 12; m++) totGiorni += giorniLavorativiMese(anno, m);
-    return parseFloat(((totGiorni / 5) * oreSettimanali).toFixed(2));
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += sumMonth(anno, m);
+    return parseFloat(total.toFixed(2));
   }
-  const giorni = giorniLavorativiMese(anno, mese);
-  return parseFloat(((giorni / 5) * oreSettimanali).toFixed(2));
+  return parseFloat(sumMonth(anno, mese).toFixed(2));
 }
 
-function calcOreStats(nome, ruolo, oreSettimanali, turniRows, assenzeObj, anno, mese, annuale) {
+function calcOreStats(nome, ruolo, opData, turniRows, assenzeObj, anno, mese, annuale) {
   let oreEmporio = 0, oreFerie = 0, orePermesso = 0, oreMalattia = 0, oreAltro = 0;
+  // Ore in emporio: dai turni effettivi
   (turniRows || []).forEach(r => {
     if (!r.aperto) return;
     const op = (r.operatori || []).find(o => o.nome === nome && !o.rimosso);
     if (!op) return;
     oreEmporio += op.oremanuali != null ? parseFloat(op.oremanuali) || 0 : calcShiftHours(r.turno, ruolo);
   });
+  // Assenze: valorizzate sulle ore previste del giorno, non sulle ore emporio
   Object.entries(assenzeObj).forEach(([k, v]) => {
     const parts = k.split('|');
     if (parts.length < 5) return;
-    const empK = parts[0], annoK = parseInt(parts[1]), meseK = parseInt(parts[2]);
+    const empK  = parts[0], annoK = parseInt(parts[1]), meseK = parseInt(parts[2]);
+    const giornoK = parseInt(parts[3]);
     const nomeK = parts.slice(4).join('|');
     if (empK !== currentEmporio || annoK !== anno) return;
     if (!annuale && meseK !== mese) return;
     if (nomeK !== nome) return;
-    const tipo = getAssenzaTipo(v);
-    const oreAss = getAssenzaOre(v);
-    const def = calcShiftHours('mattina', ruolo) + calcShiftHours('pomeriggio', ruolo);
-    const addOre = oreAss > 0 ? oreAss : def;
+    const tipo    = getAssenzaTipo(v);
+    const oreAss  = getAssenzaOre(v);
+    // Ore del giorno per quest'operatore (da anagrafica, non dall'emporio)
+    const oreGiorno = getOrePrevisteGiorno(opData, annoK, meseK, giornoK);
+    const addOre = oreAss > 0 ? oreAss : oreGiorno;
     if (tipo === 'ferie')         oreFerie    += addOre;
     else if (tipo === 'permesso') orePermesso += addOre;
     else if (tipo === 'malattia') oreMalattia += addOre;
     else                          oreAltro    += addOre;
   });
-  // Ferie/Permessi unificati + altre assenze
-  const oreFeriePerm = oreFerie + orePermesso + oreAltro;
-  const oreContratto = calcOreContrattuali(anno, mese, oreSettimanali, annuale);
-  // Altre attività per differenza (può essere negativo = straordinario non tracciato)
-  const oreAltreAtt = parseFloat((oreContratto - oreEmporio - oreFeriePerm - oreMalattia).toFixed(2));
-  return { nome, ruolo, oreSettimanali, oreEmporio, oreFeriePerm, oreMalattia, oreAltreAtt, oreContratto };
+  const oreContratto = calcOrePrevistePeriodo(opData, anno, mese, annuale);
+  // Altre attività = differenza residua (negativo = eccesso/straordinario)
+  const oreAltreAtt = parseFloat((oreContratto - oreEmporio - oreFerie - orePermesso - oreMalattia - oreAltro).toFixed(2));
+  return { nome, ruolo, opData, oreEmporio, oreFerie, orePermesso, oreMalattia, oreAltro, oreAltreAtt, oreContratto };
 }
 
 function renderOreTable(stats, annuale, anno, mese) {
   if (!stats.length) return '<p style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">Nessun dipendente o SCU registrato per questo emporio</p>';
   const cc  = r => r === 'dipendente' ? 'c-dip' : 'c-scu';
-  const fmt = n => n > 0 ? n.toFixed(2) : '–';
+  const fmt = n => n !== 0 && n > 0 ? n.toFixed(2) : '–';
   const fmtAltreAtt = n => {
-    if (n === 0 || (!n && n !== 0)) return '–';
-    if (n < 0) return `<span style="color:#B5453A;font-weight:700" title="Ore in eccesso rispetto al contratto">${n.toFixed(2)}</span>`;
+    if (!n && n !== 0) return '–';
+    if (n < 0) return `<span style="color:#B5453A;font-weight:700" title="Ore in eccesso sul contratto">${n.toFixed(2)}</span>`;
+    if (n === 0) return '–';
     return `<span style="color:#0369a1">${n.toFixed(2)}</span>`;
   };
   const periodo = annuale ? `Anno ${anno}` : `${MESI[mese-1]} ${anno}`;
   const rows = stats.map(s => {
-    const contrattoLabel = s.oreSettimanali ? `${s.oreSettimanali}h/sett` : '<span style="color:#ef4444;font-size:10px">⚠ da impostare</span>';
+    const sett = s.opData?.ore_settimanali;
+    const contrattoLabel = sett
+      ? `${sett}h/sett · ${s.oreContratto > 0 ? s.oreContratto.toFixed(1)+'h/periodo' : ''}`
+      : '<span style="color:#ef4444;font-size:10px">⚠ ore previste da impostare in Anagrafica</span>';
     return `<tr>
       <td>
         <span class="op-chip ${cc(s.ruolo)}" style="font-size:11px">${s.nome}</span>
         <div style="font-size:10px;color:#94a3b8;margin-top:2px">${contrattoLabel}</div>
       </td>
       <td style="font-weight:900;color:#1e293b">${fmt(s.oreEmporio)}</td>
-      <td style="color:#854d0e">${s.oreMalattia > 0 ? s.oreMalattia.toFixed(2) : '–'}</td>
-      <td style="color:#1e40af">${s.oreFeriePerm > 0 ? s.oreFeriePerm.toFixed(2) : '–'}</td>
+      <td style="color:#1e40af">${fmt(s.oreFerie)}</td>
+      <td style="color:#9d174d">${fmt(s.orePermesso)}</td>
+      <td style="color:#854d0e">${fmt(s.oreMalattia)}</td>
+      <td style="color:#475569">${fmt(s.oreAltro)}</td>
       <td>${fmtAltreAtt(s.oreAltreAtt)}</td>
       <td style="font-weight:900;color:#B5453A">${s.oreContratto > 0 ? s.oreContratto.toFixed(2) : '–'}</td>
     </tr>`;
@@ -2180,15 +2195,17 @@ function renderOreTable(stats, annuale, anno, mese) {
   const totRow = stats.length > 1 ? `<tfoot><tr>
     <td>TOTALE</td>
     <td>${fmt(stats.reduce((a,x)=>a+x.oreEmporio,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreFerie,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.orePermesso,0))}</td>
     <td>${fmt(stats.reduce((a,x)=>a+x.oreMalattia,0))}</td>
-    <td>${fmt(stats.reduce((a,x)=>a+x.oreFeriePerm,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreAltro,0))}</td>
     <td>${fmt(stats.reduce((a,x)=>a+(x.oreAltreAtt||0),0))}</td>
     <td>${fmt(stats.reduce((a,x)=>a+x.oreContratto,0))}</td>
   </tr></tfoot>` : '';
-  // Nota esplicativa formula
   const nota = `<div style="font-size:11px;color:#94a3b8;margin-top:10px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
-    <strong style="color:#475569">Altre attività</strong> = ore contrattuali − in emporio − ferie/permessi − malattia
-    <span style="margin-left:8px;color:#B5453A">rosso = ore in eccesso rispetto al contratto</span>
+    <strong style="color:#475569">Altre attività</strong> = ore previste periodo − emporio − ferie − permesso − malattia − altro ass.
+    &nbsp;·&nbsp; <span style="color:#B5453A">rosso = eccesso</span> &nbsp;·&nbsp;
+    Assenze calcolate sulle <em>ore previste del giorno</em>, non sulle ore emporio
   </div>`;
   return `
   <div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${periodo}</div>
@@ -2196,19 +2213,17 @@ function renderOreTable(stats, annuale, anno, mese) {
     <thead><tr>
       <th style="text-align:left">Operatore</th>
       <th>In emporio</th>
-      <th>Malattia</th>
-      <th>Ferie / Permessi</th>
+      <th style="background:#1e40af">Ferie</th>
+      <th style="background:#9d174d">Permesso</th>
+      <th style="background:#854d0e">Malattia</th>
+      <th>Altro ass.</th>
       <th style="background:#0369a1">Altre attività</th>
-      <th style="background:#B5453A">Totale contratto</th>
+      <th style="background:#B5453A">Totale</th>
     </tr></thead>
     <tbody>${rows}</tbody>
     ${totRow}
   </table></div></div>${nota}`;
 }
-
-// ── RENDER ANNO ────────────────────────────────────────────────────────────
-// (le funzioni renderAttivita/aggiornaAttivita/salvaAttivita/eliminaAttivita
-//  sono state rimosse — le ore extra ora si calcolano per differenza nel tab Ore)
 
 // ── RENDER ANNO ────────────────────────────────────────────────────────────
 async function loadYearData() {
@@ -4020,7 +4035,7 @@ async function caricaAnagraficaOperatori() {
   try {
     const emporio = currentEmporio;
     const { data: tuttiOp } = await db.from('operatori')
-      .select('id,nome,ruolo,emporio,empori_aggiuntivi,telefono,ore_settimanali')
+      .select('id,nome,ruolo,emporio,empori_aggiuntivi,telefono,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom')
       .or('attivo.eq.true,attivo.is.null')
       .order('nome');
     const opEmporio = (tuttiOp || []).filter(o =>
@@ -4121,25 +4136,42 @@ function rigaOperatoreTurni(op, predefiniti) {
         <span class="freccia-op" id="freccia-pred-${op.id}">›</span>
       </div>
       <div class="card-op-corpo" id="corpo-pred-${op.id}" style="display:none">
-        ${(op.ruolo === 'dipendente' || op.ruolo === 'serviziocivile') ? `
-        <div style="margin-bottom:14px;padding:12px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:4px">Ore settimanali contrattuali</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <input type="number" id="ore-sett-${op.id}"
-                value="${op.ore_settimanali || ''}"
-                min="1" max="48" step="0.5"
-                placeholder="es. 38"
-                style="width:80px;border:1.5px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:700;font-family:inherit;color:#1e293b;background:#fff"
-                oninput="this.style.borderColor='#B5453A'">
-              <button onclick="salvaOreSettimanali('${op.id}')" class="btn-p" style="padding:7px 14px;font-size:10px">Salva</button>
-              <span id="ore-sett-fb-${op.id}" style="display:none;font-size:11px;color:#16a34a;font-weight:700">✓ Salvate</span>
+        ${(op.ruolo === 'dipendente' || op.ruolo === 'serviziocivile') ? (() => {
+          const GG = [
+            { key:'lun', label:'Lun' }, { key:'mar', label:'Mar' }, { key:'mer', label:'Mer' },
+            { key:'gio', label:'Gio' }, { key:'ven', label:'Ven' }, { key:'sab', label:'Sab' },
+            { key:'dom', label:'Dom' }
+          ];
+          const settVal = op.ore_settimanali != null ? op.ore_settimanali.toFixed(2) : '–';
+          const inputi = GG.map(g => {
+            const v = op[`ore_previste_${g.key}`];
+            const display = v != null ? parseFloat(v).toString() : '';
+            return `<div style="text-align:center">
+              <div style="font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${g.label}</div>
+              <input type="number" id="op-gg-${g.key}-${op.id}"
+                value="${display}" min="0" max="12" step="0.25" placeholder="–"
+                style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:5px 4px;font-size:13px;font-weight:700;text-align:center;font-family:inherit;color:#1e293b;background:#fff"
+                oninput="aggiornaTotaleOre('${op.id}')">
+            </div>`;
+          }).join('');
+          return `
+          <div style="margin-bottom:14px;padding:14px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:10px">
+              Ore previste per giorno
+              <span style="margin-left:6px;color:#475569;font-size:10px;text-transform:none;letter-spacing:0">usate per calcolare ferie, assenze e "Altre attività"</span>
             </div>
-          </div>
-          <div style="font-size:11px;color:#94a3b8;padding-left:4px">
-            Usate per calcolare le <strong style="color:#475569">Altre attività</strong> nel tab Ore
-          </div>
-        </div>` : ''}
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:10px">
+              ${inputi}
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="font-size:11px;color:#475569">
+                Totale settimana: <strong id="op-gg-tot-${op.id}" style="font-size:13px;color:#1e293b">${settVal}h</strong>
+              </div>
+              <button onclick="salvaOrePreviste('${op.id}')" class="btn-p" style="padding:7px 14px;font-size:10px">Salva ore previste</button>
+              <span id="op-gg-fb-${op.id}" style="display:none;font-size:11px;color:#16a34a;font-weight:700">✓ Salvate</span>
+            </div>
+          </div>`;
+        })() : ''}
         <div class="turni-default-griglia">${grigliaHtml}</div>
         <div class="pred-footer">
           <button class="btn-p" onclick="salvaTurniPredefiniti('${op.id}')">
@@ -4171,18 +4203,38 @@ async function aggiungiOpEmporio() {
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
-async function salvaOreSettimanali(opId) {
-  const input = document.getElementById('ore-sett-' + opId);
-  if (!input || !db) return;
-  const val = parseFloat(input.value);
-  if (!val || val <= 0 || val > 80) { showToast('Valore non valido (1-80h)', 'err'); return; }
-  input.style.borderColor = '';
+// Aggiorna il totale settimanale visualizzato nella griglia anagrafica
+function aggiornaTotaleOre(opId) {
+  const GG = ['lun','mar','mer','gio','ven','sab','dom'];
+  let tot = 0;
+  GG.forEach(g => {
+    const v = parseFloat(document.getElementById(`op-gg-${g}-${opId}`)?.value || '0');
+    if (!isNaN(v)) tot += v;
+  });
+  const el = document.getElementById('op-gg-tot-' + opId);
+  if (el) el.textContent = tot > 0 ? tot.toFixed(2) + 'h' : '–';
+}
+
+async function salvaOrePreviste(opId) {
+  if (!db) return;
+  const GG = ['lun','mar','mer','gio','ven','sab','dom'];
+  const payload = {};
+  let totale = 0;
+  GG.forEach(g => {
+    const el  = document.getElementById(`op-gg-${g}-${opId}`);
+    const raw = el?.value?.trim();
+    const val = raw !== '' ? parseFloat(raw) : null;
+    payload[`ore_previste_${g}`] = (val !== null && !isNaN(val)) ? val : null;
+    if (val !== null && !isNaN(val)) totale += val;
+  });
+  // ore_settimanali = somma dei giorni (calcolata automaticamente)
+  payload.ore_settimanali = totale > 0 ? parseFloat(totale.toFixed(2)) : null;
   try {
-    const { error } = await db.from('operatori').update({ ore_settimanali: val }).eq('id', opId);
+    const { error } = await db.from('operatori').update(payload).eq('id', opId);
     if (error) throw error;
-    const fb = document.getElementById('ore-sett-fb-' + opId);
+    const fb = document.getElementById('op-gg-fb-' + opId);
     if (fb) { fb.style.display = 'inline'; setTimeout(() => { fb.style.display = 'none'; }, 2500); }
-    showToast('Ore settimanali salvate ✓');
+    showToast('Ore previste salvate ✓');
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
