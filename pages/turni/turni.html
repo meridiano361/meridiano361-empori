@@ -1067,6 +1067,22 @@ tr.riga-giorno.tutto-chiuso { background: transparent !important; }
   .col-nomi { min-width:75px !important; }
 }
 
+/* ── FILTRI ORE (sottosezione unificata) ───────────────────────────────────── */
+.ore-filtri {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.ore-filtro-grp { display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 600px) {
+  .ore-filtri { gap: 8px; padding: 12px; }
+  .ore-filtro-grp { width: calc(50% - 4px); }
+  .ore-filtro-grp:first-child { width: 100%; }
+}
+@media (max-width: 400px) {
+  .ore-filtro-grp { width: 100%; }
+}
+
 /* ── CHIP TURNO PROPRIO ────────────────────────────────────────────────────── */
 .chip-nome-cal.chip-own {
   background: #B5453A !important;
@@ -1379,14 +1395,10 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
   <div id="sezione-operatori" class="macro-sezione" style="display:none">
     <div class="op-sub-tabs">
       <button class="op-sub-tab attivo" onclick="mostraOpSub('anagrafica')" id="optab-anagrafica">👤 Anagrafica</button>
-      <button class="op-sub-tab"        onclick="mostraOpSub('ore')"        id="optab-ore">⏱ Ore turno</button>
-      <button class="op-sub-tab"        onclick="mostraOpSub('assenze')"    id="optab-assenze">🏖 Assenze e ferie</button>
-      <button class="op-sub-tab"        onclick="mostraOpSub('riepilogo')"  id="optab-riepilogo">📊 Riepilogo ore</button>
+      <button class="op-sub-tab"        onclick="mostraOpSub('ore')"        id="optab-ore">⏱ Ore</button>
     </div>
     <div id="opsub-anagrafica"><div id="lista-op-emporio"></div></div>
-    <div id="opsub-ore"       style="display:none"></div>
-    <div id="opsub-assenze"   style="display:none"></div>
-    <div id="opsub-riepilogo" style="display:none"></div>
+    <div id="opsub-ore" style="display:none"></div>
   </div>
 
 </div>
@@ -1561,7 +1573,7 @@ function mostraSezione(quale) {
 
 // ── GESTIONE OPERATORI SUB-TABS ────────────────────────────────────────────
 function mostraOpSub(quale) {
-  ['anagrafica','ore','assenze','riepilogo'].forEach(s => {
+  ['anagrafica','ore'].forEach(s => {
     const el  = document.getElementById('opsub-' + s);
     const tab = document.getElementById('optab-' + s);
     if (el)  el.style.display = s === quale ? 'block' : 'none';
@@ -1570,12 +1582,7 @@ function mostraOpSub(quale) {
   if (quale === 'anagrafica') {
     caricaAnagraficaOperatori();
   } else if (quale === 'ore') {
-    const el = document.getElementById('opsub-ore');
-    if (el) el.innerHTML = renderHours();
-  } else if (quale === 'assenze') {
-    renderAssenze('opsub-assenze');
-  } else if (quale === 'riepilogo') {
-    renderRiepilogo();
+    renderOre();
   }
 }
 
@@ -1898,6 +1905,151 @@ function renderHours() {
       <td>${fmt(stats.reduce((s,x)=>s+x.oreAltro,0))}</td>
       <td>${fmt(stats.reduce((s,x)=>s+x.totale,0))}</td>
     </tr></tfoot>
+  </table></div></div>`;
+}
+
+// ── SOTTOSEZIONE ORE (tabella + filtri unificati) ──────────────────────────
+
+function renderOre() {
+  const el = document.getElementById('opsub-ore');
+  if (!el) return;
+  const pers = PERSONALE[currentEmporio] || [];
+  const anno = currentAnno;
+  const mese = currentMese + 1;
+  el.innerHTML = `
+  <div>
+    <div class="ore-filtri">
+      <div class="ore-filtro-grp">
+        <span class="f-lbl">Operatore</span>
+        <select id="ore-op" onchange="aggiornaOre()" class="f-sel">
+          <option value="">— Tutti —</option>
+          ${pers.map(p=>`<option value="${p.nome.replace(/"/g,'&quot;')}">${p.nome}</option>`).join('')}
+        </select>
+      </div>
+      <div class="ore-filtro-grp">
+        <span class="f-lbl">Anno</span>
+        <input type="number" id="ore-anno" value="${anno}" min="2020" max="2035"
+          onchange="aggiornaOre()" class="f-sel" style="width:80px">
+      </div>
+      <div class="ore-filtro-grp" id="ore-mese-wrap">
+        <span class="f-lbl">Mese</span>
+        <select id="ore-mese" onchange="aggiornaOre()" class="f-sel">
+          ${MESI.map((m,i)=>`<option value="${i+1}" ${i+1===mese?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="ore-filtro-grp">
+        <span class="f-lbl" style="opacity:0">—</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600;color:#475569;padding:8px 0">
+          <input type="checkbox" id="ore-annuale" onchange="toggleOreAnnuale()"
+            style="width:16px;height:16px;accent-color:#B5453A;min-height:auto;cursor:pointer">
+          Vista annuale
+        </label>
+      </div>
+    </div>
+    <div id="ore-table-wrap"></div>
+  </div>`;
+  aggiornaOre();
+}
+
+function toggleOreAnnuale() {
+  const annuale = !!document.getElementById('ore-annuale')?.checked;
+  const meseWrap = document.getElementById('ore-mese-wrap');
+  if (meseWrap) meseWrap.style.display = annuale ? 'none' : '';
+  aggiornaOre();
+}
+
+async function aggiornaOre() {
+  const wrap = document.getElementById('ore-table-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<p style="padding:20px;text-align:center;color:#94a3b8;font-size:13px"><span class="ico-spin" style="display:inline-block">⟳</span> Caricamento…</p>';
+  const anno    = parseInt(document.getElementById('ore-anno')?.value)  || currentAnno;
+  const mese    = parseInt(document.getElementById('ore-mese')?.value)  || (currentMese + 1);
+  const annuale = !!document.getElementById('ore-annuale')?.checked;
+  const opNome  = document.getElementById('ore-op')?.value || '';
+  if (!db) { wrap.innerHTML = '<p style="color:#B5453A;padding:20px;font-size:13px">DB non connesso</p>'; return; }
+  try {
+    let q = db.from('turni').select('*').eq('emporio', currentEmporio).eq('anno', anno);
+    if (!annuale) q = q.eq('mese', mese);
+    const { data: turniRows, error: tErr } = await q;
+    if (tErr) throw tErr;
+    const assenzeObj = {};
+    (turniRows || []).forEach(r => { if (r.assenze) Object.assign(assenzeObj, r.assenze); });
+    const tuttePers = PERSONALE[currentEmporio] || [];
+    const pers = opNome ? tuttePers.filter(p => p.nome === opNome) : tuttePers;
+    const stats = pers.map(p => calcOreStats(p.nome, p.ruolo, turniRows || [], assenzeObj, anno, mese, annuale));
+    wrap.innerHTML = renderOreTable(stats, annuale, anno, mese);
+  } catch (e) {
+    console.error('[aggiornaOre]', e);
+    wrap.innerHTML = `<p style="color:#B5453A;padding:20px;font-size:13px">Errore: ${String(e.message).replace(/</g,'&lt;')}</p>`;
+  }
+}
+
+function calcOreStats(nome, ruolo, turniRows, assenzeObj, anno, mese, annuale) {
+  const isDipSCU = ruolo === 'dipendente' || ruolo === 'serviziocivile';
+  let oreEmporio = 0, oreFerie = 0, orePermesso = 0, oreMalattia = 0, oreAltro = 0;
+  (turniRows || []).forEach(r => {
+    if (!r.aperto) return;
+    const op = (r.operatori || []).find(o => o.nome === nome && !o.rimosso);
+    if (!op) return;
+    oreEmporio += op.oremanuali != null ? parseFloat(op.oremanuali) || 0 : calcShiftHours(r.turno, ruolo);
+  });
+  if (isDipSCU) {
+    Object.entries(assenzeObj).forEach(([k, v]) => {
+      const parts = k.split('|');
+      if (parts.length < 5) return;
+      const empK = parts[0], annoK = parseInt(parts[1]), meseK = parseInt(parts[2]);
+      const nomeK = parts.slice(4).join('|');
+      if (empK !== currentEmporio || annoK !== anno) return;
+      if (!annuale && meseK !== mese) return;
+      if (nomeK !== nome) return;
+      const tipo = getAssenzaTipo(v);
+      const oreAss = getAssenzaOre(v);
+      const def = calcShiftHours('mattina', ruolo) + calcShiftHours('pomeriggio', ruolo);
+      const addOre = oreAss > 0 ? oreAss : def;
+      if (tipo === 'ferie')         oreFerie    += addOre;
+      else if (tipo === 'permesso') orePermesso += addOre;
+      else if (tipo === 'malattia') oreMalattia += addOre;
+      else                          oreAltro    += addOre;
+    });
+  }
+  const totale = oreEmporio + oreFerie + orePermesso + oreMalattia + oreAltro;
+  return { nome, ruolo, isDipSCU, oreEmporio, oreFerie, orePermesso, oreMalattia, oreAltro, totale };
+}
+
+function renderOreTable(stats, annuale, anno, mese) {
+  if (!stats.length) return '<p style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore</p>';
+  const fmt  = n => n > 0 ? n.toFixed(2) : '–';
+  const fmtA = (s, n) => s.isDipSCU && n > 0 ? n.toFixed(2) : '–';
+  const cc   = r => r==='dipendente'?'c-dip':r==='serviziocivile'?'c-scu':'c-vol';
+  const periodo = annuale ? `Anno ${anno}` : `${MESI[mese-1]} ${anno}`;
+  const rows = stats.map(s => `<tr>
+    <td><span class="op-chip ${cc(s.ruolo)}" style="font-size:11px">${s.nome}</span></td>
+    <td style="font-weight:900;color:#1e293b">${fmt(s.oreEmporio)}</td>
+    <td style="color:#1e40af">${fmtA(s,s.oreFerie)}</td>
+    <td style="color:#9d174d">${fmtA(s,s.orePermesso)}</td>
+    <td style="color:#854d0e">${fmtA(s,s.oreMalattia)}</td>
+    <td style="color:#475569">${fmtA(s,s.oreAltro)}</td>
+    <td style="font-weight:900;color:#B5453A">${fmt(s.totale)}</td>
+  </tr>`).join('');
+  const totRow = stats.length > 1 ? `<tfoot><tr>
+    <td>TOTALE</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreEmporio,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreFerie,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.orePermesso,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreMalattia,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreAltro,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.totale,0))}</td>
+  </tr></tfoot>` : '';
+  return `
+  <div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${periodo}</div>
+  <div class="card-r"><div class="tscroll"><table class="hrs-table">
+    <thead><tr>
+      <th style="text-align:left">Operatore</th>
+      <th>In negozio</th><th>Ferie</th><th>Permesso</th><th>Malattia</th><th>Altro</th>
+      <th style="background:#B5453A">Totale</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    ${totRow}
   </table></div></div>`;
 }
 
