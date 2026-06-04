@@ -1440,11 +1440,9 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
     <div class="op-sub-tabs">
       <button class="op-sub-tab attivo" onclick="mostraOpSub('anagrafica')" id="optab-anagrafica">👤 Anagrafica</button>
       <button class="op-sub-tab"        onclick="mostraOpSub('ore')"        id="optab-ore">⏱ Ore</button>
-      <button class="op-sub-tab"        onclick="mostraOpSub('attivita')"   id="optab-attivita">📋 Attività</button>
     </div>
     <div id="opsub-anagrafica"><div id="lista-op-emporio"></div></div>
     <div id="opsub-ore"       style="display:none"></div>
-    <div id="opsub-attivita"  style="display:none"></div>
   </div>
 
 </div>
@@ -1680,15 +1678,14 @@ function mostraSezione(quale) {
 
 // ── GESTIONE OPERATORI SUB-TABS ────────────────────────────────────────────
 function mostraOpSub(quale) {
-  ['anagrafica','ore','attivita'].forEach(s => {
+  ['anagrafica','ore'].forEach(s => {
     const el  = document.getElementById('opsub-' + s);
     const tab = document.getElementById('optab-' + s);
     if (el)  el.style.display = s === quale ? 'block' : 'none';
     if (tab) tab.classList.toggle('attivo', s === quale);
   });
-  if (quale === 'anagrafica')  caricaAnagraficaOperatori();
-  else if (quale === 'ore')      renderOre();
-  else if (quale === 'attivita') renderAttivita();
+  if (quale === 'anagrafica') caricaAnagraficaOperatori();
+  else if (quale === 'ore')   renderOre();
 }
 
 // ── NAVIGAZIONE MESE ───────────────────────────────────────────────────────
@@ -2069,22 +2066,19 @@ async function aggiornaOre() {
   const mese    = parseInt(document.getElementById('ore-mese')?.value)  || (currentMese + 1);
   const annuale = !!document.getElementById('ore-annuale')?.checked;
   const opSel   = document.getElementById('ore-op');
-  const opNome  = opSel?.value || '';
   if (!db) { wrap.innerHTML = '<p style="color:#B5453A;padding:20px;font-size:13px">DB non connesso</p>'; return; }
   try {
-    // Carica turni, operatori e attività extra in parallelo
-    const [turniRes, opRes, extraRes] = await Promise.all([
+    const [turniRes, opRes] = await Promise.all([
       (() => { let q = db.from('turni').select('*').eq('emporio', currentEmporio).eq('anno', anno); if (!annuale) q = q.eq('mese', mese); return q; })(),
-      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi').or('attivo.eq.true,attivo.is.null').order('nome'),
-      (() => { let q = db.from('operatori_attivita_extra').select('operatore,ore').eq('emporio_id', currentEmporio).eq('anno', anno); if (!annuale) q = q.eq('mese', mese); return q; })(),
+      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi,ore_settimanali').or('attivo.eq.true,attivo.is.null').order('nome'),
     ]);
     if (turniRes.error) throw turniRes.error;
     const turniRows = turniRes.data || [];
-    // Filtra operatori per l'emporio corrente
+    // Solo dipendenti e SCU dell'emporio corrente
     const opDB = (opRes.data || []).filter(o =>
-      o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio)
+      (o.ruolo === 'dipendente' || o.ruolo === 'serviziocivile') &&
+      (o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio))
     );
-    // Aggiorna dropdown se la lista è cambiata
     if (opSel) {
       const prevVal = opSel.value;
       opSel.innerHTML = '<option value="">— Tutti —</option>' +
@@ -2094,11 +2088,8 @@ async function aggiornaOre() {
     const opNomeAttivo = opSel?.value || '';
     const assenzeObj = {};
     turniRows.forEach(r => { if (r.assenze) Object.assign(assenzeObj, r.assenze); });
-    // Mappa ore extra per operatore
-    const extraMap = {};
-    (extraRes.data || []).forEach(r => { extraMap[r.operatore] = (extraMap[r.operatore] || 0) + (parseFloat(r.ore) || 0); });
     const pers = opNomeAttivo ? opDB.filter(p => p.nome === opNomeAttivo) : opDB;
-    const stats = pers.map(p => ({ ...calcOreStats(p.nome, p.ruolo, turniRows, assenzeObj, anno, mese, annuale), oreExtra: extraMap[p.nome] || 0 }));
+    const stats = pers.map(p => calcOreStats(p.nome, p.ruolo, p.ore_settimanali || 0, turniRows, assenzeObj, anno, mese, annuale));
     wrap.innerHTML = renderOreTable(stats, annuale, anno, mese);
   } catch (e) {
     console.error('[aggiornaOre]', e);
@@ -2106,8 +2097,30 @@ async function aggiornaOre() {
   }
 }
 
-function calcOreStats(nome, ruolo, turniRows, assenzeObj, anno, mese, annuale) {
-  const isDipSCU = ruolo === 'dipendente' || ruolo === 'serviziocivile';
+// Conta i giorni lun-ven in un mese (indipendente da festività, che sono comunque retribuite)
+function giorniLavorativiMese(anno, mese) {
+  const days = new Date(anno, mese, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= days; d++) {
+    const dow = new Date(anno, mese - 1, d).getDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+// Ore contrattuali del periodo: (lun-ven / 5) × ore_settimanali
+function calcOreContrattuali(anno, mese, oreSettimanali, annuale) {
+  if (!oreSettimanali || oreSettimanali <= 0) return 0;
+  if (annuale) {
+    let totGiorni = 0;
+    for (let m = 1; m <= 12; m++) totGiorni += giorniLavorativiMese(anno, m);
+    return parseFloat(((totGiorni / 5) * oreSettimanali).toFixed(2));
+  }
+  const giorni = giorniLavorativiMese(anno, mese);
+  return parseFloat(((giorni / 5) * oreSettimanali).toFixed(2));
+}
+
+function calcOreStats(nome, ruolo, oreSettimanali, turniRows, assenzeObj, anno, mese, annuale) {
   let oreEmporio = 0, oreFerie = 0, orePermesso = 0, oreMalattia = 0, oreAltro = 0;
   (turniRows || []).forEach(r => {
     if (!r.aperto) return;
@@ -2115,275 +2128,87 @@ function calcOreStats(nome, ruolo, turniRows, assenzeObj, anno, mese, annuale) {
     if (!op) return;
     oreEmporio += op.oremanuali != null ? parseFloat(op.oremanuali) || 0 : calcShiftHours(r.turno, ruolo);
   });
-  if (isDipSCU) {
-    Object.entries(assenzeObj).forEach(([k, v]) => {
-      const parts = k.split('|');
-      if (parts.length < 5) return;
-      const empK = parts[0], annoK = parseInt(parts[1]), meseK = parseInt(parts[2]);
-      const nomeK = parts.slice(4).join('|');
-      if (empK !== currentEmporio || annoK !== anno) return;
-      if (!annuale && meseK !== mese) return;
-      if (nomeK !== nome) return;
-      const tipo = getAssenzaTipo(v);
-      const oreAss = getAssenzaOre(v);
-      const def = calcShiftHours('mattina', ruolo) + calcShiftHours('pomeriggio', ruolo);
-      const addOre = oreAss > 0 ? oreAss : def;
-      if (tipo === 'ferie')         oreFerie    += addOre;
-      else if (tipo === 'permesso') orePermesso += addOre;
-      else if (tipo === 'malattia') oreMalattia += addOre;
-      else                          oreAltro    += addOre;
-    });
-  }
-  const totale = oreEmporio + oreFerie + orePermesso + oreMalattia + oreAltro;
-  return { nome, ruolo, isDipSCU, oreEmporio, oreFerie, orePermesso, oreMalattia, oreAltro, totale };
+  Object.entries(assenzeObj).forEach(([k, v]) => {
+    const parts = k.split('|');
+    if (parts.length < 5) return;
+    const empK = parts[0], annoK = parseInt(parts[1]), meseK = parseInt(parts[2]);
+    const nomeK = parts.slice(4).join('|');
+    if (empK !== currentEmporio || annoK !== anno) return;
+    if (!annuale && meseK !== mese) return;
+    if (nomeK !== nome) return;
+    const tipo = getAssenzaTipo(v);
+    const oreAss = getAssenzaOre(v);
+    const def = calcShiftHours('mattina', ruolo) + calcShiftHours('pomeriggio', ruolo);
+    const addOre = oreAss > 0 ? oreAss : def;
+    if (tipo === 'ferie')         oreFerie    += addOre;
+    else if (tipo === 'permesso') orePermesso += addOre;
+    else if (tipo === 'malattia') oreMalattia += addOre;
+    else                          oreAltro    += addOre;
+  });
+  // Ferie/Permessi unificati + altre assenze
+  const oreFeriePerm = oreFerie + orePermesso + oreAltro;
+  const oreContratto = calcOreContrattuali(anno, mese, oreSettimanali, annuale);
+  // Altre attività per differenza (può essere negativo = straordinario non tracciato)
+  const oreAltreAtt = parseFloat((oreContratto - oreEmporio - oreFeriePerm - oreMalattia).toFixed(2));
+  return { nome, ruolo, oreSettimanali, oreEmporio, oreFeriePerm, oreMalattia, oreAltreAtt, oreContratto };
 }
 
 function renderOreTable(stats, annuale, anno, mese) {
-  if (!stats.length) return '<p style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore</p>';
-  const fmt  = n => n > 0 ? n.toFixed(2) : '–';
-  const fmtA = (s, n) => s.isDipSCU && n > 0 ? n.toFixed(2) : '–';
-  const fmtE = n => (n||0) > 0 ? (n||0).toFixed(2) : '–';
-  const cc   = r => r==='dipendente'?'c-dip':r==='serviziocivile'?'c-scu':'c-vol';
+  if (!stats.length) return '<p style="padding:24px;text-align:center;color:#94a3b8;font-size:13px">Nessun dipendente o SCU registrato per questo emporio</p>';
+  const cc  = r => r === 'dipendente' ? 'c-dip' : 'c-scu';
+  const fmt = n => n > 0 ? n.toFixed(2) : '–';
+  const fmtAltreAtt = n => {
+    if (n === 0 || (!n && n !== 0)) return '–';
+    if (n < 0) return `<span style="color:#B5453A;font-weight:700" title="Ore in eccesso rispetto al contratto">${n.toFixed(2)}</span>`;
+    return `<span style="color:#0369a1">${n.toFixed(2)}</span>`;
+  };
   const periodo = annuale ? `Anno ${anno}` : `${MESI[mese-1]} ${anno}`;
-  const rows = stats.map(s => `<tr>
-    <td><span class="op-chip ${cc(s.ruolo)}" style="font-size:11px">${s.nome}</span></td>
-    <td style="font-weight:900;color:#1e293b">${fmt(s.oreEmporio)}</td>
-    <td style="color:#1e40af">${fmtA(s,s.oreFerie)}</td>
-    <td style="color:#9d174d">${fmtA(s,s.orePermesso)}</td>
-    <td style="color:#854d0e">${fmtA(s,s.oreMalattia)}</td>
-    <td style="color:#475569">${fmtA(s,s.oreAltro)}</td>
-    <td style="color:#7c3aed">${fmtE(s.oreExtra)}</td>
-    <td style="font-weight:900;color:#B5453A">${fmt(s.totale+(s.oreExtra||0))}</td>
-  </tr>`).join('');
+  const rows = stats.map(s => {
+    const contrattoLabel = s.oreSettimanali ? `${s.oreSettimanali}h/sett` : '<span style="color:#ef4444;font-size:10px">⚠ da impostare</span>';
+    return `<tr>
+      <td>
+        <span class="op-chip ${cc(s.ruolo)}" style="font-size:11px">${s.nome}</span>
+        <div style="font-size:10px;color:#94a3b8;margin-top:2px">${contrattoLabel}</div>
+      </td>
+      <td style="font-weight:900;color:#1e293b">${fmt(s.oreEmporio)}</td>
+      <td style="color:#854d0e">${s.oreMalattia > 0 ? s.oreMalattia.toFixed(2) : '–'}</td>
+      <td style="color:#1e40af">${s.oreFeriePerm > 0 ? s.oreFeriePerm.toFixed(2) : '–'}</td>
+      <td>${fmtAltreAtt(s.oreAltreAtt)}</td>
+      <td style="font-weight:900;color:#B5453A">${s.oreContratto > 0 ? s.oreContratto.toFixed(2) : '–'}</td>
+    </tr>`;
+  }).join('');
   const totRow = stats.length > 1 ? `<tfoot><tr>
     <td>TOTALE</td>
     <td>${fmt(stats.reduce((a,x)=>a+x.oreEmporio,0))}</td>
-    <td>${fmt(stats.reduce((a,x)=>a+x.oreFerie,0))}</td>
-    <td>${fmt(stats.reduce((a,x)=>a+x.orePermesso,0))}</td>
     <td>${fmt(stats.reduce((a,x)=>a+x.oreMalattia,0))}</td>
-    <td>${fmt(stats.reduce((a,x)=>a+x.oreAltro,0))}</td>
-    <td>${fmt(stats.reduce((a,x)=>a+(x.oreExtra||0),0))}</td>
-    <td>${fmt(stats.reduce((a,x)=>a+x.totale+(x.oreExtra||0),0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreFeriePerm,0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+(x.oreAltreAtt||0),0))}</td>
+    <td>${fmt(stats.reduce((a,x)=>a+x.oreContratto,0))}</td>
   </tr></tfoot>` : '';
+  // Nota esplicativa formula
+  const nota = `<div style="font-size:11px;color:#94a3b8;margin-top:10px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+    <strong style="color:#475569">Altre attività</strong> = ore contrattuali − in emporio − ferie/permessi − malattia
+    <span style="margin-left:8px;color:#B5453A">rosso = ore in eccesso rispetto al contratto</span>
+  </div>`;
   return `
   <div style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">${periodo}</div>
   <div class="card-r"><div class="tscroll"><table class="hrs-table">
     <thead><tr>
       <th style="text-align:left">Operatore</th>
-      <th>In negozio</th><th>Ferie</th><th>Permesso</th><th>Malattia</th><th>Altro ass.</th>
-      <th style="background:#7c3aed">Attività</th>
-      <th style="background:#B5453A">Totale</th>
+      <th>In emporio</th>
+      <th>Malattia</th>
+      <th>Ferie / Permessi</th>
+      <th style="background:#0369a1">Altre attività</th>
+      <th style="background:#B5453A">Totale contratto</th>
     </tr></thead>
     <tbody>${rows}</tbody>
     ${totRow}
-  </table></div></div>`;
+  </table></div></div>${nota}`;
 }
 
-// ── ATTIVITÀ EXTRA ─────────────────────────────────────────────────────────
-const ATT_CAT = [
-  { val:'ufficio',    label:'Ufficio',    color:'#1e40af' },
-  { val:'formazione', label:'Formazione', color:'#7c3aed' },
-  { val:'riunione',   label:'Riunione',   color:'#0369a1' },
-  { val:'magazzino',  label:'Magazzino',  color:'#b45309' },
-  { val:'consegna',   label:'Consegna',   color:'#047857' },
-  { val:'trasferta',  label:'Trasferta',  color:'#0f766e' },
-  { val:'recupero',   label:'Recupero',   color:'#065f46' },
-  { val:'altro',      label:'Altro',      color:'#475569' },
-];
-
-function renderAttivita() {
-  const el = document.getElementById('opsub-attivita');
-  if (!el) return;
-  const anno = currentAnno, mese = currentMese + 1;
-  el.innerHTML = `
-  <div>
-    <div class="ore-filtri">
-      <div class="ore-filtro-grp">
-        <span class="f-lbl">Operatore</span>
-        <select id="att-op" onchange="aggiornaAttivita()" class="f-sel">
-          <option value="">— Tutti —</option>
-        </select>
-      </div>
-      <div class="ore-filtro-grp">
-        <span class="f-lbl">Anno</span>
-        <input type="number" id="att-anno" value="${anno}" min="2020" max="2035" onchange="aggiornaAttivita()" class="f-sel" style="width:80px">
-      </div>
-      <div class="ore-filtro-grp" id="att-mese-wrap">
-        <span class="f-lbl">Mese</span>
-        <select id="att-mese" onchange="aggiornaAttivita()" class="f-sel">
-          ${MESI.map((m,i)=>`<option value="${i+1}" ${i+1===mese?'selected':''}>${m}</option>`).join('')}
-        </select>
-      </div>
-      <div class="ore-filtro-grp">
-        <span class="f-lbl" style="opacity:0">—</span>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600;color:#475569;padding:8px 0">
-          <input type="checkbox" id="att-annuale" onchange="toggleAttAnnuale()" style="width:16px;height:16px;accent-color:#B5453A;min-height:auto;cursor:pointer">
-          Vista annuale
-        </label>
-      </div>
-    </div>
-    <div id="att-wrap"></div>
-  </div>`;
-  aggiornaAttivita();
-}
-
-function toggleAttAnnuale() {
-  const annuale = !!document.getElementById('att-annuale')?.checked;
-  const mW = document.getElementById('att-mese-wrap');
-  if (mW) mW.style.display = annuale ? 'none' : '';
-  aggiornaAttivita();
-}
-
-async function aggiornaAttivita() {
-  const wrap = document.getElementById('att-wrap');
-  if (!wrap) return;
-  wrap.innerHTML = '<p style="padding:20px;text-align:center;color:#94a3b8;font-size:13px"><span style="display:inline-block;animation:spin 1s linear infinite">⟳</span> Caricamento…</p>';
-  const anno    = parseInt(document.getElementById('att-anno')?.value)  || currentAnno;
-  const mese    = parseInt(document.getElementById('att-mese')?.value)  || (currentMese + 1);
-  const annuale = !!document.getElementById('att-annuale')?.checked;
-  const attOpSel = document.getElementById('att-op');
-  const opNome   = attOpSel?.value || '';
-  if (!db) { wrap.innerHTML = '<p style="color:#B5453A;padding:20px;font-size:13px">DB non connesso</p>'; return; }
-  try {
-    const [opRes, extraRes] = await Promise.all([
-      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi').or('attivo.eq.true,attivo.is.null').order('nome'),
-      (() => {
-        let q = db.from('operatori_attivita_extra').select('*').eq('emporio_id', currentEmporio).eq('anno', anno);
-        if (!annuale) q = q.eq('mese', mese);
-        if (opNome)   q = q.eq('operatore', opNome);
-        return q.order('data', {ascending: true});
-      })(),
-    ]);
-    const opDB = (opRes.data || []).filter(o =>
-      o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio)
-    );
-    if (attOpSel) {
-      const prev = attOpSel.value;
-      attOpSel.innerHTML = '<option value="">— Tutti —</option>' +
-        opDB.map(o=>`<option value="${o.nome.replace(/"/g,'&quot;')}"${o.nome===prev?' selected':''}>${o.nome}</option>`).join('');
-    }
-    const opNomeAttivo = attOpSel?.value || '';
-    const rows = extraRes.data || [];
-    const periodo = annuale ? `Anno ${anno}` : `${MESI[mese-1]} ${anno}`;
-
-    // Summary per categoria
-    const catMap = {};
-    rows.forEach(r => { const c = r.causale || r.categoria || 'altro'; catMap[c] = (catMap[c]||0) + (parseFloat(r.ore)||0); });
-    const totExt = rows.reduce((s,r) => s + (parseFloat(r.ore)||0), 0);
-    const summaryHtml = rows.length ? `
-    <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${periodo} — ore per categoria</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
-        <div style="background:#fff;border:1.5px solid #B5453A;border-radius:10px;padding:10px 12px">
-          <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:2px">Totale</div>
-          <div style="font-size:20px;font-weight:900;color:#B5453A">${totExt.toFixed(2)}h</div>
-        </div>
-        ${ATT_CAT.filter(c=>catMap[c.val]>0).map(c=>`
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
-          <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:2px">${c.label}</div>
-          <div style="font-size:16px;font-weight:700;color:${c.color}">${catMap[c.val].toFixed(2)}h</div>
-        </div>`).join('')}
-      </div>
-    </div>` : '';
-
-    // Form aggiungi
-    const oggi = new Date().toISOString().slice(0,10);
-    const needOpSelect = !opNomeAttivo;
-    const formHtml = `
-    <div class="card-r" style="padding:16px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Aggiungi attività</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-        ${needOpSelect
-          ? `<div class="ore-filtro-grp"><span class="f-lbl">Operatore</span>
-             <select id="att-form-op" class="f-sel">
-               ${opDB.map(o=>`<option value="${o.nome.replace(/"/g,'&quot;')}">${o.nome}</option>`).join('')}
-             </select></div>`
-          : `<input type="hidden" id="att-form-op" value="${opNomeAttivo.replace(/"/g,'&quot;')}">`}
-        <div class="ore-filtro-grp">
-          <span class="f-lbl">Data</span>
-          <input type="date" id="att-form-data" value="${oggi}" class="f-sel" style="min-width:0;width:130px">
-        </div>
-        <div class="ore-filtro-grp">
-          <span class="f-lbl">Categoria</span>
-          <select id="att-form-cat" class="f-sel">
-            ${ATT_CAT.map(c=>`<option value="${c.val}">${c.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="ore-filtro-grp">
-          <span class="f-lbl">Ore</span>
-          <input type="number" id="att-form-ore" value="1" min="0.25" max="24" step="0.25" class="f-sel" style="width:72px">
-        </div>
-        <div class="ore-filtro-grp">
-          <span class="f-lbl">Note</span>
-          <input type="text" id="att-form-note" placeholder="Facoltativo" class="f-sel" style="width:140px">
-        </div>
-        <button onclick="salvaAttivita()" class="btn-p" style="align-self:flex-end">+ Aggiungi</button>
-      </div>
-    </div>`;
-
-    // Lista attività
-    const listHtml = rows.length ? `
-    <div class="card-r"><div class="tscroll"><table class="hrs-table">
-      <thead><tr>
-        <th style="text-align:left">Data</th>
-        ${!opNomeAttivo ? '<th style="text-align:left">Operatore</th>' : ''}
-        <th style="text-align:left">Categoria</th>
-        <th>Ore</th>
-        <th style="text-align:left">Note</th>
-        <th></th>
-      </tr></thead>
-      <tbody>${rows.map(r => {
-        const cv = r.causale || r.categoria || 'altro';
-        const cat = ATT_CAT.find(x=>x.val===cv) || {label:cv,color:'#475569'};
-        const df  = r.data ? r.data.split('-').reverse().join('/') : '–';
-        return `<tr>
-          <td style="text-align:left">${df}</td>
-          ${!opNomeAttivo ? `<td style="text-align:left;font-weight:600">${escHtml(r.operatore||'')}</td>` : ''}
-          <td style="text-align:left"><span style="font-size:11px;font-weight:700;color:${cat.color};background:${cat.color}18;padding:2px 8px;border-radius:6px;white-space:nowrap">${cat.label}</span></td>
-          <td style="font-weight:900">${parseFloat(r.ore).toFixed(2)}</td>
-          <td style="text-align:left;color:#64748b;font-family:inherit;font-size:12px">${escHtml(r.note||'')}</td>
-          <td><button onclick="eliminaAttivita('${r.id}')" style="background:none;border:none;color:#B5453A;cursor:pointer;font-size:18px;padding:0 4px;line-height:1" title="Elimina">×</button></td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div></div>`
-    : '<p style="text-align:center;color:#94a3b8;font-size:13px;padding:16px 0">Nessuna attività registrata per il periodo</p>';
-
-    wrap.innerHTML = summaryHtml + formHtml + listHtml;
-  } catch(e) {
-    console.error('[aggiornaAttivita]', e);
-    wrap.innerHTML = `<p style="color:#B5453A;padding:20px;font-size:13px">Errore: ${escHtml(e.message)}</p>`;
-  }
-}
-
-async function salvaAttivita() {
-  if (!db) { showToast('DB non connesso','err'); return; }
-  const nome = document.getElementById('att-form-op')?.value;
-  if (!nome) { showToast('Seleziona un operatore','err'); return; }
-  const data    = document.getElementById('att-form-data')?.value;
-  const causale = document.getElementById('att-form-cat')?.value || 'altro';
-  const ore     = parseFloat(document.getElementById('att-form-ore')?.value);
-  const note    = document.getElementById('att-form-note')?.value.trim() || null;
-  if (!data)     { showToast('Seleziona una data','err'); return; }
-  if (!ore||ore<=0) { showToast('Ore non valide','err'); return; }
-  const d = new Date(data + 'T12:00:00');
-  const { error } = await db.from('operatori_attivita_extra').insert({
-    operatore: nome, emporio_id: currentEmporio,
-    data, anno: d.getFullYear(), mese: d.getMonth()+1,
-    ore, categoria: causale, causale, note,
-  });
-  if (error) { showToast('Errore: '+error.message,'err'); return; }
-  showToast('Attività aggiunta ✓');
-  aggiornaAttivita();
-}
-
-async function eliminaAttivita(id) {
-  if (!db||!id) return;
-  if (!confirm('Eliminare questa attività?')) return;
-  const { error } = await db.from('operatori_attivita_extra').delete().eq('id', id);
-  if (error) { showToast('Errore: '+error.message,'err'); return; }
-  showToast('Eliminata ✓');
-  aggiornaAttivita();
-}
+// ── RENDER ANNO ────────────────────────────────────────────────────────────
+// (le funzioni renderAttivita/aggiornaAttivita/salvaAttivita/eliminaAttivita
+//  sono state rimosse — le ore extra ora si calcolano per differenza nel tab Ore)
 
 // ── RENDER ANNO ────────────────────────────────────────────────────────────
 async function loadYearData() {
@@ -4195,7 +4020,7 @@ async function caricaAnagraficaOperatori() {
   try {
     const emporio = currentEmporio;
     const { data: tuttiOp } = await db.from('operatori')
-      .select('id,nome,ruolo,emporio,empori_aggiuntivi,telefono')
+      .select('id,nome,ruolo,emporio,empori_aggiuntivi,telefono,ore_settimanali')
       .or('attivo.eq.true,attivo.is.null')
       .order('nome');
     const opEmporio = (tuttiOp || []).filter(o =>
@@ -4296,6 +4121,25 @@ function rigaOperatoreTurni(op, predefiniti) {
         <span class="freccia-op" id="freccia-pred-${op.id}">›</span>
       </div>
       <div class="card-op-corpo" id="corpo-pred-${op.id}" style="display:none">
+        ${(op.ruolo === 'dipendente' || op.ruolo === 'serviziocivile') ? `
+        <div style="margin-bottom:14px;padding:12px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:4px">Ore settimanali contrattuali</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="number" id="ore-sett-${op.id}"
+                value="${op.ore_settimanali || ''}"
+                min="1" max="48" step="0.5"
+                placeholder="es. 38"
+                style="width:80px;border:1.5px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:700;font-family:inherit;color:#1e293b;background:#fff"
+                oninput="this.style.borderColor='#B5453A'">
+              <button onclick="salvaOreSettimanali('${op.id}')" class="btn-p" style="padding:7px 14px;font-size:10px">Salva</button>
+              <span id="ore-sett-fb-${op.id}" style="display:none;font-size:11px;color:#16a34a;font-weight:700">✓ Salvate</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;padding-left:4px">
+            Usate per calcolare le <strong style="color:#475569">Altre attività</strong> nel tab Ore
+          </div>
+        </div>` : ''}
         <div class="turni-default-griglia">${grigliaHtml}</div>
         <div class="pred-footer">
           <button class="btn-p" onclick="salvaTurniPredefiniti('${op.id}')">
@@ -4324,6 +4168,21 @@ async function aggiungiOpEmporio() {
     if (error) throw error;
     showToast('Operatore aggiunto ✓');
     caricaAnagraficaOperatori();
+  } catch(e) { showToast('Errore: ' + e.message, 'err'); }
+}
+
+async function salvaOreSettimanali(opId) {
+  const input = document.getElementById('ore-sett-' + opId);
+  if (!input || !db) return;
+  const val = parseFloat(input.value);
+  if (!val || val <= 0 || val > 80) { showToast('Valore non valido (1-80h)', 'err'); return; }
+  input.style.borderColor = '';
+  try {
+    const { error } = await db.from('operatori').update({ ore_settimanali: val }).eq('id', opId);
+    if (error) throw error;
+    const fb = document.getElementById('ore-sett-fb-' + opId);
+    if (fb) { fb.style.display = 'inline'; setTimeout(() => { fb.style.display = 'none'; }, 2500); }
+    showToast('Ore settimanali salvate ✓');
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
 }
 
