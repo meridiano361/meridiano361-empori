@@ -1479,6 +1479,67 @@ const MESISHORT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','
 const GIORNI = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
 const DEFAULTHOURS = {mat_open:'09:15',mat_close:'13:00',pom_open:'15:00',pom_close:'19:00'};
 
+// ── FESTIVITÀ ──────────────────────────────────────────────────────────────
+// Festività italiane fisse: [giorno, mese]
+const FESTIVI_FISSI_IT = [
+  [1,  1],  // Capodanno
+  [6,  1],  // Epifania
+  [25, 4],  // Festa della Liberazione
+  [1,  5],  // Festa del Lavoro
+  [2,  6],  // Festa della Repubblica
+  [15, 8],  // Ferragosto
+  [1,  11], // Ognissanti
+  [8,  12], // Immacolata Concezione
+  [25, 12], // Natale
+  [26, 12], // Santo Stefano
+];
+
+/**
+ * Calcola la data di Pasqua per un dato anno (algoritmo gregoriano anonimo).
+ * Restituisce { mese, giorno } con mese 1-based.
+ */
+function calcolaPassqua(anno) {
+  const a = anno % 19;
+  const b = Math.floor(anno / 100);
+  const c = anno % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31); // 3=marzo, 4=aprile
+  const day   = ((h + l - 7 * m + 114) % 31) + 1;
+  return { mese: month, giorno: day };
+}
+
+// Cache Pasqua per anno (evita ricalcoli in rendering)
+const _pasquaCache = {};
+function getPasqua(anno) {
+  if (!_pasquaCache[anno]) _pasquaCache[anno] = calcolaPassqua(anno);
+  return _pasquaCache[anno];
+}
+
+/**
+ * Restituisce true se il giorno è festivo di default:
+ * domenica, Pasqua, Pasquetta o festività fissa italiana.
+ * (anno e mese sono 1-based)
+ */
+function isGiornoFestivo(anno, mese, giorno) {
+  const date = new Date(anno, mese - 1, giorno);
+  if (date.getDay() === 0) return true; // domenica
+  if (FESTIVI_FISSI_IT.some(([g, m]) => g === giorno && m === mese)) return true;
+  const p = getPasqua(anno);
+  if (p.mese === mese && p.giorno === giorno) return true; // Pasqua
+  // Pasquetta = giorno successivo a Pasqua
+  const datePasquetta = new Date(anno, p.mese - 1, p.giorno + 1);
+  if (datePasquetta.getMonth() + 1 === mese && datePasquetta.getDate() === giorno) return true;
+  return false;
+}
+
 const PERSONALE = {
   Cremona: [
     {nome:'Chiara Monteverdi',ruolo:'dipendente'},
@@ -1784,12 +1845,12 @@ function renderMonth() {
   let rows = [];
   for (let d=1; d<=days; d++) {
     const dow = new Date(currentAnno, currentMese, d).getDay();
-    const isSun = dow===0;
+    const isFestivo = isGiornoFestivo(currentAnno, currentMese+1, d);
     const mk = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|mattina`;
     const pk = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|pomeriggio`;
     const sk = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}|sera`;
-    const mD = turniData[mk] || {aperto:!isSun, operatori:[]};
-    const pD = turniData[pk] || {aperto:!isSun, operatori:[]};
+    const mD = turniData[mk] || {aperto:!isFestivo, operatori:[]};
+    const pD = turniData[pk] || {aperto:!isFestivo, operatori:[]};
     const sD = turniData[sk] || {aperto:false, operatori:[]};
     const dayKey = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}`;
     const dayAssenze = Object.entries(assenzeData).filter(([k])=>k.startsWith(dayKey+'|')).map(([k,v])=>({nome:k.split('|').slice(4).join('|'),tipo:getAssenzaTipo(v),ore:getAssenzaOre(v)}));
@@ -1816,7 +1877,7 @@ function renderMonth() {
     const stP = pD.aperto ? 'aperto' : 'chiuso';
     const stS = sD.aperto ? 'aperto' : 'chiuso';
     rows.push(`
-      <tr class="riga-giorno${isSun?' festivo':''}">
+      <tr class="riga-giorno${isFestivo?' festivo':''}">
         <td class="col-giorno">
           <div class="giorno-numero">${d}</div>
           <div class="giorno-nome">${GIORNI[dow]}</div>
@@ -2383,8 +2444,8 @@ function renderGiornaliero() {
     const mk = dateToTurnoKey(ds,'mattina');
     const pk = dateToTurnoKey(ds,'pomeriggio');
     const sk = dateToTurnoKey(ds,'sera');
-    const mD = turniData[mk] || {aperto: dow!==0, operatori:[]};
-    const pD = turniData[pk] || {aperto: dow!==0, operatori:[]};
+    const mD = turniData[mk] || {aperto: !isGiornoFestivo(currentAnno, currentMese+1, d), operatori:[]};
+    const pD = turniData[pk] || {aperto: !isGiornoFestivo(currentAnno, currentMese+1, d), operatori:[]};
     const sD = turniData[sk] || {aperto: false, operatori:[]};
     const matAp = dayHoursData[`${ds}_mattina_apertura`]   || storeHoursData.mat_open || '09:15';
     const matCh = dayHoursData[`${ds}_mattina_chiusura`]   || storeHoursData.mat_close || '13:00';
