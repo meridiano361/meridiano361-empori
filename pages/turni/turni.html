@@ -1974,7 +1974,6 @@ function renderHours() {
 function renderOre() {
   const el = document.getElementById('opsub-ore');
   if (!el) return;
-  const pers = PERSONALE[currentEmporio] || [];
   const anno = currentAnno;
   const mese = currentMese + 1;
   el.innerHTML = `
@@ -1984,7 +1983,6 @@ function renderOre() {
         <span class="f-lbl">Operatore</span>
         <select id="ore-op" onchange="aggiornaOre()" class="f-sel">
           <option value="">— Tutti —</option>
-          ${pers.map(p=>`<option value="${p.nome.replace(/"/g,'&quot;')}">${p.nome}</option>`).join('')}
         </select>
       </div>
       <div class="ore-filtro-grp">
@@ -2026,18 +2024,33 @@ async function aggiornaOre() {
   const anno    = parseInt(document.getElementById('ore-anno')?.value)  || currentAnno;
   const mese    = parseInt(document.getElementById('ore-mese')?.value)  || (currentMese + 1);
   const annuale = !!document.getElementById('ore-annuale')?.checked;
-  const opNome  = document.getElementById('ore-op')?.value || '';
+  const opSel   = document.getElementById('ore-op');
+  const opNome  = opSel?.value || '';
   if (!db) { wrap.innerHTML = '<p style="color:#B5453A;padding:20px;font-size:13px">DB non connesso</p>'; return; }
   try {
-    let q = db.from('turni').select('*').eq('emporio', currentEmporio).eq('anno', anno);
-    if (!annuale) q = q.eq('mese', mese);
-    const { data: turniRows, error: tErr } = await q;
-    if (tErr) throw tErr;
+    // Carica turni e operatori in parallelo
+    const [turniRes, opRes] = await Promise.all([
+      (() => { let q = db.from('turni').select('*').eq('emporio', currentEmporio).eq('anno', anno); if (!annuale) q = q.eq('mese', mese); return q; })(),
+      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi').or('attivo.eq.true,attivo.is.null').order('nome'),
+    ]);
+    if (turniRes.error) throw turniRes.error;
+    const turniRows = turniRes.data || [];
+    // Filtra operatori per l'emporio corrente
+    const opDB = (opRes.data || []).filter(o =>
+      o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio)
+    );
+    // Aggiorna dropdown se la lista è cambiata
+    if (opSel) {
+      const prevVal = opSel.value;
+      opSel.innerHTML = '<option value="">— Tutti —</option>' +
+        opDB.map(o => `<option value="${o.nome.replace(/"/g,'&quot;')}"${o.nome===prevVal?' selected':''}>${o.nome}</option>`).join('');
+      if (prevVal && !opDB.find(o => o.nome === prevVal)) opSel.value = '';
+    }
+    const opNomeAttivo = opSel?.value || '';
     const assenzeObj = {};
-    (turniRows || []).forEach(r => { if (r.assenze) Object.assign(assenzeObj, r.assenze); });
-    const tuttePers = PERSONALE[currentEmporio] || [];
-    const pers = opNome ? tuttePers.filter(p => p.nome === opNome) : tuttePers;
-    const stats = pers.map(p => calcOreStats(p.nome, p.ruolo, turniRows || [], assenzeObj, anno, mese, annuale));
+    turniRows.forEach(r => { if (r.assenze) Object.assign(assenzeObj, r.assenze); });
+    const pers = opNomeAttivo ? opDB.filter(p => p.nome === opNomeAttivo) : opDB;
+    const stats = pers.map(p => calcOreStats(p.nome, p.ruolo, turniRows, assenzeObj, anno, mese, annuale));
     wrap.innerHTML = renderOreTable(stats, annuale, anno, mese);
   } catch (e) {
     console.error('[aggiornaOre]', e);
