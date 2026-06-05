@@ -3730,14 +3730,18 @@ function orGetISOWeek(d) {
   const w1 = new Date(dt.getFullYear(), 0, 4);
   return 1 + Math.round(((dt - w1)/86400000 - 3 + (w1.getDay()+6)%7)/7);
 }
-function orGetISOWeekYear(d) {
-  const dt = new Date(d); dt.setDate(dt.getDate() + 3 - (dt.getDay()+6)%7);
-  return dt.getFullYear();
+// Returns {anno, mese, giorno} of the Monday of d's ISO week — used as DB key for settimanale records.
+function orGetMonday(d) {
+  const dt = new Date(d); dt.setHours(12,0,0,0);
+  const dow = dt.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  dt.setDate(dt.getDate() - (dow === 0 ? 6 : dow - 1));
+  return { anno: dt.getFullYear(), mese: dt.getMonth() + 1, giorno: dt.getDate() };
 }
 
 async function initOrari() {
   if (!currentEmporio) currentEmporio = getEmporioCorrente();
   await orCheckTabella();
+  await checkOrariSeraColumns();
   await loadOrari();
   populateAnnuale();
   const mm = document.getElementById('men-mese');
@@ -3778,14 +3782,13 @@ function orCalcEffettivo(dateStr) {
   const anno  = d.getFullYear();
   const mese  = d.getMonth() + 1;
   const giorno = d.getDate();
-  const sett  = orGetISOWeek(d);
-  const annoSett = orGetISOWeekYear(d);
+  const mon = orGetMonday(d);
   let result = null, level = 'nessuno';
   const ann = allOrari.find(o => o.livello === 'annuale');
   if (ann) { result = ann; level = 'annuale'; }
   const men = allOrari.find(o => o.livello === 'mensile' && o.mese === mese);
   if (men) { result = men; level = 'mensile'; }
-  const set = allOrari.find(o => o.livello === 'settimanale' && o.settimana === sett && o.anno === annoSett);
+  const set = allOrari.find(o => o.livello === 'settimanale' && o.anno === mon.anno && o.mese === mon.mese && o.giorno === mon.giorno);
   if (set) { result = set; level = 'settimanale'; }
   const gio = allOrari.find(o => o.livello === 'giornaliero' && o.anno === anno && o.mese === mese && o.giorno === giorno);
   if (gio) { result = gio; level = 'giornaliero'; }
@@ -3863,15 +3866,22 @@ function initOrWeekInput() {
   if (el) el.value = now.getFullYear() + '-W' + String(orGetISOWeek(now)).padStart(2,'0');
   populateSettimanale();
 }
+// Returns {anno, mese, giorno} of the Monday of the selected ISO week.
+// Stores the Monday date as the DB key for settimanale records (no settimana column needed).
 function orParseWeek() {
   const val = orV('sett-week');
   if (!val || !val.includes('-W')) return null;
   const [a, w] = val.split('-W');
-  return { anno: parseInt(a), settimana: parseInt(w) };
+  const year = parseInt(a), week = parseInt(w);
+  const jan4 = new Date(year, 0, 4);
+  const jan4dow = jan4.getDay() || 7; // 1=Mon..7=Sun
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - jan4dow + 1 + (week - 1) * 7);
+  return { anno: monday.getFullYear(), mese: monday.getMonth() + 1, giorno: monday.getDate() };
 }
 function populateSettimanale() {
   const pw = orParseWeek(); if (!pw) return;
-  const r = allOrari.find(o => o.livello === 'settimanale' && o.settimana === pw.settimana && o.anno === pw.anno);
+  const r = allOrari.find(o => o.livello === 'settimanale' && o.anno === pw.anno && o.mese === pw.mese && o.giorno === pw.giorno);
   const chiuso = r?.giorno_chiuso || false;
   document.getElementById('sett-chiuso').checked = chiuso;
   orShowEl('sett-orari-wrap', !chiuso);
@@ -3889,21 +3899,21 @@ async function saveSettimanale(btnEl) {
   const chiuso = document.getElementById('sett-chiuso').checked;
   const p = {
     emporio_id: currentEmporio, livello: 'settimanale',
-    anno: pw.anno, settimana: pw.settimana, giorno_chiuso: chiuso,
+    anno: pw.anno, mese: pw.mese, giorno: pw.giorno, giorno_chiuso: chiuso,
     mattina_apertura:    chiuso ? null : (orV('sett-mat-ap') || null),
     mattina_chiusura:    chiuso ? null : (orV('sett-mat-ch') || null),
     pomeriggio_apertura: chiuso ? null : (orV('sett-pom-ap') || null),
     pomeriggio_chiusura: chiuso ? null : (orV('sett-pom-ch') || null),
     note: orV('sett-note') || null,
   };
-  const err = await orUpsert('settimanale', { anno: pw.anno, settimana: pw.settimana }, p);
+  const err = await orUpsert('settimanale', { anno: pw.anno, mese: pw.mese, giorno: pw.giorno }, p);
   setBtnLoading(btnEl, false);
   if (!err) { showToast('Orario settimanale salvato ✓'); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
 }
 async function resetSettimanale() {
   const pw = orParseWeek(); if (!pw) return;
-  const err = await orDelete('settimanale', { anno: pw.anno, settimana: pw.settimana });
+  const err = await orDelete('settimanale', { anno: pw.anno, mese: pw.mese, giorno: pw.giorno });
   if (!err) { showToast('Override settimanale rimosso ✓'); populateSettimanale(); orRenderCalendar(); }
   else showToast('Errore: ' + err.message, 'err');
 }
@@ -3959,9 +3969,12 @@ async function saveGiornaliero(btnEl) {
     mattina_chiusura:    chiuso ? null : (orV('giorn-mat-ch') || null),
     pomeriggio_apertura: chiuso ? null : (orV('giorn-pom-ap') || null),
     pomeriggio_chiusura: chiuso ? null : (orV('giorn-pom-ch') || null),
-    sera_apertura:  serale ? (orV('giorn-ser-ap') || null) : null,
-    sera_chiusura:  serale ? (orV('giorn-ser-ch') || null) : null,
     note: orV('giorn-note') || null,
+    // sera inclusa solo se le colonne esistono nel DB (rilevato da checkOrariSeraColumns)
+    ...(orSeraAvailable ? {
+      sera_apertura: serale ? (orV('giorn-ser-ap') || null) : null,
+      sera_chiusura: serale ? (orV('giorn-ser-ch') || null) : null,
+    } : {}),
   };
   const err = await orUpsert('giornaliero', { anno, mese, giorno }, p);
   setBtnLoading(btnEl, false);
@@ -3992,20 +4005,44 @@ function setBtnLoading(btnEl, loading) {
 }
 
 // ── SCHEMA COLONNE orari_emporio — SOURCE OF TRUTH ────────────────────────
-// Aggiungere/rimuovere qui quando si modifica lo schema DB.
-// orUpsert usa questo set per sanitizzare ogni payload prima dell'insert
-// ed ogni keys-filter prima del delete: colonne non presenti vengono scartate
-// con un warning in console invece di far fallire l'intera operazione.
+// Colonne base sempre presenti. `sera_apertura`/`sera_chiusura` vengono aggiunte
+// dinamicamente da checkOrariSeraColumns() solo se la query di test riesce,
+// evitando errori PostgREST su schemi non aggiornati.
+// `settimana` è stato rimosso: i record settimanali usano (anno, mese, giorno) del lunedì.
 const ORARI_EMPORIO_COLS = new Set([
   'id', 'emporio_id', 'livello',
-  'anno', 'mese', 'settimana', 'giorno',
+  'anno', 'mese', 'giorno',
   'giorno_chiuso',
   'mattina_apertura', 'mattina_chiusura',
   'pomeriggio_apertura', 'pomeriggio_chiusura',
-  'sera_apertura', 'sera_chiusura',
   'note',
   'created_at', 'updated_at',
 ]);
+
+// Impostato a true da checkOrariSeraColumns() se le colonne sera esistono nel DB.
+let orSeraAvailable = false;
+
+async function checkOrariSeraColumns() {
+  if (!db) return;
+  try {
+    const { error } = await db.from('orari_emporio').select('sera_apertura, sera_chiusura').limit(0);
+    if (!error) {
+      orSeraAvailable = true;
+      ORARI_EMPORIO_COLS.add('sera_apertura');
+      ORARI_EMPORIO_COLS.add('sera_chiusura');
+      console.log('[orari] Colonne sera disponibili ✓');
+    } else {
+      orSeraAvailable = false;
+      console.warn('[orari] Colonne sera non disponibili — turno serale disabilitato:', error.message);
+      // Nascondi UI serale per evitare confusione
+      const seraRow = document.getElementById('giorn-serale-row');
+      if (seraRow) seraRow.style.display = 'none';
+    }
+  } catch(e) {
+    orSeraAvailable = false;
+    console.warn('[orari] checkOrariSeraColumns eccezione:', e);
+  }
+}
 
 // Rimuove dal payload qualsiasi chiave non in ORARI_EMPORIO_COLS e qualsiasi
 // valore `undefined` per non triggerare errori PostgREST su colonne sconosciute.

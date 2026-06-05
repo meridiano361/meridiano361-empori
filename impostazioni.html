@@ -477,6 +477,12 @@
     const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
     const ADMIN_EMAILS = ['e.mazzolari@meridiano361.it', 'amministrazione@meridiano361.it'];
+    // Confronto sempre case-insensitive: evita falsi negativi quando il DB ha email con maiuscole.
+    function isAdminEmail(email) {
+        if (!email) return false;
+        const norm = String(email).toLowerCase().trim();
+        return ADMIN_EMAILS.some(a => a === norm);
+    }
 
     const SEZIONI_APP = [
         { id: 'ordini',        nome: 'Ordini in Corso' },
@@ -506,7 +512,7 @@
 
     const currentUser = JSON.parse(localStorage.getItem('m361_user') || 'null');
 
-    if (!currentUser || !ADMIN_EMAILS.includes(currentUser.email)) {
+    if (!currentUser || !isAdminEmail(currentUser.email)) {
         document.getElementById('access-denied').classList.remove('hidden');
     } else {
         document.getElementById('admin-content').classList.remove('hidden');
@@ -560,7 +566,7 @@
         }
 
         utentiCache = operatori;
-        const filtrati = operatori.filter(op => !ADMIN_EMAILS.includes(op.email));
+        const filtrati = operatori.filter(op => !isAdminEmail(op.email));
 
         renderOperatori(filtrati);
         document.getElementById('stat-operatori').textContent = filtrati.length;
@@ -652,7 +658,7 @@
     let _gruppoEmporioIds = null; // null = modalità singolo, array = modalità gruppo
 
     async function apriPermessiEmporio(chiave, empLabel) {
-        const ops = utentiCache.filter(op => normalizzaEmporio(op.emporio) === chiave && !ADMIN_EMAILS.includes(op.email));
+        const ops = utentiCache.filter(op => normalizzaEmporio(op.emporio) === chiave && !isAdminEmail(op.email));
         if (ops.length === 0) { alert(`Nessun operatore in ${empLabel}.`); return; }
 
         _gruppoEmporioIds = ops.map(o => o.id);
@@ -850,6 +856,16 @@
         };
     }
 
+    // Cerca un operatore per email (case-insensitive). Ritorna { op, error }.
+    async function _cercaPerEmail(email) {
+        const { data, error } = await db
+            .from('operatori')
+            .select('id, nome, email, emporio, ruolo')
+            .ilike('email', email)
+            .maybeSingle();
+        return { op: data || null, error: error || null };
+    }
+
     async function _doSave(isNuovo, idOrig, payload) {
         let error;
         if (isNuovo) {
@@ -858,9 +874,35 @@
             ({ error } = await db.from('operatori').update(payload).eq('id', idOrig));
         }
         if (error) {
-            // Ultimo presidio contro duplicate: errore 23505 da DB
-            if (error.code === '23505') {
-                showModalMsg('⚠️ Email già presente nel sistema. Controlla se l\'operatore esiste già nella lista.', 'error');
+            // Rilevazione robusta del duplicate-key: controlla sia il codice PGSQL (23505)
+            // sia il testo del messaggio (alcuni wrapper Supabase omettono il campo code).
+            const isDuplicate = error.code === '23505' ||
+                                (error.message || '').toLowerCase().includes('duplicate key') ||
+                                (error.message || '').toLowerCase().includes('operatori_email_key');
+            if (isDuplicate) {
+                // Tenta di identificare l'operatore che occupa già questa email
+                const emailConflitto = (payload.email || '').toLowerCase().trim();
+                if (emailConflitto) {
+                    const { op: conflitto } = await _cercaPerEmail(emailConflitto);
+                    if (conflitto) {
+                        if (isAdminEmail(conflitto.email)) {
+                            showModalMsg(
+                                `⚠️ <strong>${conflitto.nome}</strong> è già registrato come amministratore del sistema. ` +
+                                `Non è possibile creare un duplicato.`,
+                                'info'
+                            );
+                        } else {
+                            showModalMsg(
+                                `⚠️ L'email <strong>${emailConflitto}</strong> appartiene già a ` +
+                                `<strong>${conflitto.nome}</strong>. ` +
+                                `Cercalo nella lista e usa ✏️ per modificarlo invece di creare un duplicato.`,
+                                'error'
+                            );
+                        }
+                        return false;
+                    }
+                }
+                showModalMsg('⚠️ Un operatore con questa email è già nel sistema. Cerca nella lista e usa ✏️ per modificarlo.', 'error');
             } else {
                 showModalMsg('Errore nel salvataggio: ' + error.message, 'error');
             }
@@ -879,31 +921,42 @@
 
         if (!nome) { showModalMsg('Il nome è obbligatorio.', 'error'); return; }
 
-        // ── Caso UPDATE: verifica che la nuova email non appartenga a un altro operatore ──
+        // ── Caso UPDATE: verifica case-insensitive che la nuova email non appartenga a un altro ──
         if (!isNuovo && email) {
-            const { data: altro } = await db
-                .from('operatori')
-                .select('id, nome')
-                .eq('email', email)
-                .neq('id', idOrig)
-                .maybeSingle();
-            if (altro) {
-                showModalMsg(`L'email <strong>${email}</strong> è già usata dall'operatore <strong>${altro.nome}</strong>. Scegli un'altra email.`, 'error');
+            const { op: altro, error: lookupErr } = await _cercaPerEmail(email);
+            if (lookupErr) {
+                showModalMsg('Errore di verifica email: ' + lookupErr.message, 'error');
+                return;
+            }
+            if (altro && String(altro.id) !== String(idOrig)) {
+                if (isAdminEmail(altro.email)) {
+                    showModalMsg(
+                        `⚠️ <strong>${altro.nome}</strong> è registrato come amministratore del sistema. ` +
+                        `Non è possibile assegnare questa email a un altro operatore.`,
+                        'info'
+                    );
+                } else {
+                    showModalMsg(
+                        `L'email <strong>${email}</strong> è già usata da <strong>${altro.nome}</strong>. ` +
+                        `Scegli un'altra email.`,
+                        'error'
+                    );
+                }
                 return;
             }
         }
 
         // ── Caso INSERT: cerca se esiste già un operatore con questa email ──
         if (isNuovo && email) {
-            const { data: esistente } = await db
-                .from('operatori')
-                .select('id, nome, email, emporio, ruolo')
-                .eq('email', email)
-                .maybeSingle();
+            const { op: esistente, error: lookupErr } = await _cercaPerEmail(email);
+            if (lookupErr) {
+                showModalMsg('Errore di verifica email: ' + lookupErr.message, 'error');
+                return;
+            }
 
             if (esistente) {
                 const empEsistente = normalizzaEmporio(esistente.emporio);
-                const isAdminAccount = ADMIN_EMAILS.includes(esistente.email);
+                const isAdminAccount = isAdminEmail(esistente.email);
 
                 // Caso A: è un account admin
                 if (isAdminAccount) {
@@ -927,7 +980,7 @@
                     return;
                 }
 
-                // Caso C: esiste ma in un emporio diverso — offri di aggiornare
+                // Caso C: esiste ma in un emporio diverso — offri di aggiornare il record esistente
                 const empOrigLabel  = EMPORI_LABEL[empEsistente] || esistente.emporio;
                 const empDestLabel  = EMPORI_LABEL[empChiave]   || empChiave;
                 const conferma = confirm(
@@ -996,7 +1049,7 @@
         // Aggiorna cache locale
         utentiCache = utentiCache.filter(o => String(o.id) !== String(id));
         const el = document.getElementById('stat-operatori');
-        if (el) el.textContent = utentiCache.filter(u => !ADMIN_EMAILS.includes(u.email)).length;
+        if (el) el.textContent = utentiCache.filter(u => !isAdminEmail(u.email)).length;
     }
 
     // ── MODAL PERMESSI ────────────────────────────────────────────────────
