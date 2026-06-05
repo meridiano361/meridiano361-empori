@@ -2461,7 +2461,7 @@ function setOre(key,idx,val) {
   saveTurno(key,turniData[key]);
 }
 
-function openAssenzaModal(dayKey) {
+async function openAssenzaModal(dayKey) {
   // Reset modalità a "Ore totali"
   toggleAssenzaMode('ore');
   const oreEl = document.getElementById('assenza-ore');
@@ -2485,21 +2485,41 @@ function openAssenzaModal(dayKey) {
   if (!canManageAllAssenze() && !canManageOwnAssenze()) {
     showToast('Non hai i permessi per gestire le assenze', 'err'); return;
   }
-  // Operatori contrattualizzati: dipendenti e SCU (scu o serviziocivile)
-  let pers = (PERSONALE[currentEmporio]||[]).filter(p => RUOLI_CONTRATTUALIZZATI.includes(p.ruolo));
+
+  // Apre subito il modal con spinner — la lista arriva da Supabase
+  const listEl = document.getElementById('modal-ass-list');
+  listEl.innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px"><span style="display:inline-block;animation:spin 1s linear infinite">⟳</span> Caricamento operatori…</p>';
+  document.getElementById('modal-ass').classList.add('show');
+
+  // Operatori contrattualizzati (dipendenti + SCU) da Supabase — fonte di verità
+  let pers = [];
+  try {
+    const { data, error } = await db.from('operatori')
+      .select('id,nome,ruolo,emporio,empori_aggiuntivi')
+      .in('ruolo', RUOLI_CONTRATTUALIZZATI)
+      .or('attivo.eq.true,attivo.is.null')
+      .order('nome');
+    if (error) throw error;
+    pers = (data || []).filter(o =>
+      o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio)
+    );
+  } catch(e) {
+    listEl.innerHTML = `<p style="padding:16px;color:#B5453A;font-size:13px">Errore caricamento operatori: ${e.message}</p>`;
+    return;
+  }
+
   if (canManageOwnAssenze() && !canManageAllAssenze()) {
     pers = pers.filter(p => isCurrentUser(p.nome));
   }
   if (!pers.length) {
-    document.getElementById('modal-ass-list').innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore contrattualizzato in questo emporio</p>';
-    document.getElementById('modal-ass').classList.add('show');
+    listEl.innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore contrattualizzato in questo emporio</p>';
     return;
   }
-  document.getElementById('modal-ass-list').innerHTML = pers.map(p=>{
-    const assKey=`${dayKey}|${p.nome}`;
-    const current=getAssenzaTipo(assenzeData[assKey]);
-    const roleLabel = p.ruolo==='dipendente' ? 'Dip.' : 'SCU';
-    const roleCls   = p.ruolo==='dipendente' ? 'c-dip' : 'c-scu';
+  listEl.innerHTML = pers.map(p => {
+    const assKey = `${dayKey}|${p.nome}`;
+    const current = getAssenzaTipo(assenzeData[assKey]);
+    const roleLabel = p.ruolo === 'dipendente' ? 'Dip.' : 'SCU';
+    const roleCls   = p.ruolo === 'dipendente' ? 'c-dip' : 'c-scu';
     return `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:6px;min-width:0">
         <span class="op-chip ${roleCls}" style="font-size:9px;padding:2px 6px;flex-shrink:0">${roleLabel}</span>
@@ -2510,11 +2530,10 @@ function openAssenzaModal(dayKey) {
         <button onclick="setAssenza('${assKey}','permesso')" class="ass-badge ass-permesso" style="${current==='permesso'?'outline:2px solid #ec4899':''}">Permesso</button>
         <button onclick="setAssenza('${assKey}','malattia')" class="ass-badge ass-malattia" style="${current==='malattia'?'outline:2px solid #f59e0b':''}">Malattia</button>
         <button onclick="setAssenza('${assKey}','altro')" class="ass-badge ass-altro" style="${current==='altro'?'outline:2px solid #64748b':''}">Altro</button>
-        ${current?`<button onclick="rimuoviAssenzaKey('${assKey}','${dayKey}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0 2px">×</button>`:''}
+        ${current ? `<button onclick="rimuoviAssenzaKey('${assKey}','${dayKey}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0 2px">×</button>` : ''}
       </div>
     </div>`;
   }).join('');
-  document.getElementById('modal-ass').classList.add('show');
 }
 
 function setAssenza(assKey,tipo) {
