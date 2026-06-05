@@ -1,0 +1,79 @@
+-- ── Nota su RLS tabella turni ────────────────────────────────────────────────
+-- Emesso: 2026-06-05
+--
+-- STATO ATTUALE
+-- L'app usa un sistema di autenticazione custom (credenziali contro tabella
+-- operatori + localStorage). NON usa Supabase Auth. Tutti i client accedono
+-- con la stessa anon key. auth.uid() restituisce sempre NULL.
+--
+-- Conseguenza: RLS basata sull'identità dell'utente (auth.uid()) NON è
+-- implementabile senza migrare al sistema di autenticazione Supabase Auth.
+-- L'enforcement dei permessi è attualmente solo lato client (JS).
+--
+-- PROTEZIONE ATTUALE (client-side, turni.html)
+-- • canEditTurni()        → ['admin','dipendente','coordinatore','responsabile'] + is_responsabile_turni → accesso completo
+-- • canInsertOwnNameOnly()→ tutti gli altri ruoli autenticati → solo il proprio nome
+-- Tutti i punti di scrittura (addOp, removeOp, rimuoviChipOp, salvaPopoverChip,
+-- aggiungiOperatoreTurno, selezionaOpTurno) sono guardati con questi check.
+--
+-- PER ABILITARE RLS VERA IN FUTURO:
+-- 1. Migrare il login a Supabase Auth (supabase.auth.signInWithPassword)
+-- 2. Collegare auth.users a operatori via foreign key (es. auth_user_id uuid references auth.users)
+-- 3. Creare le policy qui sotto (attualmente commentate) togliendo i commenti
+
+-- ── Verifica colonna auth_user_id (non ancora presente) ────────────────────
+-- ALTER TABLE operatori ADD COLUMN IF NOT EXISTS auth_user_id uuid REFERENCES auth.users(id);
+
+-- ── Helper: operatore è dipendente? ─────────────────────────────────────────
+-- CREATE OR REPLACE FUNCTION is_dipendente()
+-- RETURNS boolean LANGUAGE sql SECURITY DEFINER STABLE AS $$
+--   SELECT EXISTS (
+--     SELECT 1 FROM operatori
+--     WHERE auth_user_id = auth.uid()
+--       AND ruolo IN ('dipendente', 'admin', 'coordinatore', 'responsabile')
+--       OR is_responsabile_turni = true
+--   );
+-- $$;
+
+-- ── Policy SELECT: tutti leggono (per calendario) ───────────────────────────
+-- ALTER TABLE turni ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "turni_select_autenticati"
+--   ON turni FOR SELECT
+--   USING (true);  -- lettura libera; sicurezza sui dati personali non richiesta
+
+-- ── Policy INSERT: dipendenti tutti, altri solo se turno contiene solo sé ──
+-- (richiederebbe di estrarre i nomi dal JSONB e confrontarli con operatori.nome)
+-- CREATE POLICY "turni_insert"
+--   ON turni FOR INSERT
+--   WITH CHECK (
+--     is_dipendente()
+--     OR (
+--       -- tutti gli operatori del turno devono essere solo il richiedente
+--       NOT EXISTS (
+--         SELECT 1 FROM jsonb_array_elements(operatori) op
+--         JOIN operatori o ON o.nome = op->>'nome'
+--         WHERE o.auth_user_id != auth.uid()
+--           AND NOT (op->>'rimosso')::boolean
+--       )
+--     )
+--   );
+
+-- ── Policy UPDATE: stessa logica di INSERT ───────────────────────────────────
+-- CREATE POLICY "turni_update"
+--   ON turni FOR UPDATE
+--   USING (true)
+--   WITH CHECK (
+--     is_dipendente()
+--     OR (
+--       NOT EXISTS (
+--         SELECT 1 FROM jsonb_array_elements(operatori) op
+--         JOIN operatori o ON o.nome = op->>'nome'
+--         WHERE o.auth_user_id != auth.uid()
+--           AND NOT (op->>'rimosso')::boolean
+--       )
+--     )
+--   );
+
+-- NON eseguire questo file come migration attiva — è documentazione.
+-- Togliere i commenti SOLO dopo aver migrato il login a Supabase Auth.
+SELECT 'turni_rls_note: solo documentazione, nessuna modifica applicata' AS stato;

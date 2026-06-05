@@ -966,6 +966,10 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
 
 /* ── INSERIMENTO SOLO PROPRIO NOME (SCU / Volontari) ────────────────────── */
 body.turni-own-only .chip-nome-cal .rm { display: none !important; }
+/* chip-self = chip del proprio nome: mostra × e abilita dblclick */
+body.turni-own-only .chip-nome-cal.chip-self .rm { display: inline !important; }
+body.turni-own-only .chip-nome-cal:not(.chip-self) { pointer-events: none !important; cursor: default !important; opacity: .75; }
+body.turni-own-only .chip-nome-cal.chip-self { pointer-events: auto !important; cursor: pointer !important; }
 body.turni-own-only .col-stato-cell { pointer-events: none !important; cursor: default !important; }
 body.turni-own-only .note-cell textarea { pointer-events: none !important; resize: none !important; }
 body.turni-own-only .negozio-stato input { pointer-events: none !important; }
@@ -2015,7 +2019,9 @@ function renderMonth() {
         const defOre = calcShiftHours(fascia, o.ruolo);
         const isPartial = o.oremanuali != null && o.oremanuali < defOre;
         const partialStr = isPartial ? `<span title="Orario parziale" style="font-size:9px;opacity:.65;margin-left:1px">◐</span>` : '';
-        return `<span class="chip-nome-cal" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${partialStr}` +
+        // chip-self: classe per il chip del proprio nome (usata da CSS turni-own-only)
+        const selfCls = canInsertOwnNameOnly() && isCurrentUser(o.nome) ? ' chip-self' : '';
+        return `<span class="chip-nome-cal${selfCls}" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${partialStr}` +
           `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`;
       }).join('')+`<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)">+</span>`;
     };
@@ -2438,21 +2444,31 @@ function openAddModal(key,title) {
   document.getElementById('modal-add').classList.add('show');
 }
 
-function addOp(key,nome,ruolo,withManualHrs) {
-  if(!canEditTurni()){showToast('Non hai i permessi per modificare i turni','err');closeModal('modal-add');return;}
-  if(!turniData[key]) turniData[key]={aperto:true,operatori:[]};
-  const newOp={nome,ruolo};
-  if(withManualHrs) newOp.oremanuali=calcShiftHours(key.includes('mattina')?'mattina':'pomeriggio',ruolo);
+function addOp(key, nome, ruolo, withManualHrs) {
+  if (!canEditTurni() && !canInsertOwnNameOnly()) {
+    showToast('Non hai i permessi per modificare i turni', 'err'); closeModal('modal-add'); return;
+  }
+  if (canInsertOwnNameOnly() && !isCurrentUser(nome)) {
+    showToast('Puoi inserire solo il tuo nome', 'err'); closeModal('modal-add'); return;
+  }
+  if (!turniData[key]) turniData[key] = {aperto: true, operatori: []};
+  const newOp = {nome, ruolo};
+  if (withManualHrs) newOp.oremanuali = calcShiftHours(key.includes('mattina') ? 'mattina' : 'pomeriggio', ruolo);
   turniData[key].operatori.push(newOp);
-  saveTurno(key,turniData[key]);
+  saveTurno(key, turniData[key]);
   closeModal('modal-add');
   render();
 }
 
-function removeOp(key,idx) {
-  if(!canEditTurni()){showToast('Non hai i permessi per modificare i turni','err');return;}
+function removeOp(key, idx) {
+  if (!canEditTurni() && !canInsertOwnNameOnly()) {
+    showToast('Non hai i permessi per modificare i turni', 'err'); return;
+  }
+  if (canInsertOwnNameOnly() && !isCurrentUser(turniData[key]?.operatori[idx]?.nome)) {
+    showToast('Puoi rimuovere solo il tuo turno', 'err'); return;
+  }
   turniData[key].operatori[idx].rimosso = true;
-  saveTurno(key,turniData[key]);
+  saveTurno(key, turniData[key]);
   render();
 }
 
@@ -2738,7 +2754,12 @@ async function aggiungiOperatoreTurno(data, fascia, btnEl = null) {
 }
 
 function rimuoviChipOp(key, idx) {
-  if(!canEditTurni()){showToast('Non hai i permessi per modificare i turni','err');return;}
+  if (!canEditTurni() && !canInsertOwnNameOnly()) {
+    showToast('Non hai i permessi per modificare i turni', 'err'); return;
+  }
+  if (canInsertOwnNameOnly() && !isCurrentUser(turniData[key]?.operatori[idx]?.nome)) {
+    showToast('Puoi rimuovere solo il tuo turno', 'err'); return;
+  }
   if (!turniData[key]) return;
   turniData[key].operatori[idx].rimosso = true;
   saveTurno(key, turniData[key]);
@@ -3254,6 +3275,8 @@ function apriPopoverChip(key, idx, chipEl) {
   const ds = `${parts[1]}-${parts[2].padStart(2,'0')}-${parts[3].padStart(2,'0')}`;
   const op = turniData[key]?.operatori[idx];
   if (!op) return;
+  // Own-only: non aprire popover su chip altrui (CSS pointer-events:none già lo previene, doppia verifica)
+  if (canInsertOwnNameOnly() && !isCurrentUser(op.nome)) return;
 
   const defInizio = dayHoursData[`${ds}_${fascia}_apertura`] ||
     (fascia==='sera'?'20:00':fascia==='mattina'?storeHoursData.mat_open||'09:15':storeHoursData.pom_open||'15:00');
@@ -3342,6 +3365,10 @@ function salvaPopoverChip(key, idx) {
   const fin = document.getElementById('pop-chip-fine')?.value;
   const op = turniData[key]?.operatori[idx];
   if (!op) return;
+  if (canInsertOwnNameOnly() && !isCurrentUser(op.nome)) {
+    showToast('Non puoi modificare le ore di altri operatori', 'err');
+    document.getElementById('popover-chip-op')?.remove(); return;
+  }
   if (ini && fin) {
     const [hI,mI] = ini.split(':').map(Number);
     const [hF,mF] = fin.split(':').map(Number);
