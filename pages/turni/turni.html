@@ -3991,26 +3991,58 @@ function setBtnLoading(btnEl, loading) {
   }
 }
 
-// ── DB HELPERS ─────────────────────────────────────────────────────────────
-// Struttura definitiva colonne: id, emporio_id, livello, anno, mese, settimana,
-// giorno, giorno_chiuso, mattina_apertura, mattina_chiusura, pomeriggio_apertura,
-// pomeriggio_chiusura, sera_apertura, sera_chiusura, note, created_at, updated_at
+// ── SCHEMA COLONNE orari_emporio — SOURCE OF TRUTH ────────────────────────
+// Aggiungere/rimuovere qui quando si modifica lo schema DB.
+// orUpsert usa questo set per sanitizzare ogni payload prima dell'insert
+// ed ogni keys-filter prima del delete: colonne non presenti vengono scartate
+// con un warning in console invece di far fallire l'intera operazione.
+const ORARI_EMPORIO_COLS = new Set([
+  'id', 'emporio_id', 'livello',
+  'anno', 'mese', 'settimana', 'giorno',
+  'giorno_chiuso',
+  'mattina_apertura', 'mattina_chiusura',
+  'pomeriggio_apertura', 'pomeriggio_chiusura',
+  'sera_apertura', 'sera_chiusura',
+  'note',
+  'created_at', 'updated_at',
+]);
 
+// Rimuove dal payload qualsiasi chiave non in ORARI_EMPORIO_COLS e qualsiasi
+// valore `undefined` per non triggerare errori PostgREST su colonne sconosciute.
+function sanitizeOrariPayload(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([k, v]) => ORARI_EMPORIO_COLS.has(k) && v !== undefined)
+  );
+}
+
+// ── DB HELPERS ─────────────────────────────────────────────────────────────
 async function orUpsert(livello, keys, payload) {
   if (!db) { console.error('[orUpsert] db non inizializzato'); return new Error('DB non connesso'); }
-  console.log('[orUpsert] livello:', livello, '| emporio:', currentEmporio, '| keys:', keys, '| payload:', payload);
+  // Sanity-check: scarta chiavi sconosciute dai filtri DELETE
+  const safeKeys = Object.fromEntries(
+    Object.entries(keys).filter(([k]) => {
+      if (!ORARI_EMPORIO_COLS.has(k)) {
+        console.warn('[orUpsert] DELETE key ignorata (colonna non in schema):', k);
+        return false;
+      }
+      return true;
+    })
+  );
+  // Sanity-check: scarta colonne sconosciute dall'INSERT
+  const safePayload = sanitizeOrariPayload(payload);
+  console.log('[orUpsert] livello:', livello, '| emporio:', currentEmporio, '| keys:', safeKeys, '| payload:', safePayload);
   try {
     let q = db.from('orari_emporio').delete().eq('emporio_id', currentEmporio).eq('livello', livello);
-    Object.entries(keys).forEach(([k, v]) => { q = q.eq(k, v); });
+    Object.entries(safeKeys).forEach(([k, v]) => { q = q.eq(k, v); });
     const { error: delErr } = await q;
     if (delErr) {
       console.error('[orUpsert] DELETE FALLITO — codice:', delErr.code, '| messaggio:', delErr.message, '| hint:', delErr.hint);
       return delErr;
     }
-    console.log('[orUpsert] INSERT payload →', JSON.stringify(payload));
-    const { error } = await db.from('orari_emporio').insert(payload);
+    console.log('[orUpsert] INSERT payload →', JSON.stringify(safePayload));
+    const { error } = await db.from('orari_emporio').insert(safePayload);
     if (error) {
-      console.error('[orUpsert] INSERT FALLITO — codice:', error.code, '| messaggio:', error.message, '| hint:', error.hint, '| payload:', JSON.stringify(payload));
+      console.error('[orUpsert] INSERT FALLITO — codice:', error.code, '| messaggio:', error.message, '| hint:', error.hint, '| payload:', JSON.stringify(safePayload));
       return error;
     }
     console.log('[orUpsert] OK | livello:', livello, '| emporio:', currentEmporio);
@@ -4021,10 +4053,16 @@ async function orUpsert(livello, keys, payload) {
 
 async function orDelete(livello, keys) {
   if (!db) { console.error('[orDelete] db non inizializzato'); return new Error('DB non connesso'); }
-  console.log('[orDelete] livello:', livello, '| emporio:', currentEmporio, '| keys:', keys);
+  const safeKeys = Object.fromEntries(
+    Object.entries(keys).filter(([k]) => {
+      if (!ORARI_EMPORIO_COLS.has(k)) { console.warn('[orDelete] key ignorata (colonna non in schema):', k); return false; }
+      return true;
+    })
+  );
+  console.log('[orDelete] livello:', livello, '| emporio:', currentEmporio, '| keys:', safeKeys);
   try {
     let q = db.from('orari_emporio').delete().eq('emporio_id', currentEmporio).eq('livello', livello);
-    Object.entries(keys).forEach(([k, v]) => { q = q.eq(k, v); });
+    Object.entries(safeKeys).forEach(([k, v]) => { q = q.eq(k, v); });
     const { error } = await q;
     if (error) {
       console.error('[orDelete] FALLITO — codice:', error.code, '| messaggio:', error.message);
