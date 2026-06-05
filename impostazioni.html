@@ -566,10 +566,9 @@
         }
 
         utentiCache = operatori;
-        const filtrati = operatori.filter(op => !isAdminEmail(op.email));
-
-        renderOperatori(filtrati);
-        document.getElementById('stat-operatori').textContent = filtrati.length;
+        // Admin e operatori compaiono entrambi nella lista: sono la stessa persona con ruoli compatibili.
+        renderOperatori(operatori);
+        document.getElementById('stat-operatori').textContent = operatori.length;
     }
 
     function renderOperatori(operatori) {
@@ -729,6 +728,7 @@
                     <div class="op-nome-cella">
                         <div class="op-avatar-small">${iniziali}</div>
                         <span>${op.nome || '—'}</span>
+                        ${isAdminEmail(op.email) ? '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Utente con accesso amministratore">🔑 Admin</span>' : ''}
                         ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
                     </div>
                 </td>
@@ -885,20 +885,12 @@
                 if (emailConflitto) {
                     const { op: conflitto } = await _cercaPerEmail(emailConflitto);
                     if (conflitto) {
-                        if (isAdminEmail(conflitto.email)) {
-                            showModalMsg(
-                                `⚠️ <strong>${conflitto.nome}</strong> è già registrato come amministratore del sistema. ` +
-                                `Non è possibile creare un duplicato.`,
-                                'info'
-                            );
-                        } else {
-                            showModalMsg(
-                                `⚠️ L'email <strong>${emailConflitto}</strong> appartiene già a ` +
-                                `<strong>${conflitto.nome}</strong>. ` +
-                                `Cercalo nella lista e usa ✏️ per modificarlo invece di creare un duplicato.`,
-                                'error'
-                            );
-                        }
+                        showModalMsg(
+                            `⚠️ L'email <strong>${emailConflitto}</strong> appartiene già a ` +
+                            `<strong>${conflitto.nome}</strong>. ` +
+                            `Cercalo nella lista e usa ✏️ per modificarlo invece di creare un duplicato.`,
+                            'error'
+                        );
                         return false;
                     }
                 }
@@ -929,19 +921,11 @@
                 return;
             }
             if (altro && String(altro.id) !== String(idOrig)) {
-                if (isAdminEmail(altro.email)) {
-                    showModalMsg(
-                        `⚠️ <strong>${altro.nome}</strong> è registrato come amministratore del sistema. ` +
-                        `Non è possibile assegnare questa email a un altro operatore.`,
-                        'info'
-                    );
-                } else {
-                    showModalMsg(
-                        `L'email <strong>${email}</strong> è già usata da <strong>${altro.nome}</strong>. ` +
-                        `Scegli un'altra email.`,
-                        'error'
-                    );
-                }
+                showModalMsg(
+                    `L'email <strong>${email}</strong> è già usata da <strong>${altro.nome}</strong>. ` +
+                    `Scegli un'altra email oppure modifica direttamente il record di ${altro.nome}.`,
+                    'error'
+                );
                 return;
             }
         }
@@ -956,18 +940,8 @@
 
             if (esistente) {
                 const empEsistente = normalizzaEmporio(esistente.emporio);
-                const isAdminAccount = isAdminEmail(esistente.email);
-
-                // Caso A: è un account admin
-                if (isAdminAccount) {
-                    showModalMsg(
-                        `⚠️ <strong>${esistente.nome}</strong> è già registrato come amministratore del sistema. ` +
-                        `Non è necessario aggiungere un duplicato. ` +
-                        `Gli admin hanno accesso a tutti gli empori per definizione.`,
-                        'info'
-                    );
-                    return;
-                }
+                // admin e operatore sono ruoli compatibili sulla stessa persona:
+                // il record esistente viene aggiornato (Caso B/C), mai bloccato.
 
                 // Caso B: già presente in questo stesso emporio
                 if (empEsistente === empChiave) {
@@ -1049,7 +1023,7 @@
         // Aggiorna cache locale
         utentiCache = utentiCache.filter(o => String(o.id) !== String(id));
         const el = document.getElementById('stat-operatori');
-        if (el) el.textContent = utentiCache.filter(u => !isAdminEmail(u.email)).length;
+        if (el) el.textContent = utentiCache.length;
     }
 
     // ── MODAL PERMESSI ────────────────────────────────────────────────────
