@@ -1406,24 +1406,6 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
       </div>
     </div>
 
-    <!-- CALENDARIO MENSILE -->
-    <div class="orari-card" style="margin-top:4px">
-      <div class="orari-card-title">Calendario mensile — orari effettivi</div>
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-        <button class="orari-btn-s" style="padding:7px 12px" onclick="orPrevMonth()">‹</button>
-        <span id="or-cal-title" style="font-size:15px;font-weight:900;color:#1e293b;min-width:150px;text-align:center"></span>
-        <button class="orari-btn-s" style="padding:7px 12px" onclick="orNextMonth()">›</button>
-      </div>
-      <div id="or-cal-grid"></div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#475569"><div style="width:12px;height:12px;border-radius:3px;background:#dcfce7;border:1px solid #16A34A;flex-shrink:0"></div> Annuale</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#475569"><div style="width:12px;height:12px;border-radius:3px;background:#fef3c7;border:1px solid #D97706;flex-shrink:0"></div> Mensile</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#475569"><div style="width:12px;height:12px;border-radius:3px;background:#dbeafe;border:1px solid #2563EB;flex-shrink:0"></div> Settimanale</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#475569"><div style="width:12px;height:12px;border-radius:3px;background:#ede9fe;border:1px solid #7C3AED;flex-shrink:0"></div> Giornaliero</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#475569"><div style="width:12px;height:12px;border-radius:3px;background:#fee2e2;border:1px solid #B5453A;flex-shrink:0"></div> Chiuso</div>
-        <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#475569"><div style="width:8px;height:8px;border-radius:50%;background:#CA8A04;flex-shrink:0"></div> Serale</div>
-      </div>
-    </div>
 
   </div>
 
@@ -1454,7 +1436,15 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
 <div class="modal-bg" id="modal-ass" onclick="if(event.target===this)closeModal('modal-ass')">
   <div class="modal-box">
     <h3>Segna Assenza</h3>
-    <div style="margin-bottom:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+
+    <!-- Toggle modalità -->
+    <div class="orari-tab-bar" style="margin-bottom:12px">
+      <button class="orari-tab-btn on" id="ass-mode-ore"    onclick="toggleAssenzaMode('ore')">Ore totali</button>
+      <button class="orari-tab-btn"    id="ass-mode-fascia" onclick="toggleAssenzaMode('fascia')">Fascia oraria</button>
+    </div>
+
+    <!-- Sezione: Ore totali -->
+    <div id="ass-section-ore" style="margin-bottom:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px">ORE DI ASSENZA</div>
       <div class="ore-assenza-wrapper">
         <div class="ore-input-group">
@@ -1482,8 +1472,33 @@ body.turni-readonly .ass-badge[onclick*="removeAssenza"] { pointer-events: none 
         <span>30 min = .50</span>
         <span>45 min = .75</span>
       </div>
-      <input type="hidden" id="assenza-ore-valore" value="0">
     </div>
+
+    <!-- Sezione: Fascia oraria -->
+    <div id="ass-section-fascia" style="display:none;margin-bottom:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px">FASCIA ORARIA</div>
+      <div class="ore-assenza-wrapper">
+        <div class="ore-input-group">
+          <label class="ore-sublabel">Data</label>
+          <input type="date" id="fascia-data" class="orari-f-inp" style="font-size:14px;padding:8px 10px" onchange="calcolaOreFascia()">
+        </div>
+        <div class="ore-input-group">
+          <label class="ore-sublabel">Dalle</label>
+          <input type="time" id="fascia-inizio" step="300" class="input-ore" style="width:100px;font-size:16px" onchange="calcolaOreFascia()">
+        </div>
+        <div class="ore-input-group">
+          <label class="ore-sublabel">Alle</label>
+          <input type="time" id="fascia-fine" step="300" class="input-ore" style="width:100px;font-size:16px" onchange="calcolaOreFascia()">
+        </div>
+        <div class="ore-input-group">
+          <label class="ore-sublabel">Durata</label>
+          <div class="ore-valore" id="fascia-durata-display">—</div>
+        </div>
+      </div>
+      <div id="fascia-error" style="display:none;margin-top:8px;padding:6px 10px;background:#fee2e2;border-radius:6px;font-size:12px;color:#991b1b;font-weight:600"></div>
+    </div>
+
+    <input type="hidden" id="assenza-ore-valore" value="0">
     <div id="modal-ass-list"></div>
     <button onclick="closeModal('modal-ass')" class="btn-s" style="margin-top:12px;width:100%;justify-content:center">Chiudi</button>
   </div>
@@ -2371,15 +2386,31 @@ function setOre(key,idx,val) {
 }
 
 function openAssenzaModal(dayKey) {
+  // Reset modalità a "Ore totali"
+  toggleAssenzaMode('ore');
   const oreEl = document.getElementById('assenza-ore');
   const minEl = document.getElementById('assenza-minuti');
   if (oreEl) oreEl.value = 0;
   if (minEl) minEl.value = 0;
   calcolaOreAssenza();
 
-  const pers = (PERSONALE[currentEmporio]||[]).filter(p=>p.ruolo==='dipendente'||p.ruolo==='serviziocivile');
+  // Pre-popola data per la fascia oraria
+  const parts = dayKey.split('|');
+  if (parts.length >= 4) {
+    const fasciaData = document.getElementById('fascia-data');
+    if (fasciaData) {
+      const anno = parts[1];
+      const mese = String(parts[2]).padStart(2, '0');
+      const giorno = String(parts[3]).padStart(2, '0');
+      fasciaData.value = `${anno}-${mese}-${giorno}`;
+    }
+  }
+
+  // Operatori contrattualizzati: dipendenti e servizio civile
+  const RUOLI_CONTRATTUALIZZATI = ['dipendente', 'serviziocivile'];
+  const pers = (PERSONALE[currentEmporio]||[]).filter(p => RUOLI_CONTRATTUALIZZATI.includes(p.ruolo));
   if (!pers.length) {
-    document.getElementById('modal-ass-list').innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun dipendente o servizio civile in questo emporio</p>';
+    document.getElementById('modal-ass-list').innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore contrattualizzato in questo emporio</p>';
     document.getElementById('modal-ass').classList.add('show');
     return;
   }
@@ -3191,6 +3222,53 @@ function mostraRiepilogoOre() {
     <tbody>${rowsHtml}</tbody>
   </table></div>`;
   document.getElementById('modal-add').classList.add('show');
+}
+
+// ── MODALITÀ INSERIMENTO ASSENZA ────────────────────────────────────────────
+
+function toggleAssenzaMode(mode) {
+  const isOre = mode === 'ore';
+  const secOre    = document.getElementById('ass-section-ore');
+  const secFascia = document.getElementById('ass-section-fascia');
+  const btnOre    = document.getElementById('ass-mode-ore');
+  const btnFascia = document.getElementById('ass-mode-fascia');
+  if (secOre)    secOre.style.display    = isOre ? '' : 'none';
+  if (secFascia) secFascia.style.display = isOre ? 'none' : '';
+  if (btnOre)    { btnOre.classList.toggle('on', isOre); }
+  if (btnFascia) { btnFascia.classList.toggle('on', !isOre); }
+  if (!isOre) calcolaOreFascia(); else calcolaOreAssenza();
+}
+
+function calcolaOreFascia() {
+  const inizio  = document.getElementById('fascia-inizio')?.value;
+  const fine    = document.getElementById('fascia-fine')?.value;
+  const errEl   = document.getElementById('fascia-error');
+  const durEl   = document.getElementById('fascia-durata-display');
+  const hidden  = document.getElementById('assenza-ore-valore');
+
+  if (!inizio || !fine) {
+    if (durEl)  { durEl.textContent = '—'; durEl.style.color = '#94a3b8'; }
+    if (hidden) hidden.value = 0;
+    if (errEl)  errEl.style.display = 'none';
+    return 0;
+  }
+
+  const [h1, m1] = inizio.split(':').map(Number);
+  const [h2, m2] = fine.split(':').map(Number);
+  const minTot = (h2 * 60 + m2) - (h1 * 60 + m1);
+
+  if (minTot <= 0) {
+    if (errEl)  { errEl.textContent = "L'ora di fine deve essere successiva all'ora di inizio"; errEl.style.display = ''; }
+    if (durEl)  { durEl.textContent = '—'; durEl.style.color = '#94a3b8'; }
+    if (hidden) hidden.value = 0;
+    return 0;
+  }
+
+  if (errEl) errEl.style.display = 'none';
+  const valore = minutiADecimale(minTot);
+  if (durEl)  { durEl.textContent = oreDisplay(valore); durEl.style.color = '#B5453A'; durEl.style.fontWeight = '700'; }
+  if (hidden) hidden.value = valore;
+  return valore;
 }
 
 // ── ORE ASSENZA ─────────────────────────────────────────────────────────────
