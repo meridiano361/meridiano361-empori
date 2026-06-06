@@ -2115,7 +2115,9 @@ function renderMonth() {
         const selfCls = canInsertOwnNameOnly() && isCurrentUser(o.nome) ? ' chip-self' : '';
         return `<span class="chip-nome-cal${selfCls}" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${partialStr}` +
           `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`;
-      }).join('')+`<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)">${canInsertOwnNameOnly() ? '+ Io' : '+'}</span>`;
+      }).join('')+(canInsertOwnNameOnly()
+        ? `<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)" style="color:#B5453A!important;font-weight:700!important;font-size:13px!important;border:1px solid #fca5a5!important;background:#fff5f5!important;padding:3px 9px!important;border-radius:6px!important">+ Io</span>`
+        : `<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)">+</span>`);
     };
 
     const stM = mD.aperto ? 'aperto' : 'chiuso';
@@ -3181,7 +3183,10 @@ const RUOLI_FULL = ['admin', 'dipendente', 'coordinatore', 'responsabile'];
 const RUOLI_OWN  = ['scu', 'serviziocivile', 'volontario', 'altro'];
 
 function _uLoggato() {
-  return typeof getOperatoreLoggato === 'function' ? getOperatoreLoggato() : null;
+  const u = typeof getOperatoreLoggato === 'function' ? getOperatoreLoggato() : null;
+  if (!u) return null;
+  // Normalizza ruolo: lowercase + trim per evitare mismatch con dati DB
+  return typeof u.ruolo === 'string' ? { ...u, ruolo: u.ruolo.toLowerCase().trim() } : u;
 }
 function canEditTurni() {
   const u = _uLoggato();
@@ -3256,7 +3261,7 @@ if (typeof getOperatoreLoggato === 'function') {
 (function() {
   let _autoEmp = null;
   if (typeof getOperatoreLoggato === 'function') {
-    const _u = getOperatoreLoggato();
+    const _u = _uLoggato();
     if (_u && _u.emporio && !['admin'].includes(_u.ruolo)) {
       _autoEmp = _u.emporio;
     }
