@@ -1808,6 +1808,7 @@ let mostraSeraGlobale = false;
 let turniData = {}, assenzeData = {}, noteData = {};
 let storeHoursData = {...DEFAULTHOURS};
 let yearData = {}, yearAssenzeData = {}, yearNoteData = {};
+let _assAnno = null, _assMese = null;
 
 // ── TOAST ──────────────────────────────────────────────────────────────────
 function showToast(msg, type='ok') {
@@ -1880,7 +1881,7 @@ function mostraOpSub(quale) {
   });
   if (quale === 'anagrafica') caricaAnagraficaOperatori();
   else if (quale === 'ore')   renderOre();
-  else if (quale === 'assenze') renderAssenze('opsub-assenze');
+  else if (quale === 'assenze') { _assAnno = currentAnno; _assMese = currentMese; renderAssenze('opsub-assenze'); }
 }
 
 // ── NAVIGAZIONE MESE ───────────────────────────────────────────────────────
@@ -1915,23 +1916,38 @@ function toggleColonnaSera(mostra) {
 }
 
 // ── ASSENZE VIEW ───────────────────────────────────────────────────────────
-function renderAssenze(targetId = 'opsub-assenze') {
+async function renderAssenze(targetId = 'opsub-assenze') {
   const el = document.getElementById(targetId);
   if (!el) return;
 
-  const days = new Date(currentAnno, currentMese+1, 0).getDate();
+  if (_assAnno === null) _assAnno = currentAnno;
+  if (_assMese === null) _assMese = currentMese;
+  const anno = _assAnno, mese = _assMese;
+
+  const days = new Date(anno, mese+1, 0).getDate();
 
   // Preserve filter values across re-renders
   const prevOp   = document.getElementById('ass-filtro-op')   ? document.getElementById('ass-filtro-op').value   : '';
   const prevTipo = document.getElementById('ass-filtro-tipo')  ? document.getElementById('ass-filtro-tipo').value  : '';
   const prevData = document.getElementById('ass-data-input')   ? document.getElementById('ass-data-input').value   : '';
 
+  // Show loading state
+  el.innerHTML = `<div style="text-align:center;padding:32px;color:#94a3b8"><div style="width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:spin .8s linear infinite;display:inline-block"></div></div>`;
+
+  // Load absences for this specific month from DB
+  let monthAssenzeData = {};
+  try {
+    const { data } = await db.from('turni').select('assenze')
+      .eq('emporio', currentEmporio).eq('anno', anno).eq('mese', mese + 1);
+    (data || []).forEach(r => { if (r.assenze) Object.assign(monthAssenzeData, r.assenze); });
+  } catch(e) { monthAssenzeData = {}; }
+
   // Collect all absences for the month
   const all = [];
   for (let d = 1; d <= days; d++) {
-    const dayKey = `${currentEmporio}|${currentAnno}|${currentMese+1}|${d}`;
-    const dow = new Date(currentAnno, currentMese, d).getDay();
-    Object.entries(assenzeData).filter(([k]) => k.startsWith(dayKey + '|')).forEach(([k, v]) => {
+    const dayKey = `${currentEmporio}|${anno}|${mese+1}|${d}`;
+    const dow = new Date(anno, mese, d).getDay();
+    Object.entries(monthAssenzeData).filter(([k]) => k.startsWith(dayKey + '|')).forEach(([k, v]) => {
       const nome = k.split('|').slice(4).join('|');
       all.push({ d, dow, dayKey, nome, tipo: getAssenzaTipo(v), ore: getAssenzaOre(v) });
     });
@@ -1957,10 +1973,10 @@ function renderAssenze(targetId = 'opsub-assenze') {
   // Default date for "aggiungi" input
   const today = new Date();
   const defDateVal = prevData || (() => {
-    const y = currentAnno, m = String(currentMese+1).padStart(2,'0');
-    const d = today.getMonth() === currentMese && today.getFullYear() === currentAnno
+    const y = anno, mm = String(mese+1).padStart(2,'0');
+    const d = today.getMonth() === mese && today.getFullYear() === anno
       ? String(today.getDate()).padStart(2,'0') : '01';
-    return `${y}-${m}-${d}`;
+    return `${y}-${mm}-${d}`;
   })();
 
   // Apply filters
@@ -2007,14 +2023,21 @@ function renderAssenze(targetId = 'opsub-assenze') {
 
   el.innerHTML = `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="btn-nav-mese" style="width:28px;height:28px;min-width:28px;min-height:28px;font-size:14px"
+                onclick="_assNavMese(-1,'${targetId}')">‹</button>
+        <span style="font-size:13px;font-weight:700;color:#1e293b;min-width:110px;text-align:center">${MESI[mese]} ${anno}</span>
+        <button class="btn-nav-mese" style="width:28px;height:28px;min-width:28px;min-height:28px;font-size:14px"
+                onclick="_assNavMese(1,'${targetId}')">›</button>
+      </div>
       <select id="ass-filtro-op" class="f-sel" style="min-width:150px" onchange="renderAssenze('${targetId}')">${opOpts}</select>
       <select id="ass-filtro-tipo" class="f-sel" style="min-width:130px" onchange="renderAssenze('${targetId}')">${tipoOpts}</select>
       <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
         <input type="date" id="ass-data-input" class="f-sel" style="min-width:140px" value="${defDateVal}"
-               min="${currentAnno}-${String(currentMese+1).padStart(2,'0')}-01"
-               max="${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(days).padStart(2,'0')}">
+               min="${anno}-${String(mese+1).padStart(2,'0')}-01"
+               max="${anno}-${String(mese+1).padStart(2,'0')}-${String(days).padStart(2,'0')}">
         <button class="btn-p ass-add-btn" style="padding:8px 14px;font-size:12px;white-space:nowrap"
-                onclick="openAssenzaModal('${currentEmporio}|${currentAnno}|${currentMese+1}|'+parseInt((document.getElementById('ass-data-input').value||'').split('-')[2]||1,10))">
+                onclick="openAssenzaModal('${currentEmporio}|${anno}|${mese+1}|'+parseInt((document.getElementById('ass-data-input').value||'').split('-')[2]||1,10))">
           + Aggiungi
         </button>
       </div>
@@ -2029,10 +2052,19 @@ function renderAssenze(targetId = 'opsub-assenze') {
       : `<div style="text-align:center;padding:40px 20px;color:#94a3b8">
            <i class="fas fa-calendar-check" style="font-size:36px;margin-bottom:12px;display:block;opacity:.35"></i>
            <p style="font-size:13px;font-weight:600">${all.length === 0
-             ? 'Nessuna assenza per ' + MESI[currentMese] + ' ' + currentAnno
+             ? 'Nessuna assenza per ' + MESI[mese] + ' ' + anno
              : 'Nessun risultato per i filtri selezionati'}</p>
          </div>`
     }`;
+}
+
+function _assNavMese(delta, targetId) {
+  let m = (_assMese === null ? currentMese : _assMese) + delta;
+  let y = (_assAnno === null ? currentAnno : _assAnno);
+  if (m < 0)  { m = 11; y--; }
+  if (m > 11) { m = 0;  y++; }
+  _assMese = m; _assAnno = y;
+  renderAssenze(targetId);
 }
 
 function setMese(m) {
