@@ -908,7 +908,7 @@
                 email:              document.getElementById('edit-op-email-field').value.trim().toLowerCase() || null,
                 empori_aggiuntivi:  extraDisplay.length > 0 ? extraDisplay : null,
                 note:               document.getElementById('edit-op-note').value.trim() || null,
-                is_resp_personale:  !!(document.getElementById('edit-op-resp-personale')?.checked),
+                // is_resp_personale salvato separatamente (richiede colonna DB)
             },
         };
     }
@@ -924,20 +924,21 @@
     }
 
     async function _doSave(isNuovo, idOrig, payload) {
-        let error;
+        let error, savedId;
         if (isNuovo) {
-            ({ error } = await db.from('operatori').insert(payload));
+            const { data, error: e } = await db.from('operatori').insert(payload).select('id').single();
+            error = e;
+            savedId = data?.id ?? null;
         } else {
             ({ error } = await db.from('operatori').update(payload).eq('id', idOrig));
+            savedId = idOrig;
         }
         if (error) {
-            // Rilevazione robusta del duplicate-key: controlla sia il codice PGSQL (23505)
-            // sia il testo del messaggio (alcuni wrapper Supabase omettono il campo code).
+            // Rilevazione robusta del duplicate-key
             const isDuplicate = error.code === '23505' ||
                                 (error.message || '').toLowerCase().includes('duplicate key') ||
                                 (error.message || '').toLowerCase().includes('operatori_email_key');
             if (isDuplicate) {
-                // Tenta di identificare l'operatore che occupa già questa email
                 const emailConflitto = (payload.email || '').toLowerCase().trim();
                 if (emailConflitto) {
                     const { op: conflitto } = await _cercaPerEmail(emailConflitto);
@@ -948,16 +949,32 @@
                             `Cercalo nella lista e usa ✏️ per modificarlo invece di creare un duplicato.`,
                             'error'
                         );
-                        return false;
+                        return null;
                     }
                 }
                 showModalMsg('⚠️ Un operatore con questa email è già nel sistema. Cerca nella lista e usa ✏️ per modificarlo.', 'error');
             } else {
                 showModalMsg('Errore nel salvataggio: ' + error.message, 'error');
             }
-            return false;
+            return null;
         }
-        return true;
+        return savedId;
+    }
+
+    async function _saveRespPersonale(operatoreId) {
+        const cb = document.getElementById('edit-op-resp-personale');
+        if (!cb || !operatoreId) return;
+        const { error } = await db.from('operatori')
+            .update({ is_resp_personale: cb.checked })
+            .eq('id', operatoreId);
+        if (error) {
+            // Colonna non ancora creata: mostra avviso senza bloccare
+            showModalMsg(
+                '⚠️ Operatore salvato, ma il ruolo Responsabile del Personale non è stato impostato. ' +
+                'Esegui in Supabase SQL Editor: <code>ALTER TABLE operatori ADD COLUMN IF NOT EXISTS is_resp_personale boolean DEFAULT false;</code>',
+                'info'
+            );
+        }
     }
 
     async function salvaModificaOperatore() {
@@ -1020,15 +1037,15 @@
                 );
                 if (!conferma) return;
                 // Aggiorna il record esistente invece di inserirne uno nuovo
-                const ok = await _doSave(false, esistente.id, payload);
-                if (ok) afterSave();
+                const savedId = await _doSave(false, esistente.id, payload);
+                if (savedId) { if (_isAdmin) await _saveRespPersonale(savedId); afterSave(); }
                 return;
             }
         }
 
         // ── Percorso standard: INSERT o UPDATE senza conflitti ──
-        const ok = await _doSave(isNuovo, idOrig, payload);
-        if (ok) afterSave();
+        const savedId = await _doSave(isNuovo, idOrig, payload);
+        if (savedId) { if (_isAdmin) await _saveRespPersonale(savedId); afterSave(); }
     }
 
     function afterSave() {
