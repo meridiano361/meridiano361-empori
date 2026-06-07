@@ -1934,13 +1934,29 @@ async function renderAssenze(targetId = 'opsub-assenze') {
   // Show loading state
   el.innerHTML = `<div style="text-align:center;padding:32px;color:#94a3b8"><div style="width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:spin .8s linear infinite;display:inline-block"></div></div>`;
 
-  // Load absences for this specific month from DB
-  let monthAssenzeData = {};
+  // Load absences + operator data in parallel
+  let monthAssenzeData = {}, opDataMap = {};
   try {
-    const { data } = await db.from('turni').select('assenze')
-      .eq('emporio', currentEmporio).eq('anno', anno).eq('mese', mese + 1);
-    (data || []).forEach(r => { if (r.assenze) Object.assign(monthAssenzeData, r.assenze); });
+    const [assRes, opRes] = await Promise.all([
+      db.from('turni').select('assenze').eq('emporio', currentEmporio).eq('anno', anno).eq('mese', mese + 1),
+      db.from('operatori').select('nome,ruolo,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom').eq('emporio', currentEmporio).or('attivo.eq.true,attivo.is.null')
+    ]);
+    (assRes.data || []).forEach(r => { if (r.assenze) Object.assign(monthAssenzeData, r.assenze); });
+    (opRes.data  || []).forEach(op => { opDataMap[op.nome] = op; });
   } catch(e) { monthAssenzeData = {}; }
+
+  // Ore effettive: manuali se >0, altrimenti stimate da profilo operatore
+  function _oreEff(nome, d, oreManuale) {
+    if (oreManuale > 0) return { ore: oreManuale, stimato: false };
+    const op = opDataMap[nome];
+    if (op) {
+      const stima = getOrePrevisteGiorno(op, anno, mese + 1, d);
+      if (stima > 0) return { ore: stima, stimato: true };
+      const full = calcShiftHours('mattina', op.ruolo || '') + calcShiftHours('pomeriggio', op.ruolo || '');
+      if (full > 0) return { ore: full, stimato: true };
+    }
+    return { ore: 0, stimato: false };
+  }
 
   // Collect all absences for the month
   const all = [];
@@ -1949,16 +1965,19 @@ async function renderAssenze(targetId = 'opsub-assenze') {
     const dow = new Date(anno, mese, d).getDay();
     Object.entries(monthAssenzeData).filter(([k]) => k.startsWith(dayKey + '|')).forEach(([k, v]) => {
       const nome = k.split('|').slice(4).join('|');
-      all.push({ d, dow, dayKey, nome, tipo: getAssenzaTipo(v), ore: getAssenzaOre(v) });
+      const oreRaw = getAssenzaOre(v);
+      const { ore, stimato } = _oreEff(nome, d, oreRaw);
+      all.push({ d, dow, dayKey, nome, tipo: getAssenzaTipo(v), ore, stimato });
     });
   }
 
-  // Summary stats
+  // Summary stats (usa ore calcolate)
   const TIPI = ['ferie', 'permesso', 'malattia', 'altro'];
   const countPerTipo = {};
   let totalOre = 0;
   TIPI.forEach(t => countPerTipo[t] = 0);
   all.forEach(r => { countPerTipo[r.tipo] = (countPerTipo[r.tipo] || 0) + 1; totalOre += r.ore || 0; });
+  const sommaTotStimato = all.some(r => r.stimato);
   const summaryBadges = TIPI.filter(t => countPerTipo[t] > 0)
     .map(t => `<span class="ass-badge ass-${t}">${t.charAt(0).toUpperCase()+t.slice(1)} <strong>${countPerTipo[t]}</strong></span>`)
     .join('');
@@ -1990,21 +2009,24 @@ async function renderAssenze(targetId = 'opsub-assenze') {
   filtered.forEach(r => { (byOp[r.nome] = byOp[r.nome] || []).push(r); });
 
   const TH = `<thead><tr style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;background:#f8fafc;border-bottom:2px solid #e2e8f0">
-    <th style="padding:6px 12px;text-align:left;width:110px">Data</th>
+    <th style="padding:6px 12px;text-align:left;width:120px">Data</th>
     <th style="padding:6px 12px;text-align:left">Tipo assenza</th>
-    <th style="padding:6px 12px;text-align:center;width:72px">Ore</th>
+    <th style="padding:6px 12px;text-align:right;width:80px">Ore assenza</th>
     <th style="padding:6px 4px;width:36px"></th>
   </tr></thead>`;
 
   const opCards = Object.entries(byOp).map(([nome, rows]) => {
     const initials = nome.split(' ').slice(0,2).map(s => s[0]||'').join('').toUpperCase();
     const opTotal  = rows.reduce((s, r) => s + (r.ore || 0), 0);
+    const opHasStimato = rows.some(r => r.stimato);
     const rowsHtml = rows
       .sort((a, b) => a.d - b.d)
       .map(r => {
-        const label = GIORNI[r.dow] + ' ' + r.d + ' ' + MESISHORT[mese];
-        const oreLabel = r.ore > 0 ? r.ore.toFixed(1) + 'h' : '<span style="color:#cbd5e1">—</span>';
         const tipoLabel = r.tipo.charAt(0).toUpperCase() + r.tipo.slice(1);
+        const oreCell = r.ore > 0
+          ? `<span style="font-family:'DM Mono';font-size:12px;font-weight:700;color:${r.stimato?'#94a3b8':'#334155'}"
+                  title="${r.stimato?'Ore stimate dal profilo operatore':'Ore inserite manualmente'}">${r.ore % 1 === 0 ? r.ore.toFixed(0) : r.ore.toFixed(2)}h${r.stimato?' <span style="font-size:9px;color:#b0bec5;vertical-align:super">~</span>':''}</span>`
+          : `<span style="color:#cbd5e1;font-size:12px">—</span>`;
         return `
         <tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:8px 12px;white-space:nowrap">
@@ -2012,7 +2034,7 @@ async function renderAssenze(targetId = 'opsub-assenze') {
             <span style="color:#64748b;font-size:12px"> ${GIORNI[r.dow]} ${MESISHORT[mese]}</span>
           </td>
           <td style="padding:8px 12px"><span class="ass-badge ass-${r.tipo}">${tipoLabel}</span></td>
-          <td style="padding:8px 12px;text-align:center;font-family:'DM Mono';font-size:12px;font-weight:700;color:#334155">${oreLabel}</td>
+          <td style="padding:8px 12px;text-align:right">${oreCell}</td>
           <td style="padding:6px 4px;text-align:center">
             <button class="ass-rm-btn btn-s" style="padding:2px 7px;font-size:10px;min-height:auto;line-height:1.4"
                     onclick="removeAssenza('${r.dayKey}','${nome}');renderAssenze('${targetId}')">×</button>
@@ -2020,6 +2042,9 @@ async function renderAssenze(targetId = 'opsub-assenze') {
         </tr>`;
       })
       .join('');
+    const totalLabel = opTotal > 0
+      ? `<span style="font-family:'DM Mono';font-size:11px;background:${opHasStimato?'#f8fafc':'#f1f5f9'};color:#334155;padding:2px 7px;border-radius:6px;font-weight:700">${opTotal % 1 === 0 ? opTotal.toFixed(0) : opTotal.toFixed(2)}h${opHasStimato?' <span style="font-size:9px;color:#b0bec5;vertical-align:super">~</span>':''}</span>`
+      : '';
     return `
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
@@ -2027,7 +2052,7 @@ async function renderAssenze(targetId = 'opsub-assenze') {
           <div style="flex:1;min-width:0;font-weight:700;font-size:13px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
             <span style="font-size:11px;font-weight:700;color:#64748b">${rows.length} assenz${rows.length===1?'a':'e'}</span>
-            ${opTotal > 0 ? `<span style="font-family:'DM Mono';font-size:11px;background:#f1f5f9;color:#334155;padding:2px 7px;border-radius:6px;font-weight:700">${opTotal.toFixed(1)}h</span>` : ''}
+            ${totalLabel}
           </div>
         </div>
         <div class="tscroll"><table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -2060,7 +2085,7 @@ async function renderAssenze(targetId = 'opsub-assenze') {
     ${all.length > 0 ? `
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;align-items:center">
         ${summaryBadges}
-        ${totalOre > 0 ? `<span style="margin-left:auto;font-family:'DM Mono';font-size:12px;font-weight:700;color:#475569">${totalOre.toFixed(1)}h totali</span>` : ''}
+        ${totalOre > 0 ? `<span style="margin-left:auto;font-family:'DM Mono';font-size:12px;font-weight:700;color:#475569">${totalOre % 1 === 0 ? totalOre.toFixed(0) : totalOre.toFixed(2)}h totali${sommaTotStimato?' <span style="font-size:9px;color:#94a3b8;vertical-align:super" title="Alcune ore sono stimate dal profilo operatore">~</span>':''}</span>` : ''}
       </div>` : ''}
     ${filtered.length > 0
       ? opCards
