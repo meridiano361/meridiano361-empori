@@ -228,6 +228,11 @@
                             <td style="color:#94a3b8;font-size:12px;font-family:monospace">reggioemilia</td>
                             <td><span style="background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">● Attivo</span></td>
                         </tr>
+                        <tr>
+                            <td><strong>Mantova</strong></td>
+                            <td style="color:#94a3b8;font-size:12px;font-family:monospace">mantova</td>
+                            <td><span style="background:#f0fdf4;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">● Attivo</span></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -349,10 +354,7 @@
                 <div class="campo-gruppo">
                     <label>Emporio principale</label>
                     <select id="edit-op-emporio" class="campo-input" onchange="aggiornaCBEmpori()">
-                        <option value="cremona">Cremona</option>
-                        <option value="casalmaggiore">Casalmaggiore</option>
-                        <option value="reggioemilia">Reggio Emilia</option>
-                        <option value="viadana">Viadana</option>
+                        <!-- popolato da JS via _initModalSelectEmpori() -->
                     </select>
                 </div>
                 <div class="campo-gruppo">
@@ -385,23 +387,8 @@
                 </div>
                 <div class="campo-gruppo">
                     <label>Empori aggiuntivi</label>
-                    <div class="empori-aggiuntivi">
-                        <label class="check-flag" id="label-extra-cremona">
-                            <input type="checkbox" id="extra-cremona" value="cremona">
-                            <span>Cremona</span>
-                        </label>
-                        <label class="check-flag" id="label-extra-casalmaggiore">
-                            <input type="checkbox" id="extra-casalmaggiore" value="casalmaggiore">
-                            <span>Casalmaggiore</span>
-                        </label>
-                        <label class="check-flag" id="label-extra-reggioemilia">
-                            <input type="checkbox" id="extra-reggioemilia" value="reggioemilia">
-                            <span>Reggio Emilia</span>
-                        </label>
-                        <label class="check-flag" id="label-extra-viadana">
-                            <input type="checkbox" id="extra-viadana" value="viadana">
-                            <span>Viadana</span>
-                        </label>
+                    <div class="empori-aggiuntivi" id="empori-aggiuntivi-container">
+                        <!-- popolato da JS via _initModalSelectEmpori() -->
                     </div>
                 </div>
                 <div class="campo-gruppo" id="gruppo-resp-personale" style="display:none">
@@ -530,8 +517,8 @@
         { id: 'preordini',     nome: 'Preordini' },
     ];
 
-    const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana'];
-    const EMPORI_LABEL = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana' };
+    const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana', 'mantova'];
+    const EMPORI_LABEL = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova' };
 
     // Converte qualunque forma ('Cremona', 'cremona', 'Reggio Emilia') → chiave interna
     function normalizzaEmporio(valore) {
@@ -541,6 +528,26 @@
         const found = Object.keys(EMPORI_LABEL).find(k => EMPORI_LABEL[k].toLowerCase() === valore.toLowerCase());
         return found || lower;
     }
+
+    // Popola select emporio e checkbox empori aggiuntivi direttamente da EMPORI_ORDER.
+    // Chiamata subito, in modo che sia sempre aggiornata indipendentemente dalla cache HTML.
+    function _initModalSelectEmpori() {
+        const sel = document.getElementById('edit-op-emporio');
+        if (sel) {
+            sel.innerHTML = EMPORI_ORDER
+                .map(k => `<option value="${k}">${EMPORI_LABEL[k] || k}</option>`)
+                .join('');
+        }
+        const cont = document.getElementById('empori-aggiuntivi-container');
+        if (cont) {
+            cont.innerHTML = EMPORI_ORDER.map(k => `
+                <label class="check-flag" id="label-extra-${k}">
+                    <input type="checkbox" id="extra-${k}" value="${k}">
+                    <span>${EMPORI_LABEL[k] || k}</span>
+                </label>`).join('');
+        }
+    }
+    _initModalSelectEmpori();
 
     let utentiCache = [];
 
@@ -583,6 +590,7 @@
         'casalmaggiore': '#D97706',
         'viadana':       '#2563EB',
         'reggioemilia':  '#7C3AED',
+        'mantova':       '#7C3AED',
     };
     function coloreEmporio(chiave) {
         return COLORI_EMPORI[(chiave || '').toLowerCase()] || '#64748b';
@@ -622,20 +630,21 @@
         const container = document.getElementById('impostazioni-operatori');
         container.innerHTML = '';
 
-        // Raggruppa per emporio
+        // Raggruppa per emporio (tutti gli empori noti sono sempre mostrati)
         const gruppi = {};
+        EMPORI_ORDER.forEach(k => { gruppi[k] = []; });
         operatori.forEach(op => {
             const chiave = normalizzaEmporio(op.emporio);
             if (!gruppi[chiave]) gruppi[chiave] = [];
             gruppi[chiave].push(op);
         });
 
-        // MODIFICA 1: ordine alfabetico per display name
-        const ordineChiavi = Object.keys(gruppi).sort((a, b) => {
-            const la = EMPORI_LABEL[a] || a;
-            const lb = EMPORI_LABEL[b] || b;
-            return la.localeCompare(lb, 'it');
-        });
+        // Empori noti prima (in EMPORI_ORDER), poi eventuali altri in ordine alfabetico
+        const emporiNoti = EMPORI_ORDER.filter(k => gruppi[k] !== undefined);
+        const emporiAltri = Object.keys(gruppi)
+            .filter(k => !EMPORI_ORDER.includes(k))
+            .sort((a, b) => (EMPORI_LABEL[a] || a).localeCompare(EMPORI_LABEL[b] || b, 'it'));
+        const ordineChiavi = [...emporiNoti, ...emporiAltri];
 
         ordineChiavi.forEach(chiave => {
             const ops      = gruppi[chiave];
@@ -795,10 +804,14 @@
     }
 
     function nuovoOperatore(empChiave) {
+        _initModalSelectEmpori();
+        document.querySelector('#modal-modifica-operatore .modal-header h3').textContent =
+            'Nuovo Operatore — ' + (EMPORI_LABEL[empChiave] || empChiave || '');
         document.getElementById('edit-op-id-orig').value     = '';
         document.getElementById('edit-op-nome').value        = '';
-        document.getElementById('edit-op-emporio').value     = empChiave || 'cremona';
-        document.getElementById('edit-op-ruolo').value       = 'operatore';
+        document.getElementById('edit-op-emporio').disabled  = !_isAdmin;
+        document.getElementById('edit-op-emporio').value     = empChiave || EMPORI_ORDER[0];
+        document.getElementById('edit-op-ruolo').value       = 'volontario';
         document.getElementById('edit-op-readonly').value    = 'false';
         document.getElementById('edit-op-telefono').value    = '';
         document.getElementById('edit-op-email-field').value = '';
@@ -814,9 +827,12 @@
 
     // ── MODAL MODIFICA OPERATORE ──────────────────────────────────────────
     function apriModalModifica(id) {
+        _initModalSelectEmpori();
         const op = utentiCache.find(x => String(x.id) === String(id));
         if (!op) return;
 
+        document.querySelector('#modal-modifica-operatore .modal-header h3').textContent =
+            'Modifica Operatore';
         document.getElementById('edit-op-id-orig').value      = op.id;
         document.getElementById('edit-op-nome').value         = op.nome || '';
         document.getElementById('edit-op-telefono').value     = op.telefono || '';
@@ -826,7 +842,7 @@
 
         // Emporio principale: normalizza a chiave select
         const empChiave = normalizzaEmporio(op.emporio);
-        document.getElementById('edit-op-emporio').value = empChiave || 'cremona';
+        document.getElementById('edit-op-emporio').value = empChiave || EMPORI_ORDER[0];
 
         // Ruolo: normalizza (volontaria → volontario, vecchi valori → nuovi)
         const ruoloRaw  = (op.ruolo || '').toLowerCase();
@@ -978,6 +994,7 @@
     }
 
     async function salvaModificaOperatore() {
+        try {
         clearModalMsg();
 
         const idOrig  = document.getElementById('edit-op-id-orig').value.trim();
@@ -1046,6 +1063,10 @@
         // ── Percorso standard: INSERT o UPDATE senza conflitti ──
         const savedId = await _doSave(isNuovo, idOrig, payload);
         if (savedId) { if (_isAdmin) await _saveRespPersonale(savedId); afterSave(); }
+        } catch (err) {
+            showModalMsg('Errore imprevisto: ' + err.message, 'error');
+            console.error('salvaModificaOperatore:', err);
+        }
     }
 
     function afterSave() {
