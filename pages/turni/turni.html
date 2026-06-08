@@ -1499,6 +1499,10 @@ button { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
           <div class="emp-icon"><img src="../../assets/images/logo_reggio_emilia.png" alt="Reggio Emilia"></div>
           <span class="emp-name">Reggio Emilia</span>
         </div>
+        <div class="emp-card" onclick="selezionaEmporioTurni('Mantova')">
+          <div class="emp-icon"><img src="../../assets/images/logo_mantova.png" alt="Mantova" onerror="this.outerHTML='<div style=\'width:100%;height:100%;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-weight:900;color:#7C3AED;font-size:18px\'>MA</div>'"></div>
+          <span class="emp-name">Mantova</span>
+        </div>
         <div class="emp-card" onclick="selezionaEmporioTurni('Viadana')">
           <div class="emp-icon"><img src="../../assets/images/logo_viadana.png" alt="Viadana"></div>
           <span class="emp-name">Viadana</span>
@@ -2080,7 +2084,8 @@ const PERSONALE = {
     {nome:'Elsa Scarpa',ruolo:'volontario'},
     {nome:'Manuela Capanni',ruolo:'volontario'},
     {nome:'Marica Pioli',ruolo:'volontario'},
-  ]
+  ],
+  'Mantova': []
 };
 
 let currentEmporio = null;
@@ -2091,6 +2096,7 @@ let currentSubSezione = 'calendario';
 let mostraSeraGlobale = false;
 let turniData = {}, assenzeData = {}, noteData = {};
 let storeHoursData = {...DEFAULTHOURS};
+let _opPausaMap = {};
 let yearData = {}, yearAssenzeData = {}, yearNoteData = {};
 let _assAnno = null, _assMese = null;
 
@@ -2223,10 +2229,10 @@ async function renderAssenze(targetId = 'opsub-assenze') {
   try {
     const [assRes, opRes] = await Promise.all([
       db.from('turni').select('assenze').eq('emporio', currentEmporio).eq('anno', anno).eq('mese', mese + 1),
-      db.from('operatori').select('nome,ruolo,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom').eq('emporio', currentEmporio).or('attivo.eq.true,attivo.is.null')
+      db.from('operatori').select('nome,ruolo,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom,pausa_retribuita').eq('emporio', currentEmporio).or('attivo.eq.true,attivo.is.null')
     ]);
     (assRes.data || []).forEach(r => { if (r.assenze) Object.assign(monthAssenzeData, r.assenze); });
-    (opRes.data  || []).forEach(op => { opDataMap[op.nome] = op; });
+    (opRes.data  || []).forEach(op => { opDataMap[op.nome] = op; _opPausaMap[op.nome] = !!op.pausa_retribuita; });
   } catch(e) { monthAssenzeData = {}; }
 
   // Ore effettive: manuali se >0, altrimenti stimate da profilo operatore
@@ -2236,11 +2242,10 @@ async function renderAssenze(targetId = 'opsub-assenze') {
     if (op) {
       const stima = getOrePrevisteGiorno(op, anno, mese + 1, d);
       if (stima > 0) {
-        // Dipendenti: +0.25h pausa retribuita CCNL se il giorno è lavorativo
-        const ore = op.ruolo === 'dipendente' ? stima + 0.25 : stima;
-        return { ore, stimato: true };
+        return { ore: stima, stimato: true };
       }
-      const full = calcShiftHours('mattina', op.ruolo || '') + calcShiftHours('pomeriggio', op.ruolo || '');
+      const pr = !!op.pausa_retribuita;
+      const full = calcShiftHours('mattina', pr) + calcShiftHours('pomeriggio', pr);
       if (full > 0) return { ore: full, stimato: true };
     }
     return { ore: 0, stimato: false };
@@ -2493,14 +2498,13 @@ function renderStoreHoursDisplay() {
     </div>`;
 }
 
-function calcShiftHours(shift, ruolo = '') {
+function calcShiftHours(shift, pausaRetribuita = false) {
   const h = storeHoursData;
   const times = shift==='mattina' ? [h.mat_open||'09:15',h.mat_close||'13:00'] : [h.pom_open||'15:00',h.pom_close||'19:00'];
   const [h1,m1]=times[0].split(':').map(Number);
   const [h2,m2]=times[1].split(':').map(Number);
   const base = minutiADecimale((h2*60+m2)-(h1*60+m1));
-  // +0.25h (15 min) = pausa retribuita CCNL dipendenti; non si applica a SCU/volontari
-  return ruolo==='dipendente' ? base + 0.25 : base;
+  return pausaRetribuita ? base + 0.25 : base;
 }
 
 // ── RENDER MESE ────────────────────────────────────────────────────────────
@@ -2543,7 +2547,7 @@ function renderMonth() {
       const ds = `${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       return (td.operatori||[]).map((o,i) => {
         if (o.rimosso) return '';
-        const defOre = calcShiftHours(fascia, o.ruolo);
+        const defOre = calcShiftHours(fascia, _opPausaMap[o.nome]);
         const isPartial = o.oremanuali != null && o.oremanuali < defOre;
         const partialStr = isPartial ? `<span title="Orario parziale" style="font-size:9px;opacity:.65;margin-left:1px">◐</span>` : '';
         // chip-self: classe per il chip del proprio nome (usata da CSS turni-own-only)
@@ -2605,7 +2609,8 @@ function renderHours() {
       if(isDipSCU && assenzeData[assKey]){
         const tipo=getAssenzaTipo(assenzeData[assKey]);
         const oreAss=getAssenzaOre(assenzeData[assKey]);
-        const defGiornata = calcShiftHours('mattina',p.ruolo)+calcShiftHours('pomeriggio',p.ruolo);
+        const _pr=_opPausaMap[p.nome];
+        const defGiornata = calcShiftHours('mattina',_pr)+calcShiftHours('pomeriggio',_pr);
         const addOre = oreAss > 0 ? oreAss : defGiornata;
         if(tipo==='ferie') oreFerie+=addOre;
         else if(tipo==='malattia') oreMalattia+=addOre;
@@ -2616,8 +2621,9 @@ function renderHours() {
       const mD=turniData[mk]; const pD=turniData[pk];
       const inMat=mD?.aperto&&mD.operatori.find(o=>o.nome===p.nome);
       const inPom=pD?.aperto&&pD.operatori.find(o=>o.nome===p.nome);
-      if(inMat) oreLavoro+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):calcShiftHours('mattina',p.ruolo);
-      if(inPom) oreLavoro+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):calcShiftHours('pomeriggio',p.ruolo);
+      const _pr=_opPausaMap[p.nome];
+      if(inMat) oreLavoro+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):calcShiftHours('mattina',_pr);
+      if(inPom) oreLavoro+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):calcShiftHours('pomeriggio',_pr);
     }
     const totale = oreLavoro + oreFerie + oreMalattia + orePermesso + oreAltro;
     return {nome:p.nome,ruolo:p.ruolo,isDipSCU,oreLavoro,oreFerie,oreMalattia,orePermesso,oreAltro,totale};
@@ -2713,11 +2719,12 @@ async function aggiornaOre() {
   try {
     const [turniRes, opRes] = await Promise.all([
       (() => { let q = db.from('turni').select('*').eq('emporio', currentEmporio).eq('anno', anno); if (!annuale) q = q.eq('mese', mese); return q; })(),
-      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom').or('attivo.eq.true,attivo.is.null').order('nome'),
+      db.from('operatori').select('nome,ruolo,emporio,empori_aggiuntivi,ore_settimanali,ore_previste_lun,ore_previste_mar,ore_previste_mer,ore_previste_gio,ore_previste_ven,ore_previste_sab,ore_previste_dom,pausa_retribuita').or('attivo.eq.true,attivo.is.null').order('nome'),
     ]);
     if (turniRes.error) throw turniRes.error;
     const turniRows = turniRes.data || [];
     // Operatori contrattualizzati (dipendente + scu) dell'emporio corrente
+    (opRes.data || []).forEach(o => { _opPausaMap[o.nome] = !!o.pausa_retribuita; });
     const opDB = (opRes.data || []).filter(o =>
       RUOLI_CONTRATTUALIZZATI.includes(o.ruolo) &&
       (o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio))
@@ -2777,7 +2784,7 @@ function calcOreStats(nome, ruolo, opData, turniRows, assenzeObj, anno, mese, an
     if (!r.aperto) return;
     const op = (r.operatori || []).find(o => o.nome === nome && !o.rimosso);
     if (!op) return;
-    oreEmporio += op.oremanuali != null ? parseFloat(op.oremanuali) || 0 : calcShiftHours(r.turno, ruolo);
+    oreEmporio += op.oremanuali != null ? parseFloat(op.oremanuali) || 0 : calcShiftHours(r.turno, !!opData?.pausa_retribuita);
   });
   // Assenze: valorizzate sulle ore previste del giorno, non sulle ore emporio
   Object.entries(assenzeObj).forEach(([k, v]) => {
@@ -2905,8 +2912,9 @@ function renderYear() {
         const mD=mT[mk]; const pD=mT[pk];
         const inMat=mD?.aperto&&mD.operatori.find(o=>o.nome===p.nome);
         const inPom=pD?.aperto&&pD.operatori.find(o=>o.nome===p.nome);
-        if(inMat) mesiOre[m-1]+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):calcShiftHours('mattina',p.ruolo);
-        if(inPom) mesiOre[m-1]+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):calcShiftHours('pomeriggio',p.ruolo);
+        const _prY=_opPausaMap[p.nome];
+        if(inMat) mesiOre[m-1]+=inMat.oremanuali!=null?parseFloat(inMat.oremanuali):calcShiftHours('mattina',_prY);
+        if(inPom) mesiOre[m-1]+=inPom.oremanuali!=null?parseFloat(inPom.oremanuali):calcShiftHours('pomeriggio',_prY);
       }
     }
     return {nome:p.nome,ruolo:p.ruolo,mesiOre,totAnno:mesiOre.reduce((a,b)=>a+b,0)};
@@ -2919,7 +2927,7 @@ function renderYear() {
       for(let d=1;d<=days;d++){
         const dayKey=`${currentEmporio}|${currentAnno}|${m}|${d}`;
         const val=yearAssenzeData[`${dayKey}|${p.nome}`];
-        if(getAssenzaTipo(val)==='ferie') tot+=calcShiftHours('mattina',p.ruolo)+calcShiftHours('pomeriggio',p.ruolo);
+        if(getAssenzaTipo(val)==='ferie') tot+=calcShiftHours('mattina',_opPausaMap[p.nome])+calcShiftHours('pomeriggio',_opPausaMap[p.nome]);
       }
     }
     return tot;
@@ -2984,7 +2992,7 @@ function addOp(key, nome, ruolo, withManualHrs) {
   }
   if (!turniData[key]) turniData[key] = {aperto: true, operatori: []};
   const newOp = {nome, ruolo};
-  if (withManualHrs) newOp.oremanuali = calcShiftHours(key.includes('mattina') ? 'mattina' : 'pomeriggio', ruolo);
+  if (withManualHrs) newOp.oremanuali = calcShiftHours(key.includes('mattina') ? 'mattina' : 'pomeriggio', _opPausaMap[nome]);
   turniData[key].operatori.push(newOp);
   saveTurno(key, turniData[key]);
   closeModal('modal-add');
@@ -3469,7 +3477,7 @@ function dateToTurnoKey(data, fascia) {
 
 function creaChipHtml(o, i, key, ds, fascia) {
   const sid = o.nome.replace(/[^a-zA-Z0-9]/g,'_');
-  const defOre = calcShiftHours(fascia, o.ruolo);
+  const defOre = calcShiftHours(fascia, _opPausaMap[o.nome]);
   const oreEff = o.oremanuali != null ? o.oremanuali : defOre;
   const isOverride = o.oremanuali != null;
   const oreDisp = oreEff != null ? oreEff.toFixed(2)+'h' : '';
@@ -3805,6 +3813,7 @@ function renderOperatoriView() {
         <option value="Casalmaggiore">Casalmaggiore</option>
         <option value="Viadana">Viadana</option>
         <option value="Reggio Emilia">Reggio Emilia</option>
+        <option value="Mantova">Mantova</option>
       </select>
     </div>
     <div id="lista-operatori-turni">
@@ -4019,14 +4028,14 @@ function arrotondaOre(minuti) {
 
 // ── SISTEMA ORE CENTRALIZZATO (15min→0.25 | 30→0.50 | 45→0.75 | 60→1.00) ──
 function minutiADecimale(minuti) { return arrotondaOre(minuti || 0); }
-function calcolaOre(inizio, fine, dipendente = false) {
+function calcolaOre(inizio, fine, pausaRetribuita = false) {
   if (!inizio || !fine) return null;
   const [hI, mI] = inizio.split(':').map(Number);
   const [hF, mF] = fine.split(':').map(Number);
   const totMin = (hF * 60 + mF) - (hI * 60 + mI);
   if (totMin <= 0) return null;
   let ore = minutiADecimale(totMin);
-  if (dipendente) ore += 0.25;
+  if (pausaRetribuita) ore += 0.25;
   return ore;
 }
 function oreDisplay(ore) { return (ore === null || ore === undefined) ? '—' : ore.toFixed(2) + 'h'; }
@@ -4053,7 +4062,7 @@ function calcolaOreOp(sid, idx, key, ds, fascia) {
     if (min <= 0) return;
     let ore = arrotondaOre(min);
     const op = turniData[key]?.operatori[idx];
-    if (op?.ruolo === 'dipendente') ore += 0.25;
+    if (_opPausaMap[op?.nome]) ore += 0.25;
     mostraOreOp(sid, ds, fascia, ore);
     if (op) { op.oremanuali = ore; saveTurno(key, turniData[key]); }
   };
@@ -4184,7 +4193,7 @@ function salvaPopoverChip(key, idx) {
     const min = (hF*60+mF)-(hI*60+mI);
     if (min > 0) {
       let ore = arrotondaOre(min);
-      if (op.ruolo === 'dipendente') ore += 0.25;
+      if (_opPausaMap[op.nome]) ore += 0.25;
       op.oremanuali = ore;
     }
   } else {
@@ -4206,7 +4215,7 @@ function mostraRiepilogoOre() {
     (td.operatori||[]).forEach(o => {
       if (o.rimosso) return;
       if (!riepilogo[o.nome]) riepilogo[o.nome]={nome:o.nome,ruolo:o.ruolo||'',totale:0,mattina:0,pomeriggio:0,sera:0};
-      const defOre = fascia==='sera' ? 2.5 : calcShiftHours(fascia, o.ruolo);
+      const defOre = fascia==='sera' ? 2.5 : calcShiftHours(fascia, _opPausaMap[o.nome]);
       const ore = o.oremanuali!=null?o.oremanuali:defOre;
       riepilogo[o.nome][fascia] = (riepilogo[o.nome][fascia]||0)+ore;
       riepilogo[o.nome].totale += ore;
@@ -4424,9 +4433,10 @@ async function aggiornaRiepilogo() {
     if(!annuale) eQ=eQ.eq('mese',mese);
     const {data:extraRows,error:eErr}=await eQ.order('data',{ascending:true}); if(eErr) throw eErr;
     riepilogoExtraData=extraRows||[];
-    const stats=rpCalcolaStats(nome,ruolo,turniRows||[],assenzeObj,riepilogoExtraData,anno,mese,annuale);
+    const {data:_rpOp}=await db.from('operatori').select('pausa_retribuita').ilike('nome',nome).maybeSingle();
+    const stats=rpCalcolaStats(nome,ruolo,turniRows||[],assenzeObj,riepilogoExtraData,anno,mese,annuale,_rpOp);
     sumEl.innerHTML=rpRenderSummary(stats,nome,ruolo,anno,mese,annuale);
-    if(detEl) detEl.innerHTML=rpRenderDetail(nome,ruolo,turniRows||[],assenzeObj,riepilogoExtraData,anno,mese,annuale);
+    if(detEl) detEl.innerHTML=rpRenderDetail(nome,ruolo,turniRows||[],assenzeObj,riepilogoExtraData,anno,mese,annuale,_rpOp);
     if(frmEl) frmEl.innerHTML=rpRenderFormExtra();
   } catch(e) {
     console.error('[riepilogo]',e);
@@ -4434,13 +4444,14 @@ async function aggiornaRiepilogo() {
   }
 }
 
-function rpCalcolaStats(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mese, annuale) {
+function rpCalcolaStats(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mese, annuale, opData = null) {
+  const _pr = !!opData?.pausa_retribuita;
   let oreEmporio=0,oreFerie=0,orePermesso=0,oreMalattia=0,oreAltroAss=0,oreAltroExtra=0,oreRecupero=0;
   // Ore in emporio dai turni
   (turniRows||[]).forEach(r=>{
     if(!r.aperto) return;
     const op=(r.operatori||[]).find(o=>o.nome===nome&&!o.rimosso); if(!op) return;
-    oreEmporio += op.oremanuali!=null ? parseFloat(op.oremanuali)||0 : calcShiftHours(r.turno,ruolo);
+    oreEmporio += op.oremanuali!=null ? parseFloat(op.oremanuali)||0 : calcShiftHours(r.turno, _pr);
   });
   // Assenze (ferie/permesso/malattia) dai turni
   Object.entries(assenzeObj).forEach(([k,v])=>{
@@ -4452,7 +4463,7 @@ function rpCalcolaStats(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mes
     if(nomeK!==nome) return;
     const tipo=getAssenzaTipo(v);
     const oreAss=getAssenzaOre(v);
-    const def=calcShiftHours('mattina',ruolo)+calcShiftHours('pomeriggio',ruolo);
+    const def=calcShiftHours('mattina', _pr)+calcShiftHours('pomeriggio', _pr);
     const addOre=oreAss>0?oreAss:def;
     if(tipo==='ferie')         oreFerie    +=addOre;
     else if(tipo==='permesso') orePermesso +=addOre;
@@ -4497,7 +4508,8 @@ function rpRenderSummary(stats, nome, ruolo, anno, mese, annuale) {
   </div>`;
 }
 
-function rpRenderDetail(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mese, annuale) {
+function rpRenderDetail(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mese, annuale, opData = null) {
+  const _pr = !!opData?.pausa_retribuita;
   // Turni in emporio
   const turniOp=(turniRows||[])
     .filter(r=>r.aperto&&(r.operatori||[]).find(o=>o.nome===nome&&!o.rimosso))
@@ -4513,7 +4525,7 @@ function rpRenderDetail(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mes
       </tr></thead><tbody>
       ${turniOp.map(r=>{
         const op=(r.operatori||[]).find(o=>o.nome===nome&&!o.rimosso);
-        const ore=op.oremanuali!=null?parseFloat(op.oremanuali)||0:calcShiftHours(r.turno,ruolo);
+        const ore=op.oremanuali!=null?parseFloat(op.oremanuali)||0:calcShiftHours(r.turno, _pr);
         const label=r.turno==='mattina'?'Mattina':r.turno==='pomeriggio'?'Pomeriggio':'Sera';
         return `<tr style="border-top:1px solid #f1f5f9">
           <td style="padding:5px 10px;color:#1e293b">${r.giorno}/${r.mese}/${r.anno}</td>
@@ -4534,7 +4546,7 @@ function rpRenderDetail(nome, ruolo, turniRows, assenzeObj, extraRows, anno, mes
     if(!annuale&&parseInt(meseK)!==mese) return;
     if(nomeK!==nome) return;
     const tipo=getAssenzaTipo(v),oreAss=getAssenzaOre(v);
-    const def=calcShiftHours('mattina',ruolo)+calcShiftHours('pomeriggio',ruolo);
+    const def=calcShiftHours('mattina', _pr)+calcShiftHours('pomeriggio', _pr);
     assenzeRows.push({data:`${giornoK}/${meseK}/${annoK}`,meseN:parseInt(meseK),giornoN:parseInt(giornoK),tipo,ore:oreAss>0?oreAss:def});
   });
   assenzeRows.sort((a,b)=>(a.meseN-b.meseN)||(a.giornoN-b.giornoN));
@@ -5279,6 +5291,16 @@ function rigaOperatoreTurni(op, predefiniti) {
                 Somma giorni: <strong id="op-gg-tot-${op.id}" style="font-size:13px;color:#1e293b">–</strong>
               </div>
               <span id="op-gg-match-${op.id}" style="display:none;font-size:11px;font-weight:700"></span>
+            </div>
+            <div style="margin-top:10px;padding:10px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+                <input type="checkbox" id="op-pausa-ret-${op.id}" ${op.pausa_retribuita ? 'checked' : ''}
+                       style="accent-color:#B5453A;width:16px;height:16px;flex-shrink:0"
+                       onchange="aggiornaTotaleOre('${op.id}')">
+                <span style="font-size:12px;font-weight:600;color:#475569">Pausa retribuita CCNL (+15 min/turno)</span>
+              </label>
+            </div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               <button onclick="salvaOrePreviste('${op.id}')" class="btn-p" style="padding:7px 14px;font-size:10px">Salva ore previste</button>
               <span id="op-gg-fb-${op.id}" style="display:none;font-size:11px;color:#16a34a;font-weight:700">✓ Salvate</span>
             </div>
@@ -5398,7 +5420,8 @@ async function salvaOrePreviste(opId) {
   }
 
   const GG = ['lun','mar','mer','gio','ven','sab','dom'];
-  const payload = { ore_settimanali: parseFloat(settVal.toFixed(2)) };
+  const pausaRet = !!document.getElementById('op-pausa-ret-' + opId)?.checked;
+  const payload = { ore_settimanali: parseFloat(settVal.toFixed(2)), pausa_retribuita: pausaRet };
   let sommaGiorni = 0;
   let haGiorni = false;
   GG.forEach(g => {
@@ -5417,6 +5440,10 @@ async function salvaOrePreviste(opId) {
   try {
     const { error } = await db.from('operatori').update(payload).eq('id', opId);
     if (error) throw error;
+    // keep _opPausaMap in sync immediately
+    const opEl = document.querySelector(`[id^="op-pausa-ret-${opId}"]`);
+    const opNomeEl = document.querySelector(`#corpo-pred-${opId}`)?.closest('.card-op')?.querySelector('.op-chip');
+    if (opNomeEl) _opPausaMap[opNomeEl.textContent.trim()] = pausaRet;
     const fb = document.getElementById('op-gg-fb-' + opId);
     if (fb) { fb.style.display = 'inline'; setTimeout(() => { fb.style.display = 'none'; }, 2500); }
     showToast('Ore previste salvate ✓');

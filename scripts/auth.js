@@ -40,6 +40,7 @@ function emporioIdToNome(id) {
     cremona:       'Cremona',
     reggioemilia:  'Reggio Emilia',
     viadana:       'Viadana',
+    mantova:       'Mantova',
   };
   return map[id] || id;
 }
