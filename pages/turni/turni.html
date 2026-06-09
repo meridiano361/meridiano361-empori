@@ -3195,6 +3195,9 @@ async function setAssenza(assKey, tipo) {
       showToast('Errore nel salvataggio range: ' + e.message, 'err');
     }
     render();
+    if (document.getElementById('opsub-assenze')?.style.display !== 'none') {
+      renderAssenze('opsub-assenze');
+    }
     return;
   }
 
@@ -3210,10 +3213,16 @@ async function setAssenza(assKey, tipo) {
 
 function _rangeGiorni(fromISO, toISO) {
   const result = [];
-  const cur = new Date(fromISO + 'T00:00:00');
-  const end = new Date(toISO  + 'T00:00:00');
+  const [fy, fm, fd] = fromISO.split('-').map(Number);
+  const [ty, tm, td] = toISO.split('-').map(Number);
+  // Usa Date locale (no timezone shift) per non finire sul giorno sbagliato
+  const cur = new Date(fy, fm - 1, fd);
+  const end = new Date(ty, tm - 1, td);
   while (cur <= end) {
-    result.push(cur.toISOString().slice(0, 10));
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    result.push(`${y}-${m}-${d}`);
     cur.setDate(cur.getDate() + 1);
   }
   return result;
