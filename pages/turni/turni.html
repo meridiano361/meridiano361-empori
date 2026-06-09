@@ -87,10 +87,19 @@ body{font-family:var(--m-font);background:var(--m-sfondo);color:var(--m-scuro);p
 .st-open{background:#dcfce7;color:#166534;border-color:#86efac}
 .st-closed{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
 .ass-badge{font-size:9px;font-weight:800;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap}
-.ass-ferie{background:#dbeafe;color:#1e40af}
-.ass-malattia{background:#fef9c3;color:#854d0e}
-.ass-permesso{background:#fce7f3;color:#9d174d}
-.ass-altro{background:#f1f5f9;color:#334155}
+.ass-ferie{background:#dcfce7;color:#166534}
+.ass-malattia{background:#fef3c7;color:#92400e}
+.ass-permesso{background:#dbeafe;color:#1d4ed8}
+.ass-altro{background:#f1f5f9;color:#475569}
+.ass-tipo-btn{font-size:12px;font-weight:700;padding:8px 0;border-radius:8px;border:1.5px solid transparent;cursor:pointer;transition:all .14s;flex:1;min-width:72px;text-align:center}
+.ass-tipo-ferie{background:#dcfce7;color:#166534;border-color:#86efac}
+.ass-tipo-ferie.selected{background:#16a34a;color:#fff;border-color:#16a34a}
+.ass-tipo-permesso{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}
+.ass-tipo-permesso.selected{background:#2563eb;color:#fff;border-color:#2563eb}
+.ass-tipo-malattia{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+.ass-tipo-malattia.selected{background:#d97706;color:#fff;border-color:#d97706}
+.ass-tipo-altro{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
+.ass-tipo-altro.selected{background:#475569;color:#fff;border-color:#475569}
 .note-cell{min-width:80px}
 .note-cell textarea{width:100%;min-height:28px;border:1px solid transparent;border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit;resize:vertical;background:transparent;transition:border .15s}
 .note-cell textarea:focus{border-color:#B5453A;background:#fff;outline:none}
@@ -1857,8 +1866,23 @@ button { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
     </div>
 
     <input type="hidden" id="assenza-ore-valore" value="0">
-    <div id="modal-ass-list"></div>
-    <button onclick="closeModal('modal-ass')" class="btn-s" style="margin-top:12px;width:100%;justify-content:center">Chiudi</button>
+
+    <!-- Tipo assenza -->
+    <div style="margin-bottom:12px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px">TIPO DI ASSENZA</div>
+      <div style="display:flex;gap:6px">
+        <button id="ass-tipo-btn-ferie"    onclick="_selTipoAssenza('ferie')"    class="ass-tipo-btn ass-tipo-ferie">Ferie</button>
+        <button id="ass-tipo-btn-permesso" onclick="_selTipoAssenza('permesso')" class="ass-tipo-btn ass-tipo-permesso">Permesso</button>
+        <button id="ass-tipo-btn-malattia" onclick="_selTipoAssenza('malattia')" class="ass-tipo-btn ass-tipo-malattia">Malattia</button>
+        <button id="ass-tipo-btn-altro"    onclick="_selTipoAssenza('altro')"    class="ass-tipo-btn ass-tipo-altro">Altro</button>
+      </div>
+    </div>
+
+    <div id="modal-ass-list" style="border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeModal('modal-ass')" class="btn-s" style="flex:1;justify-content:center">Annulla</button>
+      <button onclick="salvaBulkAssenza()" class="btn-p" style="flex:2;justify-content:center;background:#B5453A;border-color:#B5453A">✓ Salva</button>
+    </div>
   </div>
 </div>
 
@@ -3043,6 +3067,8 @@ async function openAssenzaModal(dayKey) {
     const rangeLabel = document.getElementById('ass-range-label');
     if (rangeLabel) rangeLabel.style.display = 'none';
   }
+  _assModalTipo = null;
+  _clearTipoSelector();
 
   if (!canManageAllAssenze() && !canManageOwnAssenze()) {
     showToast('Non hai i permessi per gestire le assenze', 'err'); return;
@@ -3082,25 +3108,13 @@ async function openAssenzaModal(dayKey) {
     listEl.innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore contrattualizzato in questo emporio</p>';
     return;
   }
-  listEl.innerHTML = pers.map(p => {
-    const assKey = `${dayKey}|${p.nome}`;
-    const current = getAssenzaTipo(assenzeData[assKey]);
-    const roleLabel = p.ruolo === 'dipendente' ? 'Dip.' : 'SCU';
-    const roleCls   = p.ruolo === 'dipendente' ? 'c-dip' : 'c-scu';
-    return `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:6px;min-width:0">
-        <span class="op-chip ${roleCls}" style="font-size:9px;padding:2px 6px;flex-shrink:0">${roleLabel}</span>
-        <span style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</span>
-      </div>
-      <div style="display:flex;gap:3px;flex-wrap:wrap">
-        <button onclick="setAssenza('${assKey}','ferie')" class="ass-badge ass-ferie" style="${current==='ferie'?'outline:2px solid #3b82f6':''}">Ferie</button>
-        <button onclick="setAssenza('${assKey}','permesso')" class="ass-badge ass-permesso" style="${current==='permesso'?'outline:2px solid #ec4899':''}">Permesso</button>
-        <button onclick="setAssenza('${assKey}','malattia')" class="ass-badge ass-malattia" style="${current==='malattia'?'outline:2px solid #f59e0b':''}">Malattia</button>
-        <button onclick="setAssenza('${assKey}','altro')" class="ass-badge ass-altro" style="${current==='altro'?'outline:2px solid #64748b':''}">Altro</button>
-        ${current ? `<button onclick="rimuoviAssenzaKey('${assKey}','${dayKey}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0 2px">×</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  const _assHdr = `<div style="padding:6px 12px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc">
+    <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8">OPERATORI</span>
+    <label style="font-size:11px;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:5px">
+      <input type="checkbox" id="ass-sel-tutti" checked onchange="_toggleTuttiOp(this.checked)" style="accent-color:#B5453A"> tutti
+    </label>
+  </div>`;
+  listEl.innerHTML = _assHdr + pers.map(p => _buildOpRow(p, `${dayKey}|${p.nome}`, getAssenzaTipo(assenzeData[`${dayKey}|${p.nome}`]))).join('');
 }
 
 async function reloadAssenzaModalForDate(src) {
@@ -3148,25 +3162,13 @@ async function reloadAssenzaModalForDate(src) {
     listEl.innerHTML = '<p style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Nessun operatore contrattualizzato in questo emporio</p>';
     return;
   }
-  listEl.innerHTML = pers.map(p => {
-    const assKey = `${newDayKey}|${p.nome}`;
-    const current = getAssenzaTipo(assenzeData[assKey]);
-    const roleLabel = p.ruolo === 'dipendente' ? 'Dip.' : 'SCU';
-    const roleCls   = p.ruolo === 'dipendente' ? 'c-dip' : 'c-scu';
-    return `<div style="padding:8px 12px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:6px;min-width:0">
-        <span class="op-chip ${roleCls}" style="font-size:9px;padding:2px 6px;flex-shrink:0">${roleLabel}</span>
-        <span style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</span>
-      </div>
-      <div style="display:flex;gap:3px;flex-wrap:wrap">
-        <button onclick="setAssenza('${assKey}','ferie')" class="ass-badge ass-ferie" style="${current==='ferie'?'outline:2px solid #3b82f6':''}">Ferie</button>
-        <button onclick="setAssenza('${assKey}','permesso')" class="ass-badge ass-permesso" style="${current==='permesso'?'outline:2px solid #ec4899':''}">Permesso</button>
-        <button onclick="setAssenza('${assKey}','malattia')" class="ass-badge ass-malattia" style="${current==='malattia'?'outline:2px solid #f59e0b':''}">Malattia</button>
-        <button onclick="setAssenza('${assKey}','altro')" class="ass-badge ass-altro" style="${current==='altro'?'outline:2px solid #64748b':''}">Altro</button>
-        ${current ? `<button onclick="rimuoviAssenzaKey('${assKey}','${newDayKey}')" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:11px;padding:0 2px">×</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  const _reloadHdr = `<div style="padding:6px 12px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc">
+    <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8">OPERATORI</span>
+    <label style="font-size:11px;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:5px">
+      <input type="checkbox" id="ass-sel-tutti" checked onchange="_toggleTuttiOp(this.checked)" style="accent-color:#B5453A"> tutti
+    </label>
+  </div>`;
+  listEl.innerHTML = _reloadHdr + pers.map(p => _buildOpRow(p, `${newDayKey}|${p.nome}`, getAssenzaTipo(assenzeData[`${newDayKey}|${p.nome}`]))).join('');
 }
 
 async function setAssenza(assKey, tipo) {
@@ -3256,6 +3258,97 @@ async function _saveAssenzaRange(nome, giorni, tipo, ore) {
       note:      row?.note      ?? null,
     }, {onConflict: 'emporio,anno,mese,giorno,turno'});
     if (error) throw error;
+  }
+}
+
+let _assModalTipo = null;
+
+function _clearTipoSelector() {
+  ['ferie','permesso','malattia','altro'].forEach(t => {
+    const btn = document.getElementById('ass-tipo-btn-' + t);
+    if (btn) btn.classList.remove('selected');
+  });
+}
+
+function _selTipoAssenza(tipo) {
+  _assModalTipo = tipo;
+  ['ferie','permesso','malattia','altro'].forEach(t => {
+    const btn = document.getElementById('ass-tipo-btn-' + t);
+    if (btn) btn.classList.toggle('selected', t === tipo);
+  });
+}
+
+function _toggleTuttiOp(checked) {
+  document.querySelectorAll('.ass-op-check').forEach(cb => { cb.checked = checked; });
+}
+
+function _buildOpRow(p, assKey, current) {
+  const roleLabel = p.ruolo === 'dipendente' ? 'Dip.' : 'SCU';
+  const roleCls   = p.ruolo === 'dipendente' ? 'c-dip' : 'c-scu';
+  const badge = current
+    ? `<span class="ass-badge ass-${current}" style="pointer-events:none;flex-shrink:0">${current.charAt(0).toUpperCase()+current.slice(1)}</span>`
+    : '';
+  const safeName = p.nome.replace(/"/g, '&quot;');
+  return `<label style="padding:9px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;cursor:pointer;background:#fff">
+    <input type="checkbox" class="ass-op-check" value="${safeName}" checked style="width:15px;height:15px;flex-shrink:0;cursor:pointer;accent-color:#B5453A">
+    <span class="op-chip ${roleCls}" style="font-size:9px;padding:2px 6px;flex-shrink:0">${roleLabel}</span>
+    <span style="font-size:12px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.nome}</span>
+    ${badge}
+  </label>`;
+}
+
+async function salvaBulkAssenza() {
+  if (!canManageAllAssenze() && !canManageOwnAssenze()) {
+    showToast('Non hai i permessi per gestire le assenze','err'); return;
+  }
+  if (!_assModalTipo) {
+    showToast('Seleziona il tipo di assenza','err'); return;
+  }
+  const checkedOps = [...document.querySelectorAll('.ass-op-check:checked')].map(cb => cb.value);
+  if (!checkedOps.length) {
+    showToast('Seleziona almeno un operatore','err'); return;
+  }
+  if (canManageOwnAssenze() && !canManageAllAssenze()) {
+    if (checkedOps.some(n => !isCurrentUser(n))) {
+      showToast('Puoi gestire solo le tue assenze','err'); return;
+    }
+  }
+
+  const ore     = calcolaOreAssenza();
+  const modoOre = document.getElementById('ass-section-ore')?.style.display !== 'none';
+  const fromISO = document.getElementById('ore-assenza-data')?.value;
+  const toISO   = modoOre ? (document.getElementById('ore-assenza-data-fine')?.value || '') : '';
+  if (!fromISO) { showToast('Seleziona la data','err'); return; }
+
+  closeModal('modal-ass');
+
+  const isRange = modoOre && toISO && toISO > fromISO;
+  const giorni  = isRange ? _rangeGiorni(fromISO, toISO) : null;
+
+  try {
+    if (isRange) {
+      for (const nome of checkedOps) {
+        await _saveAssenzaRange(nome, giorni, _assModalTipo, ore);
+      }
+      const t = _assModalTipo; const g = giorni.length; const o = checkedOps.length;
+      showToast(`${t.charAt(0).toUpperCase()+t.slice(1)} per ${o} operator${o===1?'e':'i'}, ${g} giorn${g===1?'o':'i'} ✓`, 'ok');
+    } else {
+      const [fy, fm, fd] = fromISO.split('-').map(Number);
+      const dayKey = `${currentEmporio}|${fy}|${fm}|${fd}`;
+      for (const nome of checkedOps) {
+        const assKey = `${dayKey}|${nome}`;
+        assenzeData[assKey] = ore > 0 ? {tipo: _assModalTipo, ore} : _assModalTipo;
+      }
+      const mk = `${dayKey}|mattina`;
+      if (!turniData[mk]) turniData[mk] = {aperto:true, operatori:[]};
+      await saveTurno(mk, turniData[mk]);
+    }
+  } catch(e) {
+    showToast('Errore: ' + e.message, 'err');
+  }
+  render();
+  if (document.getElementById('opsub-assenze')?.style.display !== 'none') {
+    renderAssenze('opsub-assenze');
   }
 }
 
