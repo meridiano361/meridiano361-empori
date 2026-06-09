@@ -154,12 +154,13 @@ module.exports = async function handler(req, res) {
       myTurni.push({ anno, mese, giorno, turno, aperto });
     }
 
-    // check assenze
+    // check assenze — key format: ${emporio}|${anno}|${mese}|${giorno}|${nome}
     if (assenze && typeof assenze === 'object') {
       for (const [key, val] of Object.entries(assenze)) {
         const parts = key.split('|');
+        if (parts[0] !== emporio) continue;           // extra safety: emporio check
         const assNome = parts.slice(4).join('|');
-        if (assNome !== nome) continue;
+        if (assNome !== nome) continue;               // solo assenze di questo operatore
         const tipo = typeof val === 'string' ? val : val?.tipo;
         const ore  = typeof val === 'object' ? (val?.ore || 0) : 0;
         if (tipo) myAssenze.push({ anno, mese, giorno, tipo, ore });
