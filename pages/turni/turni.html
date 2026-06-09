@@ -1546,9 +1546,6 @@ button { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
         <input type="checkbox" id="mostra-sera" onchange="toggleColonnaSera(this.checked)">
         <span>+ Sera</span>
       </label>
-      <button class="btn-s" onclick="esportaIcal()" title="Scarica i turni del mese in formato .ics — importabile in Google Calendar, Apple Calendar, Outlook" style="gap:5px;font-size:10px;padding:7px 12px;flex-shrink:0">
-        📅 Esporta .ics
-      </button>
       <button id="btn-gcal-connect" class="btn-s" onclick="openGcalModal()" style="gap:5px;font-size:10px;padding:7px 12px;flex-shrink:0">
         🗓 Google Calendar
       </button>
@@ -5936,105 +5933,6 @@ async function applicaTurniPredefiniti(anno, mese) {
   }
 }
 
-// ── ESPORTA TURNI → .ICS (Google Calendar / Apple Calendar / Outlook) ────────
-function esportaIcal() {
-  const h = storeHoursData || {};
-  const TEMPI = {
-    mattina:    { s: h.mat_open  || '09:15', e: h.mat_close || '13:00' },
-    pomeriggio: { s: h.pom_open  || '15:00', e: h.pom_close || '19:00' },
-    sera:       { s: '20:00',                e: '22:30' },
-  };
-  const LABEL_TURNO = { mattina: 'Mattina', pomeriggio: 'Pomeriggio', sera: 'Sera' };
-  const dtstamp = new Date().toISOString().replace(/[-:.]/g,'').slice(0,15) + 'Z';
-
-  const righe = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Meridiano361 Empori//Turni//IT',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
-    `X-WR-CALNAME:Turni ${currentEmporio} — ${MESI[currentMese]} ${currentAnno}`,
-    'X-WR-TIMEZONE:Europe/Rome',
-    // Definizione timezone Europe/Rome (DST Italia)
-    'BEGIN:VTIMEZONE','TZID:Europe/Rome',
-    'BEGIN:DAYLIGHT','TZOFFSETFROM:+0100','TZOFFSETTO:+0200','TZNAME:CEST',
-    'DTSTART:19700329T020000','RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3','END:DAYLIGHT',
-    'BEGIN:STANDARD','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET',
-    'DTSTART:19701025T030000','RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10','END:STANDARD',
-    'END:VTIMEZONE',
-  ];
-
-  // ── Turni ──────────────────────────────────────────────────────────────────
-  Object.entries(turniData).forEach(([key, td]) => {
-    const [emp, a, m, g, turno] = key.split('|');
-    const anno = parseInt(a), mese = parseInt(m), giorno = parseInt(g);
-    if (anno !== currentAnno || mese !== currentMese + 1) return;
-    if (!td.aperto) return;
-    const ops = (td.operatori || []).filter(o => !o.rimosso);
-    if (!ops.length) return;
-
-    const t = TEMPI[turno] || TEMPI.mattina;
-    righe.push('BEGIN:VEVENT');
-    righe.push(`UID:m361-${key.replace(/\|/g,'-')}@meridiano361.it`);
-    righe.push(`DTSTAMP:${dtstamp}`);
-    righe.push(`DTSTART;TZID=Europe/Rome:${_icalDT(anno,mese,giorno,t.s)}`);
-    righe.push(`DTEND;TZID=Europe/Rome:${_icalDT(anno,mese,giorno,t.e)}`);
-    righe.push(`SUMMARY:${_ie(LABEL_TURNO[turno] || turno)} — ${_ie(currentEmporio)}`);
-    righe.push(`DESCRIPTION:${_ie(ops.map(o=>o.nome).join(', '))}`);
-    righe.push(`LOCATION:Emporio ${_ie(currentEmporio)}`);
-    righe.push('END:VEVENT');
-  });
-
-  // ── Assenze (eventi tutto il giorno) ──────────────────────────────────────
-  const assPerGiorno = {};
-  Object.entries(assenzeData).forEach(([key, val]) => {
-    const parts = key.split('|');
-    const anno = parseInt(parts[1]), mese = parseInt(parts[2]), giorno = parseInt(parts[3]);
-    if (anno !== currentAnno || mese !== currentMese + 1) return;
-    const nome = parts.slice(4).join('|');
-    const tipo = getAssenzaTipo(val);
-    const ore  = getAssenzaOre(val);
-    const dk = `${anno}-${mese}-${giorno}`;
-    if (!assPerGiorno[dk]) assPerGiorno[dk] = [];
-    assPerGiorno[dk].push(`${nome}: ${tipo.charAt(0).toUpperCase()+tipo.slice(1)}${ore ? ` (${ore}h)` : ''}`);
-  });
-  Object.entries(assPerGiorno).forEach(([dk, voci]) => {
-    const [anno, mese, giorno] = dk.split('-').map(Number);
-    const ds = `${anno}${String(mese).padStart(2,'0')}${String(giorno).padStart(2,'0')}`;
-    const de = _icalNextDay(anno, mese, giorno);
-    righe.push('BEGIN:VEVENT');
-    righe.push(`UID:m361-ass-${currentEmporio}-${dk}@meridiano361.it`);
-    righe.push(`DTSTAMP:${dtstamp}`);
-    righe.push(`DTSTART;VALUE=DATE:${ds}`);
-    righe.push(`DTEND;VALUE=DATE:${de}`);
-    righe.push(`SUMMARY:Assenze — ${_ie(currentEmporio)}`);
-    righe.push(`DESCRIPTION:${_ie(voci.join('\\n'))}`);
-    righe.push('END:VEVENT');
-  });
-
-  righe.push('END:VCALENDAR');
-
-  const blob = new Blob([righe.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = `turni-${currentEmporio.toLowerCase().replace(/\s+/g,'-')}-${MESI[currentMese].toLowerCase()}-${currentAnno}.ics`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('File .ics scaricato — aprilo o importalo in Google Calendar ✓', 'ok');
-}
-
-function _icalDT(anno, mese, giorno, time) {
-  const [hh, mm] = time.split(':');
-  return `${anno}${String(mese).padStart(2,'0')}${String(giorno).padStart(2,'0')}T${String(hh).padStart(2,'0')}${String(mm).padStart(2,'0')}00`;
-}
-function _icalNextDay(anno, mese, giorno) {
-  const d = new Date(anno, mese - 1, giorno + 1);
-  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-}
-function _ie(s) {
-  return (s||'').replace(/\\/g,'\\\\').replace(/,/g,'\\,').replace(/;/g,'\\;');
-}
 </script>
 <!-- ── GOOGLE CALENDAR MODAL v3 ─────────────────────────────────────────── -->
 <div class="modal-bg" id="modal-gcal" onclick="if(event.target===this)closeModal('modal-gcal')">
