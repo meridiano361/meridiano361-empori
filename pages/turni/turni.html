@@ -1547,7 +1547,10 @@ button { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
         <span>+ Sera</span>
       </label>
       <button class="btn-s" onclick="esportaIcal()" title="Scarica i turni del mese in formato .ics — importabile in Google Calendar, Apple Calendar, Outlook" style="gap:5px;font-size:10px;padding:7px 12px;flex-shrink:0">
-        📅 Esporta calendario
+        📅 Esporta .ics
+      </button>
+      <button id="btn-gcal-connect" class="btn-s" onclick="openGcalModal()" style="gap:5px;font-size:10px;padding:7px 12px;flex-shrink:0">
+        🗓 Google Calendar
       </button>
     </div>
     <!-- Tab vista -->
@@ -2507,6 +2510,7 @@ async function saveTurno(key, turnoObj, quiet = false) {
     } else {
       console.log('[saveTurno] OK:', data);
       if (!quiet) showToast('Salvato ✓','ok');
+      gcalSyncTurno(key, turnoObj).catch(e => console.warn('[GCal]', e.message));
     }
   } catch(e) { console.error('[saveTurno] EXCEPTION:', e); showToast('Errore: '+e.message,'err'); }
 }
@@ -6030,6 +6034,323 @@ function _icalNextDay(anno, mese, giorno) {
 function _ie(s) {
   return (s||'').replace(/\\/g,'\\\\').replace(/,/g,'\\,').replace(/;/g,'\\;');
 }
+</script>
+<!-- ── GOOGLE CALENDAR MODAL ───────────────────────────────────────────────── -->
+<div class="modal-bg" id="modal-gcal" onclick="if(event.target===this)closeModal('modal-gcal')" style="display:none;align-items:center">
+  <div class="modal-box" style="max-width:460px;width:92%">
+    <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:14px">🗓 Google Calendar — Sync turni</div>
+
+    <!-- Step 1: not connected -->
+    <div id="gcal-panel-connect">
+      <div style="font-size:13px;color:#334155;margin-bottom:14px;line-height:1.6">
+        Collega il tuo account Google per sincronizzare automaticamente ogni turno salvato sul tuo calendario.
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px">COME CONFIGURARE (una volta sola)</div>
+        <ol style="font-size:12px;color:#475569;line-height:1.8;padding-left:18px">
+          <li>Vai su <strong>console.cloud.google.com</strong></li>
+          <li>Crea un progetto → <em>Credenziali</em> → <em>ID client OAuth 2.0</em></li>
+          <li>Tipo: <strong>App Web</strong> — aggiungi l'URL di questa app come origine autorizzata</li>
+          <li>Copia l'<strong>ID client</strong> e incollalo qui sotto</li>
+          <li>Abilita la <strong>Google Calendar API</strong> nel progetto</li>
+        </ol>
+      </div>
+      <div class="f-grp" style="margin-bottom:14px">
+        <label class="f-lbl">ID Client OAuth 2.0 Google</label>
+        <input type="text" id="gcal-client-id-inp" placeholder="xxxxxxxx.apps.googleusercontent.com"
+          style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;color:#334155;width:100%"
+          oninput="_gcalSaveClientId(this.value)">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal('modal-gcal')" class="btn-s" style="flex:1;justify-content:center">Annulla</button>
+        <button onclick="gcalConnectFromModal()" class="btn-p" style="flex:2;justify-content:center">Connetti Google →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: connected -->
+    <div id="gcal-panel-connected" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <span style="font-size:20px">✅</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#166534">Collegato a Google Calendar</div>
+          <div id="gcal-cal-name" style="font-size:11px;color:#4ade80;margin-top:2px"></div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.6">
+        I turni vengono sincronizzati automaticamente ogni volta che salvi una modifica. Gli eventi vengono creati/aggiornati nel calendario <em>Turni M361</em> del tuo Google Calendar.
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="gcalDisconnectFromModal()" class="btn-s" style="flex:1;justify-content:center;color:#ef4444">Disconnetti</button>
+        <button onclick="closeModal('modal-gcal')" class="btn-p" style="flex:2;justify-content:center">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  GOOGLE CALENDAR REAL-TIME SYNC
+// ═══════════════════════════════════════════════════════════════════════════════
+const _GCAL_CID_KEY  = 'm361_gcal_clientid';
+const _GCAL_CAL_KEY  = () => `m361_gcal_calid_${(currentEmporio||'').toLowerCase()}`;
+const _GCAL_EVMAP_KEY= () => `m361_gcal_evmap_${(currentEmporio||'').toLowerCase()}`;
+
+let _gcalToken       = null;   // { access_token, expires_at }
+let _gcalTokenClient = null;
+let _gcalPending     = null;   // { resolve, reject }
+let _gcalConnected   = false;
+
+function _gcalEvMap() {
+  try { return JSON.parse(localStorage.getItem(_GCAL_EVMAP_KEY()) || '{}'); } catch { return {}; }
+}
+function _gcalSaveEvMap(m) {
+  localStorage.setItem(_GCAL_EVMAP_KEY(), JSON.stringify(m));
+}
+function _gcalSaveClientId(v) {
+  localStorage.setItem(_GCAL_CID_KEY, v.trim());
+}
+function _gcalGetClientId() {
+  return localStorage.getItem(_GCAL_CID_KEY) || '';
+}
+
+// ── GIS loader ──────────────────────────────────────────────────────────────
+function _gcalLoadGIS() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('GIS load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+async function _gcalInitTokenClient(forceConsent) {
+  const cid = _gcalGetClientId();
+  if (!cid) throw new Error('Inserisci prima il Client ID Google');
+  await _gcalLoadGIS();
+  _gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cid,
+    scope: 'https://www.googleapis.com/auth/calendar',
+    prompt: forceConsent ? 'consent' : '',
+    callback: (resp) => {
+      if (resp.error) {
+        if (_gcalPending) _gcalPending.reject(new Error(resp.error));
+      } else {
+        _gcalToken = { access_token: resp.access_token, expires_at: Date.now() + (resp.expires_in - 30) * 1000 };
+        if (_gcalPending) _gcalPending.resolve(resp.access_token);
+      }
+      _gcalPending = null;
+    },
+  });
+}
+
+async function _gcalEnsureToken(forceConsent = false) {
+  if (_gcalToken && Date.now() < _gcalToken.expires_at) return _gcalToken.access_token;
+  await _gcalInitTokenClient(forceConsent);
+  return new Promise((resolve, reject) => {
+    _gcalPending = { resolve, reject };
+    _gcalTokenClient.requestAccessToken();
+  });
+}
+
+// ── Calendar API helper ──────────────────────────────────────────────────────
+async function _gcalApi(method, path, body) {
+  const token = await _gcalEnsureToken();
+  const res = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    _gcalToken = null;
+    const token2 = await _gcalEnsureToken(true);
+    const res2 = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token2}`, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return res2;
+  }
+  return res;
+}
+
+// ── Ensure calendar exists ───────────────────────────────────────────────────
+async function _gcalEnsureCalendar() {
+  const stored = localStorage.getItem(_GCAL_CAL_KEY());
+  if (stored) return stored;
+
+  // Try to find existing calendar with same summary
+  const summary = `Turni M361 — ${currentEmporio}`;
+  const listRes = await _gcalApi('GET', '/users/me/calendarList?maxResults=250');
+  if (listRes.ok) {
+    const list = await listRes.json();
+    const existing = (list.items || []).find(c => c.summary === summary);
+    if (existing) {
+      localStorage.setItem(_GCAL_CAL_KEY(), existing.id);
+      return existing.id;
+    }
+  }
+
+  // Create new calendar
+  const createRes = await _gcalApi('POST', '/calendars', {
+    summary,
+    description: `Turni automatici da Empori Meridiano361 — ${currentEmporio}`,
+    timeZone: 'Europe/Rome',
+  });
+  if (!createRes.ok) throw new Error(`Creazione calendario fallita: ${createRes.status}`);
+  const cal = await createRes.json();
+  localStorage.setItem(_GCAL_CAL_KEY(), cal.id);
+  return cal.id;
+}
+
+// ── Build GCal event from turnoKey ───────────────────────────────────────────
+function _gcalBuildEvent(key, turnoObj) {
+  const parts  = key.split('|');
+  const emporio= parts[0], anno=parseInt(parts[1]), mese=parseInt(parts[2]),
+        giorno =parseInt(parts[3]), turno=parts[4];
+
+  const ORARI = {
+    mattina:    { s:'09:15', e:'13:00' },
+    pomeriggio: { s:'15:00', e:'19:00' },
+    sera:       { s:'20:00', e:'22:30' },
+  };
+  // override with storeHoursData if available
+  if (storeHoursData) {
+    if (storeHoursData.mat_open)  ORARI.mattina.s    = storeHoursData.mat_open;
+    if (storeHoursData.mat_close) ORARI.mattina.e    = storeHoursData.mat_close;
+    if (storeHoursData.pom_open)  ORARI.pomeriggio.s = storeHoursData.pom_open;
+    if (storeHoursData.pom_close) ORARI.pomeriggio.e = storeHoursData.pom_close;
+  }
+
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${anno}-${pad(mese)}-${pad(giorno)}`;
+  const orario  = ORARI[turno] || ORARI.mattina;
+  const opsStr  = (turnoObj.operatori || []).map(o => o.nome || o).join(', ');
+  const LABEL   = { mattina:'Mattina', pomeriggio:'Pomeriggio', sera:'Sera' };
+
+  return {
+    summary: `${LABEL[turno]||turno} — Emporio ${emporio}${turnoObj.aperto === false ? ' (CHIUSO)' : ''}`,
+    location: `Emporio ${emporio}`,
+    description: opsStr || '(nessun operatore)',
+    start: { dateTime: `${dateStr}T${orario.s}:00`, timeZone: 'Europe/Rome' },
+    end:   { dateTime: `${dateStr}T${orario.e}:00`, timeZone: 'Europe/Rome' },
+  };
+}
+
+// ── Main sync function called after every saveTurno ─────────────────────────
+async function gcalSyncTurno(key, turnoObj) {
+  if (!_gcalConnected) return;
+  const calId  = localStorage.getItem(_GCAL_CAL_KEY());
+  if (!calId) return;
+
+  const evMap  = _gcalEvMap();
+  const evBody = _gcalBuildEvent(key, turnoObj);
+  const evId   = evMap[key];
+
+  if (evId) {
+    // PATCH existing event
+    const res = await _gcalApi('PATCH', `/calendars/${encodeURIComponent(calId)}/events/${evId}`, evBody);
+    if (res.status === 404) {
+      // event deleted externally — recreate
+      delete evMap[key]; _gcalSaveEvMap(evMap);
+      return gcalSyncTurno(key, turnoObj);
+    }
+  } else {
+    // POST new event
+    const res = await _gcalApi('POST', `/calendars/${encodeURIComponent(calId)}/events`, evBody);
+    if (res.ok) {
+      const ev = await res.json();
+      evMap[key] = ev.id;
+      _gcalSaveEvMap(evMap);
+    } else {
+      throw new Error(`GCal POST ${res.status}`);
+    }
+  }
+}
+
+// ── Silent reconnect on page load ────────────────────────────────────────────
+async function _gcalAutoReconnect() {
+  const cid = _gcalGetClientId();
+  if (!cid) return;
+  const calId = localStorage.getItem(_GCAL_CAL_KEY());
+  if (!calId) return;
+  try {
+    await _gcalLoadGIS();
+    _gcalConnected = true;
+    _gcalUpdateBtn(true);
+  } catch {
+    // GIS not available offline — ok
+  }
+}
+
+// ── UI helpers ───────────────────────────────────────────────────────────────
+function _gcalUpdateBtn(connected) {
+  const btn = document.getElementById('btn-gcal-connect');
+  if (!btn) return;
+  if (connected) {
+    btn.style.background = '#f0fdf4';
+    btn.style.borderColor = '#86efac';
+    btn.style.color = '#166534';
+    btn.innerHTML = '✅ Google Calendar';
+  } else {
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    btn.innerHTML = '🗓 Google Calendar';
+  }
+}
+
+function openGcalModal() {
+  const inp = document.getElementById('gcal-client-id-inp');
+  if (inp) inp.value = _gcalGetClientId();
+  const isConn = _gcalConnected && !!localStorage.getItem(_GCAL_CAL_KEY());
+  document.getElementById('gcal-panel-connect').style.display    = isConn ? 'none' : 'block';
+  document.getElementById('gcal-panel-connected').style.display  = isConn ? 'block' : 'none';
+  if (isConn) {
+    const calId = localStorage.getItem(_GCAL_CAL_KEY());
+    const el = document.getElementById('gcal-cal-name');
+    if (el) el.textContent = `Calendario: Turni M361 — ${currentEmporio}`;
+  }
+  const modal = document.getElementById('modal-gcal');
+  modal.style.display = 'flex';
+  setTimeout(() => modal.classList.add('show'), 10);
+}
+
+async function gcalConnectFromModal() {
+  const cid = (document.getElementById('gcal-client-id-inp')?.value || '').trim();
+  if (!cid) { showToast('Inserisci il Client ID Google', 'err'); return; }
+  localStorage.setItem(_GCAL_CID_KEY, cid);
+  try {
+    showToast('Autenticazione Google in corso…', 'ok');
+    await _gcalEnsureToken(true);
+    await _gcalEnsureCalendar();
+    _gcalConnected = true;
+    _gcalUpdateBtn(true);
+    // swap panels
+    document.getElementById('gcal-panel-connect').style.display   = 'none';
+    document.getElementById('gcal-panel-connected').style.display = 'block';
+    const el = document.getElementById('gcal-cal-name');
+    if (el) el.textContent = `Calendario: Turni M361 — ${currentEmporio}`;
+    showToast('Google Calendar collegato ✓', 'ok');
+  } catch(e) {
+    showToast('Errore connessione: ' + e.message, 'err');
+  }
+}
+
+function gcalDisconnectFromModal() {
+  _gcalToken = null;
+  _gcalConnected = false;
+  localStorage.removeItem(_GCAL_CAL_KEY());
+  _gcalUpdateBtn(false);
+  closeModal('modal-gcal');
+  showToast('Google Calendar disconnesso', 'ok');
+}
+
+// Auto-reconnect when emporio is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(_gcalAutoReconnect, 1500);
+});
 </script>
 <script src="../../scripts/ui-helpers.js"></script>
 <script src="../../scripts/nav-script.js"></script>
