@@ -273,6 +273,47 @@
             </div>
         </div>
 
+        <!-- SEZIONE NOTIFICHE -->
+        <div class="settings-section">
+            <button class="settings-section-header" onclick="toggleSection(this)">
+                <span>🔔 Notifiche</span>
+                <span class="arrow">▼</span>
+            </button>
+            <div class="settings-section-body">
+                <p class="text-sm text-slate-500 mb-4">Invia un avviso a tutti gli operatori o a quelli di un emporio specifico. Apparirà come banner nella loro prossima visita.</p>
+                <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Destinatari</label>
+                        <select id="notif-target" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;background:#fff;outline:none">
+                            <option value="tutti">Tutti gli operatori</option>
+                            <option value="cremona">Emporio Cremona</option>
+                            <option value="casalmaggiore">Emporio Casalmaggiore</option>
+                            <option value="reggioemilia">Emporio Reggio Emilia</option>
+                            <option value="viadana">Emporio Viadana</option>
+                            <option value="mantova">Emporio Mantova</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Titolo</label>
+                        <input id="notif-titolo" type="text" maxlength="80" placeholder="Es. Riunione martedì 10 giugno" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;outline:none;box-sizing:border-box">
+                    </div>
+                    <div>
+                        <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Messaggio (opzionale)</label>
+                        <textarea id="notif-testo" rows="3" maxlength="400" placeholder="Testo aggiuntivo…" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;outline:none;resize:vertical;box-sizing:border-box"></textarea>
+                    </div>
+                    <button class="btn-esporta" onclick="inviaNotifica()" style="align-self:flex-start">
+                        <i class="fas fa-paper-plane mr-2"></i> Invia notifica
+                    </button>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Ultime inviate</div>
+                    <div id="notif-lista" style="display:flex;flex-direction:column;gap:8px">
+                        <div style="color:#94a3b8;font-size:13px">Caricamento…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- SEZIONE INFO APP -->
         <div class="settings-section">
             <button class="settings-section-header" onclick="toggleSection(this)">
@@ -1407,6 +1448,85 @@
             chiudiModalModifica();
             chiudiModalElimina();
         }
+    });
+
+    // ── NOTIFICHE ─────────────────────────────────────────────────────────
+    const EMPORI_LABEL_NOTIF = {
+        tutti: 'Tutti',
+        cremona: 'Cremona', casalmaggiore: 'Casalmaggiore',
+        reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova',
+    };
+
+    async function inviaNotifica() {
+        const target  = document.getElementById('notif-target').value.trim();
+        const titolo  = document.getElementById('notif-titolo').value.trim();
+        const testo   = document.getElementById('notif-testo').value.trim();
+        const user    = JSON.parse(localStorage.getItem('m361_user') || '{}');
+
+        if (!titolo) { showToast('Inserisci un titolo', 'err'); return; }
+
+        const { error } = await db
+            .from('notifiche')
+            .insert({ target, titolo, testo, mittente: user.nome || 'Admin' });
+
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+
+        showToast('Notifica inviata', 'ok');
+        document.getElementById('notif-titolo').value = '';
+        document.getElementById('notif-testo').value  = '';
+        caricaNotificheInviate();
+    }
+
+    async function caricaNotificheInviate() {
+        const lista = document.getElementById('notif-lista');
+        if (!lista) return;
+
+        const { data, error } = await db
+            .from('notifiche')
+            .select('id, created_at, titolo, testo, target, mittente, letta_da')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (error || !data?.length) {
+            lista.innerHTML = '<div style="color:#94a3b8;font-size:13px">Nessuna notifica inviata</div>';
+            return;
+        }
+
+        lista.innerHTML = data.map(n => {
+            const dt   = new Date(n.created_at);
+            const dtFmt = dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) +
+                          ' ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+            const dest = EMPORI_LABEL_NOTIF[n.target] || n.target;
+            const lette = (n.letta_da || []).length;
+            return `
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(n.titolo)}</div>
+                    ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
+                    <div style="font-size:11px;color:#94a3b8">→ ${dest} · ${dtFmt} · letta da ${lette}</div>
+                </div>
+                <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
+            </div>`;
+        }).join('');
+    }
+
+    async function eliminaNotifica(id) {
+        const { error } = await db.from('notifiche').delete().eq('id', id);
+        if (error) { showToast('Errore eliminazione', 'err'); return; }
+        caricaNotificheInviate();
+    }
+
+    function escHtml(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Carica notifiche quando la sezione viene aperta
+    document.querySelectorAll('.settings-section-header').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.querySelector('span')?.textContent?.includes('Notifiche')) {
+                caricaNotificheInviate();
+            }
+        });
     });
     </script>
 </body>

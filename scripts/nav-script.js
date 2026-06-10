@@ -581,6 +581,9 @@ function buildNav() {
 
     // 5b. Controllo Permessi aggiornato dal DB (Async — aggiorna sessionStorage)
     await checkPermissionsAndApply(user);
+
+    // 5c. Notifiche admin non lette
+    checkAndShowNotifiche(user);
   }
 
   /**
@@ -804,6 +807,84 @@ function buildNav() {
 
   // Espone la funzione per uso in altre pagine
   window.__m361ApplyReadonly = applyReadonlyMode;
+
+  // ── NOTIFICHE ───────────────────────────────────────────────────────────
+  async function checkAndShowNotifiche(user) {
+    const _supabase = getSupabase();
+    if (!_supabase || !user?.nome) return;
+
+    const emporio = (user.emporio || '').toLowerCase();
+    const nome    = user.nome;
+
+    // Fetch notifiche rilevanti per questo operatore (globali o per il suo emporio)
+    const { data } = await _supabase
+      .from('notifiche')
+      .select('id, titolo, testo, target, letta_da')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!data?.length) return;
+
+    const nonLette = data.filter(n => {
+      if (n.target !== 'tutti' && n.target !== emporio) return false;
+      return !Array.isArray(n.letta_da) || !n.letta_da.includes(nome);
+    });
+
+    if (!nonLette.length) return;
+
+    whenReady(() => {
+      nonLette.forEach(notif => {
+        const bannerId = `m361-notif-${notif.id}`;
+        if (document.getElementById(bannerId)) return;
+
+        const banner = document.createElement('div');
+        banner.id = bannerId;
+        banner.style.cssText =
+          'background:#eff6ff;border-bottom:2px solid #3b82f6;padding:12px 20px;' +
+          'font-size:14px;color:#1e3a5f;position:sticky;top:56px;z-index:8998;' +
+          'display:flex;align-items:flex-start;gap:12px';
+
+        const msgDiv = document.createElement('div');
+        msgDiv.style.cssText = 'flex:1';
+        msgDiv.innerHTML =
+          `<span style="font-weight:700">🔔 ${_escHtml(notif.titolo)}</span>` +
+          (notif.testo ? `<span style="margin-left:8px;color:#3b5f8a">${_escHtml(notif.testo)}</span>` : '');
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText =
+          'background:none;border:none;cursor:pointer;font-size:16px;' +
+          'color:#64748b;padding:0;line-height:1;flex-shrink:0';
+        closeBtn.onclick = async () => {
+          banner.remove();
+          // Marca come letta
+          const { data: fresh } = await _supabase
+            .from('notifiche').select('letta_da').eq('id', notif.id).limit(1);
+          const current = fresh?.[0]?.letta_da || [];
+          if (!current.includes(nome)) {
+            await _supabase.from('notifiche')
+              .update({ letta_da: [...current, nome] })
+              .eq('id', notif.id);
+          }
+        };
+
+        banner.appendChild(msgDiv);
+        banner.appendChild(closeBtn);
+
+        // Insert after the last stacked notification, or readonly-banner, or header
+        const prevNotifs = [...document.querySelectorAll('[id^="m361-notif-"]')];
+        const anchor = prevNotifs[prevNotifs.length - 1]
+          || document.getElementById('m361-readonly-banner')
+          || document.getElementById('m361-header');
+        document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
+      });
+    });
+  }
+
+  function _escHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
 
   // Lancio dello script
   if (document.readyState === 'loading') {
