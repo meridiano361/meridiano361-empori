@@ -1561,14 +1561,27 @@
         const titolo  = document.getElementById('notif-titolo').value.trim();
         const testo   = document.getElementById('notif-testo').value.trim();
         const user    = JSON.parse(localStorage.getItem('m361_user') || '{}');
+        const mittente = user.nome || 'Admin';
 
         if (!titolo) { showToast('Inserisci un titolo', 'err'); return; }
 
         const { error } = await db
             .from('notifiche')
-            .insert({ target, titolo, testo, mittente: user.nome || 'Admin' });
+            .insert({ target, titolo, testo, mittente });
 
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+
+        // Invia email + push a tutti gli operatori interessati
+        try {
+            await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPA_KEY}`,
+                },
+                body: JSON.stringify({ target, titolo, testo, mittente }),
+            });
+        } catch (_) { /* non bloccare se la notifica push/email fallisce */ }
 
         showToast('Notifica inviata', 'ok');
         document.getElementById('notif-titolo').value = '';

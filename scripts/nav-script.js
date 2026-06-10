@@ -584,6 +584,9 @@ function buildNav() {
 
     // 5c. Notifiche admin non lette
     checkAndShowNotifiche(user);
+
+    // 5d. Push notifications: registra SW e mostra banner se non ancora chiesto
+    initPushNotifications(user);
   }
 
   /**
@@ -879,6 +882,88 @@ function buildNav() {
         document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
       });
     });
+  }
+
+  // ── PUSH NOTIFICATIONS ──────────────────────────────────────────────────
+  // Chiave pubblica VAPID — sostituire dopo aver generato le chiavi con:
+  //   npx web-push generate-vapid-keys --json
+  const VAPID_PUBLIC_KEY = 'INSERIRE_QUI_LA_VAPID_PUBLIC_KEY';
+
+  async function initPushNotifications(user) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (VAPID_PUBLIC_KEY === 'INSERIRE_QUI_LA_VAPID_PUBLIC_KEY') return; // non configurato
+
+    try {
+      // Registra il service worker
+      await navigator.serviceWorker.register('/sw.js');
+
+      // Mostra banner di richiesta solo se non ancora deciso
+      if (!localStorage.getItem('m361_push_asked')) {
+        showPushBanner(user);
+      }
+    } catch (e) {
+      console.warn('[M361 push] SW registration failed', e);
+    }
+  }
+
+  function showPushBanner(user) {
+    if (document.getElementById('m361-push-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'm361-push-banner';
+    banner.style.cssText =
+      'background:#1e293b;color:#fff;padding:12px 20px;font-size:14px;' +
+      'display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:56px;z-index:8997;';
+
+    banner.innerHTML =
+      '<span style="flex:1;min-width:180px">🔔 Vuoi ricevere notifiche push anche con il telefono bloccato?</span>' +
+      '<button id="m361-push-yes" style="background:#B5453A;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Abilita</button>' +
+      '<button id="m361-push-no"  style="background:transparent;color:#94a3b8;border:none;padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit">Non ora</button>';
+
+    const anchor = document.getElementById('m361-readonly-banner') || document.getElementById('m361-header');
+    document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
+
+    document.getElementById('m361-push-yes').onclick = () => {
+      banner.remove();
+      localStorage.setItem('m361_push_asked', '1');
+      subscribeToPush(user);
+    };
+    document.getElementById('m361-push-no').onclick = () => {
+      banner.remove();
+      localStorage.setItem('m361_push_asked', '1');
+    };
+  }
+
+  async function subscribeToPush(user) {
+    const _supabase = getSupabase();
+    if (!_supabase || !user?.nome) return;
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlB64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
+      const subJson = sub.toJSON();
+      await _supabase.from('push_subscriptions').upsert({
+        operatore_nome: user.nome,
+        emporio:        (user.emporio || '').toLowerCase(),
+        endpoint:       subJson.endpoint,
+        subscription:   subJson,
+      }, { onConflict: 'endpoint' });
+    } catch (e) {
+      console.warn('[M361 push] subscribe failed', e);
+    }
+  }
+
+  function _urlB64ToUint8Array(b64) {
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
   }
 
   function _escHtml(s) {
