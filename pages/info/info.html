@@ -65,7 +65,10 @@
         /* Response box */
         .resp-box { margin-top:12px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px; }
         .resp-box-label { font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:6px;display:flex;align-items:center;gap:6px; }
-        .resp-box-text { font-size:14px;color:var(--slate-700);line-height:1.6; }
+        .resp-box-text { font-size:15px;color:var(--slate-700);line-height:1.6; }
+
+        /* Asterisco campi obbligatori */
+        .f-required::after { content:' *';color:var(--red); }
 
         /* Status badges */
         .st-aperta  { background:#fef3c7;color:#92400e; }
@@ -151,7 +154,7 @@
                     <!-- 1. Cliente + Giorno richiesta -->
                     <div class="f-row f-row-2">
                         <div>
-                            <label class="f-label">Cliente (Nome e Cognome)</label>
+                            <label class="f-label f-required">Cliente (Nome e Cognome)</label>
                             <input type="text" id="f-cliente" class="f-input" placeholder="Mario Rossi">
                         </div>
                         <div>
@@ -163,7 +166,7 @@
                     <!-- 2. Cellulare + WA toggle / Email -->
                     <div class="f-row f-row-2">
                         <div>
-                            <label class="f-label">Numero di cellulare</label>
+                            <label class="f-label f-required">Numero di cellulare</label>
                             <div class="relative">
                                 <input type="tel" id="f-telefono" class="f-input" style="padding-right:44px" placeholder="333 1234567">
                                 <button type="button" id="btn-wa-info" onclick="toggleWA()" title="WhatsApp attivo/disattivo"
@@ -181,7 +184,7 @@
 
                     <!-- 3. Descrizione richiesta -->
                     <div>
-                        <label class="f-label">Descrizione richiesta</label>
+                        <label class="f-label f-required">Descrizione richiesta</label>
                         <textarea id="f-descrizione" class="f-input f-textarea" placeholder="Descrivi cosa cerca il cliente, tipo di prodotto, budget, dettagli specifici..."></textarea>
                     </div>
 
@@ -353,18 +356,22 @@
     }
 
     async function saveRequest() {
-        const cliente = document.getElementById('f-cliente').value.trim();
-        if (!cliente) { alert('Inserisci il nome del cliente'); return; }
+        const cliente     = document.getElementById('f-cliente').value.trim();
+        const telefono    = document.getElementById('f-telefono').value.trim();
+        const descrizione = document.getElementById('f-descrizione').value.trim();
+        if (!cliente)     { alert('Inserisci il nome del cliente');       document.getElementById('f-cliente').focus();     return; }
+        if (!telefono)    { alert('Inserisci il numero di cellulare');    document.getElementById('f-telefono').focus();    return; }
+        if (!descrizione) { alert('Inserisci la descrizione della richiesta'); document.getElementById('f-descrizione').focus(); return; }
 
         const payload = {
             emporio:     currentEmporio,
             cliente,
-            telefono:    document.getElementById('f-telefono').value.trim(),
-            email:       document.getElementById('f-email').value.trim(),
-            giorno:      document.getElementById('f-giorno').value || null,
-            descrizione: document.getElementById('f-descrizione').value.trim(),
-            risposta:    document.getElementById('f-risposta').value.trim(),
-            wa_attivo:   isWAActive(),
+            telefono,
+            descrizione,
+            email:     document.getElementById('f-email').value.trim(),
+            giorno:    document.getElementById('f-giorno').value || null,
+            risposta:  document.getElementById('f-risposta').value.trim(),
+            wa_attivo: isWAActive(),
         };
 
         if (editingId) {
