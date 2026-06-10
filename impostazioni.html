@@ -295,7 +295,7 @@
                     </div>
                     <div>
                         <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Titolo</label>
-                        <input id="notif-titolo" type="text" maxlength="80" autocomplete="off" placeholder="Es. Riunione martedì 10 giugno" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;outline:none;box-sizing:border-box">
+                        <input id="notif-titolo" type="text" maxlength="80" autocomplete="new-password" placeholder="Es. Riunione martedì 10 giugno" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;outline:none;box-sizing:border-box">
                     </div>
                     <div>
                         <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Messaggio (opzionale)</label>
@@ -1520,11 +1520,16 @@
         return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
-    // Carica notifiche quando la sezione viene aperta
+    // Carica notifiche quando la sezione viene aperta + pulisce eventuali autofill
     document.querySelectorAll('.settings-section-header').forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.querySelector('span')?.textContent?.includes('Notifiche')) {
                 caricaNotificheInviate();
+                // Il browser può iniettare l'email dopo il render: forziamo il reset
+                setTimeout(() => {
+                    const t = document.getElementById('notif-titolo');
+                    if (t && t.value && t.value.includes('@')) t.value = '';
+                }, 100);
             }
         });
     });
