@@ -1619,7 +1619,15 @@
                 return;
             }
             const json = await res.json().catch(() => ({}));
-            showToast(`Push inviato a ${json.push_sent ?? 0} dispositiv${json.push_sent === 1 ? 'o' : 'i'}`, 'ok');
+            if (json.errors && json.errors.length) {
+                showToast('Errori: ' + json.errors.join(' | '), 'err');
+            } else if (!json.vapid_configured) {
+                showToast('VAPID non configurato sul server', 'err');
+            } else if (json.subscribers_found === 0) {
+                showToast(`Nessun dispositivo iscritto (target: ${n.target})`, 'err');
+            } else {
+                showToast(`Push inviato a ${json.push_sent}/${json.subscribers_found} dispositiv${json.push_sent === 1 ? 'o' : 'i'}`, 'ok');
+            }
         } catch (e) {
             console.error('[reinviaPush]', e);
             showToast('Errore di rete: ' + e.message, 'err');
