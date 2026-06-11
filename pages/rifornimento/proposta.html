@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposta Rifornimento — M361</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      position: sticky; top: 56px; z-index: 20;
+      background: white; border-bottom: 1px solid #e2e8f0;
+      padding: 8px 12px; display: flex; align-items: center;
+      gap: 8px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+
+    /* ── SAVE BADGE ── */
+    #save-badge {
+      position: fixed; bottom: 72px; right: 14px; z-index: 50;
+      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+      pointer-events: none; display: none;
+    }
+    #save-badge.saving { display: block; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+    #save-badge.saved  { display: block; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    #save-badge.err    { display: block; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+    /* ── STATUS BADGE ── */
+    .status-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 12px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .sb-bozza    { background:#f1f5f9; color:#64748b; }
+    .sb-inviata  { background:#eff6ff; color:#2563eb; }
+    .sb-letta    { background:#f0fdf4; color:#16a34a; }
+    .sb-archiviata { background:#f8fafc; color:#94a3b8; }
+
+    /* ── RICERCA / FILTRI ── */
+    .filter-bar {
+      position: sticky; top: 108px; z-index: 15;
+      background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+      padding: 6px 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-bar input, .filter-bar select {
+      border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px 10px;
+      font-size: 12px; background: white; font-family: 'Inter', sans-serif;
+    }
+    .filter-bar input:focus, .filter-bar select:focus { outline: none; border-color: #94a3b8; }
+
+    /* ── CATEGORIA ── */
+    .cat-header {
+      display: flex; align-items: center; gap-2;
+      padding: 8px 12px; background: #1e293b; color: white;
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .08em; cursor: pointer; user-select: none;
+      border-bottom: 1px solid #334155;
+    }
+    .cat-header:hover { background: #263549; }
+    .cat-badge {
+      margin-left: auto; background: #334155; color: #94a3b8;
+      padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 700;
+    }
+    .cat-badge.has-qty { background: #f59e0b; color: #1c1917; }
+
+    /* ── TABLE ── */
+    .tabella { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .tabella th {
+      position: sticky; top: 160px; z-index: 10;
+      padding: 5px 8px; background: #f8fafc; border: 1px solid #e2e8f0;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .04em; color: #64748b; text-align: left; white-space: nowrap;
+    }
+    .tabella td {
+      padding: 3px 6px; border: 1px solid #e2e8f0; vertical-align: middle;
+    }
+    .tabella tbody tr:hover td { background: #f8fafc; }
+    .tabella tbody tr.has-qty td { background: #fffbeb !important; }
+    .tabella tbody tr.no-assort td { opacity: .5; }
+
+    .td-code  { color: #94a3b8; font-family: monospace; font-size: 11px; white-space: nowrap; }
+    .td-desc  { font-weight: 500; color: #1e293b; }
+    .td-sheet { color: #94a3b8; font-size: 10px; white-space: nowrap; }
+    .td-pvp   { text-align: right; color: #374151; white-space: nowrap; }
+    .td-conf  { text-align: center; color: #6b7280; font-size: 11px; }
+    .td-ass   { text-align: center; font-size: 11px; }
+    .td-ass.si   { color: #16a34a; font-weight: 700; }
+    .td-ass.no   { color: #dc2626; }
+    .td-ass.nat  { color: #d97706; }
+
+    .qty-input {
+      width: 60px; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 3px 6px; text-align: center; font-size: 13px;
+      font-family: 'Inter', sans-serif; font-weight: 600;
+      background: white;
+    }
+    .qty-input:focus { outline: none; border-color: #f59e0b; background: #fffbeb; }
+    .qty-input.filled { border-color: #f59e0b; background: #fffbeb; }
+
+    .note-input {
+      width: 120px; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 3px 6px; font-size: 11px;
+      font-family: 'Inter', sans-serif; background: white;
+    }
+    .note-input:focus { outline: none; border-color: #94a3b8; }
+
+    /* ── SOMMARIO ── */
+    #sommario-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+      background: white; border-top: 1px solid #e2e8f0;
+      padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 -2px 8px rgba(0,0,0,.06); flex-wrap: wrap;
+    }
+
+    button {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* ── READONLY OVERLAY ── */
+    .readonly-notice {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;
+      padding: 10px 16px; font-size: 12px; color: #1d4ed8; margin: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .col-note { display: none; }
+      .col-sheet { display: none; }
+      .tabella th { top: 156px; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50">
+<script src="../../scripts/nav-script.js"></script>
+<script src="../../scripts/auth.js"></script>
+
+<div id="save-badge"></div>
+
+<div class="toolbar">
+  <a href="proposte.html" class="text-slate-400 hover:text-slate-600">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center gap-2 flex-wrap">
+      <span id="tb-emporio" class="font-bold text-slate-800 text-sm">—</span>
+      <span id="tb-status" class="status-badge sb-bozza">bozza</span>
+    </div>
+    <div id="tb-meta" class="text-xs text-slate-400"></div>
+  </div>
+  <div id="tb-actions" class="flex gap-2"></div>
+</div>
+
+<div class="filter-bar">
+  <input type="text" id="f-cerca" placeholder="Cerca prodotto..." style="min-width:160px;flex:1;max-width:280px">
+  <select id="f-cat" style="min-width:160px;max-width:220px">
+    <option value="">Tutte le categorie</option>
+  </select>
+  <label class="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+    <input type="checkbox" id="f-solo-ass" checked class="accent-amber-500"> Solo assortimento
+  </label>
+  <label class="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+    <input type="checkbox" id="f-solo-qty"> Solo compilati
+  </label>
+</div>
+
+<div id="content" style="padding-bottom:80px">
+  <div class="text-center py-12 text-slate-400 text-sm">Caricamento...</div>
+</div>
+
+<div id="sommario-bar">
+  <div class="text-sm text-slate-500">
+    Righe compilate: <span id="s-righe" class="font-bold text-slate-800">0</span>
+    &nbsp;·&nbsp; Articoli totali: <span id="s-qty" class="font-bold text-slate-800">0</span>
+  </div>
+  <div class="flex-1"></div>
+  <span id="s-stato-txt" class="text-xs text-slate-400 hidden"></span>
+</div>
+
+<script>
+const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const user   = JSON.parse(localStorage.getItem('m361_user') || 'null');
+const admin  = ['admin','dipendente'].includes(user?.ruolo);
+const params = new URLSearchParams(window.location.search);
+const propId = parseInt(params.get('id'));
+
+let proposta = null;     // header proposta
+let catalogo = [];       // tutti i prodotti
+let righe    = {};       // { product_code: { qty, notes, id } }
+let isEditable = false;
+let saveTimer  = null;
+let pendingSave = {};    // { product_code: true } prodotti da salvare
+
+// ── INIT ──────────────────────────────────────────────────────────
+async function init() {
+  if (!propId) { showErr('ID proposta mancante.'); return; }
+
+  const [{ data: prop, error: e1 }, { data: cat, error: e2 }, { data: rig, error: e3 }] =
+    await Promise.all([
+      db.from('rifornimento_proposte').select('*').eq('id', propId).single(),
+      db.from('rifornimento_catalogo').select('*').eq('active', true).order('sort_order'),
+      db.from('rifornimento_proposte_righe').select('*').eq('proposal_id', propId),
+    ]);
+
+  if (e1) { showErr('Proposta non trovata.'); return; }
+  if (e2) { showErr('Errore catalogo: ' + e2.message); return; }
+
+  proposta = prop;
+  catalogo = cat || [];
+  (rig || []).forEach(r => {
+    righe[r.product_code] = { qty: r.quantity, notes: r.notes || '', id: r.id };
+  });
+
+  isEditable = (proposta.status === 'bozza' || proposta.status === 'inviata') &&
+    (admin || proposta.emporio === user?.emporio);
+
+  renderToolbar();
+  populateCatFilter();
+  renderTable();
+  updateSommario();
+}
+
+function showErr(msg) {
+  document.getElementById('content').innerHTML =
+    `<div class="text-center py-12 text-red-500 text-sm">${msg}</div>`;
+}
+
+// ── TOOLBAR ───────────────────────────────────────────────────────
+function statusLabel(s) {
+  return { bozza:'Bozza', inviata:'Inviata', letta:'Letta', archiviata:'Archiviata' }[s] || s;
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function renderToolbar() {
+  document.getElementById('tb-emporio').textContent = proposta.emporio;
+  const sb = document.getElementById('tb-status');
+  sb.textContent = statusLabel(proposta.status);
+  sb.className = `status-badge sb-${proposta.status}`;
+  document.getElementById('tb-meta').textContent =
+    `${fmtDate(proposta.created_at)} — ${proposta.created_by || '—'}` +
+    (proposta.submitted_at ? '  ·  inviata ' + fmtDate(proposta.submitted_at) : '');
+
+  const actions = document.getElementById('tb-actions');
+  actions.innerHTML = '';
+
+  if (admin && proposta.status === 'inviata') {
+    actions.innerHTML += `
+      <button onclick="setStatus('letta')"
+        class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors">
+        Segna letta
+      </button>
+      <button onclick="setStatus('archiviata')"
+        class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors">
+        Archivia
+      </button>`;
+  }
+  if (admin && proposta.status === 'letta') {
+    actions.innerHTML += `
+      <button onclick="setStatus('archiviata')"
+        class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors">
+        Archivia
+      </button>`;
+  }
+  if (!admin && proposta.status === 'bozza') {
+    actions.innerHTML += `
+      <button onclick="salva(true)"
+        class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors">
+        Salva bozza
+      </button>
+      <button onclick="invia()"
+        class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition-colors">
+        Invia proposta
+      </button>`;
+  }
+  if (admin && proposta.status === 'bozza') {
+    actions.innerHTML += `
+      <button onclick="salva(true)"
+        class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors">
+        Salva
+      </button>`;
+  }
+  if (admin) {
+    actions.innerHTML += `
+      <button onclick="stampa()"
+        class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors flex items-center gap-1">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2
+               m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5
+               a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+        </svg>
+        Stampa
+      </button>`;
+  }
+}
+
+// ── FILTRO CATEGORIE ──────────────────────────────────────────────
+function populateCatFilter() {
+  const cats = [...new Set(catalogo.map(p => p.category).filter(Boolean))];
+  const sel  = document.getElementById('f-cat');
+  cats.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+}
+
+// ── ASSORTIMENTO per negozio ──────────────────────────────────────
+function getAss(prod) {
+  const emp = (proposta.emporio || '').toLowerCase();
+  if (emp.includes('cas')) return prod.assortment_casalmaggiore;
+  if (emp.includes('via')) return prod.assortment_viadana;
+  return prod.assortment_cremona;
+}
+function assLabel(v) {
+  if (v === true)  return '<span class="td-ass si">SI</span>';
+  if (v === false) return '<span class="td-ass no">NO</span>';
+  return '<span class="td-ass nat">—</span>';
+}
+
+// ── RENDER TABELLA ────────────────────────────────────────────────
+function getFilteredProducts() {
+  const cerca   = document.getElementById('f-cerca').value.toLowerCase().trim();
+  const cat     = document.getElementById('f-cat').value;
+  const soloAss = document.getElementById('f-solo-ass').checked;
+  const soloQty = document.getElementById('f-solo-qty').checked;
+
+  return catalogo.filter(p => {
+    if (cat && p.category !== cat) return false;
+    if (soloAss && getAss(p) === false) return false;
+    if (soloQty && !righe[p.product_code]?.qty) return false;
+    if (cerca) {
+      const hay = (p.product_code + ' ' + p.description + ' ' + p.category).toLowerCase();
+      if (!hay.includes(cerca)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable() {
+  const prods = getFilteredProducts();
+
+  if (!prods.length) {
+    document.getElementById('content').innerHTML =
+      `<div class="text-center py-12 text-slate-400 text-sm">Nessun prodotto trovato.</div>`;
+    return;
+  }
+
+  // Raggruppa per categoria
+  const byCat = {};
+  prods.forEach(p => {
+    const cat = p.category || p.source_sheet || 'Altro';
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push(p);
+  });
+
+  const readonly = !isEditable;
+  let html = '';
+
+  if (readonly && proposta.status !== 'bozza') {
+    html += `<div class="readonly-notice">
+      Proposta in stato <strong>${statusLabel(proposta.status)}</strong> — sola lettura.
+    </div>`;
+  }
+
+  html += `<div class="overflow-x-auto">
+  <table class="tabella">
+    <thead>
+      <tr>
+        <th style="width:70px">Codice</th>
+        <th>Descrizione</th>
+        <th class="col-sheet" style="width:60px">Foglio</th>
+        <th style="width:55px">PVP €</th>
+        <th style="width:45px">Conf</th>
+        <th style="width:40px">Ass.</th>
+        <th style="width:70px">Qtà</th>
+        <th class="col-note" style="width:130px">Note</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">`;
+
+  Object.entries(byCat).forEach(([cat, prods]) => {
+    const qtyInCat = prods.filter(p => righe[p.product_code]?.qty > 0).length;
+    html += `
+      <tr>
+        <td colspan="8" style="padding:0">
+          <div class="cat-header" onclick="toggleCat(this)">
+            <svg class="w-3 h-3 mr-2 cat-chevron transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
+            </svg>
+            ${cat}
+            <span class="cat-badge${qtyInCat ? ' has-qty' : ''}">${qtyInCat ? qtyInCat + ' / ' : ''}${prods.length}</span>
+          </div>
+        </td>
+      </tr>
+      <tr class="cat-rows-${slugCat(cat)}"><td colspan="8" style="padding:0">
+        <table class="tabella">`;
+
+    prods.forEach(p => {
+      const r       = righe[p.product_code] || { qty: 0, notes: '' };
+      const hasQty  = r.qty > 0;
+      const ass     = getAss(p);
+      const rowCls  = [hasQty ? 'has-qty' : '', ass === false ? 'no-assort' : ''].filter(Boolean).join(' ');
+      const pvp     = p.pvp != null ? `€ ${Number(p.pvp).toFixed(2)}` : '—';
+      const conf    = p.pack_size != null ? `×${p.pack_size}` : '—';
+
+      const qtyField = readonly
+        ? `<span class="font-bold ${hasQty ? 'text-amber-600' : 'text-slate-300'}">${hasQty ? r.qty : '—'}</span>`
+        : `<input type="number" min="0" step="1"
+             class="qty-input${hasQty ? ' filled' : ''}"
+             data-code="${p.product_code}"
+             data-catslug="${slugCat(cat)}"
+             value="${hasQty ? r.qty : ''}"
+             placeholder="0"
+             oninput="onQtyChange(this)">`;
+
+      const noteField = readonly
+        ? `<span class="text-xs text-slate-500">${r.notes || ''}</span>`
+        : `<input type="text" class="note-input"
+             data-code="${p.product_code}"
+             value="${escHtml(r.notes || '')}"
+             placeholder="—"
+             oninput="onNoteChange(this)">`;
+
+      html += `
+        <tr class="${rowCls}" id="row-${p.product_code}">
+          <td class="td-code">${p.product_code}</td>
+          <td class="td-desc">${escHtml(p.description)}</td>
+          <td class="td-sheet col-sheet">${p.source_sheet}</td>
+          <td class="td-pvp">${pvp}</td>
+          <td class="td-conf">${conf}</td>
+          <td>${assLabel(ass)}</td>
+          <td>${qtyField}</td>
+          <td class="col-note">${noteField}</td>
+        </tr>`;
+    });
+
+    html += `</table></td></tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  document.getElementById('content').innerHTML = html;
+}
+
+function slugCat(cat) {
+  return cat.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── TOGGLE SEZIONE ────────────────────────────────────────────────
+function toggleCat(header) {
+  const catSlug  = header.querySelector('.cat-badge')?.closest('tr')?.nextElementSibling;
+  // Trova il tr successivo con classe cat-rows-*
+  let tr = header.closest('tr')?.nextElementSibling;
+  if (!tr) return;
+  const isHidden = tr.style.display === 'none';
+  tr.style.display = isHidden ? '' : 'none';
+  const chev = header.querySelector('.cat-chevron');
+  if (chev) chev.style.transform = isHidden ? '' : 'rotate(-90deg)';
+}
+
+// ── QTÀ / NOTE INPUT ─────────────────────────────────────────────
+function onQtyChange(input) {
+  const code = input.dataset.code;
+  const val  = parseInt(input.value) || 0;
+  if (!righe[code]) righe[code] = { qty: 0, notes: '' };
+  righe[code].qty = val;
+  input.classList.toggle('filled', val > 0);
+  // stile riga
+  const row = document.getElementById('row-' + code);
+  if (row) row.classList.toggle('has-qty', val > 0);
+  // badge categoria
+  updateCatBadge(input.dataset.catslug);
+
+  pendingSave[code] = true;
+  scheduleSave();
+  updateSommario();
+}
+
+function onNoteChange(input) {
+  const code = input.dataset.code;
+  if (!righe[code]) righe[code] = { qty: 0, notes: '' };
+  righe[code].notes = input.value;
+  pendingSave[code] = true;
+  scheduleSave();
+}
+
+function updateCatBadge(catSlug) {
+  // Aggiorna badge categoria dal DOM
+  document.querySelectorAll('.cat-header').forEach(h => {
+    const badge = h.querySelector('.cat-badge');
+    if (!badge) return;
+    // trova tutte le qty-input nella tabella della categoria
+    const catTr = h.closest('tr')?.nextElementSibling;
+    if (!catTr) return;
+    const inputs = catTr.querySelectorAll('.qty-input');
+    const total  = inputs.length;
+    const filled = Array.from(inputs).filter(i => parseInt(i.value) > 0).length;
+    badge.textContent   = filled ? `${filled} / ${total}` : `${total}`;
+    badge.classList.toggle('has-qty', filled > 0);
+  });
+}
+
+// ── AUTOSAVE ──────────────────────────────────────────────────────
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => salva(false), 1200);
+}
+
+async function salva(manual = false) {
+  if (!isEditable) return;
+  clearTimeout(saveTimer);
+  const codes = manual ? Object.keys(righe) : Object.keys(pendingSave);
+  pendingSave = {};
+  if (!codes.length && !manual) return;
+
+  showBadge('saving', 'Salvataggio...');
+
+  // Salva solo le righe toccate (upsert per product_code)
+  const toUpsert = codes
+    .filter(code => righe[code] !== undefined)
+    .map(code => ({
+      proposal_id:       propId,
+      catalog_product_id: catalogo.find(p => p.product_code === code)?.id || null,
+      product_code:      code,
+      description:       catalogo.find(p => p.product_code === code)?.description || code,
+      quantity:          righe[code].qty || 0,
+      notes:             righe[code].notes || '',
+    }));
+
+  if (!toUpsert.length) { showBadge('saved', 'Salvato'); return; }
+
+  const { error } = await db
+    .from('rifornimento_proposte_righe')
+    .upsert(toUpsert, { onConflict: 'proposal_id,product_code' });
+
+  if (error) { showBadge('err', 'Errore: ' + error.message.slice(0,60)); return; }
+
+  // Aggiorna updated_at proposta
+  await db.from('rifornimento_proposte').update({ updated_at: new Date().toISOString() }).eq('id', propId);
+
+  showBadge('saved', 'Salvato');
+}
+
+async function invia() {
+  // Forzo salvataggio prima
+  await salva(true);
+  const qtaCompilate = Object.values(righe).filter(r => r.qty > 0).length;
+  if (!qtaCompilate) {
+    if (!confirm('Non hai inserito nessuna quantità. Vuoi inviare comunque?')) return;
+  }
+  const { error } = await db.from('rifornimento_proposte').update({
+    status:       'inviata',
+    submitted_at: new Date().toISOString(),
+    updated_at:   new Date().toISOString(),
+  }).eq('id', propId);
+  if (error) { alert('Errore: ' + error.message); return; }
+  proposta.status = 'inviata';
+  proposta.submitted_at = new Date().toISOString();
+  isEditable = false;
+  renderToolbar();
+  renderTable();
+}
+
+async function setStatus(newStatus) {
+  const { error } = await db.from('rifornimento_proposte').update({
+    status:     newStatus,
+    updated_at: new Date().toISOString(),
+  }).eq('id', propId);
+  if (error) { alert('Errore: ' + error.message); return; }
+  proposta.status = newStatus;
+  isEditable = false;
+  renderToolbar();
+  renderTable();
+}
+
+// ── STAMPA ────────────────────────────────────────────────────────
+function stampa() {
+  const filled = catalogo.filter(p => righe[p.product_code]?.qty > 0);
+  if (!filled.length) { alert('Nessuna quantità compilata da stampare.'); return; }
+
+  const rows = filled.map(p => {
+    const r = righe[p.product_code];
+    return `<tr>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;color:#64748b">${p.product_code}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:12px">${p.description}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:11px;color:#64748b">${p.category || '—'}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right;font-size:12px">${p.pvp != null ? '€ ' + Number(p.pvp).toFixed(2) : '—'}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:center;font-size:12px;font-weight:700;color:#d97706">${r.qty}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:11px;color:#64748b">${r.notes || ''}</td>
+    </tr>`;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Proposta ${proposta.emporio} — ${new Date().toLocaleDateString('it-IT')}</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      h1 { font-size: 16px; margin-bottom: 4px; }
+      p  { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+      table { border-collapse: collapse; width: 100%; }
+      thead th { background: #1e293b; color: white; padding: 6px 8px; font-size: 11px; text-align: left; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head><body>
+    <h1>Proposta Rifornimento — ${proposta.emporio}</h1>
+    <p>Data: ${fmtDate(proposta.created_at)} · Operatore: ${proposta.created_by || '—'} · Stato: ${statusLabel(proposta.status)}</p>
+    <table>
+      <thead><tr>
+        <th>Codice</th><th>Descrizione</th><th>Categoria</th><th>PVP</th><th>Qtà</th><th>Note</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </body></html>`);
+  win.document.close();
+  win.print();
+}
+
+// ── SOMMARIO ──────────────────────────────────────────────────────
+function updateSommario() {
+  const righeArr = Object.values(righe).filter(r => r.qty > 0);
+  document.getElementById('s-righe').textContent = righeArr.length;
+  document.getElementById('s-qty').textContent   = righeArr.reduce((s, r) => s + (r.qty || 0), 0);
+}
+
+// ── SAVE BADGE ────────────────────────────────────────────────────
+let badgeTimer;
+function showBadge(cls, msg) {
+  const b = document.getElementById('save-badge');
+  b.className = cls; b.textContent = msg;
+  clearTimeout(badgeTimer);
+  if (cls === 'saved') badgeTimer = setTimeout(() => { b.style.display='none'; b.className=''; }, 2000);
+}
+
+// ── FILTRI eventi ─────────────────────────────────────────────────
+document.getElementById('f-cerca').addEventListener('input', renderTable);
+document.getElementById('f-cat').addEventListener('change', renderTable);
+document.getElementById('f-solo-ass').addEventListener('change', renderTable);
+document.getElementById('f-solo-qty').addEventListener('change', renderTable);
+
+init();
+</script>
+</body>
+</html>
