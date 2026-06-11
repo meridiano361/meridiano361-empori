@@ -927,33 +927,40 @@ function buildNav() {
   // ── PUSH NOTIFICATIONS ──────────────────────────────────────────────────
   const VAPID_PUBLIC_KEY = 'BDp6t_puD0DL_xwGbaZwMQ_zbfd6ZSzWFuJ8Br87NsxuLhLoeoN4SZin10Vg3YqpgIocZzRXwW-WKQ9sZoLC8aw';
 
-  // Bell click: scrolla alle notifiche testuali oppure apre il pannello push
+  // Bell click: apre il pannello notifiche + push
   window.__m361BellClick = (e) => {
     e && e.stopPropagation();
-    const first = document.querySelector('[id^="m361-notif-"]');
-    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    _togglePushPanel();
+    _toggleNotifPanel();
   };
 
-  function _togglePushPanel() {
-    const existing = document.getElementById('m361-push-panel');
+  function _toggleNotifPanel() {
+    const existing = document.getElementById('m361-notif-panel');
     if (existing) { existing.remove(); return; }
 
     const panel = document.createElement('div');
-    panel.id = 'm361-push-panel';
+    panel.id = 'm361-notif-panel';
     panel.style.cssText =
-      'position:fixed;top:60px;right:12px;width:280px;background:#fff;' +
-      'border:1px solid #e2e8f0;border-radius:16px;padding:18px;' +
-      'box-shadow:0 8px 32px rgba(0,0,0,.14);z-index:10000;font-family:Inter,sans-serif';
+      'position:fixed;top:60px;right:12px;width:320px;max-height:80vh;' +
+      'background:#fff;border:1px solid #e2e8f0;border-radius:16px;' +
+      'box-shadow:0 8px 32px rgba(0,0,0,.14);z-index:10000;font-family:Inter,sans-serif;' +
+      'display:flex;flex-direction:column;overflow:hidden';
     panel.innerHTML =
-      '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:12px">🔔 Notifiche Push</div>' +
-      '<div id="m361-pp-status" style="font-size:13px;font-weight:600;color:#475569;margin-bottom:14px;line-height:1.4">Verifica in corso…</div>' +
-      '<button id="m361-pp-btn" style="display:none;width:100%;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">—</button>' +
-      '<div id="m361-pp-err" style="display:none;margin-top:10px;font-size:11px;color:#B5453A;line-height:1.4"></div>';
+      '<div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">' +
+        '<span style="font-size:13px;font-weight:800;color:#1e293b">🔔 Notifiche</span>' +
+        '<button id="m361-np-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:16px;padding:0;line-height:1">✕</button>' +
+      '</div>' +
+      '<div id="m361-np-list" style="overflow-y:auto;flex:1;padding:8px 0">' +
+        '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px">Caricamento…</div>' +
+      '</div>' +
+      '<div style="padding:12px 16px;border-top:1px solid #f1f5f9;flex-shrink:0">' +
+        '<div id="m361-pp-status" style="font-size:12px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.4">—</div>' +
+        '<button id="m361-pp-btn" style="display:none;width:100%;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">—</button>' +
+        '<div id="m361-pp-err" style="display:none;margin-top:6px;font-size:11px;color:#B5453A;line-height:1.4"></div>' +
+      '</div>';
 
     document.body.appendChild(panel);
+    document.getElementById('m361-np-close').onclick = () => panel.remove();
 
-    // Chiudi cliccando fuori
     setTimeout(() => {
       document.addEventListener('click', function _close(ev) {
         if (!panel.contains(ev.target) && ev.target !== document.getElementById('m361-bell-btn')) {
@@ -963,10 +970,85 @@ function buildNav() {
       });
     }, 50);
 
-    _refreshPushPanel();
+    _loadNotifPanel();
+    _refreshPushStatus();
   }
 
-  async function _refreshPushPanel() {
+  async function _loadNotifPanel() {
+    const listEl = document.getElementById('m361-np-list');
+    if (!listEl) return;
+
+    const _supabase = getSupabase();
+    const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
+    if (!_supabase || !user?.nome) {
+      listEl.innerHTML = '<div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center">Utente non trovato</div>';
+      return;
+    }
+
+    const emporio = (user.emporio || '').toLowerCase();
+    const { data, error } = await _supabase
+      .from('notifiche')
+      .select('id, titolo, testo, target, mittente, created_at, letta_da')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error || !data?.length) {
+      listEl.innerHTML = '<div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center">Nessuna notifica</div>';
+      return;
+    }
+
+    // Filtra solo quelle rilevanti per questo utente
+    const mie = data.filter(n => n.target === 'tutti' || n.target === emporio);
+
+    if (!mie.length) {
+      listEl.innerHTML = '<div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center">Nessuna notifica per te</div>';
+      return;
+    }
+
+    listEl.innerHTML = mie.map(n => {
+      const letta = Array.isArray(n.letta_da) && n.letta_da.includes(user.nome);
+      const dt = new Date(n.created_at);
+      const dtStr = dt.toLocaleDateString('it-IT', { day:'2-digit', month:'short' }) + ' ' +
+                    dt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+      return `<div data-id="${n.id}" style="padding:10px 16px;border-bottom:1px solid #f8fafc;cursor:pointer;background:${letta ? '#fff' : '#eff6ff'}"
+                   onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='${letta ? '#fff' : '#eff6ff'}'">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <span style="width:6px;height:6px;border-radius:50%;background:${letta ? '#e2e8f0' : '#3b82f6'};flex-shrink:0;margin-top:5px"></span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:${letta ? '500' : '700'};color:#1e293b;margin-bottom:2px">${_escHtml(n.titolo)}</div>
+            ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px;line-height:1.4">${_escHtml(n.testo)}</div>` : ''}
+            <div style="font-size:10px;color:#94a3b8">${dtStr} · da ${_escHtml(n.mittente || '—')}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Click su una notifica → segna come letta
+    listEl.querySelectorAll('[data-id]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id = parseInt(el.dataset.id);
+        const n = mie.find(x => x.id === id);
+        if (!n) return;
+        const current = Array.isArray(n.letta_da) ? n.letta_da : [];
+        if (!current.includes(user.nome)) {
+          await _supabase.from('notifiche').update({ letta_da: [...current, user.nome] }).eq('id', id);
+          n.letta_da = [...current, user.nome];
+          el.style.background = '#fff';
+          el.querySelector('span').style.background = '#e2e8f0';
+          el.querySelector('div > div > div').style.fontWeight = '500';
+          // Aggiorna badge
+          const badge = document.getElementById('m361-bell-badge');
+          if (badge) {
+            const cnt = (parseInt(badge.textContent) || 1) - 1;
+            badge.style.display = cnt > 0 ? 'flex' : 'none';
+            if (cnt > 0) badge.textContent = cnt;
+          }
+        }
+      });
+    });
+  }
+
+  async function _refreshPushStatus() {
     const statusEl = document.getElementById('m361-pp-status');
     const btnEl    = document.getElementById('m361-pp-btn');
     const errEl    = document.getElementById('m361-pp-err');
@@ -975,11 +1057,11 @@ function buildNav() {
     const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
 
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      statusEl.textContent = 'Non supportate da questo browser.';
+      statusEl.textContent = 'Push non supportate da questo browser';
       return;
     }
     if (Notification.permission === 'denied') {
-      statusEl.innerHTML = '🚫 <strong>Bloccate dal browser.</strong><br><span style="font-weight:400;color:#64748b">Vai nelle impostazioni del browser e riabilita le notifiche per questo sito.</span>';
+      statusEl.innerHTML = '🚫 Notifiche bloccate dal browser';
       return;
     }
 
@@ -988,57 +1070,34 @@ function buildNav() {
       const sub = await reg.pushManager.getSubscription();
 
       if (sub) {
-        // Verifica che la subscription sia anche nel DB
         const _supabase = getSupabase();
-        let inDB = false;
         if (_supabase) {
           const { data } = await _supabase.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).limit(1);
-          inDB = !!(data && data.length > 0);
+          if (!data?.length) await _upsertSubscription(user, sub);
         }
-
-        if (inDB) {
-          statusEl.innerHTML = '✅ <strong style="color:#16a34a">Abilitate</strong><br><span style="font-weight:400;color:#64748b;font-size:12px">Questo dispositivo riceverà le notifiche.</span>';
-        } else {
-          statusEl.innerHTML = '⚠️ <strong>Subscription non salvata.</strong><br><span style="font-weight:400;color:#64748b;font-size:12px">Il permesso è stato dato ma manca il salvataggio.</span>';
-          // Tenta upsert silenzioso
-          await _upsertSubscription(user, sub);
-          statusEl.innerHTML = '✅ <strong style="color:#16a34a">Abilitate</strong><br><span style="font-weight:400;color:#64748b;font-size:12px">Sincronizzate correttamente.</span>';
-        }
-
-        btnEl.textContent = 'Disabilita notifiche';
-        btnEl.style.cssText = 'display:block;width:100%;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#f1f5f9;color:#475569';
+        statusEl.innerHTML = '✅ <span style="color:#16a34a">Push abilitati</span>';
+        btnEl.textContent = 'Disabilita push';
+        btnEl.style.cssText = 'display:block;width:100%;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#f1f5f9;color:#475569';
         btnEl.onclick = async () => {
-          btnEl.textContent = 'Disabilitazione…';
-          btnEl.disabled = true;
-          await _pushUnsubscribe(user);
-          _refreshPushPanel();
+          btnEl.textContent = 'Disabilitazione…'; btnEl.disabled = true;
+          await _pushUnsubscribe(user); _refreshPushStatus();
         };
-
       } else {
-        const label = Notification.permission === 'granted'
-          ? '⚠️ Subscription non attiva su questo dispositivo.'
-          : '○ Notifiche non ancora abilitate.';
-        statusEl.textContent = label;
-
-        btnEl.textContent = 'Abilita notifiche';
-        btnEl.style.cssText = 'display:block;width:100%;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#B5453A;color:#fff';
+        statusEl.textContent = Notification.permission === 'granted' ? '⚠️ Push non attivi' : '○ Push non abilitati';
+        btnEl.textContent = 'Abilita push';
+        btnEl.style.cssText = 'display:block;width:100%;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#B5453A;color:#fff';
         btnEl.onclick = async () => {
-          btnEl.textContent = 'Attivazione…';
-          btnEl.disabled = true;
+          btnEl.textContent = 'Attivazione…'; btnEl.disabled = true;
           errEl.style.display = 'none';
           const err = await _pushSubscribe(user);
           if (err) {
-            errEl.textContent = 'Errore: ' + err;
-            errEl.style.display = 'block';
-            btnEl.textContent = 'Riprova';
-            btnEl.disabled = false;
-          } else {
-            _refreshPushPanel();
-          }
+            errEl.textContent = 'Errore: ' + err; errEl.style.display = 'block';
+            btnEl.textContent = 'Riprova'; btnEl.disabled = false;
+          } else { _refreshPushStatus(); }
         };
       }
     } catch (e) {
-      statusEl.textContent = 'Errore verifica: ' + e.message;
+      statusEl.textContent = 'Errore: ' + e.message;
     }
   }
 
