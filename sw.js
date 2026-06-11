@@ -5,14 +5,20 @@ self.addEventListener('push', event => {
   try { data = event.data.json(); } catch (_) {}
 
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body:    data.body || '',
-      icon:    '/icons/icon-192.png',
-      badge:   '/icons/icon-192.png',
-      vibrate: [200, 100, 200],
-      tag:     'm361-notifica',
-      renotify: true,
-      data:    { url: data.url || '/' },
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Avvisa tutte le finestre aperte per il banner in-app
+      list.forEach(c => c.postMessage({ type: 'm361-push', title: data.title, body: data.body || '' }));
+
+      // Mostra sempre la notifica di sistema (visibile quando l'app è chiusa/in background)
+      return self.registration.showNotification(data.title, {
+        body:     data.body || '',
+        icon:     '/icons/icon-192.png',
+        badge:    '/icons/icon-192.png',
+        vibrate:  [200, 100, 200],
+        tag:      'm361-notifica',
+        renotify: true,
+        data:     { url: data.url || '/' },
+      });
     })
   );
 });

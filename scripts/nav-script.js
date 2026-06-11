@@ -177,6 +177,10 @@ body { font-family: 'Inter', sans-serif; padding-top: 56px; padding-bottom: 68px
   .mn-item.mn-current { margin:6px 1px;padding:0 7px;border-radius:8px; }
   .mn-sep { margin:14px 0; }
 }
+@keyframes m361-slide-down {
+  from { opacity:0; transform:translateX(-50%) translateY(-12px); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0); }
+}
     `;
     document.head.insertBefore(st, document.head.firstChild);
   }
@@ -1175,6 +1179,35 @@ function buildNav() {
     const pad = '='.repeat((4 - b64.length % 4) % 4);
     const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
     return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  // Banner in-app per push ricevuti con l'app aperta in foreground
+  function _showInAppPushBanner(title, body) {
+    document.querySelectorAll('.m361-inapp-push').forEach(el => el.remove());
+    const el = document.createElement('div');
+    el.className = 'm361-inapp-push';
+    el.style.cssText =
+      'position:fixed;top:68px;left:50%;transform:translateX(-50%);' +
+      'background:#1e293b;color:#fff;padding:14px 20px;border-radius:14px;' +
+      'box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:10001;' +
+      'min-width:260px;max-width:calc(100vw - 32px);' +
+      'font-family:Inter,sans-serif;cursor:pointer;' +
+      'animation:m361-slide-down .3s ease';
+    el.innerHTML =
+      `<div style="font-weight:700;font-size:14px${body ? ';margin-bottom:4px' : ''}">🔔 ${_escHtml(title)}</div>` +
+      (body ? `<div style="font-size:12px;color:#94a3b8;line-height:1.4">${_escHtml(body)}</div>` : '');
+    el.onclick = () => el.remove();
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 5000);
+  }
+
+  // Ascolta i messaggi inviati dal Service Worker (push ricevuti in foreground)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data?.type === 'm361-push') {
+        _showInAppPushBanner(event.data.title || 'M361', event.data.body || '');
+      }
+    });
   }
 
   function _escHtml(s) {
