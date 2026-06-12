@@ -259,10 +259,6 @@
                 <span class="section-page-title">👥 Operatori</span>
             </div>
             <div class="s-card">
-                <div class="bg-amber-50 border-b border-amber-200 p-4 text-sm text-amber-800">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    <strong>Sola Lettura attiva</strong>: l'utente non può modificare dati. Usa <strong>🔒 Accessi</strong> per gestire le sezioni visibili per ogni operatore.
-                </div>
                 <div class="impostazioni-operatori" id="impostazioni-operatori">
                     <div style="text-align:center;padding:40px 0;color:#94a3b8;font-size:14px">
                         <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento operatori...
@@ -931,7 +927,7 @@
         const safeId    = String(op.id).replace(/'/g, "\\'");
         const safeName  = (op.nome || '').replace(/'/g, "\\'");
         return `
-            <tr class="riga-operatore" data-id="${op.id}">
+            <tr class="riga-operatore" data-id="${op.id}" data-email="${op.email || ''}">
                 <td>
                     <div class="op-nome-cella">
                         <div class="op-avatar-small">${iniziali}</div>
@@ -948,11 +944,38 @@
                     <div class="op-azioni-riga">
                         <button onclick="apriModalModifica('${safeId}')" title="Modifica anagrafica">✏️</button>
                         <button onclick="apriModalPermessi('${safeId}','${safeName}')" title="Gestisci accessi">🔒</button>
+                        <button onclick="inviaInvitoRiga(this)" title="Invia invito accesso app" class="btn-invita-op" style="background:#dbeafe;border-color:#93c5fd;color:#1d4ed8;font-size:10px;font-weight:700;width:auto;padding:0 6px">INVITA</button>
                         <button onclick="confermaEliminaOperatore('${safeId}','${safeName}')" title="Elimina operatore" class="btn-elimina-op">🗑</button>
                     </div>
                 </td>
             </tr>
         `;
+    }
+
+    function inviaInvitoRiga(btn) {
+        const email = btn.closest('tr').dataset.email;
+        inviaInvito(email);
+    }
+
+    async function inviaInvito(email) {
+        if (!email) { alert('Aggiungi prima l\'email all\'operatore tramite ✏️ Modifica.'); return; }
+        if (!confirm('Inviare l\'invito di accesso a ' + email + '?')) return;
+        showToast('Invio in corso…', 'info');
+        try {
+            const res  = await fetch(`${SUPA_URL}/functions/v1/invite-user`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
+                body:    JSON.stringify({ email }),
+            });
+            const json = await res.json();
+            if (!res.ok || json.error) {
+                showToast('Errore: ' + (json.error || res.statusText), 'err');
+            } else {
+                showToast(`Invito inviato a ${email}`, 'ok');
+            }
+        } catch (e) {
+            showToast('Errore di rete: ' + e.message, 'err');
+        }
     }
 
     function nuovoOperatore(empChiave) {

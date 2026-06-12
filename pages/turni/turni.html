@@ -2075,9 +2075,7 @@ const PERSONALE = {
     {nome:'Alessandra Rivetti',ruolo:'volontario'},
     {nome:'Barbara Araldi',ruolo:'volontario'},
     {nome:'Carla Maffei',ruolo:'volontario'},
-    {nome:'Chiara Monteverdi',ruolo:'dipendente'},
     {nome:'Edoardo Pavesi',ruolo:'volontario'},
-    {nome:'Emilio Mazzolari',ruolo:'dipendente'},
     {nome:'Erica Bossi',ruolo:'volontario'},
     {nome:'Francesco Lunardini',ruolo:'volontario'},
     {nome:'Giovanna Raineri',ruolo:'volontario'},
@@ -2097,11 +2095,9 @@ const PERSONALE = {
     {nome:'Barbara Piotrowska',ruolo:'volontario'},
     {nome:'Carla Bellelli',ruolo:'volontario'},
     {nome:'Carla Chittolini',ruolo:'volontario'},
-    {nome:'Chiara Monteverdi',ruolo:'dipendente'},
     {nome:'Claudio Mortini',ruolo:'volontario'},
     {nome:'Donatella Falugi',ruolo:'volontario'},
     {nome:'Elena Ghelfi',ruolo:'volontario'},
-    {nome:'Emilio Mazzolari',ruolo:'dipendente'},
     {nome:'Franco Furlotti',ruolo:'volontario'},
     {nome:'Giuseppina Amadini',ruolo:'volontario'},
     {nome:'Manuela Scazza',ruolo:'volontario'},
@@ -2128,6 +2124,8 @@ let currentView = 'mese';
 let currentSubSezione = 'calendario';
 let mostraSeraGlobale = false;
 let turniData = {}, assenzeData = {}, noteData = {};
+let _nomiValidiEmporio = new Set(); // operatori ammessi nel calendario dell'emporio corrente
+let _nomiValidiLoaded  = false;    // true solo se la query è andata a buon fine
 let storeHoursData = {...DEFAULTHOURS};
 let _opPausaMap = {};
 let yearData = {}, yearAssenzeData = {}, yearNoteData = {};
@@ -2460,14 +2458,28 @@ async function loadData() {
   if (!db) { showToast('DB non disponibile','err'); return; }
   turniData = {}; assenzeData = {}; noteData = {};
   try {
-    const { data, error } = await db.from('turni').select('*')
-      .eq('emporio', currentEmporio)
-      .eq('anno', currentAnno)
-      .eq('mese', currentMese + 1);
+    _nomiValidiLoaded = false;
+    const [{ data, error }, { data: opValidi, error: opErr }] = await Promise.all([
+      db.from('turni').select('*')
+        .eq('emporio', currentEmporio)
+        .eq('anno', currentAnno)
+        .eq('mese', currentMese + 1),
+      db.from('operatori').select('nome')
+        .or('attivo.eq.true,attivo.is.null')
+        .eq('emporio', currentEmporio),
+    ]);
     if (error) { showToast('Errore caricamento: ' + error.message,'err'); return; }
+    if (!opErr) {
+      _nomiValidiEmporio = new Set((opValidi || []).map(o => o.nome));
+      _nomiValidiLoaded  = true;
+    }
     (data||[]).forEach(r => {
       const key = `${r.emporio}|${r.anno}|${r.mese}|${r.giorno}|${r.turno}`;
-      turniData[key] = {aperto: r.aperto, operatori: r.operatori||[]};
+      const opFiltrati = _nomiValidiLoaded
+        ? (r.operatori||[]).filter(o => o.rimosso || _nomiValidiEmporio.has(o.nome))
+        : (r.operatori||[]);
+      turniData[key] = {aperto: r.aperto, operatori: opFiltrati};
+      if (_nomiValidiLoaded && opFiltrati.length !== (r.operatori||[]).length) saveTurno(key, turniData[key], true);
       const dayKey = `${r.emporio}|${r.anno}|${r.mese}|${r.giorno}`;
       if (r.assenze) Object.assign(assenzeData, r.assenze);
       if (r.note) noteData[dayKey] = r.note;
@@ -2581,6 +2593,7 @@ function renderMonth() {
       const ds = `${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       return (td.operatori||[]).map((o,i) => {
         if (o.rimosso) return '';
+        if (_nomiValidiLoaded && !_nomiValidiEmporio.has(o.nome)) return '';
         const defOre = calcShiftHours(fascia, _opPausaMap[o.nome]);
         const isPartial = o.oremanuali != null && o.oremanuali < defOre;
         const partialStr = isPartial ? `<span title="Orario parziale" style="font-size:9px;opacity:.65;margin-left:1px">◐</span>` : '';
@@ -5830,14 +5843,15 @@ function selezionaOpTurno(opId, nome, ruolo, data, fascia) {
 async function caricaPredefiniti() {
   const [{ data: pred, error: e1 }, { data: ops, error: e2 }] = await Promise.all([
     db.from('turni_predefiniti').select('*'),
-    db.from('operatori').select('id,nome,ruolo').or('attivo.eq.true,attivo.is.null')
+    db.from('operatori').select('id,nome,ruolo').eq('attivo', true).eq('emporio', currentEmporio),
   ]);
   if (e1) throw e1;
   if (e2) throw e2;
   const opMap = {};
   (ops || []).forEach(o => { opMap[o.id] = o; });
-  return (pred || []).filter(p => !p.non_disponibile && opMap[p.operatore_id])
-                     .map(p => ({ ...p, _op: opMap[p.operatore_id] }));
+  return (pred || [])
+    .filter(p => opMap[p.operatore_id] && !p.non_disponibile)
+    .map(p => ({ ...p, _op: opMap[p.operatore_id] }));
 }
 
 // ── APPLICA TURNI PREDEFINITI MESE ────────────────────────────────────────

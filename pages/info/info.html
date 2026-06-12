@@ -391,12 +391,10 @@
             };
             const { data, error } = await db.from('info_clienti').insert([newReq]).select().single();
             if (error) {
-                // fallback locale se DB non raggiungibile
-                newReq.id = 'local-' + Date.now();
-                requests.push(newReq);
-            } else {
-                requests.push(data);
+                alert('Errore nel salvataggio: ' + error.message + '\n\nLa richiesta NON è stata salvata. Riprova.');
+                return;
             }
+            requests.push(data);
         }
 
         hideForm();
@@ -564,7 +562,8 @@
 
     // ─── LOAD ─────────────────────────────────────────────────────────────
     async function loadRequests() {
-        const { data } = await db.from('info_clienti').select('*').order('created_at', { ascending: false });
+        const { data, error } = await db.from('info_clienti').select('*').order('created_at', { ascending: false });
+        if (error) { alert('Errore caricamento richieste: ' + error.message); return; }
         if (data) requests = data;
         render();
     }

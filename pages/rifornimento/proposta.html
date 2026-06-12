@@ -413,60 +413,59 @@ function renderTable() {
           </tr></thead>
           <tbody>`;
 
-    Object.entries(byCat).forEach(([cat, prods]) => {
-      const qtyInCat = prods.filter(p => righe[p.product_code]?.qty > 0).length;
+    Object.entries(byCat).forEach(([cat, catProds]) => {
+      const qtyInCat = catProds.filter(p => righe[p.product_code]?.qty > 0).length;
+      const catSlug  = slugCat(cat);
       html += `
-          <tr><td colspan="7" style="padding:0">
-            <div class="cat-header" onclick="toggleCat(this)">
-              <svg class="w-3 h-3 mr-2 cat-chevron transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
-              </svg>
-              ${escHtml(cat)}
-              <span class="cat-badge${qtyInCat ? ' has-qty' : ''}">${qtyInCat ? qtyInCat + ' / ' : ''}${prods.length}</span>
-            </div>
-          </td></tr>
-          <tr class="cat-rows-${slugCat(cat)}"><td colspan="7" style="padding:0">
-            <table class="tabella">`;
+          <tr>
+            <td colspan="7" style="padding:0">
+              <div class="cat-header" onclick="toggleCat(this)" data-cat="${catSlug}">
+                <svg class="w-3 h-3 mr-2 cat-chevron transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
+                </svg>
+                ${escHtml(cat)}
+                <span class="cat-badge${qtyInCat ? ' has-qty' : ''}">${qtyInCat ? qtyInCat + ' / ' : ''}${catProds.length}</span>
+              </div>
+            </td>
+          </tr>`;
 
-    prods.forEach(p => {
-      const r       = righe[p.product_code] || { qty: 0, notes: '' };
-      const hasQty  = r.qty > 0;
-      const ass     = getAss(p);
-      const rowCls  = [hasQty ? 'has-qty' : '', ass === false ? 'no-assort' : ''].filter(Boolean).join(' ');
-      const pvp     = p.pvp != null ? `€ ${Number(p.pvp).toFixed(2)}` : '—';
-      const conf    = p.pack_size != null ? `×${p.pack_size}` : '—';
+      catProds.forEach(p => {
+        const r       = righe[p.product_code] || { qty: 0, notes: '' };
+        const hasQty  = r.qty > 0;
+        const ass     = getAss(p);
+        const rowCls  = ['cat-prod-' + catSlug, hasQty ? 'has-qty' : '', ass === false ? 'no-assort' : ''].filter(Boolean).join(' ');
+        const pvp     = p.pvp != null ? `€ ${Number(p.pvp).toFixed(2)}` : '—';
+        const conf    = p.pack_size != null ? `×${p.pack_size}` : '—';
 
-      const qtyField = readonly
-        ? `<span class="font-bold ${hasQty ? 'text-amber-600' : 'text-slate-300'}">${hasQty ? r.qty : '—'}</span>`
-        : `<input type="number" min="0" step="1"
-             class="qty-input${hasQty ? ' filled' : ''}"
-             data-code="${p.product_code}"
-             data-catslug="${slugCat(cat)}"
-             value="${hasQty ? r.qty : ''}"
-             placeholder="0"
-             oninput="onQtyChange(this)">`;
+        const qtyField = readonly
+          ? `<span class="font-bold ${hasQty ? 'text-amber-600' : 'text-slate-300'}">${hasQty ? r.qty : '—'}</span>`
+          : `<input type="number" min="0" step="1"
+               class="qty-input${hasQty ? ' filled' : ''}"
+               data-code="${p.product_code}"
+               data-catslug="${catSlug}"
+               value="${hasQty ? r.qty : ''}"
+               placeholder="0"
+               oninput="onQtyChange(this)">`;
 
-      const noteField = readonly
-        ? `<span class="text-xs text-slate-500">${r.notes || ''}</span>`
-        : `<input type="text" class="note-input"
-             data-code="${p.product_code}"
-             value="${escHtml(r.notes || '')}"
-             placeholder="—"
-             oninput="onNoteChange(this)">`;
+        const noteField = readonly
+          ? `<span class="text-xs text-slate-500">${r.notes || ''}</span>`
+          : `<input type="text" class="note-input"
+               data-code="${p.product_code}"
+               value="${escHtml(r.notes || '')}"
+               placeholder="—"
+               oninput="onNoteChange(this)">`;
 
-      html += `
-            <tr class="${rowCls}" id="row-${p.product_code}">
-              <td class="td-code">${p.product_code}</td>
-              <td class="td-desc">${escHtml(p.description)}</td>
-              <td class="td-pvp">${pvp}</td>
-              <td class="td-conf">${conf}</td>
-              <td>${assLabel(ass)}</td>
-              <td>${qtyField}</td>
-              <td class="col-note">${noteField}</td>
-            </tr>`;
+        html += `
+          <tr class="${rowCls}" id="row-${p.product_code}">
+            <td class="td-code">${p.product_code}</td>
+            <td class="td-desc">${escHtml(p.description)}</td>
+            <td class="td-pvp">${pvp}</td>
+            <td class="td-conf">${conf}</td>
+            <td>${assLabel(ass)}</td>
+            <td>${qtyField}</td>
+            <td class="col-note">${noteField}</td>
+          </tr>`;
       });
-
-      html += `</table></td></tr>`;
     });
 
     html += `</tbody></table></div></div></div>`;
@@ -492,12 +491,11 @@ function escHtml(s) {
 
 // ── TOGGLE SEZIONE ────────────────────────────────────────────────
 function toggleCat(header) {
-  const catSlug  = header.querySelector('.cat-badge')?.closest('tr')?.nextElementSibling;
-  // Trova il tr successivo con classe cat-rows-*
-  let tr = header.closest('tr')?.nextElementSibling;
-  if (!tr) return;
-  const isHidden = tr.style.display === 'none';
-  tr.style.display = isHidden ? '' : 'none';
+  const catSlug = header.dataset.cat;
+  const rows    = document.querySelectorAll('.cat-prod-' + catSlug);
+  if (!rows.length) return;
+  const isHidden = rows[0].style.display === 'none';
+  rows.forEach(r => r.style.display = isHidden ? '' : 'none');
   const chev = header.querySelector('.cat-chevron');
   if (chev) chev.style.transform = isHidden ? '' : 'rotate(-90deg)';
 }
@@ -529,17 +527,17 @@ function onNoteChange(input) {
 }
 
 function updateCatBadge(catSlug) {
-  // Aggiorna badge categoria dal DOM
   document.querySelectorAll('.cat-header').forEach(h => {
     const badge = h.querySelector('.cat-badge');
     if (!badge) return;
-    // trova tutte le qty-input nella tabella della categoria
-    const catTr = h.closest('tr')?.nextElementSibling;
-    if (!catTr) return;
-    const inputs = catTr.querySelectorAll('.qty-input');
-    const total  = inputs.length;
-    const filled = Array.from(inputs).filter(i => parseInt(i.value) > 0).length;
-    badge.textContent   = filled ? `${filled} / ${total}` : `${total}`;
+    const slug   = h.dataset.cat;
+    const rows   = document.querySelectorAll('.cat-prod-' + slug);
+    const total  = rows.length;
+    const filled = Array.from(rows).filter(r => {
+      const inp = r.querySelector('.qty-input');
+      return inp && parseInt(inp.value) > 0;
+    }).length;
+    badge.textContent = filled ? `${filled} / ${total}` : String(total);
     badge.classList.toggle('has-qty', filled > 0);
   });
 }
