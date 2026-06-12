@@ -307,12 +307,20 @@ function renderToolbar() {
 
 // ── FILTRO CATEGORIE ──────────────────────────────────────────────
 function populateCatFilter() {
-  const cats = [...new Set(catalogo.map(p => p.category).filter(Boolean))];
-  const sel  = document.getElementById('f-cat');
-  cats.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c; o.textContent = c;
-    sel.appendChild(o);
+  const fornitori = [...new Set(catalogo.map(p => p.fornitore).filter(Boolean))].sort();
+  const cats      = [...new Set(catalogo.map(p => p.category).filter(Boolean))].sort();
+  const sel = document.getElementById('f-cat');
+  // Raggruppa per fornitore nel select
+  fornitori.forEach(forn => {
+    const og = document.createElement('optgroup');
+    og.label = forn;
+    cats.filter(c => catalogo.some(p => p.fornitore === forn && p.category === c))
+      .forEach(c => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        og.appendChild(o);
+      });
+    if (og.children.length) sel.appendChild(og);
   });
 }
 
@@ -357,12 +365,14 @@ function renderTable() {
     return;
   }
 
-  // Raggruppa per categoria
-  const byCat = {};
+  // Raggruppa per fornitore → categoria
+  const byForn = {};
   prods.forEach(p => {
-    const cat = p.category || p.source_sheet || 'Altro';
-    if (!byCat[cat]) byCat[cat] = [];
-    byCat[cat].push(p);
+    const forn = p.fornitore || p.source_sheet || 'Altro';
+    const cat  = p.category  || 'Altro';
+    if (!byForn[forn]) byForn[forn] = {};
+    if (!byForn[forn][cat]) byForn[forn][cat] = [];
+    byForn[forn][cat].push(p);
   });
 
   const readonly = !isEditable;
@@ -374,38 +384,49 @@ function renderTable() {
     </div>`;
   }
 
-  html += `<div class="overflow-x-auto">
-  <table class="tabella">
-    <thead>
-      <tr>
-        <th style="width:70px">Codice</th>
-        <th>Descrizione</th>
-        <th class="col-sheet" style="width:60px">Foglio</th>
-        <th style="width:55px">PVP €</th>
-        <th style="width:45px">Conf</th>
-        <th style="width:40px">Ass.</th>
-        <th style="width:70px">Qtà</th>
-        <th class="col-note" style="width:130px">Note</th>
-      </tr>
-    </thead>
-    <tbody id="tbody">`;
-
-  Object.entries(byCat).forEach(([cat, prods]) => {
-    const qtyInCat = prods.filter(p => righe[p.product_code]?.qty > 0).length;
+  Object.entries(byForn).forEach(([forn, byCat]) => {
+    const qtyInForn = Object.values(byCat).flat().filter(p => righe[p.product_code]?.qty > 0).length;
     html += `
-      <tr>
-        <td colspan="8" style="padding:0">
-          <div class="cat-header" onclick="toggleCat(this)">
-            <svg class="w-3 h-3 mr-2 cat-chevron transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
-            </svg>
-            ${cat}
-            <span class="cat-badge${qtyInCat ? ' has-qty' : ''}">${qtyInCat ? qtyInCat + ' / ' : ''}${prods.length}</span>
-          </div>
-        </td>
-      </tr>
-      <tr class="cat-rows-${slugCat(cat)}"><td colspan="8" style="padding:0">
-        <table class="tabella">`;
+    <div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:white">
+      <div style="background:#1e293b;color:white;padding:10px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none"
+           onclick="toggleForn(this)">
+        <svg style="width:14px;height:14px;flex-shrink:0;transition:transform .2s" class="forn-chev"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
+        </svg>
+        <span style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;flex:1">${escHtml(forn)}</span>
+        <span style="background:#334155;color:${qtyInForn ? '#f59e0b' : '#94a3b8'};padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700">
+          ${qtyInForn ? qtyInForn + ' compilati · ' : ''}${Object.values(byCat).flat().length} prodotti
+        </span>
+      </div>
+      <div class="forn-body">
+        <div class="overflow-x-auto">
+        <table class="tabella">
+          <thead><tr>
+            <th style="width:70px">Codice</th>
+            <th>Descrizione</th>
+            <th style="width:55px">PVP €</th>
+            <th style="width:45px">Conf</th>
+            <th style="width:40px">Ass.</th>
+            <th style="width:70px">Qtà</th>
+            <th class="col-note" style="width:130px">Note</th>
+          </tr></thead>
+          <tbody>`;
+
+    Object.entries(byCat).forEach(([cat, prods]) => {
+      const qtyInCat = prods.filter(p => righe[p.product_code]?.qty > 0).length;
+      html += `
+          <tr><td colspan="7" style="padding:0">
+            <div class="cat-header" onclick="toggleCat(this)">
+              <svg class="w-3 h-3 mr-2 cat-chevron transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
+              </svg>
+              ${escHtml(cat)}
+              <span class="cat-badge${qtyInCat ? ' has-qty' : ''}">${qtyInCat ? qtyInCat + ' / ' : ''}${prods.length}</span>
+            </div>
+          </td></tr>
+          <tr class="cat-rows-${slugCat(cat)}"><td colspan="7" style="padding:0">
+            <table class="tabella">`;
 
     prods.forEach(p => {
       const r       = righe[p.product_code] || { qty: 0, notes: '' };
@@ -434,23 +455,32 @@ function renderTable() {
              oninput="onNoteChange(this)">`;
 
       html += `
-        <tr class="${rowCls}" id="row-${p.product_code}">
-          <td class="td-code">${p.product_code}</td>
-          <td class="td-desc">${escHtml(p.description)}</td>
-          <td class="td-sheet col-sheet">${p.source_sheet}</td>
-          <td class="td-pvp">${pvp}</td>
-          <td class="td-conf">${conf}</td>
-          <td>${assLabel(ass)}</td>
-          <td>${qtyField}</td>
-          <td class="col-note">${noteField}</td>
-        </tr>`;
+            <tr class="${rowCls}" id="row-${p.product_code}">
+              <td class="td-code">${p.product_code}</td>
+              <td class="td-desc">${escHtml(p.description)}</td>
+              <td class="td-pvp">${pvp}</td>
+              <td class="td-conf">${conf}</td>
+              <td>${assLabel(ass)}</td>
+              <td>${qtyField}</td>
+              <td class="col-note">${noteField}</td>
+            </tr>`;
+      });
+
+      html += `</table></td></tr>`;
     });
 
-    html += `</table></td></tr>`;
+    html += `</tbody></table></div></div></div>`;
   });
 
-  html += `</tbody></table></div>`;
   document.getElementById('content').innerHTML = html;
+}
+
+function toggleForn(header) {
+  const body = header.nextElementSibling;
+  const chev = header.querySelector('.forn-chev');
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  if (chev) chev.style.transform = hidden ? '' : 'rotate(-90deg)';
 }
 
 function slugCat(cat) {
