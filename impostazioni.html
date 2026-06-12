@@ -952,6 +952,24 @@
         `;
     }
 
+    async function _creaAccountAuth(email) {
+        try {
+            const res  = await fetch(`${SUPA_URL}/functions/v1/invite-user`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
+                body:    JSON.stringify({ email }),
+            });
+            const json = await res.json();
+            if (!res.ok || json.error) {
+                showToast('Operatore salvato, ma account Auth non creato: ' + (json.error || res.statusText), 'err');
+            } else {
+                showToast('Account creato — accesso: ' + email + ' / 123456', 'ok');
+            }
+        } catch (e) {
+            showToast('Operatore salvato, errore account Auth: ' + e.message, 'err');
+        }
+    }
+
     function inviaInvitoRiga(btn) {
         const email = btn.closest('tr').dataset.email;
         inviaInvito(email);
@@ -959,7 +977,7 @@
 
     async function inviaInvito(email) {
         if (!email) { alert('Aggiungi prima l\'email all\'operatore tramite ✏️ Modifica.'); return; }
-        if (!confirm('Inviare l\'invito di accesso a ' + email + '?')) return;
+        if (!confirm('Creare/ripristinare l\'accesso per ' + email + ' con password 123456?')) return;
         showToast('Invio in corso…', 'info');
         try {
             const res  = await fetch(`${SUPA_URL}/functions/v1/invite-user`, {
@@ -1231,13 +1249,17 @@
                 // Aggiorna il record esistente invece di inserirne uno nuovo
                 const savedId = await _doSave(false, esistente.id, payload);
                 if (savedId) { if (_isAdmin) await _saveRespPersonale(savedId); afterSave(); }
-                return;
+                return; // non crea account Auth: operatore già esistente
             }
         }
 
         // ── Percorso standard: INSERT o UPDATE senza conflitti ──
         const savedId = await _doSave(isNuovo, idOrig, payload);
-        if (savedId) { if (_isAdmin) await _saveRespPersonale(savedId); afterSave(); }
+        if (savedId) {
+            if (_isAdmin) await _saveRespPersonale(savedId);
+            if (isNuovo && email) await _creaAccountAuth(email);
+            afterSave();
+        }
         } catch (err) {
             showModalMsg('Errore imprevisto: ' + err.message, 'error');
             console.error('salvaModificaOperatore:', err);
