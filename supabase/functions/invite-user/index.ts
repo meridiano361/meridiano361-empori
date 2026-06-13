@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       const { data: list } = await db.auth.admin.listUsers();
       const existing = list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
       if (existing) {
-        const { error: updateErr } = await db.auth.admin.updateUserById(existing.id, { password });
+        const { error: updateErr } = await db.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
         if (updateErr) {
           return new Response(JSON.stringify({ error: updateErr.message }), { status: 400, headers: CORS });
         }
