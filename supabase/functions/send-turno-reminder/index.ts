@@ -52,9 +52,11 @@ Deno.serve(async (req) => {
     10,
   );
 
-  // ?force=1 permette di testare la funzione a qualsiasi ora
-  const urlObj = new URL(req.url);
-  const force  = urlObj.searchParams.get("force") === "1";
+  // ?force=1  → ignora il controllo dell'ora
+  // ?operatore=Nome Cognome → invia solo a quell'operatore (case-insensitive, per test)
+  const urlObj   = new URL(req.url);
+  const force    = urlObj.searchParams.get("force") === "1";
+  const soloOp   = (urlObj.searchParams.get("operatore") ?? "").toLowerCase().trim();
 
   if (!force && romanHour !== 8) {
     return new Response(
@@ -173,6 +175,12 @@ Deno.serve(async (req) => {
   };
 
   for (const [nome, shifts] of operatoriMap.entries()) {
+    // Filtro per singolo operatore (solo in modalità test)
+    if (soloOp && !nome.toLowerCase().includes(soloOp)) {
+      results.log.push({ nome, motivo_skip: `escluso da filtro ?operatore=${soloOp}` });
+      continue;
+    }
+
     const opId = nomeToId.get(nome.toLowerCase().trim());
 
     // Notifiche turni disabilitate dall'operatore
