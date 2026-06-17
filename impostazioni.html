@@ -585,6 +585,13 @@
                             </div>
                             <input type="checkbox" id="pref-generali" style="width:18px;height:18px;accent-color:#B5453A;flex-shrink:0" checked>
                         </label>
+                        <label id="pref-ordini-label" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;cursor:pointer">
+                            <div>
+                                <div style="font-size:13px;font-weight:700;color:#1e293b">Ordini e proposte rifornimento</div>
+                                <div style="font-size:11px;color:#64748b">Riceve un push quando arriva un nuovo ordine cliente o una proposta di rifornimento</div>
+                            </div>
+                            <input type="checkbox" id="pref-ordini" style="width:18px;height:18px;accent-color:#B5453A;flex-shrink:0" checked>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -1170,7 +1177,7 @@
             const opId = document.getElementById('edit-op-id-orig').value.trim();
             if (opId) {
                 prefGruppo.style.display = '';
-                loadNotifPrefs(opId);
+                loadNotifPrefs(opId, !!(op.is_resp_acquisti));
             } else {
                 prefGruppo.style.display = 'none';
             }
@@ -1849,14 +1856,18 @@
 
     // ── PREFERENZE NOTIFICHE OPERATORE ───────────────────────────────────────
 
-    const NOTIF_TIPI = ['turni', 'generali'];
+    const NOTIF_TIPI = ['turni', 'generali', 'ordini'];
 
-    async function loadNotifPrefs(opId) {
+    async function loadNotifPrefs(opId, isRespAcquisti) {
         const loadEl = document.getElementById('notif-prefs-loading');
         const bodyEl = document.getElementById('notif-prefs-body');
         if (!loadEl || !bodyEl) return;
         loadEl.style.display = '';
         bodyEl.style.display = 'none';
+
+        // Mostra la card "ordini" solo per resp_acquisti
+        const ordiniLabel = document.getElementById('pref-ordini-label');
+        if (ordiniLabel) ordiniLabel.style.display = isRespAcquisti ? 'flex' : 'none';
 
         const { data } = await db
             .from('operatore_notif_prefs')
@@ -1869,6 +1880,7 @@
 
         document.getElementById('pref-turni').checked    = prefsMap['turni']    !== false;
         document.getElementById('pref-generali').checked = prefsMap['generali'] !== false;
+        document.getElementById('pref-ordini').checked   = prefsMap['ordini']   !== false;
 
         loadEl.style.display = 'none';
         bodyEl.style.display = 'flex';
@@ -1882,6 +1894,7 @@
         const values = {
             turni:    document.getElementById('pref-turni')?.checked    ?? true,
             generali: document.getElementById('pref-generali')?.checked ?? true,
+            ordini:   document.getElementById('pref-ordini')?.checked   ?? true,
         };
 
         for (const [tipo, abilitato] of Object.entries(values)) {
