@@ -18,13 +18,13 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  let body: { target: string; titolo: string; testo: string; mittente?: string; tipo?: string };
+  let body: { target: string; titolo: string; testo: string; mittente?: string; tipo?: string; operatore_ids?: string[]; url?: string };
   try { body = await req.json(); }
   catch { return new Response(JSON.stringify({ error: "invalid json" }), { status: 400, headers: CORS }); }
 
   // tipo: categoria notifica — usato per rispettare le preferenze operatore.
   // Default "generali" (notifiche admin manuali).
-  const { target, titolo, testo, tipo = "generali" } = body;
+  const { target, titolo, testo, tipo = "generali", operatore_ids, url = "/" } = body;
 
   const results = {
     push_sent: 0,
@@ -47,11 +47,15 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(results), { headers: { "Content-Type": "application/json", ...CORS } });
   }
 
-  // Carica subscriptions per emporio target
+  // Carica subscriptions: per operatore_ids (preciso) oppure per emporio target
   let q = db
     .from("push_subscriptions")
     .select("endpoint, subscription, emporio, operatore_nome, operatore_id");
-  if (target !== "tutti") q = q.eq("emporio", target);
+  if (operatore_ids?.length) {
+    q = q.in("operatore_id", operatore_ids);
+  } else if (target !== "tutti") {
+    q = q.eq("emporio", target);
+  }
   const { data: rawSubs, error: dbErr } = await q;
 
   if (dbErr) {
@@ -79,11 +83,11 @@ Deno.serve(async (req) => {
   }
 
   results.subscribers_found = filteredSubs.length;
-  const payload = JSON.stringify({ title: titolo, body: testo || "", url: "/" });
+  const payload = JSON.stringify({ title: titolo, body: testo || "", url });
 
   await Promise.all(filteredSubs.map(async (row) => {
     try {
-      await webpush.sendNotification(row.subscription as webpush.PushSubscription, payload);
+      await webpush.sendNotification(row.subscription as webpush.PushSubscription, payload, { urgency: "high", TTL: 86400 });
       results.push_sent++;
     } catch (e: unknown) {
       const status = (e as { statusCode?: number })?.statusCode;

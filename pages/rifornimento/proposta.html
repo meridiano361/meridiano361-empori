@@ -601,6 +601,42 @@ async function invia() {
   isEditable = false;
   renderToolbar();
   renderTable();
+
+  // Notifica push ai responsabili acquisti dell'emporio
+  _notificaRespAcquisti().catch(() => {});
+}
+
+async function _notificaRespAcquisti() {
+  const emporio = proposta.emporio || '';
+  // Cerca tutti gli operatori is_resp_acquisti per questo emporio
+  const { data: resps } = await db
+    .from('operatori')
+    .select('id')
+    .ilike('emporio', emporio)
+    .eq('is_resp_acquisti', true);
+
+  if (!resps?.length) return;
+
+  const ids = resps.map(r => r.id);
+  const mittente = user?.nome || 'Operatore';
+  const nProdotti = Object.values(righe).filter(r => r.qty > 0).length;
+
+  await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPA_KEY}`,
+      'apikey': SUPA_KEY,
+    },
+    body: JSON.stringify({
+      operatore_ids: ids,
+      target: emporio.toLowerCase(),
+      titolo: `📦 Nuova proposta — ${emporio}`,
+      testo:  `${mittente} ha inviato una proposta rifornimento${nProdotti ? ` (${nProdotti} prodotti)` : ''}.`,
+      tipo:   'generali',
+      url:    `/pages/rifornimento/proposte.html`,
+    }),
+  });
 }
 
 async function setStatus(newStatus) {
