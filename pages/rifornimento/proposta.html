@@ -226,6 +226,16 @@ async function init() {
   populateCatFilter();
   renderTable();
   updateSommario();
+
+  // Notifica "nuovo ordine" delegata da proposte.html per evitare race condition con navigazione
+  if (params.get('notify_ordine') === '1') {
+    const emp      = decodeURIComponent(params.get('notify_emp') || proposta.emporio || '');
+    const mittente = decodeURIComponent(params.get('notify_mitt') || user?.nome || 'Operatore');
+    _notificaRespAcquistiOrdine(emp, mittente).catch(() => {});
+    // Pulisce i params dall'URL senza ricaricare la pagina
+    const cleanUrl = window.location.pathname + '?id=' + propId;
+    history.replaceState(null, '', cleanUrl);
+  }
 }
 
 function showErr(msg) {
@@ -626,6 +636,26 @@ async function _notificaRespAcquisti() {
       operatore_ids: ids,
       target:        emporio.toLowerCase(),
       titolo:        `📦 Nuova proposta di rifornimento da ${mittente} per ${emporio}`,
+      testo:         '',
+      tipo:          'generali',
+      url:           `/pages/rifornimento/proposte.html`,
+    }),
+  });
+}
+
+async function _notificaRespAcquistiOrdine(emporio, mittente) {
+  const { data: resps } = await db
+    .from('operatori')
+    .select('id')
+    .eq('is_resp_acquisti', true);
+  if (!resps?.length) return;
+  await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}`, 'apikey': SUPA_KEY },
+    body: JSON.stringify({
+      operatore_ids: resps.map(r => r.id),
+      target:        'tutti',
+      titolo:        `🛒 Nuovo ordine creato da ${mittente} per ${emporio}`,
       testo:         '',
       tipo:          'generali',
       url:           `/pages/rifornimento/proposte.html`,

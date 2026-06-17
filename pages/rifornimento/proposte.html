@@ -234,37 +234,10 @@ document.getElementById('modal-crea').addEventListener('click', async () => {
   if (error) { alert('Errore: ' + error.message); return; }
   modal.classList.add('hidden');
 
-  // Notifica push ai responsabili acquisti (await per evitare che il redirect cancelli il fetch)
-  await _notificaRespAcquistiNuovoOrdine(emporio).catch(() => {});
-
-  window.location.href = `proposta.html?id=${data.id}`;
+  // La notifica viene inviata da proposta.html dopo il caricamento (evita race condition con la navigazione)
+  const mittente = encodeURIComponent(user?.nome || '');
+  window.location.href = `proposta.html?id=${data.id}&notify_ordine=1&notify_emp=${encodeURIComponent(emporio)}&notify_mitt=${mittente}`;
 });
-
-async function _notificaRespAcquistiNuovoOrdine(emporio) {
-  // Resp. acquisti riceve notifiche da tutti gli empori, non solo il proprio
-  const { data: resps, error: respsErr } = await db
-    .from('operatori')
-    .select('id')
-    .eq('is_resp_acquisti', true);
-  if (respsErr) { console.error('[notifica ordine] query operatori:', respsErr); return; }
-  if (!resps?.length) { console.warn('[notifica ordine] nessun resp_acquisti trovato'); return; }
-  const mittente = user?.nome || 'Operatore';
-  const res = await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
-    method:   'POST',
-    keepalive: true,
-    headers:  { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}`, 'apikey': SUPA_KEY },
-    body: JSON.stringify({
-      operatore_ids: resps.map(r => r.id),
-      target:        'tutti',
-      titolo:        `🛒 Nuovo ordine creato da ${mittente} per ${emporio}`,
-      testo:         '',
-      tipo:          'generali',
-      url:           `/pages/rifornimento/proposte.html`,
-    }),
-  });
-  const json = await res.json().catch(() => ({}));
-  console.log('[notifica ordine] risposta Edge Function:', json);
-}
 
 carica();
 </script>
