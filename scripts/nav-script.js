@@ -568,13 +568,36 @@ function buildNav() {
     if (window.location.pathname.includes('login.html')) return;
 
     // 2. Recupero utente dal localStorage
-    const user = JSON.parse(localStorage.getItem('m361_user'));
+    let user = JSON.parse(localStorage.getItem('m361_user'));
 
     // 3. PROTEZIONE: Se l'utente non esiste, spediscilo al login immediatamente
     if (!user || !user.email) {
       console.warn("Accesso non autorizzato. Reindirizzamento...");
       window.location.href = getBase() + 'login.html';
-      return; // Blocca l'esecuzione del resto dello script
+      return;
+    }
+
+    // 3b. Se l'oggetto utente è incompleto (nome mancante — sessione stale),
+    //     tenta di ricaricarlo da DB prima di procedere.
+    if (!user.nome) {
+      try {
+        const _sb = getSupabase();
+        if (_sb) {
+          const { data: op } = await _sb.from('operatori').select('*').ilike('email', user.email).single();
+          if (op?.nome) {
+            localStorage.setItem('m361_user', JSON.stringify(op));
+            user = op;
+          } else {
+            localStorage.removeItem('m361_user');
+            window.location.href = getBase() + 'login.html';
+            return;
+          }
+        }
+      } catch (_) {
+        localStorage.removeItem('m361_user');
+        window.location.href = getBase() + 'login.html';
+        return;
+      }
     }
 
     // 4. Caricamento Interfaccia (Eseguito solo se loggati)
@@ -981,7 +1004,7 @@ function buildNav() {
     const _supabase = getSupabase();
     const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
     if (!_supabase || !user?.nome) {
-      listEl.innerHTML = '<div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center">Utente non trovato</div>';
+      listEl.innerHTML = '<div style="padding:16px;font-size:13px;text-align:center;line-height:1.6;color:#dc2626">⚠️ Sessione non allineata.<br><span style="color:#64748b">Esci e rientra per ripristinare le notifiche.</span></div>';
       return;
     }
 
@@ -1056,6 +1079,13 @@ function buildNav() {
 
     const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
 
+    // Se la sessione è parziale, mostra errore coerente (non "Push abilitati")
+    if (!user?.nome) {
+      statusEl.innerHTML = '⚠️ <span style="color:#dc2626">Sessione non allineata — esci e rientra</span>';
+      if (btnEl) btnEl.style.display = 'none';
+      return;
+    }
+
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       statusEl.textContent = 'Push non supportate da questo browser';
       return;
@@ -1075,7 +1105,7 @@ function buildNav() {
           const { data } = await _supabase.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).limit(1);
           if (!data?.length) await _upsertSubscription(user, sub);
         }
-        statusEl.innerHTML = '✅ <span style="color:#16a34a">Push abilitati</span>';
+        statusEl.innerHTML = `✅ <span style="color:#16a34a">Push abilitati</span> <span style="color:#94a3b8;font-size:11px">(${_escHtml(user.nome)})</span>`;
         btnEl.textContent = 'Disabilita push';
         btnEl.style.cssText = 'display:block;width:100%;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#f1f5f9;color:#475569';
         btnEl.onclick = async () => {
