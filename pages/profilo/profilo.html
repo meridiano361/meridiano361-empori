@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profilo — M361</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family:'Inter',sans-serif; background:#f0f2f5; margin:0; padding-bottom:90px; }
+    * { box-sizing:border-box; }
+
+    /* ── Profilo header ── */
+    .profilo-header { background:#fff; border-bottom:1px solid #e2e8f0; padding:20px 18px 16px; display:flex; align-items:center; gap:14px; }
+    .avatar { width:52px; height:52px; border-radius:50%; background:#B5453A; color:#fff; font-size:18px; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0; letter-spacing:.02em; }
+    .profilo-nome { font-size:18px; font-weight:900; color:#1e293b; margin:0 0 2px; }
+    .profilo-ruolo { font-size:12px; color:#94a3b8; font-weight:600; margin:0; }
+
+    /* ── Mese nav ── */
+    .mese-nav { display:flex; align-items:center; justify-content:space-between; padding:14px 18px 10px; }
+    .mese-label { font-size:17px; font-weight:900; color:#1e293b; text-transform:capitalize; }
+    .mese-btn { background:none; border:1.5px solid #e2e8f0; border-radius:10px; width:36px; height:36px; cursor:pointer; font-size:15px; color:#475569; display:flex; align-items:center; justify-content:center; transition:all .12s; }
+    .mese-btn:hover { border-color:#B5453A; color:#B5453A; }
+
+    /* ── Legenda ── */
+    .legenda { display:flex; gap:10px; padding:0 18px 12px; flex-wrap:wrap; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#64748b; }
+    .leg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    /* ── Calendario ── */
+    .cal-wrap { padding:0 12px; }
+    .cal-header { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px; }
+    .cal-header-cell { text-align:center; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; padding:4px 0; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+
+    .cal-day { background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; padding:5px 4px 4px; min-height:58px; cursor:pointer; transition:all .12s; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative; }
+    .cal-day:hover { border-color:#B5453A; }
+    .cal-day.today .day-num { background:#B5453A; color:#fff; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+    .cal-day.selected { border-color:#B5453A; background:#fdf1f0; }
+    .cal-day.altro-mese { opacity:.3; pointer-events:none; }
+    .cal-day.has-turno { border-color:#fca5a5; }
+
+    .day-num { font-size:12px; font-weight:800; color:#1e293b; line-height:1; }
+    .day-dots { display:flex; gap:2px; flex-wrap:wrap; justify-content:center; margin-top:2px; }
+    .day-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .turno-strip { width:100%; background:#fdf1f0; border-radius:4px; padding:1px 3px; font-size:8px; font-weight:800; color:#B5453A; text-align:center; line-height:1.4; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* ── Panel comuni ── */
+    .bottom-panel { position:fixed; bottom:0; left:0; right:0; z-index:9500; background:#fff; border-radius:20px 20px 0 0; box-shadow:0 -4px 24px rgba(0,0,0,.12); transform:translateY(100%); transition:transform .28s cubic-bezier(.4,0,.2,1); max-height:85vh; display:flex; flex-direction:column; max-width:640px; margin:0 auto; }
+    .bottom-panel.open { transform:translateY(0); }
+    .panel-handle { width:36px; height:4px; background:#e2e8f0; border-radius:2px; margin:12px auto 0; flex-shrink:0; }
+    .panel-body { overflow-y:auto; flex:1; padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px)); }
+    .panel-title { font-size:16px; font-weight:900; color:#1e293b; margin:0 0 14px; }
+
+    /* ── Overlay ── */
+    #overlay { position:fixed; inset:0; z-index:9400; background:rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .25s; }
+    #overlay.open { opacity:1; pointer-events:auto; }
+
+    /* ── Turno card in panel ── */
+    .turno-card { background:#fdf1f0; border:1.5px solid #fca5a5; border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+    .turno-card-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#B5453A; margin-bottom:4px; }
+    .turno-card-row { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+    .turno-card-row:last-child { margin-bottom:0; }
+    .turno-card-row i { color:#B5453A; font-size:12px; width:14px; }
+    .turno-card-row span { font-size:13px; font-weight:700; color:#1e293b; }
+
+    /* ── Attività list ── */
+    .attivita-list { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+    .attivita-item { border-radius:12px; padding:11px 13px; display:flex; align-items:center; gap:10px; border:1.5px solid transparent; }
+    .attivita-icon { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+    .attivita-info { flex:1; min-width:0; }
+    .attivita-titolo { font-size:14px; font-weight:700; color:#1e293b; }
+    .attivita-ora   { font-size:11px; color:#94a3b8; font-weight:600; }
+    .attivita-note  { font-size:11px; color:#94a3b8; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .attivita-btns  { display:flex; gap:2px; flex-shrink:0; }
+    .btn-icon-sm { background:none; border:none; cursor:pointer; padding:5px 6px; border-radius:7px; font-size:12px; color:#94a3b8; transition:all .12s; }
+    .btn-icon-sm:hover { background:#fdf1f0; color:#B5453A; }
+
+    /* ── Form attività ── */
+    .tipo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+    .tipo-btn { border:2px solid #e2e8f0; border-radius:12px; padding:10px 6px; cursor:pointer; text-align:center; transition:all .15s; background:#fff; }
+    .tipo-btn.sel { border-width:2px; }
+    .tipo-btn i { font-size:18px; display:block; margin-bottom:4px; }
+    .tipo-btn span { font-size:11px; font-weight:800; display:block; }
+
+    .form-field { margin-bottom:13px; }
+    .form-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:5px; display:block; }
+    .form-input { width:100%; padding:10px 13px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-family:inherit; outline:none; transition:border-color .15s; }
+    .form-input:focus { border-color:#B5453A; }
+    .time-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    .btn-primary { background:#B5453A; color:#fff; border:none; border-radius:10px; padding:12px 18px; font-weight:800; cursor:pointer; font-family:inherit; font-size:14px; display:inline-flex; align-items:center; gap:7px; transition:background .15s; width:100%; justify-content:center; }
+    .btn-primary:hover { background:#8c362d; }
+    .btn-secondary { background:#fff; color:#475569; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 16px; font-weight:700; cursor:pointer; font-family:inherit; font-size:14px; display:inline-flex; align-items:center; gap:7px; transition:all .15s; width:100%; justify-content:center; }
+    .btn-add { background:#f1f5f9; border:1.5px dashed #cbd5e1; border-radius:11px; padding:11px; width:100%; cursor:pointer; font-family:inherit; font-size:13px; font-weight:700; color:#64748b; display:flex; align-items:center; justify-content:center; gap:7px; transition:all .15s; }
+    .btn-add:hover { border-color:#B5453A; color:#B5453A; background:#fdf1f0; }
+
+    .spinner { width:28px; height:28px; border:3px solid #e2e8f0; border-top-color:#B5453A; border-radius:50%; animation:spin .8s linear infinite; margin:32px auto; display:block; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    @media(max-width:380px) {
+      .tipo-grid { grid-template-columns:repeat(2,1fr); }
+      .cal-day { min-height:50px; border-radius:8px; }
+      .day-num { font-size:11px; }
+    }
+  </style>
+</head>
+<body>
+<script src="../../scripts/auth.js"></script>
+<script src="../../scripts/nav-script.js"></script>
+
+<div class="profilo-header" id="profilo-header">
+  <div class="avatar" id="avatar">?</div>
+  <div>
+    <p class="profilo-nome" id="profilo-nome">…</p>
+    <p class="profilo-ruolo" id="profilo-ruolo">…</p>
+  </div>
+</div>
+
+<div class="mese-nav">
+  <button class="mese-btn" onclick="cambioMese(-1)"><i class="fas fa-chevron-left"></i></button>
+  <span class="mese-label" id="mese-label">…</span>
+  <button class="mese-btn" onclick="cambioMese(1)"><i class="fas fa-chevron-right"></i></button>
+</div>
+
+<div class="legenda">
+  <div class="leg-item"><div class="leg-dot" style="background:#B5453A"></div> Turno</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#2563eb"></div> Ufficio</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#7c3aed"></div> Formazione</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#d97706"></div> Uscita</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#059669"></div> Riposo</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#64748b"></div> Altro</div>
+</div>
+
+<div class="cal-wrap">
+  <div class="cal-header">
+    <div class="cal-header-cell">Lun</div>
+    <div class="cal-header-cell">Mar</div>
+    <div class="cal-header-cell">Mer</div>
+    <div class="cal-header-cell">Gio</div>
+    <div class="cal-header-cell">Ven</div>
+    <div class="cal-header-cell">Sab</div>
+    <div class="cal-header-cell">Dom</div>
+  </div>
+  <div class="cal-grid" id="cal-grid">
+    <div style="grid-column:1/-1;text-align:center"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<!-- Overlay -->
+<div id="overlay" onclick="chiudiTutto()"></div>
+
+<!-- Day detail panel -->
+<div class="bottom-panel" id="day-panel">
+  <div class="panel-handle"></div>
+  <div class="panel-body">
+    <p class="panel-title" id="day-title">—</p>
+    <div id="day-content"></div>
+    <button class="btn-add" onclick="apriFormNuovo()"><i class="fas fa-plus"></i> Aggiungi attività</button>
+  </div>
+</div>
+
+<!-- Form panel (add/edit) -->
+<div class="bottom-panel" id="form-panel">
+  <div class="panel-handle"></div>
+  <div class="panel-body">
+    <p class="panel-title" id="form-title">Nuova attività</p>
+
+    <div class="tipo-grid" id="tipo-grid"></div>
+
+    <div class="form-field">
+      <label class="form-label">Titolo</label>
+      <input type="text" class="form-input" id="f-titolo" placeholder="es. Riunione staff">
+    </div>
+    <div class="time-row form-field">
+      <div>
+        <label class="form-label">Dalle</label>
+        <input type="time" class="form-input" id="f-start">
+      </div>
+      <div>
+        <label class="form-label">Alle</label>
+        <input type="time" class="form-input" id="f-end">
+      </div>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Note (opzionale)</label>
+      <input type="text" class="form-input" id="f-note" placeholder="…">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-secondary" onclick="chiudiForm()" style="flex:1">Annulla</button>
+      <button class="btn-primary" onclick="salvaAttivita()" style="flex:1"><i class="fas fa-check"></i> Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db = supabase.createClient(SB_URL, SB_KEY);
+
+const TIPI = {
+  turno:      { label:'Turno',      color:'#B5453A', bg:'#fdf1f0', icon:'fa-store' },
+  ufficio:    { label:'Ufficio',    color:'#2563eb', bg:'#eff6ff', icon:'fa-briefcase' },
+  formazione: { label:'Formazione', color:'#7c3aed', bg:'#f5f3ff', icon:'fa-graduation-cap' },
+  uscita:     { label:'Uscita',     color:'#d97706', bg:'#fffbeb', icon:'fa-car' },
+  riposo:     { label:'Riposo',     color:'#059669', bg:'#ecfdf5', icon:'fa-moon' },
+  altro:      { label:'Altro',      color:'#64748b', bg:'#f8fafc', icon:'fa-circle-dot' },
+};
+
+const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                 'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+let user      = null;
+let anno      = new Date().getFullYear();
+let mese      = new Date().getMonth() + 1;  // 1-indexed
+let turniMap  = {};   // 'YYYY-MM-DD' → [{turno, emporio}]
+let attMap    = {};   // 'YYYY-MM-DD' → [attività]
+let selData   = null; // data selezionata 'YYYY-MM-DD'
+let editId    = null; // id attività in modifica
+let selTipo   = 'ufficio';
+
+async function init() {
+  user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+  if (!user) return;
+
+  // Header
+  const ini = (user.nome || '?').split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('avatar').textContent = ini;
+  document.getElementById('profilo-nome').textContent = user.nome || '—';
+  document.getElementById('profilo-ruolo').textContent =
+    [user.ruolo, user.emporio].filter(Boolean).map(s => s.charAt(0).toUpperCase()+s.slice(1)).join(' · ') || 'Operatore';
+
+  // Tipo grid nel form
+  buildTipoGrid();
+
+  await caricaMese();
+}
+
+function buildTipoGrid() {
+  const grid = document.getElementById('tipo-grid');
+  grid.innerHTML = Object.entries(TIPI).filter(([k]) => k !== 'turno').map(([k, t]) =>
+    `<button class="tipo-btn${k===selTipo?' sel':''}" id="tbtn-${k}"
+       style="${k===selTipo?`border-color:${t.color};background:${t.bg}`:'background:#fff'}"
+       onclick="selezionaTipo('${k}')">
+      <i class="fas ${t.icon}" style="color:${k===selTipo?t.color:'#94a3b8'}"></i>
+      <span style="color:${k===selTipo?t.color:'#64748b'}">${t.label}</span>
+    </button>`
+  ).join('');
+}
+
+function selezionaTipo(tipo) {
+  selTipo = tipo;
+  const t = TIPI[tipo];
+  // Aggiorna bottoni
+  document.querySelectorAll('.tipo-btn').forEach(btn => {
+    btn.style.borderColor = '';
+    btn.style.background = '#fff';
+    btn.classList.remove('sel');
+    btn.querySelector('i').style.color = '#94a3b8';
+    btn.querySelector('span').style.color = '#64748b';
+  });
+  const btn = document.getElementById(`tbtn-${tipo}`);
+  if (btn) {
+    btn.style.borderColor = t.color;
+    btn.style.background  = t.bg;
+    btn.classList.add('sel');
+    btn.querySelector('i').style.color   = t.color;
+    btn.querySelector('span').style.color = t.color;
+  }
+  // Auto-titolo se vuoto
+  const ti = document.getElementById('f-titolo');
+  if (!ti.value || Object.values(TIPI).some(x => x.label === ti.value)) ti.value = t.label;
+}
+
+async function caricaMese() {
+  document.getElementById('mese-label').textContent = `${MESI_IT[mese-1]} ${anno}`;
+  document.getElementById('cal-grid').innerHTML =
+    '<div style="grid-column:1/-1;text-align:center"><div class="spinner"></div></div>';
+  turniMap = {}; attMap = {};
+
+  const meseStr = String(mese).padStart(2,'0');
+  const giorni  = new Date(anno, mese, 0).getDate();
+  const dal     = `${anno}-${meseStr}-01`;
+  const al      = `${anno}-${meseStr}-${String(giorni).padStart(2,'0')}`;
+
+  // Fetch in parallelo
+  const [rTurni, rAtt] = await Promise.all([
+    db.from('turni').select('emporio,giorno,turno,operatori').eq('anno', anno).eq('mese', mese),
+    db.from('profilo_attivita').select('*').eq('operatore_id', user.id).gte('data', dal).lte('data', al),
+  ]);
+
+  // Costruisce turniMap
+  (rTurni.data || []).forEach(r => {
+    const ops = r.operatori || [];
+    if (!ops.some(o => o.nome === user.nome)) return;
+    const k = `${anno}-${meseStr}-${String(r.giorno).padStart(2,'0')}`;
+    if (!turniMap[k]) turniMap[k] = [];
+    turniMap[k].push({ turno: r.turno, emporio: r.emporio });
+  });
+
+  // Costruisce attMap
+  (rAtt.data || []).forEach(a => {
+    const k = a.data;
+    if (!attMap[k]) attMap[k] = [];
+    attMap[k].push(a);
+  });
+
+  renderCalendario();
+}
+
+function renderCalendario() {
+  const giorni  = new Date(anno, mese, 0).getDate();
+  const primo   = (new Date(anno, mese-1, 1).getDay() + 6) % 7; // 0=Lun
+  const oggi    = new Date();
+  const oggiStr = `${oggi.getFullYear()}-${String(oggi.getMonth()+1).padStart(2,'0')}-${String(oggi.getDate()).padStart(2,'0')}`;
+  const meseStr = String(mese).padStart(2,'0');
+
+  let html = '';
+
+  // Celle vuote mese precedente
+  for (let i = 0; i < primo; i++) html += `<div class="cal-day altro-mese"></div>`;
+
+  for (let g = 1; g <= giorni; g++) {
+    const k      = `${anno}-${meseStr}-${String(g).padStart(2,'0')}`;
+    const turni  = turniMap[k] || [];
+    const att    = attMap[k]   || [];
+    const isOggi = k === oggiStr;
+    const isSel  = k === selData;
+    const hasTurno = turni.length > 0;
+
+    const dots = [
+      ...turni.map(() => `<div class="day-dot" style="background:#B5453A"></div>`),
+      ...att.map(a => `<div class="day-dot" style="background:${TIPI[a.tipo]?.color||'#64748b'}"></div>`),
+    ].slice(0, 5).join('');
+
+    const strip = hasTurno
+      ? `<div class="turno-strip">${turni[0].emporio ? turni[0].emporio.slice(0,6).toUpperCase() : 'TURNO'}</div>`
+      : '';
+
+    html += `<div class="cal-day${isOggi?' today':''}${isSel?' selected':''}${hasTurno?' has-turno':''}"
+              onclick="selGiorno('${k}',${g})">
+      <div class="day-num">${g}</div>
+      ${strip}
+      <div class="day-dots">${dots}</div>
+    </div>`;
+  }
+
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+function cambioMese(delta) {
+  mese += delta;
+  if (mese > 12) { mese = 1; anno++; }
+  if (mese < 1)  { mese = 12; anno--; }
+  selData = null;
+  chiudiTutto();
+  caricaMese();
+}
+
+/* ─── Day panel ─── */
+function selGiorno(data, giorno) {
+  selData = data;
+  renderCalendario();
+
+  const d    = new Date(data + 'T00:00:00');
+  const gg   = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'][d.getDay()];
+  document.getElementById('day-title').textContent = `${gg} ${giorno} ${MESI_IT[mese-1]}`;
+  renderDayContent();
+  apriPanel('day-panel');
+}
+
+function renderDayContent() {
+  const turni = turniMap[selData] || [];
+  const att   = attMap[selData]   || [];
+  let html = '';
+
+  if (turni.length) {
+    const shifts = [...new Set(turni.map(t => t.turno))].join(', ');
+    const empori = [...new Set(turni.map(t => t.emporio).filter(Boolean))];
+    html += `<div class="turno-card">
+      <div class="turno-card-label"><i class="fas fa-store" style="margin-right:4px"></i>Turno in emporio</div>
+      ${empori.map(e => `<div class="turno-card-row"><i class="fas fa-location-dot"></i><span>${esc(e)}</span></div>`).join('')}
+      <div class="turno-card-row"><i class="fas fa-clock"></i><span style="text-transform:capitalize">${esc(shifts)}</span></div>
+    </div>`;
+  }
+
+  if (att.length) {
+    html += `<div class="attivita-list">` + att.map(a => {
+      const t   = TIPI[a.tipo] || TIPI.altro;
+      const ora = a.ora_inizio ? `${a.ora_inizio.slice(0,5)}${a.ora_fine ? ' → ' + a.ora_fine.slice(0,5) : ''}` : '';
+      return `<div class="attivita-item" style="background:${t.bg};border-color:${t.color}22">
+        <div class="attivita-icon" style="background:${t.color}22"><i class="fas ${t.icon}" style="color:${t.color}"></i></div>
+        <div class="attivita-info">
+          <div class="attivita-titolo">${esc(a.titolo)}</div>
+          ${ora ? `<div class="attivita-ora">${ora}</div>` : ''}
+          ${a.note ? `<div class="attivita-note">${esc(a.note)}</div>` : ''}
+        </div>
+        <div class="attivita-btns">
+          <button class="btn-icon-sm" onclick="apriFormModifica('${a.id}')" title="Modifica"><i class="fas fa-pen"></i></button>
+          <button class="btn-icon-sm" onclick="eliminaAttivita('${a.id}')" title="Elimina"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+
+  if (!turni.length && !att.length) {
+    html = `<p style="color:#94a3b8;font-size:14px;font-weight:600;text-align:center;padding:16px 0">Nessuna attività questo giorno</p>`;
+  }
+
+  document.getElementById('day-content').innerHTML = html;
+}
+
+/* ─── Form panel ─── */
+function apriFormNuovo() {
+  editId = null;
+  selTipo = 'ufficio';
+  document.getElementById('form-title').textContent = 'Nuova attività';
+  document.getElementById('f-titolo').value = TIPI.ufficio.label;
+  document.getElementById('f-start').value  = '';
+  document.getElementById('f-end').value    = '';
+  document.getElementById('f-note').value   = '';
+  buildTipoGrid();
+  chiudiPanel('day-panel');
+  apriPanel('form-panel');
+}
+
+function apriFormModifica(id) {
+  const att = (attMap[selData] || []).find(a => a.id === id);
+  if (!att) return;
+  editId = id;
+  selTipo = att.tipo || 'altro';
+  document.getElementById('form-title').textContent = 'Modifica attività';
+  document.getElementById('f-titolo').value = att.titolo || '';
+  document.getElementById('f-start').value  = att.ora_inizio ? att.ora_inizio.slice(0,5) : '';
+  document.getElementById('f-end').value    = att.ora_fine   ? att.ora_fine.slice(0,5)   : '';
+  document.getElementById('f-note').value   = att.note || '';
+  buildTipoGrid();
+  chiudiPanel('day-panel');
+  apriPanel('form-panel');
+}
+
+async function salvaAttivita() {
+  const titolo = document.getElementById('f-titolo').value.trim();
+  if (!titolo) { document.getElementById('f-titolo').focus(); return; }
+
+  const payload = {
+    operatore_id:   user.id,
+    operatore_nome: user.nome,
+    data:           selData,
+    titolo,
+    tipo:           selTipo,
+    ora_inizio:     document.getElementById('f-start').value || null,
+    ora_fine:       document.getElementById('f-end').value   || null,
+    note:           document.getElementById('f-note').value.trim() || null,
+  };
+
+  const { error } = editId
+    ? await db.from('profilo_attivita').update(payload).eq('id', editId)
+    : await db.from('profilo_attivita').insert(payload);
+
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  chiudiForm();
+  await ricaricaGiorno();
+  apriPanel('day-panel');
+}
+
+async function eliminaAttivita(id) {
+  if (!confirm('Eliminare questa attività?')) return;
+  await db.from('profilo_attivita').delete().eq('id', id);
+  await ricaricaGiorno();
+  renderDayContent();
+}
+
+async function ricaricaGiorno() {
+  const meseStr = String(mese).padStart(2,'0');
+  const dal     = `${anno}-${meseStr}-01`;
+  const al      = `${anno}-${meseStr}-${String(new Date(anno,mese,0).getDate()).padStart(2,'0')}`;
+  const { data } = await db.from('profilo_attivita').select('*').eq('operatore_id', user.id).gte('data', dal).lte('data', al);
+  attMap = {};
+  (data || []).forEach(a => { if (!attMap[a.data]) attMap[a.data]=[]; attMap[a.data].push(a); });
+  renderCalendario();
+}
+
+/* ─── Panel helpers ─── */
+function apriPanel(id) {
+  document.getElementById(id).classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function chiudiPanel(id) { document.getElementById(id).classList.remove('open'); }
+function chiudiForm() { chiudiPanel('form-panel'); apriPanel('day-panel'); }
+function chiudiTutto() {
+  ['day-panel','form-panel'].forEach(chiudiPanel);
+  document.getElementById('overlay').classList.remove('open');
+  selData = null;
+  renderCalendario();
+}
+
+/* ─── Utility ─── */
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+</script>
+</body>
+</html>

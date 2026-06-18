@@ -561,6 +561,20 @@ function buildNav() {
     }));
   }
 
+  // Profilo personale — per ora solo Emilio (tester iniziale)
+  if (user && user.email === 'e.mazzolari@meridiano361.it') {
+    const sep = document.createElement('div');
+    sep.className = 'mn-sep';
+    scrollWrap.appendChild(sep);
+    scrollWrap.appendChild(renderItem({
+      id: 'profilo',
+      label: 'Profilo',
+      icon: 'fa-circle-user',
+      href: 'pages/profilo/profilo.html',
+      active: true
+    }));
+  }
+
   nav.appendChild(scrollWrap);
 
   // ESCI fisso a destra, fuori dallo scroll
