@@ -10,104 +10,110 @@
   <title>Materiali — M361</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: 'Inter', sans-serif; background: #f0f2f5; font-size: 15px; }
+    body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
     * { box-sizing: border-box; }
 
-    .card { background: #fff; border-radius: 18px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+    /* ── Buttons ── */
+    .btn-primary   { background:#B5453A;color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:800;cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;gap:7px;transition:background .15s; }
+    .btn-primary:hover   { background:#8c362d; }
+    .btn-secondary { background:#fff;color:#475569;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;display:inline-flex;align-items:center;gap:7px;transition:all .15s; }
+    .btn-secondary:hover { border-color:#B5453A;color:#B5453A; }
+    .btn-icon { background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:8px;font-size:13px;color:#94a3b8;transition:all .12s;font-family:inherit;display:inline-flex;align-items:center;line-height:1; }
+    .btn-icon:hover { background:#fdf1f0;color:#B5453A; }
+    .btn-icon-dl  { color:#3b82f6; }
+    .btn-icon-dl:hover { background:#eff6ff;color:#2563eb; }
 
-    .btn-primary { background: #B5453A; color: #fff; border: none; border-radius: 10px; padding: 10px 18px; font-weight: 800; cursor: pointer; font-family: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; transition: background .15s; }
-    .btn-primary:hover { background: #8c362d; }
-    .btn-secondary { background: #fff; color: #475569; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; transition: all .15s; }
-    .btn-secondary:hover { border-color: #B5453A; color: #B5453A; }
+    /* ── Folder grid ── */
+    .folders-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px; }
+    @media(min-width:600px) { .folders-grid { grid-template-columns:repeat(4,1fr); } }
+    @media(min-width:900px) { .folders-grid { grid-template-columns:repeat(5,1fr); } }
 
-    /* Folder cards */
-    .folders-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 20px; }
-    @media(min-width:480px) { .folders-grid { grid-template-columns: repeat(3,1fr); } }
-    @media(min-width:768px) { .folders-grid { grid-template-columns: repeat(4,1fr); } }
+    /* ── Folder card ── */
+    .folder-card { background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;text-align:center;overflow:hidden; }
+    .folder-card:hover { border-color:#fbbf24;box-shadow:0 4px 16px rgba(251,191,36,.15);transform:translateY(-2px); }
+    .folder-card-body { padding:16px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;width:100%; }
+    .folder-emoji { width:48px;height:48px;background:#fef9c3;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;margin-bottom:2px; }
+    .folder-name  { font-size:12px;font-weight:800;color:#1e293b;line-height:1.3;word-break:break-word;width:100%; }
+    .folder-count { font-size:11px;color:#94a3b8;font-weight:600; }
+    .folder-footer { border-top:1px solid #f1f5f9;padding:5px 6px;display:flex;justify-content:center;gap:2px;width:100%;background:#fafafa; }
 
-    .folder-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 14px; cursor: pointer; transition: all .15s; display: flex; flex-direction: column; gap: 6px; }
-    .folder-card:hover { border-color: #fbbf24; box-shadow: 0 4px 16px rgba(251,191,36,.12); transform: translateY(-1px); }
-    .folder-name { font-size: 13px; font-weight: 800; color: #1e293b; line-height: 1.3; word-break: break-word; }
-    .folder-count { font-size: 11px; color: #94a3b8; font-weight: 600; }
-    .folder-actions { display: flex; gap: 2px; }
-
-    /* File rows */
-    .file-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 11px 14px; display: flex; align-items: center; gap: 10px; transition: background .12s; }
-    .file-row:hover { background: #f8fafc; }
-    .icon-circle { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
-    .file-name { font-size: 14px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .file-meta { font-size: 11px; color: #94a3b8; margin-top: 1px; }
-    .file-actions { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
-
-    /* Icon buttons */
-    .btn-icon { background: none; border: none; cursor: pointer; padding: 6px 7px; border-radius: 8px; font-size: 13px; color: #94a3b8; transition: all .12s; font-family: inherit; display: inline-flex; align-items: center; line-height: 1; }
-    .btn-icon:hover { background: #fdf1f0; color: #B5453A; }
-    .btn-icon-dl { color: #3b82f6; }
-    .btn-icon-dl:hover { background: #eff6ff; color: #2563eb; }
+    /* ── File rows ── */
+    .file-row { background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:11px 14px;display:flex;align-items:center;gap:10px;transition:background .12s; }
+    .file-row:hover { background:#f8fafc; }
+    .icon-circle { width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px; }
+    .file-name { font-size:14px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .file-meta { font-size:11px;color:#94a3b8;margin-top:1px; }
+    .file-actions { display:flex;align-items:center;gap:1px;flex-shrink:0; }
 
     @media(max-width:480px) {
-      .btn-icon { padding: 5px 6px; font-size: 12px; }
-      .file-row { padding: 10px 11px; gap: 8px; }
-      .icon-circle { width: 32px; height: 32px; font-size: 14px; border-radius: 8px; }
-      .file-name { font-size: 13px; }
-      .folder-card { padding: 11px; }
+      .btn-icon { padding:5px 6px;font-size:12px; }
+      .file-row { padding:10px 11px;gap:8px; }
+      .icon-circle { width:33px;height:33px;font-size:14px; }
+      .file-name { font-size:13px; }
+      .folders-grid { grid-template-columns:repeat(3,1fr);gap:8px; }
+      .folder-emoji { width:40px;height:40px;font-size:22px;border-radius:11px; }
+      .folder-name { font-size:11px; }
     }
 
-    /* Breadcrumb */
-    .breadcrumb { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-    .breadcrumb-btn { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: #64748b; padding: 4px 8px; border-radius: 8px; transition: all .12s; }
-    .breadcrumb-btn:hover { background: #f1f5f9; color: #B5453A; }
-    .breadcrumb-sep { color: #cbd5e1; font-size: 13px; }
+    /* ── Breadcrumb ── */
+    .breadcrumb { display:flex;align-items:center;gap:4px;flex-wrap:wrap; }
+    .breadcrumb-btn { background:none;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:#64748b;padding:4px 8px;border-radius:8px;transition:all .12s; }
+    .breadcrumb-btn:hover { background:#f1f5f9;color:#B5453A; }
+    .breadcrumb-sep { color:#cbd5e1;font-size:13px; }
 
-    /* Search */
-    .search-wrap { position: relative; }
-    .search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 15px; pointer-events: none; }
-    .search-input { width: 100%; padding: 12px 16px 12px 42px; border: 1.5px solid #e2e8f0; border-radius: 14px; font-size: 15px; font-family: inherit; outline: none; background: #fff; transition: border-color .15s; }
-    .search-input:focus { border-color: #B5453A; }
+    /* ── Search ── */
+    .search-wrap { position:relative; }
+    .search-wrap i { position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:15px;pointer-events:none; }
+    .search-input { width:100%;padding:12px 16px 12px 42px;border:1.5px solid #e2e8f0;border-radius:14px;font-size:15px;font-family:inherit;outline:none;background:#fff;transition:border-color .15s; }
+    .search-input:focus { border-color:#B5453A; }
 
-    /* Spinner */
-    .spinner { width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #B5453A; border-radius: 50%; animation: spin .8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ── Admin bar ── */
+    .admin-bar { background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap; }
+    .drop-zone { border:2px dashed #e2e8f0;border-radius:14px;padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;margin-top:10px;background:#fafafa;display:flex;flex-direction:column;align-items:center;gap:7px; }
+    .drop-zone i { font-size:26px;color:#cbd5e1;transition:color .2s; }
+    .drop-zone span { font-size:13px;font-weight:700;color:#94a3b8;transition:color .2s; }
+    .drop-zone small { font-size:11px;color:#cbd5e1; }
+    .drop-zone:hover,.drop-zone.drag-over { border-color:#B5453A;background:#fdf1f0; }
+    .drop-zone:hover i,.drop-zone.drag-over i { color:#B5453A; }
+    .drop-zone:hover span,.drop-zone.drag-over span { color:#B5453A; }
 
-    /* Admin bar */
-    .admin-bar { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .drop-zone { border: 2px dashed #e2e8f0; border-radius: 14px; padding: 22px 16px; text-align: center; cursor: pointer; transition: all .2s; margin-top: 10px; background: #fafafa; display: flex; flex-direction: column; align-items: center; gap: 7px; }
-    .drop-zone i { font-size: 26px; color: #cbd5e1; transition: color .2s; }
-    .drop-zone span { font-size: 13px; font-weight: 700; color: #94a3b8; transition: color .2s; }
-    .drop-zone small { font-size: 11px; color: #cbd5e1; }
-    .drop-zone:hover, .drop-zone.drag-over { border-color: #B5453A; background: #fdf1f0; }
-    .drop-zone:hover i, .drop-zone.drag-over i { color: #B5453A; }
-    .drop-zone:hover span, .drop-zone.drag-over span { color: #B5453A; }
+    /* ── Labels / tags ── */
+    .label-section { font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:8px; }
+    .tag-cartella { font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#f1f5f9;padding:2px 7px;border-radius:5px; }
 
-    /* Labels */
-    .label-section { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-bottom: 8px; }
-    .tag-cartella { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; background: #f1f5f9; padding: 2px 7px; border-radius: 5px; }
+    /* ── Empty state ── */
+    .empty-state { text-align:center;padding:48px 24px;color:#94a3b8; }
+    .empty-state i { font-size:40px;margin-bottom:14px;display:block; }
+    .empty-state p { font-size:15px;font-weight:600;margin:0; }
+    .empty-state small { font-size:13px;color:#cbd5e1; }
 
-    /* Empty state */
-    .empty-state { text-align: center; padding: 48px 24px; color: #94a3b8; }
-    .empty-state i { font-size: 40px; margin-bottom: 14px; display: block; }
-    .empty-state p { font-size: 15px; font-weight: 600; margin: 0; }
-    .empty-state small { font-size: 13px; color: #cbd5e1; }
+    /* ── Spinner ── */
+    .spinner { width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
 
-    /* Toast */
-    #toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-    .toast { padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 700; color: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.18); white-space: nowrap; animation: toast-in .25s ease; pointer-events: auto; }
-    .toast-success { background: #059669; }
-    .toast-error { background: #B5453A; }
-    .toast-info { background: #3b82f6; }
-    @keyframes toast-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    /* ── Toast ── */
+    #toast-container { position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none; }
+    .toast { padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.18);white-space:nowrap;animation:toast-in .25s ease;pointer-events:auto; }
+    .toast-success { background:#059669; }
+    .toast-error   { background:#B5453A; }
+    .toast-info    { background:#3b82f6; }
+    @keyframes toast-in { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
 
-    /* Sposta modal */
-    #sposta-modal { display: none; position: fixed; inset: 0; z-index: 9998; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
-    .sposta-sheet { background: #fff; border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; padding: 20px 20px calc(20px + env(safe-area-inset-bottom,0px)); max-height: 75vh; overflow-y: auto; }
-    .sposta-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; margin-bottom: 6px; transition: all .12s; background: #f8fafc; }
-    .sposta-row:hover { background: #f1f5f9; }
-    .sposta-row.selected { border-color: #B5453A; background: #fdf1f0; }
-    .sposta-row .dest-nome { font-size: 14px; font-weight: 700; color: #1e293b; }
-    .sposta-row .dest-path { font-size: 11px; color: #94a3b8; }
+    /* ── Sposta modal ── */
+    /* usa la classe .open per mostrare — evita conflitti con display:none in CSS */
+    #sposta-modal { visibility:hidden;opacity:0;pointer-events:none;position:fixed;inset:0;z-index:9990;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45);transition:opacity .2s; }
+    #sposta-modal.open { visibility:visible;opacity:1;pointer-events:auto; }
+    .sposta-sheet { background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:600px;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));max-height:72vh;display:flex;flex-direction:column;transform:translateY(16px);transition:transform .2s; }
+    #sposta-modal.open .sposta-sheet { transform:translateY(0); }
+    .sposta-lista { overflow-y:auto;flex:1;margin:0 -4px; }
+    .sposta-row { display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;cursor:pointer;border:2px solid transparent;margin-bottom:6px;transition:all .12s;background:#f8fafc; }
+    .sposta-row:hover { background:#f1f5f9; }
+    .sposta-row.selected { border-color:#B5453A;background:#fdf1f0; }
+    .sposta-row .dest-nome { font-size:14px;font-weight:700;color:#1e293b; }
+    .sposta-row .dest-path { font-size:11px;color:#94a3b8; }
   </style>
 </head>
 <body class="pb-24">
@@ -116,26 +122,26 @@
 
 <main class="max-w-3xl mx-auto p-4">
 
-  <div style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:42px;height:42px;background:#fef9c3;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <i class="fas fa-folder-open" style="color:#ca8a04;font-size:20px"></i>
-      </div>
-      <div>
-        <h1 style="font-size:22px;font-weight:900;color:#1e293b;margin:0;line-height:1.2">Materiali</h1>
-        <p style="font-size:13px;color:#94a3b8;margin:0;font-weight:600">Documenti e risorse condivise</p>
-      </div>
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px">
+    <div style="width:44px;height:44px;background:#fef9c3;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="fas fa-folder-open" style="color:#ca8a04;font-size:20px"></i>
+    </div>
+    <div>
+      <h1 style="font-size:22px;font-weight:900;color:#1e293b;margin:0;line-height:1.2">Materiali</h1>
+      <p style="font-size:13px;color:#94a3b8;margin:0;font-weight:600">Documenti e risorse condivise</p>
     </div>
   </div>
 
-  <div class="search-wrap" style="margin-bottom:16px">
+  <div class="search-wrap" style="margin-bottom:14px">
     <i class="fas fa-magnifying-glass"></i>
-    <input type="text" class="search-input" id="search-input" placeholder="Cerca file per nome…"
-           oninput="onSearch(this.value)" autocomplete="new-password" spellcheck="false"
+    <input type="text" class="search-input" id="search-input"
+           placeholder="Cerca file per nome…"
+           oninput="onSearch(this.value)"
+           autocomplete="new-password" spellcheck="false"
            readonly onfocus="this.removeAttribute('readonly')">
   </div>
 
-  <div id="admin-bar" style="display:none;margin-bottom:16px">
+  <div id="admin-bar" style="display:none;margin-bottom:14px">
     <div class="admin-bar">
       <button class="btn-primary" onclick="nuovaCartella()"><i class="fas fa-folder-plus"></i> Nuova cartella</button>
       <button class="btn-secondary" onclick="caricaFile()"><i class="fas fa-upload"></i> Carica file</button>
@@ -151,16 +157,14 @@
     </div>
   </div>
 
-  <div id="breadcrumb-wrap" style="display:none;margin-bottom:16px">
-    <div class="card" style="padding:10px 16px">
+  <div id="breadcrumb-wrap" style="display:none;margin-bottom:14px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px 16px">
       <div class="breadcrumb" id="breadcrumb"></div>
     </div>
   </div>
 
   <div id="content">
-    <div style="display:flex;justify-content:center;padding:48px 0">
-      <div class="spinner"></div>
-    </div>
+    <div style="display:flex;justify-content:center;padding:48px 0"><div class="spinner"></div></div>
   </div>
 
 </main>
@@ -168,12 +172,15 @@
 <!-- Modal sposta file -->
 <div id="sposta-modal" onclick="if(event.target===this)chiudiSpostaModal()">
   <div class="sposta-sheet">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h3 style="font-size:17px;font-weight:900;color:#1e293b;margin:0">Sposta file in…</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0">
+      <div>
+        <div style="font-size:17px;font-weight:900;color:#1e293b">Sposta file in…</div>
+        <div id="sposta-nome-file" style="font-size:12px;color:#94a3b8;margin-top:2px"></div>
+      </div>
       <button onclick="chiudiSpostaModal()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#94a3b8;padding:0 4px;line-height:1">&times;</button>
     </div>
-    <div id="sposta-lista"></div>
-    <div style="margin-top:14px;display:flex;gap:10px">
+    <div class="sposta-lista" id="sposta-lista"></div>
+    <div style="margin-top:12px;display:flex;gap:10px;flex-shrink:0">
       <button class="btn-secondary" onclick="chiudiSpostaModal()" style="flex:1">Annulla</button>
       <button class="btn-primary" onclick="confermaSposta()" style="flex:1"><i class="fas fa-check"></i> Sposta</button>
     </div>
@@ -188,12 +195,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentCartella = null;
-let breadcrumb = [];
-let _isAdmin = false;
-let searchTimeout = null;
-let _spostaFileId = null;
-let _spostaDestId = '__root__';
+let breadcrumb      = [];
+let _isAdmin        = false;
+let searchTimeout   = null;
+let _spostaFileId   = null;
+let _spostaFileNome = '';
+let _spostaDestId   = '__root__';
 
+/* ─── INIT ─── */
 async function init() {
   const _u = JSON.parse(localStorage.getItem('m361_user') || '{}');
   _isAdmin = (typeof isAdmin === 'function' ? isAdmin() : false) || _u.is_gestore_materiali === true;
@@ -208,98 +217,83 @@ async function render() {
   content.innerHTML = '<div style="display:flex;justify-content:center;padding:48px 0"><div class="spinner"></div></div>';
 
   try {
-    let qCartelle = db.from('materiali_cartelle').select('id, nome, ordine').order('ordine').order('nome');
-    let qFile     = db.from('materiali_file').select('id, nome, storage_path, dimensione, tipo_mime, created_at').order('created_at', { ascending: false });
-    if (currentCartella) {
-      qCartelle = qCartelle.eq('parent_id', currentCartella);
-      qFile     = qFile.eq('cartella_id', currentCartella);
-    } else {
-      qCartelle = qCartelle.is('parent_id', null);
-      qFile     = qFile.is('cartella_id', null);
-    }
-    const [cartelle, file] = await Promise.all([qCartelle, qFile]);
+    let qC = db.from('materiali_cartelle').select('id,nome,ordine').order('ordine').order('nome');
+    let qF = db.from('materiali_file').select('id,nome,storage_path,dimensione,tipo_mime,created_at').order('created_at',{ascending:false});
+    if (currentCartella) { qC = qC.eq('parent_id', currentCartella); qF = qF.eq('cartella_id', currentCartella); }
+    else                 { qC = qC.is('parent_id', null);            qF = qF.is('cartella_id', null); }
 
-    if (cartelle.error || file.error) {
-      const msg = (cartelle.error || file.error).message || 'Errore sconosciuto';
-      content.innerHTML = `<div class="card" style="padding:24px;text-align:center;color:#B5453A">
-        <i class="fas fa-exclamation-circle" style="font-size:28px;margin-bottom:10px;display:block"></i>
-        <p style="font-weight:700;margin:0 0 6px">Tabelle non trovate</p>
-        <small style="color:#94a3b8">Esegui la migration SQL su Supabase.<br>${escHtml(msg)}</small>
+    const [rC, rF] = await Promise.all([qC, qF]);
+    if (rC.error || rF.error) {
+      const msg = (rC.error || rF.error).message;
+      content.innerHTML = errCard('Tabelle non trovate — esegui la migration SQL su Supabase.<br>' + escHtml(msg));
+      return;
+    }
+
+    const cartelleData = rC.data || [];
+    const fileData     = rF.data || [];
+    const conti = await Promise.all(cartelleData.map(c =>
+      db.from('materiali_file').select('id',{count:'exact',head:true}).eq('cartella_id', c.id)
+    ));
+
+    if (!cartelleData.length && !fileData.length) {
+      content.innerHTML = `<div class="empty-state" style="background:#fff;border:1px solid #e2e8f0;border-radius:18px">
+        <i class="fas fa-folder-open" style="color:#e2e8f0"></i>
+        <p>Cartella vuota</p>
+        <small>${_isAdmin ? 'Crea una cartella o carica un file' : 'Nessun documento disponibile'}</small>
       </div>`;
       return;
     }
 
-    const cartelleData = cartelle.data || [];
-    const fileData     = file.data || [];
-
-    const conteggioResults = await Promise.all(
-      cartelleData.map(c => db.from('materiali_file').select('id', { count: 'exact', head: true }).eq('cartella_id', c.id))
-    );
-
     let html = '';
 
-    if (cartelleData.length === 0 && fileData.length === 0) {
-      html = `<div class="card empty-state">
-        <i class="fas fa-folder-open" style="color:#e2e8f0"></i>
-        <p>Questa cartella è vuota</p>
-        <small>${_isAdmin ? 'Crea una cartella o carica un file con i bottoni in alto' : 'Nessun documento disponibile'}</small>
-      </div>`;
-    } else {
-      if (cartelleData.length > 0) {
-        html += `<div class="label-section">Cartelle</div><div class="folders-grid">`;
-        cartelleData.forEach((c, idx) => {
-          const cnt = conteggioResults[idx]?.count ?? 0;
-          const adminBtns = _isAdmin
-            ? `<div class="folder-actions" onclick="event.stopPropagation()">
-                 <button class="btn-icon" onclick="rinominaCartella('${c.id}','${escJs(c.nome)}')" title="Rinomina"><i class="fas fa-pen"></i></button>
-                 <button class="btn-icon" onclick="eliminaCartella('${c.id}','${escJs(c.nome)}')" title="Elimina"><i class="fas fa-trash"></i></button>
-               </div>`
-            : '';
-          html += `<div class="folder-card" onclick="navigaIn({id:'${c.id}',nome:'${escJs(c.nome)}'})">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px">
-              <div style="display:flex;align-items:center;gap:8px;min-width:0">
-                <span style="font-size:22px;flex-shrink:0">📁</span>
-                <span class="folder-name">${escHtml(c.nome)}</span>
-              </div>
-              ${adminBtns}
-            </div>
-            <span class="folder-count">${cnt} file</span>
-          </div>`;
-        });
-        html += `</div>`;
-      }
+    /* Cartelle */
+    if (cartelleData.length) {
+      html += `<div class="label-section">Cartelle</div><div class="folders-grid">`;
+      cartelleData.forEach((c, i) => {
+        const cnt  = conti[i]?.count ?? 0;
+        const foot = _isAdmin
+          ? `<div class="folder-footer" onclick="event.stopPropagation()">
+               <button class="btn-icon" onclick="rinominaCartella('${c.id}','${escJs(c.nome)}')" title="Rinomina"><i class="fas fa-pen"></i></button>
+               <button class="btn-icon" onclick="eliminaCartella('${c.id}','${escJs(c.nome)}')" title="Elimina"><i class="fas fa-trash"></i></button>
+             </div>`
+          : '';
+        html += `<div class="folder-card" onclick="navigaIn({id:'${c.id}',nome:'${escJs(c.nome)}'})">
+          <div class="folder-card-body">
+            <div class="folder-emoji">📁</div>
+            <div class="folder-name">${escHtml(c.nome)}</div>
+            <div class="folder-count">${cnt} file</div>
+          </div>
+          ${foot}
+        </div>`;
+      });
+      html += `</div>`;
+    }
 
-      if (fileData.length > 0) {
-        html += `<div class="label-section">File</div><div style="display:flex;flex-direction:column;gap:7px">`;
-        fileData.forEach(f => {
-          html += fileRowHtml(f, null);
-        });
-        html += `</div>`;
-      }
+    /* File */
+    if (fileData.length) {
+      html += `<div class="label-section">File</div><div style="display:flex;flex-direction:column;gap:7px">`;
+      fileData.forEach(f => { html += fileRowHtml(f, null); });
+      html += `</div>`;
     }
 
     content.innerHTML = html;
   } catch (err) {
-    content.innerHTML = `<div class="card" style="padding:24px;text-align:center;color:#B5453A">
-      <i class="fas fa-exclamation-circle" style="font-size:28px;margin-bottom:10px;display:block"></i>
-      <p style="font-weight:700;margin:0">Errore nel caricamento</p>
-      <small style="color:#94a3b8">${escHtml(err.message)}</small>
-    </div>`;
+    content.innerHTML = errCard(escHtml(err.message));
   }
 }
 
-/* ─── FILE ROW HTML (riusato in render e cerca) ─── */
+/* ─── FILE ROW (condiviso tra render e cerca) ─── */
 function fileRowHtml(f, nomeCartella) {
   const { bg, color, icon } = iconaFile(f.tipo_mime);
   const url  = `${SUPABASE_URL}/storage/v1/object/public/materiali/${f.storage_path}`;
-  const data = f.created_at ? new Date(f.created_at).toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' }) : '';
+  const data = f.created_at ? new Date(f.created_at).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'}) : '';
   const dim  = f.dimensione ? formatDim(f.dimensione) : '';
   const meta = nomeCartella
-    ? `<span class="tag-cartella">${escHtml(nomeCartella)}</span>${dim ? ' · ' + dim : ''}`
-    : [data, dim].filter(Boolean).join(' · ');
+    ? `<span class="tag-cartella">${escHtml(nomeCartella)}</span>${dim ? ' · '+dim : ''}`
+    : [data,dim].filter(Boolean).join(' · ');
 
-  const adminBtns = _isAdmin
-    ? `<button class="btn-icon" onclick="apriSpostaModal('${f.id}')" title="Sposta"><i class="fas fa-folder-arrow-down"></i></button>
+  const adm = _isAdmin
+    ? `<button class="btn-icon" onclick="apriSpostaModal('${f.id}','${escJs(f.nome)}')" title="Sposta"><i class="fas fa-folder-arrow-down"></i></button>
        <button class="btn-icon" onclick="rinominaFile('${f.id}','${escJs(f.nome)}')" title="Rinomina"><i class="fas fa-pen"></i></button>
        <button class="btn-icon" onclick="eliminaFile('${f.id}','${escJs(f.storage_path)}')" title="Elimina"><i class="fas fa-trash"></i></button>`
     : '';
@@ -311,8 +305,8 @@ function fileRowHtml(f, nomeCartella) {
       <div class="file-meta">${meta}</div>
     </div>
     <div class="file-actions">
-      <a href="${url}" target="_blank" class="btn-icon btn-icon-dl" title="Scarica / Apri"><i class="fas fa-download"></i></a>
-      ${adminBtns}
+      <a href="${url}" target="_blank" class="btn-icon btn-icon-dl" title="Scarica"><i class="fas fa-download"></i></a>
+      ${adm}
     </div>
   </div>`;
 }
@@ -323,34 +317,25 @@ async function navigaIn(cartella) {
   breadcrumb.push(cartella);
   await render();
 }
-
 async function navigaA(idx) {
-  if (idx < 0) {
-    currentCartella = null;
-    breadcrumb = [];
-  } else {
-    breadcrumb = breadcrumb.slice(0, idx + 1);
-    currentCartella = breadcrumb[idx].id;
-  }
+  if (idx < 0) { currentCartella = null; breadcrumb = []; }
+  else { breadcrumb = breadcrumb.slice(0, idx+1); currentCartella = breadcrumb[idx].id; }
   await render();
 }
-
 function renderBreadcrumb() {
   const bc = document.getElementById('breadcrumb');
   if (!bc) return;
   const show = breadcrumb.length > 0;
   document.getElementById('breadcrumb-wrap').style.display = show ? 'block' : 'none';
   if (!show) return;
-  let html = `<button class="breadcrumb-btn" onclick="navigaA(-1)"><i class="fas fa-house" style="font-size:12px"></i> Root</button>`;
-  breadcrumb.forEach((c, i) => {
-    html += `<span class="breadcrumb-sep">/</span>`;
-    if (i === breadcrumb.length - 1) {
-      html += `<span style="font-size:13px;font-weight:800;color:#1e293b;padding:4px 8px">${escHtml(c.nome)}</span>`;
-    } else {
-      html += `<button class="breadcrumb-btn" onclick="navigaA(${i})">${escHtml(c.nome)}</button>`;
-    }
+  let h = `<button class="breadcrumb-btn" onclick="navigaA(-1)"><i class="fas fa-house" style="font-size:11px"></i> Root</button>`;
+  breadcrumb.forEach((c,i) => {
+    h += `<span class="breadcrumb-sep">/</span>`;
+    h += i === breadcrumb.length-1
+      ? `<span style="font-size:13px;font-weight:800;color:#1e293b;padding:4px 8px">${escHtml(c.nome)}</span>`
+      : `<button class="breadcrumb-btn" onclick="navigaA(${i})">${escHtml(c.nome)}</button>`;
   });
-  bc.innerHTML = html;
+  bc.innerHTML = h;
 }
 
 /* ─── RICERCA ─── */
@@ -359,221 +344,212 @@ function onSearch(q) {
   if (!q.trim()) { render(); return; }
   searchTimeout = setTimeout(() => cercaFile(q.trim()), 300);
 }
-
 async function cercaFile(q) {
   const content = document.getElementById('content');
   content.innerHTML = '<div style="display:flex;justify-content:center;padding:48px 0"><div class="spinner"></div></div>';
   try {
     const { data: file, error } = await db
       .from('materiali_file')
-      .select('id, nome, storage_path, dimensione, tipo_mime, created_at, cartella_id')
-      .ilike('nome', `%${q}%`)
-      .order('nome')
-      .limit(50);
+      .select('id,nome,storage_path,dimensione,tipo_mime,created_at,cartella_id')
+      .ilike('nome', `%${q}%`).order('nome').limit(50);
     if (error) throw error;
 
-    const cartellaIds = [...new Set((file || []).filter(f => f.cartella_id).map(f => f.cartella_id))];
-    let cartellaMap = {};
-    if (cartellaIds.length > 0) {
-      const { data: cartelle } = await db.from('materiali_cartelle').select('id, nome').in('id', cartellaIds);
-      (cartelle || []).forEach(c => { cartellaMap[c.id] = c.nome; });
+    const ids = [...new Set((file||[]).filter(f=>f.cartella_id).map(f=>f.cartella_id))];
+    let cMap = {};
+    if (ids.length) {
+      const {data:cc} = await db.from('materiali_cartelle').select('id,nome').in('id',ids);
+      (cc||[]).forEach(c => { cMap[c.id]=c.nome; });
     }
-
-    if (!file || file.length === 0) {
-      content.innerHTML = `<div class="card empty-state">
+    if (!file?.length) {
+      content.innerHTML = `<div class="empty-state" style="background:#fff;border:1px solid #e2e8f0;border-radius:18px">
         <i class="fas fa-magnifying-glass" style="color:#e2e8f0"></i>
-        <p>Nessun file trovato per "<strong>${escHtml(q)}</strong>"</p>
+        <p>Nessun file per "<strong>${escHtml(q)}</strong>"</p>
       </div>`;
       return;
     }
-
-    let html = `<div class="label-section">Risultati ricerca (${file.length})</div><div style="display:flex;flex-direction:column;gap:7px">`;
-    file.forEach(f => {
-      const nomeCartella = f.cartella_id ? (cartellaMap[f.cartella_id] || 'Cartella') : 'Root';
-      html += fileRowHtml(f, nomeCartella);
-    });
-    html += `</div>`;
-    content.innerHTML = html;
-  } catch (err) {
-    content.innerHTML = `<div class="card" style="padding:24px;text-align:center;color:#B5453A">
-      <i class="fas fa-exclamation-circle" style="font-size:28px;margin-bottom:10px;display:block"></i>
-      <p style="font-weight:700;margin:0">Errore nella ricerca</p>
-    </div>`;
+    let html = `<div class="label-section">Risultati (${file.length})</div><div style="display:flex;flex-direction:column;gap:7px">`;
+    file.forEach(f => { html += fileRowHtml(f, f.cartella_id ? (cMap[f.cartella_id]||'Cartella') : 'Root'); });
+    content.innerHTML = html + `</div>`;
+  } catch(err) {
+    content.innerHTML = errCard(escHtml(err.message));
   }
 }
 
 /* ─── CARTELLE ─── */
 async function nuovaCartella() {
   const nome = prompt('Nome della nuova cartella:');
-  if (!nome || !nome.trim()) return;
-  const { error } = await db.from('materiali_cartelle').insert({ nome: nome.trim(), parent_id: currentCartella || null, ordine: 0 });
-  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
-  showToast('Cartella creata', 'success');
+  if (!nome?.trim()) return;
+  const {error} = await db.from('materiali_cartelle').insert({nome:nome.trim(),parent_id:currentCartella||null,ordine:0});
+  if (error) { showToast('Errore: '+error.message,'error'); return; }
+  showToast('Cartella creata','success');
   await render();
 }
-
 async function rinominaCartella(id, nomeAttuale) {
-  const nuovoNome = prompt('Nuovo nome cartella:', nomeAttuale);
-  if (!nuovoNome || !nuovoNome.trim() || nuovoNome.trim() === nomeAttuale) return;
-  const { error } = await db.from('materiali_cartelle').update({ nome: nuovoNome.trim() }).eq('id', id);
-  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
-  showToast('Cartella rinominata', 'success');
+  const n = prompt('Nuovo nome:', nomeAttuale);
+  if (!n?.trim() || n.trim()===nomeAttuale) return;
+  const {error} = await db.from('materiali_cartelle').update({nome:n.trim()}).eq('id',id);
+  if (error) { showToast('Errore: '+error.message,'error'); return; }
+  showToast('Cartella rinominata','success');
   await render();
 }
-
 async function eliminaCartella(id, nome) {
-  if (!confirm(`Eliminare la cartella "${nome}"?\nTutti i file al suo interno diventeranno senza cartella.`)) return;
-  const { error } = await db.from('materiali_cartelle').delete().eq('id', id);
-  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
-  showToast('Cartella eliminata', 'success');
+  if (!confirm(`Eliminare la cartella "${nome}"?\nI file al suo interno diventeranno senza cartella.`)) return;
+  const {error} = await db.from('materiali_cartelle').delete().eq('id',id);
+  if (error) { showToast('Errore: '+error.message,'error'); return; }
+  showToast('Cartella eliminata','success');
   await render();
 }
 
 /* ─── FILE ─── */
 async function uploadFiles(files) {
   if (!files.length) return;
-  showToast(`Caricamento di ${files.length} file…`, 'info');
-  const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
-  let ok = 0, err = 0;
+  showToast(`Caricamento di ${files.length} file…`,'info');
+  const user = JSON.parse(localStorage.getItem('m361_user')||'{}');
+  let ok=0, err=0;
   for (const file of files) {
-    const uuid = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const safeName = file.name.replace(/[^a-zA-Z0-9._\-À-ÿ]/g, '_');
-    const path = `${uuid}_${safeName}`;
-    const { error: upErr } = await db.storage.from('materiali').upload(path, file, { upsert: false });
+    const uuid = crypto.randomUUID?.() ?? (Date.now().toString(36)+Math.random().toString(36).slice(2));
+    const safe = file.name.replace(/[^a-zA-Z0-9._\-À-ÿ]/g,'_');
+    const path = `${uuid}_${safe}`;
+    const {error:upErr} = await db.storage.from('materiali').upload(path, file, {upsert:false});
     if (upErr) { err++; continue; }
-    const { error: dbErr } = await db.from('materiali_file').insert({
-      cartella_id: currentCartella || null,
-      nome: file.name,
-      storage_path: path,
-      dimensione: file.size,
-      tipo_mime: file.type || null,
-      created_by: user.nome || null
+    const {error:dbErr} = await db.from('materiali_file').insert({
+      cartella_id: currentCartella||null, nome:file.name,
+      storage_path:path, dimensione:file.size,
+      tipo_mime:file.type||null, created_by:user.nome||null
     });
-    if (dbErr) { await db.storage.from('materiali').remove([path]); err++; } else { ok++; }
+    if (dbErr) { await db.storage.from('materiali').remove([path]); err++; } else ok++;
   }
-  if (ok > 0) showToast(`${ok} file caricato${ok !== 1 ? 'i' : ''} con successo`, 'success');
-  if (err > 0) showToast(`${err} file non caricato${err !== 1 ? 'i' : ''} per errore`, 'error');
+  if (ok)  showToast(`${ok} file caricato${ok!==1?'i':''} con successo`,'success');
+  if (err) showToast(`${err} file non caricato${err!==1?'i':''}`,'error');
   await render();
 }
-
 function caricaFile() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  input.onchange = () => uploadFiles(Array.from(input.files || []));
-  input.click();
+  const i = document.createElement('input');
+  i.type='file'; i.multiple=true;
+  i.onchange = () => uploadFiles(Array.from(i.files||[]));
+  i.click();
 }
-
-function onDragOver(e) { e.preventDefault(); e.stopPropagation(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function onDragOver(e)  { e.preventDefault(); e.stopPropagation(); document.getElementById('drop-zone').classList.add('drag-over'); }
 function onDragLeave(e) { e.stopPropagation(); document.getElementById('drop-zone').classList.remove('drag-over'); }
 function onDrop(e) {
   e.preventDefault(); e.stopPropagation();
   document.getElementById('drop-zone').classList.remove('drag-over');
-  const files = Array.from(e.dataTransfer.files || []);
+  const files = Array.from(e.dataTransfer.files||[]);
   if (files.length) uploadFiles(files);
 }
-
 async function rinominaFile(id, nomeAttuale) {
-  const nuovoNome = prompt('Nuovo nome del file:', nomeAttuale);
-  if (!nuovoNome || !nuovoNome.trim() || nuovoNome.trim() === nomeAttuale) return;
-  const { error } = await db.from('materiali_file').update({ nome: nuovoNome.trim() }).eq('id', id);
-  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
-  showToast('File rinominato', 'success');
+  const n = prompt('Nuovo nome:', nomeAttuale);
+  if (!n?.trim() || n.trim()===nomeAttuale) return;
+  const {error} = await db.from('materiali_file').update({nome:n.trim()}).eq('id',id);
+  if (error) { showToast('Errore: '+error.message,'error'); return; }
+  showToast('File rinominato','success');
   await render();
 }
-
 async function eliminaFile(id, storagePath) {
   if (!confirm('Eliminare questo file definitivamente?')) return;
-  const { error: stErr } = await db.storage.from('materiali').remove([storagePath]);
-  if (stErr) { showToast('Errore storage: ' + stErr.message, 'error'); return; }
-  const { error: dbErr } = await db.from('materiali_file').delete().eq('id', id);
-  if (dbErr) { showToast('Errore DB: ' + dbErr.message, 'error'); return; }
-  showToast('File eliminato', 'success');
+  await db.storage.from('materiali').remove([storagePath]);
+  const {error} = await db.from('materiali_file').delete().eq('id',id);
+  if (error) { showToast('Errore DB: '+error.message,'error'); return; }
+  showToast('File eliminato','success');
   await render();
 }
 
 /* ─── SPOSTA FILE ─── */
-async function apriSpostaModal(fileId) {
-  _spostaFileId = fileId;
-  _spostaDestId = '__root__';
+async function apriSpostaModal(fileId, fileNome) {
+  _spostaFileId   = fileId;
+  _spostaFileNome = fileNome;
+  _spostaDestId   = '__root__';
 
-  const { data: cartelle } = await db.from('materiali_cartelle').select('id, nome, parent_id').order('nome');
-  const lista = document.getElementById('sposta-lista');
+  document.getElementById('sposta-nome-file').textContent = fileNome;
 
-  let html = `<div class="sposta-row selected" id="sposta-row-__root__" onclick="selezionaDest('__root__')">
+  const {data:cartelle} = await db.from('materiali_cartelle').select('id,nome,parent_id').order('nome');
+  const all = cartelle || [];
+  const nomeMap = {};
+  all.forEach(c => { nomeMap[c.id] = c.nome; });
+
+  let html = `<div class="sposta-row selected" id="srow-__root__" onclick="selezionaDest('__root__')">
     <span style="font-size:20px">🏠</span>
     <div><div class="dest-nome">Root</div><div class="dest-path">Nessuna cartella</div></div>
   </div>`;
-
-  (cartelle || []).forEach(c => {
-    const parent = c.parent_id ? (cartelle.find(x => x.id === c.parent_id)?.nome || '') : '';
-    const path = parent ? `${parent} / ${c.nome}` : c.nome;
-    html += `<div class="sposta-row" id="sposta-row-${c.id}" onclick="selezionaDest('${c.id}')">
+  all.forEach(c => {
+    const parentNome = c.parent_id ? nomeMap[c.parent_id] : null;
+    html += `<div class="sposta-row" id="srow-${c.id}" onclick="selezionaDest('${c.id}')">
       <span style="font-size:20px">📁</span>
-      <div><div class="dest-nome">${escHtml(c.nome)}</div>${parent ? `<div class="dest-path">${escHtml(path)}</div>` : ''}</div>
+      <div>
+        <div class="dest-nome">${escHtml(c.nome)}</div>
+        ${parentNome ? `<div class="dest-path">in ${escHtml(parentNome)}</div>` : ''}
+      </div>
     </div>`;
   });
 
-  lista.innerHTML = html;
-  document.getElementById('sposta-modal').style.display = 'flex';
+  document.getElementById('sposta-lista').innerHTML = html;
+  document.getElementById('sposta-modal').classList.add('open');
 }
-
 function selezionaDest(id) {
   _spostaDestId = id;
   document.querySelectorAll('.sposta-row').forEach(r => r.classList.remove('selected'));
-  const row = document.getElementById(`sposta-row-${id}`);
+  const row = document.getElementById(`srow-${id}`);
   if (row) row.classList.add('selected');
 }
-
 function chiudiSpostaModal() {
-  document.getElementById('sposta-modal').style.display = 'none';
+  document.getElementById('sposta-modal').classList.remove('open');
   _spostaFileId = null;
-  _spostaDestId = '__root__';
 }
-
 async function confermaSposta() {
   if (!_spostaFileId) return;
   const cartId = _spostaDestId === '__root__' ? null : _spostaDestId;
-  const { error } = await db.from('materiali_file').update({ cartella_id: cartId }).eq('id', _spostaFileId);
-  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+  const {data, error} = await db
+    .from('materiali_file')
+    .update({cartella_id: cartId})
+    .eq('id', _spostaFileId)
+    .select('id');
+  if (error) { showToast('Errore: '+error.message,'error'); return; }
+  if (!data?.length) {
+    showToast('Nessuna modifica — controlla i permessi Supabase','error');
+    return;
+  }
   chiudiSpostaModal();
-  showToast('File spostato', 'success');
+  showToast('File spostato','success');
   await render();
 }
 
 /* ─── UTILITY ─── */
-function formatDim(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
+function errCard(msg) {
+  return `<div style="background:#fff;border:1px solid #fecaca;border-radius:18px;padding:24px;text-align:center;color:#B5453A">
+    <i class="fas fa-exclamation-circle" style="font-size:28px;margin-bottom:10px;display:block"></i>
+    <p style="font-weight:700;margin:0 0 6px">Errore</p>
+    <small style="color:#94a3b8">${msg}</small>
+  </div>`;
 }
-
+function formatDim(b) {
+  if (!b) return '';
+  if (b<1024) return b+' B';
+  if (b<1048576) return (b/1024).toFixed(1)+' KB';
+  return (b/1048576).toFixed(1)+' MB';
+}
 function iconaFile(mime) {
-  if (!mime) return { bg: '#f1f5f9', color: '#64748b', icon: 'fa-file' };
-  if (mime === 'application/pdf') return { bg: '#fdf1f0', color: '#B5453A', icon: 'fa-file-pdf' };
-  if (mime.includes('word') || mime.includes('document')) return { bg: '#eff6ff', color: '#2563eb', icon: 'fa-file-word' };
-  if (mime.includes('excel') || mime.includes('spreadsheet') || mime.includes('csv')) return { bg: '#f0fdf4', color: '#16a34a', icon: 'fa-file-excel' };
-  if (mime.startsWith('image/')) return { bg: '#faf5ff', color: '#9333ea', icon: 'fa-file-image' };
-  if (mime.includes('powerpoint') || mime.includes('presentation')) return { bg: '#fff7ed', color: '#ea580c', icon: 'fa-file-powerpoint' };
-  if (mime.startsWith('text/')) return { bg: '#f8fafc', color: '#64748b', icon: 'fa-file-lines' };
-  if (mime.includes('zip') || mime.includes('rar') || mime.includes('compressed')) return { bg: '#fefce8', color: '#ca8a04', icon: 'fa-file-zipper' };
-  return { bg: '#f1f5f9', color: '#64748b', icon: 'fa-file' };
+  if (!mime) return {bg:'#f1f5f9',color:'#64748b',icon:'fa-file'};
+  if (mime==='application/pdf')               return {bg:'#fdf1f0',color:'#B5453A',icon:'fa-file-pdf'};
+  if (mime.includes('word')||mime.includes('document'))    return {bg:'#eff6ff',color:'#2563eb',icon:'fa-file-word'};
+  if (mime.includes('excel')||mime.includes('spreadsheet')||mime.includes('csv')) return {bg:'#f0fdf4',color:'#16a34a',icon:'fa-file-excel'};
+  if (mime.startsWith('image/'))              return {bg:'#faf5ff',color:'#9333ea',icon:'fa-file-image'};
+  if (mime.includes('powerpoint')||mime.includes('presentation')) return {bg:'#fff7ed',color:'#ea580c',icon:'fa-file-powerpoint'};
+  if (mime.startsWith('text/'))              return {bg:'#f8fafc',color:'#64748b',icon:'fa-file-lines'};
+  if (mime.includes('zip')||mime.includes('rar')||mime.includes('compressed')) return {bg:'#fefce8',color:'#ca8a04',icon:'fa-file-zipper'};
+  return {bg:'#f1f5f9',color:'#64748b',icon:'fa-file'};
 }
-
 function showToast(msg, tipo) {
-  const container = document.getElementById('toast-container');
+  const c = document.getElementById('toast-container');
   const t = document.createElement('div');
-  t.className = `toast toast-${tipo === 'success' ? 'success' : tipo === 'error' ? 'error' : 'info'}`;
+  t.className = `toast toast-${tipo==='success'?'success':tipo==='error'?'error':'info'}`;
   t.textContent = msg;
-  container.appendChild(t);
-  setTimeout(() => { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3200);
+  c.appendChild(t);
+  setTimeout(() => { t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 3200);
 }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJs(s)   { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
-function escHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function escJs(s)   { return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
-
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
 else init();
 </script>
 </body>
