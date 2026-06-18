@@ -720,6 +720,9 @@
             row.querySelector('.emp-q-input').addEventListener('input', () => calcRow(rowId, groupId));
             row.querySelector('.altri-q-input').addEventListener('input', () => calcRow(rowId, groupId));
             row.querySelector('.delete-row-btn').addEventListener('click', () => removeRow(rowId, groupId));
+            row.querySelector('.forn-input').addEventListener('click', function(e) { e.stopPropagation(); _showQtyTooltip(this, row.querySelector('.forn-at-input')?.value, 'Fornitore'); });
+            row.querySelector('.emp-q-input').addEventListener('click', function(e) { e.stopPropagation(); _showQtyTooltip(this, row.querySelector('.emp-at-input')?.value, 'Empori'); });
+            row.querySelector('.altri-q-input').addEventListener('click', function(e) { e.stopPropagation(); _showQtyTooltip(this, row.querySelector('.altri-at-input')?.value, 'Altri'); });
             
             calcRow(rowId, groupId);
         }
@@ -1399,11 +1402,33 @@
             document.getElementById('orderForm').addEventListener('input', () => { modificheNonSalvate = true; }, true);
             document.getElementById('orderForm').addEventListener('change', () => { modificheNonSalvate = true; }, true);
 
+            document.addEventListener('click', () => { const t = document.getElementById('qty-tooltip'); if (t) t.style.display = 'none'; });
+
             loadOrderData();
         });
     </script>
 
     <script src="../../scripts/auth.js"></script>
     <script src="../../scripts/nav-script.js"></script>
+
+    <div id="qty-tooltip" style="display:none;position:fixed;z-index:9999;background:#1e293b;color:#f8fafc;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.25);white-space:nowrap"></div>
+    <script>
+        function _fmtAt(iso) {
+            if (!iso) return null;
+            const d = new Date(iso);
+            return d.toLocaleDateString('it-IT', {day:'2-digit',month:'short',year:'numeric'}) + ' alle ' + d.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+        }
+        function _showQtyTooltip(input, atValue, label) {
+            const tooltip = document.getElementById('qty-tooltip');
+            const fmt = _fmtAt(atValue);
+            if (!fmt) { tooltip.style.display = 'none'; return; }
+            tooltip.textContent = label + ' — ordinato il ' + fmt;
+            tooltip.style.display = 'block';
+            const rect = input.getBoundingClientRect();
+            const left = Math.min(rect.left, window.innerWidth - tooltip.offsetWidth - 8);
+            tooltip.style.top  = (rect.bottom + 6) + 'px';
+            tooltip.style.left = Math.max(8, left) + 'px';
+        }
+    </script>
 </body>
 </html>
