@@ -93,7 +93,7 @@
 
   <div class="search-wrap" style="margin-bottom:16px">
     <i class="fas fa-magnifying-glass"></i>
-    <input type="text" class="search-input" id="search-input" placeholder="Cerca file per nome…" oninput="onSearch(this.value)" autocomplete="nope" spellcheck="false">
+    <input type="text" class="search-input" id="search-input" placeholder="Cerca file per nome…" oninput="onSearch(this.value)" autocomplete="new-password" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')">
   </div>
 
   <div id="admin-bar" style="display:none;margin-bottom:16px">
@@ -126,14 +126,13 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentCartella = null;
 let breadcrumb = [];
-let isAdmin = false;
+let _isAdmin = false;
 let searchTimeout = null;
 
 async function init() {
-  const _u = JSON.parse(localStorage.getItem('m361_user') || '{}');
-  isAdmin = sessionStorage.getItem('ruolo') === 'admin' || _u.email === 'e.mazzolari@meridiano361.it';
-  document.getElementById('search-input').value = '';
-  if (isAdmin) document.getElementById('admin-bar').style.display = 'block';
+  // isAdmin() è definita in auth.js — non usare lo stesso nome come variabile
+  _isAdmin = typeof isAdmin === 'function' ? isAdmin() : false;
+  if (_isAdmin) document.getElementById('admin-bar').style.display = 'block';
   await render();
 }
 
@@ -154,6 +153,16 @@ async function render() {
     }
     const [cartelle, file] = await Promise.all([qCartelle, qFile]);
 
+    if (cartelle.error || file.error) {
+      const msg = (cartelle.error || file.error).message || 'Errore sconosciuto';
+      content.innerHTML = `<div class="card" style="padding:24px;text-align:center;color:#B5453A">
+        <i class="fas fa-exclamation-circle" style="font-size:28px;margin-bottom:10px;display:block"></i>
+        <p style="font-weight:700;margin:0 0 6px">Tabelle non trovate</p>
+        <small style="color:#94a3b8">Esegui la migration SQL su Supabase per creare le tabelle materiali.<br>${escHtml(msg)}</small>
+      </div>`;
+      return;
+    }
+
     const cartelleData = cartelle.data || [];
     const fileData = file.data || [];
 
@@ -168,7 +177,7 @@ async function render() {
       html = `<div class="card empty-state">
         <i class="fas fa-folder-open" style="color:#e2e8f0"></i>
         <p>Questa cartella è vuota</p>
-        <small>${isAdmin ? 'Crea una cartella o carica un file con i bottoni in alto' : 'Nessun documento disponibile'}</small>
+        <small>${_isAdmin ? 'Crea una cartella o carica un file con i bottoni in alto' : 'Nessun documento disponibile'}</small>
       </div>`;
     } else {
       if (cartelleData.length > 0) {
@@ -176,7 +185,7 @@ async function render() {
         html += `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px" class="folders-grid">`;
         cartelleData.forEach((c, idx) => {
           const cnt = conteggioResults[idx]?.count ?? 0;
-          const deleteBtnHtml = isAdmin
+          const deleteBtnHtml = _isAdmin
             ? `<button class="btn-icon" onclick="event.stopPropagation();eliminaCartella('${c.id}','${escJs(c.nome)}')" title="Elimina cartella"><i class="fas fa-trash"></i></button>`
             : '';
           html += `<div class="folder-card" onclick="navigaIn({id:'${c.id}',nome:'${escJs(c.nome)}'})">
@@ -201,7 +210,7 @@ async function render() {
           const url = `${SUPABASE_URL}/storage/v1/object/public/materiali/${f.storage_path}`;
           const data = f.created_at ? new Date(f.created_at).toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' }) : '';
           const dim = f.dimensione ? formatDim(f.dimensione) : '';
-          const deleteBtnHtml = isAdmin
+          const deleteBtnHtml = _isAdmin
             ? `<button class="btn-icon" onclick="eliminaFile('${f.id}','${escJs(f.storage_path)}')" title="Elimina file"><i class="fas fa-trash"></i></button>`
             : '';
           html += `<div class="file-row">
@@ -323,7 +332,7 @@ async function cercaFile(q) {
       const url = `${SUPABASE_URL}/storage/v1/object/public/materiali/${f.storage_path}`;
       const nomeCartella = f.cartella_id ? (cartellaMap[f.cartella_id] || 'Cartella') : 'Root';
       const dim = f.dimensione ? formatDim(f.dimensione) : '';
-      const deleteBtnHtml = isAdmin
+      const deleteBtnHtml = _isAdmin
         ? `<button class="btn-icon" onclick="eliminaFile('${f.id}','${escJs(f.storage_path)}')" title="Elimina file"><i class="fas fa-trash"></i></button>`
         : '';
       html += `<div class="file-row">
