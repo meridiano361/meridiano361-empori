@@ -1228,51 +1228,67 @@ function buildNav() {
         if (sub) {
           await _upsertSubscription(user, sub);
         } else {
-          // Subscription persa ma permesso granted: mostra banner
-          if (!sessionStorage.getItem('m361_push_banner_shown')) {
-            sessionStorage.setItem('m361_push_banner_shown', '1');
-            _showPushBanner(user);
+          // Subscription persa ma permesso granted: riattiva automaticamente (una volta per sessione)
+          if (!sessionStorage.getItem('m361_push_autotried')) {
+            sessionStorage.setItem('m361_push_autotried', '1');
+            const err = await _pushSubscribe(user);
+            if (err) _showPushBanner(user, err);
           }
         }
       } catch (_) {}
     } else if (Notification.permission === 'default') {
-      if (!sessionStorage.getItem('m361_push_banner_shown')) {
-        sessionStorage.setItem('m361_push_banner_shown', '1');
-        _showPushBanner(user);
+      // Richiesta automatica al primo accesso della sessione — nessun banner intermedio
+      if (!sessionStorage.getItem('m361_push_autotried')) {
+        sessionStorage.setItem('m361_push_autotried', '1');
+        const err = await _pushSubscribe(user);
+        // Mostra banner solo se c'è un errore reale (es. iOS non standalone)
+        // "Permesso negato" non mostra nulla: l'utente ha scelto consapevolmente
+        if (err && !err.startsWith('Permesso negato')) _showPushBanner(user, err);
       }
     }
+    // permission === 'denied': l'utente ha bloccato — non disturbare
   }
 
-  function _showPushBanner(user) {
+  function _showPushBanner(user, errMsg) {
     if (document.getElementById('m361-push-banner')) return;
     const banner = document.createElement('div');
     banner.id = 'm361-push-banner';
     banner.style.cssText =
-      'background:#1e293b;color:#fff;padding:12px 20px;font-size:14px;' +
+      'background:#1e293b;color:#fff;padding:12px 20px;font-size:13px;' +
       'display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:56px;z-index:8997;';
-    banner.innerHTML =
-      '<span style="flex:1;min-width:180px">🔔 Vuoi ricevere notifiche?</span>' +
-      '<button id="m361-push-yes" style="background:#B5453A;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Sì</button>' +
-      '<button id="m361-push-no" style="background:transparent;color:#94a3b8;border:none;padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit">No</button>';
     const anchor = document.getElementById('m361-readonly-banner') || document.getElementById('m361-header');
-    document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
-    document.getElementById('m361-push-yes').onclick = async () => {
-      const yesBtn = document.getElementById('m361-push-yes');
-      const noBtn  = document.getElementById('m361-push-no');
-      if (yesBtn) { yesBtn.textContent = '…'; yesBtn.disabled = true; }
-      if (noBtn)  noBtn.disabled = true;
-      const err = await _pushSubscribe(user);
-      if (err) {
-        banner.style.flexWrap = 'wrap';
-        banner.innerHTML =
-          `<span style="flex:1;min-width:180px;font-size:13px;line-height:1.5">⚠️ ${_escHtml(err)}</span>` +
-          `<button id="m361-push-banner-close" style="background:transparent;color:#94a3b8;border:none;padding:7px 12px;font-size:16px;cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>`;
-        document.getElementById('m361-push-banner-close')?.addEventListener('click', () => banner.remove());
-      } else {
-        banner.remove();
-      }
-    };
-    document.getElementById('m361-push-no').onclick = () => banner.remove();
+
+    if (errMsg) {
+      // Errore (es. iOS non standalone): mostra messaggio + pulsante riprova + ✕
+      banner.innerHTML =
+        `<span style="flex:1;min-width:180px;line-height:1.5">⚠️ ${_escHtml(errMsg)}</span>` +
+        `<button id="m361-push-retry" style="background:#B5453A;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">Riprova</button>` +
+        `<button id="m361-push-banner-close" style="background:transparent;color:#94a3b8;border:none;padding:7px 10px;font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">✕</button>`;
+      document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
+      document.getElementById('m361-push-retry').onclick = async () => {
+        const btn = document.getElementById('m361-push-retry');
+        if (btn) { btn.textContent = '…'; btn.disabled = true; }
+        const err2 = await _pushSubscribe(user);
+        if (!err2) banner.remove();
+        else if (btn) { btn.textContent = 'Riprova'; btn.disabled = false; }
+      };
+      document.getElementById('m361-push-banner-close').onclick = () => banner.remove();
+    } else {
+      // Fallback (non dovrebbe essere necessario con auto-trigger)
+      banner.innerHTML =
+        '<span style="flex:1;min-width:180px">Attiva le notifiche per ricevere i promemoria turno</span>' +
+        '<button id="m361-push-yes" style="background:#B5453A;color:#fff;border:none;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Attiva</button>' +
+        '<button id="m361-push-banner-close" style="background:transparent;color:#94a3b8;border:none;padding:7px 10px;font-size:18px;cursor:pointer;font-family:inherit">✕</button>';
+      document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
+      document.getElementById('m361-push-yes').onclick = async () => {
+        const btn = document.getElementById('m361-push-yes');
+        if (btn) { btn.textContent = '…'; btn.disabled = true; }
+        const err = await _pushSubscribe(user);
+        if (!err) banner.remove();
+        else if (btn) { btn.textContent = 'Attiva'; btn.disabled = false; }
+      };
+      document.getElementById('m361-push-banner-close').onclick = () => banner.remove();
+    }
   }
 
   // Aggiorna anche il pannello nel modal profilo se aperto
