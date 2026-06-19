@@ -31,7 +31,7 @@ function ie(s) {
   return (s || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;');
 }
 
-function buildICS(nome, emporio, turni, assenze) {
+function buildICS(nome, turni, assenze) {
   const now = new Date();
   const dtstamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
 
@@ -41,7 +41,7 @@ function buildICS(nome, emporio, turni, assenze) {
     'PRODID:-//Meridiano361//Empori Turni//IT',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:Turni M361 — ${emporio}`,
+    `X-WR-CALNAME:Turni M361 — ${nome}`,
     'X-WR-TIMEZONE:Europe/Rome',
     'BEGIN:VTIMEZONE',
     'TZID:Europe/Rome',
@@ -64,31 +64,33 @@ function buildICS(nome, emporio, turni, assenze) {
 
   // Turni events
   for (const t of turni) {
-    const { anno, mese, giorno, turno, aperto } = t;
+    const { anno, mese, giorno, turno, aperto, emporio } = t;
     const orario = ORARI[turno] || ORARI.mattina;
     const label  = LABEL_TURNO[turno] || turno;
     const stato  = aperto === false ? ' (CHIUSO)' : '';
+    const emp    = emporio || '';
 
     lines.push('BEGIN:VEVENT');
-    lines.push(`UID:m361-turno-${emporio}-${anno}-${mese}-${giorno}-${turno}-${nome.replace(/\s+/g,'_')}@meridiano361.it`);
+    lines.push(`UID:m361-turno-${emp}-${anno}-${mese}-${giorno}-${turno}-${nome.replace(/\s+/g,'_')}@meridiano361.it`);
     lines.push(`DTSTAMP:${dtstamp}`);
     lines.push(`DTSTART;TZID=Europe/Rome:${icalDT(anno, mese, giorno, orario.s)}`);
     lines.push(`DTEND;TZID=Europe/Rome:${icalDT(anno, mese, giorno, orario.e)}`);
-    lines.push(`SUMMARY:${ie(label + ' — Emporio ' + emporio + stato)}`);
-    lines.push(`LOCATION:${ie('Emporio ' + emporio)}`);
+    lines.push(`SUMMARY:${ie(label + (emp ? ' — Emporio ' + emp : '') + stato)}`);
+    if (emp) lines.push(`LOCATION:${ie('Emporio ' + emp)}`);
     lines.push('END:VEVENT');
   }
 
   // Assenze (day events)
   for (const a of assenze) {
-    const { anno, mese, giorno, tipo, ore } = a;
+    const { anno, mese, giorno, tipo, ore, emporio } = a;
     const ds = `${anno}${pad(mese)}${pad(giorno)}`;
     const de = icalNextDay(anno, mese, giorno);
     const TIPO_LABEL = { ferie: 'Ferie', permesso: 'Permesso', malattia: 'Malattia', altro: 'Assenza' };
     const tipoLabel  = TIPO_LABEL[tipo] || tipo;
+    const emp        = emporio || '';
 
     lines.push('BEGIN:VEVENT');
-    lines.push(`UID:m361-ass-${emporio}-${anno}-${mese}-${giorno}-${nome.replace(/\s+/g,'_')}@meridiano361.it`);
+    lines.push(`UID:m361-ass-${emp}-${anno}-${mese}-${giorno}-${nome.replace(/\s+/g,'_')}@meridiano361.it`);
     lines.push(`DTSTAMP:${dtstamp}`);
     lines.push(`DTSTART;VALUE=DATE:${ds}`);
     lines.push(`DTEND;VALUE=DATE:${de}`);
@@ -123,55 +125,53 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { nome, emporio } = ops[0];
+  const { nome, emporio: emporioPrincipale } = ops[0];
 
-  // date range: last month + current + next 2
   const now = new Date();
   const fromAnno = now.getFullYear();
 
-  // fetch turni for current year and adjacent
+  // Fetch all turni across all emporios — filter by operator name in JSONB.
+  // Do NOT pre-filter by emporio: admin users have emporio=null and work in multiple stores.
   const { data: righe } = await db
     .from('turni')
-    .select('anno, mese, giorno, turno, aperto, operatori, assenze')
-    .eq('emporio', emporio)
+    .select('emporio, anno, mese, giorno, turno, aperto, operatori, assenze')
     .gte('anno', fromAnno - 1)
     .lte('anno', fromAnno + 1);
 
   const myTurni   = [];
   const myAssenze = [];
+  const cutoff    = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   for (const row of (righe || [])) {
-    const { anno, mese, giorno, turno, aperto, operatori, assenze } = row;
+    const { emporio, anno, mese, giorno, turno, aperto, operatori, assenze } = row;
 
-    // filter: only future/recent dates
     const rowDate = new Date(anno, mese - 1, giorno);
-    const cutoff  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     if (rowDate < cutoff) continue;
 
     // check if this operator is in this turno
     const inTurno = Array.isArray(operatori) && operatori.some(o => (o.nome || o) === nome);
     if (inTurno) {
-      myTurni.push({ anno, mese, giorno, turno, aperto });
+      myTurni.push({ anno, mese, giorno, turno, aperto, emporio });
     }
 
     // check assenze — key format: ${emporio}|${anno}|${mese}|${giorno}|${nome}
     if (assenze && typeof assenze === 'object') {
       for (const [key, val] of Object.entries(assenze)) {
-        const parts = key.split('|');
-        if (parts[0] !== emporio) continue;           // extra safety: emporio check
-        const assNome = parts.slice(4).join('|');
-        if (assNome !== nome) continue;               // solo assenze di questo operatore
+        const parts    = key.split('|');
+        const assNome  = parts.slice(4).join('|');
+        if (assNome !== nome) continue;
         const tipo = typeof val === 'string' ? val : val?.tipo;
         const ore  = typeof val === 'object' ? (val?.ore || 0) : 0;
-        if (tipo) myAssenze.push({ anno, mese, giorno, tipo, ore });
+        if (tipo) myAssenze.push({ anno, mese, giorno, tipo, ore, emporio });
       }
     }
   }
 
-  const ics = buildICS(nome, emporio, myTurni, myAssenze);
+  const ics      = buildICS(nome, myTurni, myAssenze);
+  const fileEmp  = (emporioPrincipale || 'turni').toLowerCase().replace(/\s+/g, '-');
 
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="turni-${emporio.toLowerCase().replace(/\s+/g,'-')}.ics"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${fileEmp}.ics"`);
   res.setHeader('Cache-Control', 'public, max-age=1800');
   res.status(200).send(ics);
 };
