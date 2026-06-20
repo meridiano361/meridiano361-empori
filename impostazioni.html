@@ -560,6 +560,10 @@
                         <input type="checkbox" id="edit-op-resp-acquisti">
                         <span>responsabile acquisti — riceve push quando arriva un nuovo ordine e/o una nuova proposta di rifornimento</span>
                     </label>
+                    <label class="check-flag" style="margin-top:8px">
+                        <input type="checkbox" id="edit-op-resp-emporio">
+                        <span>responsabile emporio — gestisce le operazioni del proprio emporio</span>
+                    </label>
                 </div>
                 <div class="campo-gruppo">
                     <label>Note</label>
@@ -710,15 +714,17 @@
     }
 
     const SEZIONI_APP = [
-        { id: 'ordini',        nome: 'Ordini in Corso' },
-        { id: 'nuovo_ordine',  nome: 'Nuovo Ordine' },
-        { id: 'archiviati',    nome: 'Ordini Archiviati' },
-        { id: 'prenotazioni',  nome: 'Prenotazioni' },
-        { id: 'info',          nome: 'Info Clienti' },
-        { id: 'cassa',         nome: 'Controllo Cassa' },
-        { id: 'turni',         nome: 'Turni' },
-        { id: 'prezzi',        nome: 'Prezzi da Fare' },
-        { id: 'preordini',     nome: 'Preordini' },
+        { id: 'ordini',       nome: 'Ordini in Corso' },
+        { id: 'prenotazioni', nome: 'Prenotazioni' },
+        { id: 'info',         nome: 'Richieste Info' },
+        { id: 'turni',        nome: 'Turni' },
+        { id: 'cassa',        nome: 'Controllo Cassa' },
+        { id: 'rifornimento', nome: 'Rifornimento' },
+        { id: 'preordini',    nome: 'Preordini' },
+        { id: 'prezzi',       nome: 'Prezzi da Fare' },
+        { id: 'listino',      nome: 'Listino Prezzi' },
+        { id: 'scadenze',     nome: 'Scadenze' },
+        { id: 'materiali',    nome: 'Materiali' },
     ];
 
     const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana', 'mantova'];
@@ -764,9 +770,9 @@
             document.getElementById('admin-content').classList.remove('hidden');
             return;
         }
-        // Controllo fresco da DB per responsabile del personale
-        const { data: opFresh } = await db.from('operatori').select('is_resp_personale, emporio').eq('id', currentUser.id).maybeSingle();
-        if (opFresh?.is_resp_personale) {
+        // Controllo fresco da DB per responsabile del personale / emporio
+        const { data: opFresh } = await db.from('operatori').select('is_resp_personale, is_resp_emporio, emporio').eq('id', currentUser.id).maybeSingle();
+        if (opFresh?.is_resp_personale || opFresh?.is_resp_emporio) {
             _respEmporioChiave = normalizzaEmporio(opFresh.emporio || currentUser.emporio || '');
             document.getElementById('resp-emporio-label').textContent = EMPORI_LABEL[_respEmporioChiave] || opFresh.emporio || '';
             document.getElementById('resp-content').classList.remove('hidden');
@@ -1016,6 +1022,7 @@
                         ${isAdminEmail(op.email) ? '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Utente con accesso amministratore">🔑 Admin</span>' : ''}
                         ${op.is_resp_personale ? '<span style="font-size:10px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile del personale">👑 Resp. Personale</span>' : ''}
                         ${op.is_resp_acquisti  ? '<span style="font-size:10px;background:#ecfdf5;color:#065f46;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile acquisti">🛒 Resp. Acquisti</span>' : ''}
+                        ${op.is_resp_emporio   ? '<span style="font-size:10px;background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile emporio">🏪 Resp. Emporio</span>' : ''}
                         ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
                     </div>
                 </td>
@@ -1168,6 +1175,8 @@
         if (respCb) respCb.checked = !!(op.is_resp_personale);
         const acqCb = document.getElementById('edit-op-resp-acquisti');
         if (acqCb) acqCb.checked = !!(op.is_resp_acquisti);
+        const empCb = document.getElementById('edit-op-resp-emporio');
+        if (empCb) empCb.checked = !!(op.is_resp_emporio);
         document.getElementById('gruppo-resp-personale').style.display = _isAdmin ? '' : 'none';
         document.getElementById('btn-modal-elimina').style.display = _isAdmin ? '' : 'none';
         document.getElementById('edit-op-emporio').disabled = !_isAdmin;
@@ -1244,6 +1253,7 @@
                 note:                document.getElementById('edit-op-note').value.trim() || null,
                 is_resp_personale:   respCb ? respCb.checked : false,
                 is_resp_acquisti:    document.getElementById('edit-op-resp-acquisti')?.checked ?? false,
+                is_resp_emporio:     document.getElementById('edit-op-resp-emporio')?.checked ?? false,
             },
         };
     }
