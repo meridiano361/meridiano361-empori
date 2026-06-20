@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="../../assets/style/nav-style.css">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Prodotti in Scadenza — M361</title>
+  <title>Scadenze — M361</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -30,29 +30,25 @@
     .hd h1{font-size:17px;font-weight:900;color:#fff;flex:1}
     .btn-add{background:var(--R);color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:inherit;transition:background .15s}
     .btn-add:hover{background:#8c362d}
+    .btn-back{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.75);font-size:17px;padding:4px 10px 4px 0;display:flex;align-items:center;flex-shrink:0;transition:color .15s}
+    .btn-back:hover{color:#fff}
+    .hd-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;font-weight:600;letter-spacing:.03em}
 
-    /* ── Emp bar ── */
-    .emp-bar{display:flex;gap:0;background:#fff;border-bottom:1px solid var(--Gl);overflow-x:auto;scrollbar-width:none}
-    .emp-bar::-webkit-scrollbar{display:none}
-    .emp-tab{padding:9px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;border:none;background:transparent;color:var(--G);transition:all .12s;font-family:inherit;white-space:nowrap;border-bottom:2px solid transparent;flex-shrink:0}
-    .emp-tab.on{color:var(--R);border-bottom-color:var(--R)}
-
-    /* ── Stats ── */
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-bottom:1px solid var(--Gl)}
-    .st{padding:10px 6px;text-align:center;cursor:pointer;border-right:1px solid var(--Gl);position:relative}
-    .st:last-child{border-right:none}
-    .st-n{font-size:20px;font-weight:900;line-height:1}
-    .st-l{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--G);margin-top:2px}
-    .st.on::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0}
-    .st[data-f="r7"].on::after{background:var(--r)}
-    .st[data-f="r14"].on::after{background:var(--o)}
-    .st[data-f="r30"].on::after{background:var(--y)}
-    .st[data-f="r90"].on::after{background:var(--g)}
+    /* ── Empori selector ── */
+    .sel-wrap{padding:24px 16px 32px;max-width:640px;margin:0 auto}
+    .sel-intro{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--G);text-align:center;margin-bottom:20px}
+    .sel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    @media(min-width:480px){.sel-grid{grid-template-columns:repeat(3,1fr)}}
+    .emp-card{background:#fff;border:2px solid var(--Gl);border-radius:16px;padding:22px 12px 18px;text-align:center;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:10px;user-select:none}
+    .emp-card:hover,.emp-card:active{border-color:var(--R);box-shadow:0 4px 18px rgba(181,69,58,.14);transform:translateY(-2px)}
+    .ec-icon{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;transition:all .18s}
+    .emp-card:hover .ec-icon{filter:brightness(1.08)}
+    .ec-name{font-size:13px;font-weight:800;color:var(--S);line-height:1.2}
 
     /* ── Filter pills ── */
-    .filters{background:#fff;border-bottom:1px solid var(--Gl);padding:6px 12px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+    .filters{background:#fff;border-bottom:1px solid var(--Gl);padding:8px 12px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
     .filters::-webkit-scrollbar{display:none}
-    .fp{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid var(--Gl);background:#fff;color:var(--G);transition:all .12s;white-space:nowrap;font-family:inherit;letter-spacing:.03em}
+    .fp{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid var(--Gl);background:#fff;color:var(--G);transition:all .12s;white-space:nowrap;font-family:inherit;letter-spacing:.03em}
     .fp:hover:not(.on){border-color:#cbd5e1;color:var(--S3)}
     .fp.on{border-color:transparent;color:#fff}
     .fp[data-f="tutti"].on{background:var(--S)}
@@ -71,12 +67,11 @@
       .prod-list{padding:0 14px 14px}
       .tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
       .tbl thead th{background:var(--S);color:#fff;padding:9px 12px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-align:left;white-space:nowrap}
-      .tbl thead th:first-child{border-radius:0}
-      .tbl tbody tr{border-bottom:1px solid var(--Gl);transition:background .1s;cursor:default}
+      .tbl tbody tr{border-bottom:1px solid var(--Gl);transition:background .1s}
       .tbl tbody tr:last-child{border-bottom:none}
       .tbl tbody tr:hover{background:var(--bg)}
       .tbl td{padding:8px 12px;font-size:13px;vertical-align:middle}
-      .tbl td.td-desc{font-weight:700;max-width:180px}
+      .tbl td.td-desc{font-weight:700;max-width:200px}
       .tbl td.td-desc small{display:block;font-size:10px;color:var(--G);font-weight:500}
       .tbl td.td-num{font-weight:700;text-align:right}
       .tbl td.td-acts{text-align:right;white-space:nowrap}
@@ -117,7 +112,7 @@
     .c-act.promo-on{background:#f5f3ff;border-color:#7c3aed;color:#7c3aed}
     .c-act.del:hover{border-color:#ef4444;color:#ef4444}
 
-    /* ── Urgency badge/bar colors ── */
+    /* ── Urgency colors ── */
     .u-r{color:var(--r)} .u-r-bg{background:var(--r-bg);border-color:var(--r)}
     .u-o{color:var(--o)} .u-o-bg{background:var(--o-bg);border-color:var(--o)}
     .u-y{color:var(--y)} .u-y-bg{background:var(--y-bg);border-color:var(--y)}
@@ -149,7 +144,6 @@
     .fi:focus{border-color:var(--R)}
     .fr{margin-bottom:12px}
     .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 
     /* Checkbox row */
     .cr{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:9px;border:1.5px solid var(--Gl);cursor:pointer;margin-bottom:10px;transition:border-color .15s}
@@ -158,26 +152,29 @@
     .cr-l{font-size:13px;font-weight:700;color:var(--S)}
     .cr-s{font-size:10px;color:var(--G);margin-top:1px}
 
-    /* Sconto preview box */
-    .sc-box{background:var(--bg);border:1.5px solid var(--Gl);border-radius:9px;padding:11px 14px;margin-bottom:12px}
+    /* ── Sconto box ── */
+    .sc-box{background:var(--bg);border:1.5px solid var(--Gl);border-radius:9px;padding:11px 14px;margin-bottom:12px;transition:border-color .2s}
     .sc-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
     .sc-label{font-size:11px;color:var(--G);font-weight:600}
     .sc-val{font-size:20px;font-weight:900}
     .sc-divider{height:1px;background:var(--Gl);margin:8px 0}
-    .price-preview{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+    /* Mode selector (Nessuno / % / € diretto) */
+    .sc-mode-group{display:flex;gap:2px;background:var(--Gl);border-radius:8px;padding:3px}
+    .sc-mode-btn{flex:1;border:none;background:transparent;padding:5px 6px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--S3);border-radius:6px;transition:all .15s;text-transform:uppercase;letter-spacing:.04em;text-align:center}
+    .sc-mode-btn.on{background:#fff;color:var(--R);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+    /* Inline input row (pct / price) */
+    .sc-input-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+    .sc-input-row .sc-label{flex:1}
+    .fi-sc-inline{border:1.5px solid var(--Gl);border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;outline:none;color:var(--S);transition:border-color .15s;background:#fff;width:80px;text-align:center;font-weight:800}
+    .fi-sc-inline:focus{border-color:var(--R)}
+    .sc-unit{font-size:13px;font-weight:700;color:var(--S3)}
+
+    /* Price preview */
+    .price-preview-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--Gl);margin-top:8px}
     .pp-orig{font-size:13px;color:var(--G);text-decoration:line-through;font-weight:600}
     .pp-sc{font-size:18px;font-weight:900}
-
-    /* Toggle switch */
-    .toggle-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:9px;border:1.5px solid var(--Gl);margin-bottom:10px}
-    .toggle-lbl{flex:1;font-size:13px;font-weight:700;color:var(--S)}
-    .toggle-sub{font-size:10px;color:var(--G);font-weight:500;display:block;margin-top:1px}
-    .sw{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0}
-    .sw input{opacity:0;width:0;height:0}
-    .sw-s{position:absolute;inset:0;background:#cbd5e1;border-radius:22px;cursor:pointer;transition:.2s}
-    .sw-s::before{content:'';position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-    .sw input:checked+.sw-s{background:var(--R)}
-    .sw input:checked+.sw-s::before{transform:translateX(18px)}
 
     /* Buttons */
     .btn-row{display:flex;gap:8px;margin-top:4px}
@@ -190,23 +187,6 @@
     .toast.show{opacity:1;transform:none}
     .toast.ok{background:#166534}
     .toast.err{background:#991b1b}
-
-    /* ── Back button ── */
-    .btn-back{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.75);font-size:17px;padding:4px 10px 4px 0;display:flex;align-items:center;flex-shrink:0;transition:color .15s}
-    .btn-back:hover{color:#fff}
-    .hd-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;font-weight:600;letter-spacing:.03em}
-
-    /* ── Empori selector ── */
-    .sel-wrap{padding:24px 16px 32px;max-width:640px;margin:0 auto}
-    .sel-intro{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--G);text-align:center;margin-bottom:20px}
-    .sel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    @media(min-width:480px){.sel-grid{grid-template-columns:repeat(3,1fr)}}
-    .emp-card{background:#fff;border:2px solid var(--Gl);border-radius:16px;padding:22px 12px 18px;text-align:center;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:10px;user-select:none}
-    .emp-card:hover,.emp-card:active{border-color:var(--R);box-shadow:0 4px 18px rgba(181,69,58,.14);transform:translateY(-2px)}
-    .emp-card:hover .ec-icon{background:rgba(181,69,58,.1);color:var(--R)}
-    .ec-icon{width:52px;height:52px;background:var(--bg);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--S2);transition:all .18s}
-    .ec-name{font-size:14px;font-weight:800;color:var(--S);line-height:1.2}
-    .ec-sub{font-size:10px;color:var(--G);font-weight:600;margin-top:1px}
   </style>
 </head>
 <body>
@@ -216,7 +196,7 @@
 <div class="hd">
   <button class="btn-back" id="btn-back" onclick="tornaEmpori()" style="display:none"><i class="fas fa-arrow-left"></i></button>
   <div style="flex:1;min-width:0">
-    <h1><i class="fas fa-clock-rotate-left" style="font-size:15px;opacity:.7;margin-right:4px"></i>Prodotti in Scadenza</h1>
+    <h1><i class="fas fa-clock-rotate-left" style="font-size:15px;opacity:.7;margin-right:4px"></i>Scadenze</h1>
     <div class="hd-sub" id="hd-sub" style="display:none"></div>
   </div>
   <button class="btn-add" id="btn-add-prod" onclick="apriForm()" style="display:none"><i class="fas fa-plus"></i> Aggiungi</button>
@@ -232,28 +212,20 @@
 
 <!-- Screen: Lista prodotti -->
 <div id="screen-list" style="display:none">
-<div class="stats">
-  <div class="st" data-f="r7"  onclick="setF('r7',this)"><div class="st-n u-r" id="c7">—</div><div class="st-l">≤ 7 giorni</div></div>
-  <div class="st" data-f="r14" onclick="setF('r14',this)"><div class="st-n u-o" id="c14">—</div><div class="st-l">≤ 14 giorni</div></div>
-  <div class="st" data-f="r30" onclick="setF('r30',this)"><div class="st-n u-y" id="c30">—</div><div class="st-l">≤ 30 giorni</div></div>
-  <div class="st" data-f="r90" onclick="setF('r90',this)"><div class="st-n u-g" id="c90">—</div><div class="st-l">≤ 90 giorni</div></div>
-</div>
 
 <div class="filters">
   <button class="fp on" data-f="tutti" onclick="setF('tutti',this)">Tutti</button>
-  <button class="fp" data-f="r7"   onclick="setF('r7',this)">− 7 g</button>
-  <button class="fp" data-f="r14"  onclick="setF('r14',this)">− 14 g</button>
-  <button class="fp" data-f="r30"  onclick="setF('r30',this)">− 30 g</button>
-  <button class="fp" data-f="r90"  onclick="setF('r90',this)">− 90 g</button>
+  <button class="fp" data-f="r7"    onclick="setF('r7',this)">−7 g</button>
+  <button class="fp" data-f="r14"   onclick="setF('r14',this)">−14 g</button>
+  <button class="fp" data-f="r30"   onclick="setF('r30',this)">−30 g</button>
+  <button class="fp" data-f="r90"   onclick="setF('r90',this)">−90 g</button>
   <button class="fp" data-f="promo" onclick="setF('promo',this)"><i class="fas fa-tag"></i> Promo</button>
 </div>
 
 <div class="sec" id="sec-lbl">Caricamento…</div>
 
 <div class="prod-list" id="prod-list">
-  <!-- Desktop -->
   <table class="tbl" id="tbl"><tbody><tr><td colspan="9" style="text-align:center;padding:30px"><div class="spin"></div></td></tr></tbody></table>
-  <!-- Mobile -->
   <div class="card-list" id="card-list"><div class="spin"></div></div>
 </div>
 
@@ -269,11 +241,11 @@
 
     <div class="fr">
       <label class="fl">Descrizione *</label>
-      <input type="text" class="fi" id="f-desc" placeholder="es. Biscotti al miele">
+      <input type="text" class="fi" id="f-desc" placeholder="es. Biscotti al miele" oninput="autoCapFirst(this)">
     </div>
     <div class="g2">
       <div class="fr"><label class="fl">Codice</label><input type="text" class="fi" id="f-codice" placeholder="opzionale"></div>
-      <div class="fr"><label class="fl">Quantità *</label><input type="number" class="fi" id="f-qty" min="1" value="1"></div>
+      <div class="fr"><label class="fl">Qtà *</label><input type="number" class="fi" id="f-qty" min="1" value="1"></div>
     </div>
     <div class="g2">
       <div class="fr"><label class="fl">Data scadenza *</label><input type="date" class="fi" id="f-scad"></div>
@@ -289,22 +261,42 @@
       <div><div class="cr-l">Già in promo a scaffale</div><div class="cr-s">prodotto già scontato e visibile al cliente</div></div>
     </label>
 
-    <!-- Sconto + prezzo preview -->
+    <!-- Sconto box -->
     <div class="sc-box" id="sc-box">
       <div class="sc-row">
         <span class="sc-label">Sconto consigliato</span>
         <span class="sc-val" id="sc-val" style="color:var(--G)">—</span>
       </div>
-      <div class="sc-divider" id="sc-divider" style="display:none"></div>
-      <div class="toggle-row" id="sc-toggle-row" style="margin-bottom:0;padding:8px 0 0;background:transparent;border:none;display:none">
-        <div class="toggle-lbl">Applica sconto consigliato<span class="toggle-sub" id="sc-toggle-sub"></span></div>
-        <label class="sw"><input type="checkbox" id="f-sc-acc" onchange="aggPrezzo()"><span class="sw-s"></span></label>
-      </div>
-      <div id="price-preview" style="display:none;padding-top:8px;border-top:1px solid var(--Gl);margin-top:8px">
-        <div class="price-preview">
-          <span class="sc-label">Prezzo scontato</span>
-          <span class="pp-orig" id="pp-orig"></span>
-          <span class="pp-sc" id="pp-sc"></span>
+
+      <div id="sc-ext" style="display:none">
+        <div class="sc-divider"></div>
+        <div class="sc-mode-group" style="margin-bottom:8px">
+          <button class="sc-mode-btn" data-mode="none"  onclick="setModeSconto('none')">Nessuno</button>
+          <button class="sc-mode-btn on" data-mode="pct" onclick="setModeSconto('pct')">% Sconto</button>
+          <button class="sc-mode-btn" data-mode="price"  onclick="setModeSconto('price')">€ Diretto</button>
+        </div>
+
+        <!-- Mode: pct -->
+        <div class="sc-input-row" id="sc-pct-row">
+          <span class="sc-label">Percentuale applicata</span>
+          <input class="fi-sc-inline" type="number" id="f-sc-pct" min="1" max="99" step="1" placeholder="%" oninput="onPctInput()">
+          <span class="sc-unit">%</span>
+        </div>
+
+        <!-- Mode: price diretto -->
+        <div class="sc-input-row" id="sc-price-row" style="display:none">
+          <span class="sc-label">Prezzo scontato finale</span>
+          <input class="fi-sc-inline" type="number" id="f-sc-price-dir" min="0" step="0.01" placeholder="0,00" oninput="aggPrezzo()">
+          <span class="sc-unit">€</span>
+        </div>
+
+        <!-- Price preview -->
+        <div id="price-preview" style="display:none">
+          <div class="price-preview-row">
+            <span class="sc-label">Risultato</span>
+            <span class="pp-orig" id="pp-orig"></span>
+            <span class="pp-sc" id="pp-sc"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -323,16 +315,26 @@ const SB_URL='https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 const db=supabase.createClient(SB_URL,SB_KEY);
 
+/* ── Empori fissi con icone ── */
+const EMPORI=[
+  {nome:'Casalmaggiore', icon:'fa-seedling',  color:'#16a34a', bg:'#f0fdf4'},
+  {nome:'Cremona',       icon:'fa-music',      color:'#d97706', bg:'#fffbeb'},
+  {nome:'Mantova',       icon:'fa-crown',      color:'#7c3aed', bg:'#f5f3ff'},
+  {nome:'Reggio Emilia', icon:'fa-flag',       color:'#dc2626', bg:'#fef2f2'},
+  {nome:'Viadana',       icon:'fa-water',      color:'#0284c7', bg:'#eff6ff'},
+];
+
 let user=null,_admin=false,emporio=null;
 let filtro='tutti',prodotti=[],editId=null;
+let modoSconto='pct'; // 'none' | 'pct' | 'price'
 
 /* ── Formula: scadenza 70%, quantità 30%, base 15%, max 50% ── */
 function calcSconto(qty,gg){
-  if(gg>90) return 0;
+  if(gg>90)return 0;
   const exp=gg<=7?100:gg<=14?75:gg<=30?55:30;
   const qts=qty<=1?10:qty<=3?30:qty<=10?65:100;
   const base=Math.floor((0.7*exp+0.3*qts)/10)*5;
-  return Math.min(50,base+5);  // +5 → base min 15%
+  return Math.min(50,base+5);
 }
 
 /* ── Urgenza ── */
@@ -343,6 +345,8 @@ function ggAlla(s){const t=new Date();t.setHours(0,0,0,0);return Math.round((new
 function fmtD(s){return new Date(s+'T00:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'2-digit'});}
 function fmtE(v){return v!=null?'€'+Number(v).toFixed(2).replace('.',','):'';}
 function fmtGg(g){if(g<0)return'Scaduto';if(g===0)return'Oggi';if(g===1)return'Domani';return g+'g';}
+function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
+function autoCapFirst(input){const v=input.value;if(v)input.value=v.charAt(0).toUpperCase()+v.slice(1);}
 
 /* ── Screen management ── */
 function mostraEmpori(){
@@ -356,28 +360,22 @@ function mostraLista(){
   document.getElementById('screen-empori').style.display='none';
   document.getElementById('screen-list').style.display='block';
   document.getElementById('btn-back').style.display=_admin?'flex':'none';
-  document.getElementById('btn-add-prod').style.display=(!_admin||emporio)?'':'none';
+  document.getElementById('btn-add-prod').style.display='';
   const sub=document.getElementById('hd-sub');
-  if(emporio){sub.textContent='Emporio '+emporio;sub.style.display='block';}
-  else if(_admin){sub.textContent='Tutti gli empori';sub.style.display='block';}
-  else{sub.style.display='none';}
+  sub.textContent=emporio||'';sub.style.display=emporio?'block':'none';
 }
 function tornaEmpori(){emporio=null;mostraEmpori();}
 function selezionaEmporio(emp){emporio=emp;mostraLista();carica();}
 
 /* ── Empori grid ── */
-function buildEmpiGrid(emps){
-  const g=document.getElementById('sel-grid');
-  g.innerHTML='';
-  const mk=(lbl,emp,sub)=>{
-    const c=document.createElement('div');
-    c.className='emp-card';
-    c.innerHTML=`<div class="ec-icon"><i class="fas fa-${emp?'store':'th-large'}"></i></div><div class="ec-name">${lbl}</div>${sub?`<div class="ec-sub">${sub}</div>`:''}`;
-    c.onclick=()=>selezionaEmporio(emp);
+function buildEmpiGrid(){
+  const g=document.getElementById('sel-grid');g.innerHTML='';
+  EMPORI.forEach(e=>{
+    const c=document.createElement('div');c.className='emp-card';
+    c.innerHTML=`<div class="ec-icon" style="background:${e.bg};color:${e.color}"><i class="fas ${e.icon}"></i></div><div class="ec-name">${e.nome}</div>`;
+    c.onclick=()=>selezionaEmporio(e.nome);
     g.appendChild(c);
-  };
-  emps.forEach(e=>mk(e,e));
-  mk('Tutti gli empori',null,'vista globale');
+  });
 }
 
 /* ── Init ── */
@@ -386,10 +384,8 @@ async function init(){
   if(!user)return;
   _admin=typeof isAdmin==='function'&&isAdmin();
   emporio=user.emporio||null;
+  buildEmpiGrid();
   if(_admin){
-    const{data}=await db.from('operatori').select('emporio').eq('attivo',true).not('emporio','is',null);
-    const emps=[...new Set((data||[]).map(r=>r.emporio).filter(Boolean))].sort();
-    buildEmpiGrid(emps);
     mostraEmpori();
   } else {
     mostraLista();
@@ -398,10 +394,12 @@ async function init(){
 }
 
 async function carica(){
-  ['tbl','card-list'].forEach(id=>document.getElementById(id)[id==='tbl'?'innerHTML':'innerHTML']=
-    id==='tbl'?'<tbody><tr><td colspan="9" style="text-align:center;padding:28px"><div class="spin"></div></td></tr></tbody>':'<div class="spin"></div>');
+  ['tbl','card-list'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.innerHTML=id==='tbl'?'<tbody><tr><td colspan="9" style="text-align:center;padding:28px"><div class="spin"></div></td></tr></tbody>':'<div class="spin"></div>';
+  });
   let q=db.from('prodotti_scadenza').select('*').order('scadenza',{ascending:true});
-  if(!_admin||emporio)q=q.eq('emporio',emporio||user.emporio);
+  if(emporio)q=q.eq('emporio',emporio);
   const{data,error}=await q;
   if(error){
     const msg=`<div class="empty"><i class="fas fa-circle-exclamation"></i><p>Errore</p><small>${esc(error.message)}</small></div>`;
@@ -409,14 +407,7 @@ async function carica(){
     return;
   }
   prodotti=(data||[]).map(p=>({...p,_gg:ggAlla(p.scadenza),_sc:calcSconto(p.quantita,ggAlla(p.scadenza))}));
-  renderStats(); render();
-}
-
-function renderStats(){
-  document.getElementById('c7').textContent =prodotti.filter(p=>p._gg>=0&&p._gg<=7).length;
-  document.getElementById('c14').textContent=prodotti.filter(p=>p._gg>7&&p._gg<=14).length;
-  document.getElementById('c30').textContent=prodotti.filter(p=>p._gg>14&&p._gg<=30).length;
-  document.getElementById('c90').textContent=prodotti.filter(p=>p._gg>30&&p._gg<=90).length;
+  render();
 }
 
 function filtra(){
@@ -443,33 +434,36 @@ function render(){
 
   /* ── Desktop table ── */
   const thead=`<thead><tr>
-    <th>Prodotto</th><th>Qty</th><th>Scadenza</th><th style="text-align:center">Giorni</th>
+    <th>Prodotto</th><th>Qtà</th><th>Scadenza</th><th style="text-align:center">Giorni</th>
     <th style="text-align:center">Sconto</th><th style="text-align:right">Prezzo</th>
     <th style="text-align:right">Scontato</th><th style="text-align:center">Stato</th><th></th>
   </tr></thead>`;
 
   const rows=lista.map(p=>{
     const uc=urgCls(p._gg),ucol=urgColor(p._gg),ubg=urgBg(p._gg);
-    const sc=p._sc, prezzoSc=p.prezzo_iniziale&&p.sconto_accettato?p.prezzo_iniziale*(1-sc/100):null;
+    const scontoApplicato=p.sconto_applicato;
+    const scontoLabel=p.sconto_accettato
+      ?(scontoApplicato?`<span style="color:${ucol};font-weight:900;font-size:13px">−${scontoApplicato}%</span>`
+        :(p.prezzo_scontato&&p.prezzo_iniziale?`<span style="color:${ucol};font-weight:900;font-size:13px">€ dir.</span>`
+          :`<span style="color:var(--G);font-size:12px">—</span>`))
+      :(p._sc>0?`<span style="color:var(--G);font-size:11px">Sug. −${p._sc}%</span>`:`<span style="color:var(--G);font-size:12px">—</span>`);
     const chips=[
-      p.in_promo?`<span class="chip chip-promo"><i class="fas fa-tag" style="font-size:8px"></i> Promo</span>`:'',
+      p.in_promo?`<span class="chip chip-promo"><i class="fas fa-tag" style="font-size:8px"></i> In promo</span>`:'',
       p.solo_alcuni?`<span class="chip chip-solo"><i class="fas fa-circle-info" style="font-size:8px"></i> Parz.</span>`:'',
     ].filter(Boolean).join(' ');
     return `<tr>
-      <td class="td-desc">${esc(p.descrizione)}${p.codice?`<small>${esc(p.codice)}</small>`:''}</td>
+      <td class="td-desc">${esc(capFirst(p.descrizione))}${p.codice?`<small>${esc(p.codice)}</small>`:''}</td>
       <td class="td-num">${p.quantita}</td>
       <td style="font-size:12px;white-space:nowrap">${fmtD(p.scadenza)}</td>
       <td style="text-align:center">
         <span style="background:${ubg};color:${ucol};border:1.5px solid ${ucol}44;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">${fmtGg(p._gg)}</span>
       </td>
-      <td style="text-align:center">
-        ${sc>0?`<span style="color:${ucol};font-weight:900;font-size:13px">−${sc}%</span>`:'<span style="color:var(--G);font-size:12px">—</span>'}
-      </td>
+      <td style="text-align:center">${scontoLabel}</td>
       <td class="td-num" style="color:var(--S3);font-size:12px">${p.prezzo_iniziale?fmtE(p.prezzo_iniziale):'—'}</td>
-      <td class="td-num">${prezzoSc?`<span style="color:${ucol};font-weight:900">${fmtE(prezzoSc)}</span>`:`<span style="color:var(--G);font-size:12px">${p.prezzo_iniziale?'Non applic.':'—'}</span>`}</td>
+      <td class="td-num">${p.prezzo_scontato&&p.sconto_accettato?`<span style="color:${ucol};font-weight:900">${fmtE(p.prezzo_scontato)}</span>`:`<span style="color:var(--G);font-size:12px">—</span>`}</td>
       <td style="text-align:center">${chips||'<span style="color:var(--G);font-size:11px">—</span>'}</td>
       <td class="td-acts">
-        <button class="tbl-act ${p.in_promo?'promo-on':''}" onclick="togglePromo('${p.id}',${p.in_promo})"><i class="fas fa-tag"></i>${p.in_promo?' Promo':' Promo'}</button>
+        <button class="tbl-act ${p.in_promo?'promo-on':''}" onclick="togglePromo('${p.id}',${p.in_promo})"><i class="fas fa-tag"></i> ${p.in_promo?'In promo':'Promo'}</button>
         <button class="tbl-act" onclick="apriModifica('${p.id}')"><i class="fas fa-pen"></i> Modifica</button>
         <button class="tbl-act del" onclick="elimina('${p.id}')"><i class="fas fa-trash"></i></button>
       </td>
@@ -480,15 +474,17 @@ function render(){
   /* ── Mobile cards ── */
   const cards=lista.map(p=>{
     const uc=urgCls(p._gg),ucol=urgColor(p._gg),ubg=urgBg(p._gg);
-    const sc=p._sc,prezzoSc=p.prezzo_iniziale&&p.sconto_accettato?p.prezzo_iniziale*(1-sc/100):null;
+    const scontoApplicato=p.sconto_applicato;
+    const scBadge=p.sconto_accettato&&scontoApplicato?`<span class="badge" style="color:${ucol};background:${ubg};border-color:${ucol}55;font-size:10px">−${scontoApplicato}%</span>`
+      :p.sconto_accettato&&p.prezzo_scontato?`<span class="badge" style="color:${ucol};background:${ubg};border-color:${ucol}55;font-size:10px">€ dir.</span>`:'';
     return `<div class="card">
       <div class="card-bar" style="background:${ucol}"></div>
       <div class="card-inner">
         <div class="c-top">
-          <div class="c-desc">${esc(p.descrizione)}${p.codice?` <span style="font-size:10px;color:var(--G);font-weight:500">${esc(p.codice)}</span>`:''}</div>
+          <div class="c-desc">${esc(capFirst(p.descrizione))}${p.codice?` <span style="font-size:10px;color:var(--G);font-weight:500">${esc(p.codice)}</span>`:''}</div>
           <div class="c-badges">
             <span class="badge u-${uc}-bg" style="font-size:10px;font-weight:900">${fmtGg(p._gg)}</span>
-            ${sc>0?`<span class="badge" style="color:${ucol};background:${ubg};border-color:${ucol}55;font-size:10px">−${sc}%</span>`:''}
+            ${scBadge}
           </div>
         </div>
         <div class="c-meta">
@@ -498,8 +494,8 @@ function render(){
         </div>
         ${(p.prezzo_iniziale||p.in_promo||p.solo_alcuni)?`<div class="c-price">
           ${p.prezzo_iniziale?`<span class="price-orig">${fmtE(p.prezzo_iniziale)}</span>`:''}
-          ${prezzoSc?`<span class="price-sc" style="color:${ucol}">${fmtE(prezzoSc)}</span>`:p.prezzo_iniziale?`<span style="font-size:11px;color:var(--G)">Sconto non applic.</span>`:''}
-          ${p.in_promo?`<span class="chip chip-promo"><i class="fas fa-tag" style="font-size:8px"></i> Promo</span>`:''}
+          ${p.prezzo_scontato&&p.sconto_accettato?`<span class="price-sc" style="color:${ucol}">${fmtE(p.prezzo_scontato)}</span>`:p.prezzo_iniziale?'':''}
+          ${p.in_promo?`<span class="chip chip-promo"><i class="fas fa-tag" style="font-size:8px"></i> In promo</span>`:''}
           ${p.solo_alcuni?`<span class="chip chip-solo"><i class="fas fa-circle-info" style="font-size:8px"></i> Solo alcuni</span>`:''}
         </div>`:''}
         <div class="c-acts">
@@ -515,7 +511,7 @@ function render(){
 
 function setF(f,el){
   filtro=f;
-  document.querySelectorAll('.fp,.st').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.fp').forEach(b=>b.classList.remove('on'));
   document.querySelectorAll(`[data-f="${f}"]`).forEach(b=>b.classList.add('on'));
   render();
 }
@@ -528,6 +524,83 @@ async function togglePromo(id,att){
   await carica();
 }
 
+/* ── Sconto mode ── */
+function setModeSconto(mode){
+  modoSconto=mode;
+  document.querySelectorAll('.sc-mode-btn').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  const pctRow=document.getElementById('sc-pct-row');
+  const priceRow=document.getElementById('sc-price-row');
+  pctRow.style.display=mode==='pct'?'flex':'none';
+  priceRow.style.display=mode==='price'?'flex':'none';
+  if(mode==='pct'){
+    // Pre-fill with suggested if field is empty
+    const pctInput=document.getElementById('f-sc-pct');
+    if(!pctInput.value){
+      const qty=parseInt(document.getElementById('f-qty').value)||1;
+      const scad=document.getElementById('f-scad').value;
+      if(scad){const gg=ggAlla(scad);pctInput.value=calcSconto(qty,gg)||'';}
+    }
+  }
+  aggPrezzo();
+}
+
+function onPctInput(){aggPrezzo();}
+
+function aggPrezzo(){
+  const qty=parseInt(document.getElementById('f-qty').value)||1;
+  const scad=document.getElementById('f-scad').value;
+  const prz=parseFloat(document.getElementById('f-prezzo').value)||0;
+
+  const scEl=document.getElementById('sc-val');
+  const ext=document.getElementById('sc-ext');
+  const box=document.getElementById('sc-box');
+  const ppRow=document.getElementById('price-preview');
+  const ppO=document.getElementById('pp-orig');
+  const ppS=document.getElementById('pp-sc');
+
+  if(!scad){
+    scEl.textContent='—';scEl.style.color='var(--G)';
+    box.style.borderColor='var(--Gl)';ext.style.display='none';ppRow.style.display='none';
+    return;
+  }
+  const gg=ggAlla(scad),sc=calcSconto(qty,gg);
+  const ucol=urgColor(gg);
+
+  if(sc>0){
+    scEl.textContent=`−${sc}%`;scEl.style.color=ucol;
+    box.style.borderColor=ucol+'55';
+    ext.style.display='block';
+    // Pre-fill pct if empty and mode=pct
+    const pctInput=document.getElementById('f-sc-pct');
+    if(modoSconto==='pct'&&!pctInput.value)pctInput.value=sc;
+  } else {
+    scEl.textContent='Nessuno';scEl.style.color='var(--G)';
+    box.style.borderColor='var(--Gl)';ext.style.display='none';ppRow.style.display='none';
+    return;
+  }
+
+  // Price preview
+  if(!prz){ppRow.style.display='none';return;}
+
+  if(modoSconto==='pct'){
+    const pct=parseFloat(document.getElementById('f-sc-pct').value)||0;
+    if(pct>0){
+      ppO.textContent=fmtE(prz);ppO.style.display='';
+      ppS.textContent=fmtE(prz*(1-pct/100));ppS.style.color=ucol;
+      ppRow.style.display='block';
+    } else {ppRow.style.display='none';}
+  } else if(modoSconto==='price'){
+    const pd=parseFloat(document.getElementById('f-sc-price-dir').value)||0;
+    if(pd>0&&pd<prz){
+      ppO.textContent=fmtE(prz);ppO.style.display='';
+      ppS.textContent=fmtE(pd);ppS.style.color=ucol;
+      ppRow.style.display='block';
+    } else {ppRow.style.display='none';}
+  } else {
+    ppRow.style.display='none';
+  }
+}
+
 /* ── Form ── */
 function apriForm(){
   editId=null;
@@ -537,8 +610,11 @@ function apriForm(){
   document.getElementById('f-scad').value='';
   document.getElementById('f-solo').checked=false;
   document.getElementById('f-promo').checked=false;
-  document.getElementById('f-sc-acc').checked=false;
-  aggSconto();
+  document.getElementById('f-sc-pct').value='';
+  document.getElementById('f-sc-price-dir').value='';
+  modoSconto='pct';
+  setModeSconto('pct');
+  aggPrezzo();
   apriPanel();
 }
 
@@ -546,71 +622,28 @@ function apriModifica(id){
   const p=prodotti.find(x=>x.id===id);if(!p)return;
   editId=id;
   document.getElementById('ptitle').textContent='Modifica prodotto';
-  document.getElementById('f-desc').value   =p.descrizione||'';
-  document.getElementById('f-codice').value  =p.codice||'';
-  document.getElementById('f-qty').value    =p.quantita||1;
-  document.getElementById('f-scad').value   =p.scadenza||'';
-  document.getElementById('f-prezzo').value  =p.prezzo_iniziale||'';
-  document.getElementById('f-solo').checked  =!!p.solo_alcuni;
-  document.getElementById('f-promo').checked =!!p.in_promo;
-  document.getElementById('f-sc-acc').checked=!!p.sconto_accettato;
-  aggSconto();
+  document.getElementById('f-desc').value  =p.descrizione||'';
+  document.getElementById('f-codice').value =p.codice||'';
+  document.getElementById('f-qty').value   =p.quantita||1;
+  document.getElementById('f-scad').value  =p.scadenza||'';
+  document.getElementById('f-prezzo').value =p.prezzo_iniziale||'';
+  document.getElementById('f-solo').checked =!!p.solo_alcuni;
+  document.getElementById('f-promo').checked=!!p.in_promo;
+
+  // Ripristina modo sconto
+  let modo='none';
+  if(p.sconto_accettato){
+    if(p.sconto_applicato){modo='pct';document.getElementById('f-sc-pct').value=p.sconto_applicato;}
+    else if(p.prezzo_scontato){modo='price';document.getElementById('f-sc-price-dir').value=p.prezzo_scontato;}
+  } else {
+    document.getElementById('f-sc-pct').value='';
+    document.getElementById('f-sc-price-dir').value='';
+  }
+  modoSconto=modo;
+  setModeSconto(modo);
+  aggPrezzo();
   apriPanel();
 }
-
-function aggSconto(){
-  const qty  =parseInt(document.getElementById('f-qty').value)||1;
-  const scad =document.getElementById('f-scad').value;
-  const prz  =parseFloat(document.getElementById('f-prezzo').value)||0;
-  const acc  =document.getElementById('f-sc-acc').checked;
-
-  const scEl =document.getElementById('sc-val');
-  const box  =document.getElementById('sc-box');
-  const div  =document.getElementById('sc-divider');
-  const tRow =document.getElementById('sc-toggle-row');
-  const tsub =document.getElementById('sc-toggle-sub');
-  const ppRow=document.getElementById('price-preview');
-  const ppO  =document.getElementById('pp-orig');
-  const ppS  =document.getElementById('pp-sc');
-
-  if(!scad){
-    scEl.textContent='—';scEl.style.color='var(--G)';
-    box.style.borderColor='var(--Gl)';
-    div.style.display='none';tRow.style.display='none';ppRow.style.display='none';
-    return;
-  }
-  const gg=ggAlla(scad),sc=calcSconto(qty,gg);
-  const ucol=urgColor(gg);
-
-  if(sc<=0){
-    scEl.textContent='Nessuno';scEl.style.color='var(--G)';
-    box.style.borderColor='var(--Gl)';
-    div.style.display='none';tRow.style.display='none';ppRow.style.display='none';
-  } else {
-    scEl.textContent=`−${sc}%`;scEl.style.color=ucol;
-    box.style.borderColor=ucol+'66';
-    div.style.display='block';
-    tRow.style.display='flex';
-    tsub.textContent=`sconto del ${sc}% sul prezzo iniziale`;
-
-    if(prz>0){
-      ppRow.style.display='block';
-      ppO.textContent=fmtE(prz);
-      if(acc){
-        const ps=prz*(1-sc/100);
-        ppS.textContent=fmtE(ps);ppS.style.color=ucol;
-        ppO.style.display='';
-      } else {
-        ppS.textContent='Sconto non applicato';ppS.style.color='var(--G)';
-        ppO.style.display='none';
-      }
-    } else {
-      ppRow.style.display='none';
-    }
-  }
-}
-
-function aggPrezzo(){aggSconto();}
 
 async function salva(){
   const desc=document.getElementById('f-desc').value.trim();
@@ -622,8 +655,19 @@ async function salva(){
   const gg=ggAlla(scad);
   const sc=calcSconto(qty,gg);
   const prz=parseFloat(document.getElementById('f-prezzo').value)||null;
-  const acc=document.getElementById('f-sc-acc').checked;
-  const prezzoSc=prz&&acc?Math.round(prz*(1-sc/100)*100)/100:null;
+
+  let sconto_accettato=false,sconto_applicato=null,prezzo_scontato=null;
+  if(modoSconto==='pct'){
+    const pct=parseFloat(document.getElementById('f-sc-pct').value)||0;
+    if(pct>0){
+      sconto_accettato=true;
+      sconto_applicato=pct;
+      if(prz)prezzo_scontato=Math.round(prz*(1-pct/100)*100)/100;
+    }
+  } else if(modoSconto==='price'){
+    const pd=parseFloat(document.getElementById('f-sc-price-dir').value)||0;
+    if(pd>0){sconto_accettato=true;prezzo_scontato=Math.round(pd*100)/100;}
+  }
 
   const payload={
     emporio:         emporio||user.emporio,
@@ -633,8 +677,9 @@ async function salva(){
     in_promo:        document.getElementById('f-promo').checked,
     sconto_suggerito:sc,
     prezzo_iniziale: prz,
-    sconto_accettato:acc,
-    prezzo_scontato: prezzoSc,
+    sconto_accettato,
+    sconto_applicato,
+    prezzo_scontato,
     operatore_nome:  user.nome||null,
     updated_at:      new Date().toISOString(),
   };
@@ -659,8 +704,10 @@ function apriPanel(){document.getElementById('form-panel').classList.add('open')
 function chiudiPanel(){document.getElementById('form-panel').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
 
 document.addEventListener('DOMContentLoaded',()=>{
-  ['f-qty','f-scad','f-prezzo'].forEach(id=>document.getElementById(id)?.addEventListener('input',aggSconto));
-  ['f-qty','f-scad','f-prezzo'].forEach(id=>document.getElementById(id)?.addEventListener('change',aggSconto));
+  ['f-qty','f-scad','f-prezzo'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('input',aggPrezzo);
+    document.getElementById(id)?.addEventListener('change',aggPrezzo);
+  });
 });
 
 function toast(msg,tipo=''){
