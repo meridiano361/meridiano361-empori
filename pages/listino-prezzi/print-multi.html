@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stampa combinata — M361</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style id="page-style">/* dinamico */</style>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:'Poppins',sans-serif;background:#e8edf2;color:#1e293b}
+
+    @media screen{
+      .toolbar{background:#1e293b;padding:10px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+      .toolbar h2{color:#fff;font-size:14px;font-weight:700;flex:1;opacity:.85}
+      .tb-btn{background:#B5453A;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s;font-family:inherit}
+      .tb-btn:hover{background:#8c362d}
+      .tb-btn.ghost{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:rgba(255,255,255,.85)}
+      .tb-btn.ghost:hover{background:rgba(255,255,255,.08)}
+      .page-wrap{padding:24px 16px 60px;display:flex;justify-content:center;align-items:flex-start;min-height:calc(100vh - 52px)}
+      .sheet{box-shadow:0 4px 24px rgba(0,0,0,.18);border-radius:4px}
+    }
+    @media print{
+      .toolbar{display:none}
+      .page-wrap{padding:0;background:none;display:block}
+      .sheet{box-shadow:none;border-radius:0}
+    }
+
+    .sheet{background:#fff;display:flex;flex-wrap:wrap;overflow:hidden}
+    .slot{overflow:hidden;position:relative}
+
+    .spin{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:rot .8s linear infinite;margin:60px auto;display:block}
+    @keyframes rot{to{transform:rotate(360deg)}}
+    .err-box{text-align:center;padding:60px 20px;color:#64748b}
+    .err-box p{font-size:14px;font-weight:700;margin-top:10px;color:#B5453A}
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h2 id="tb-title">Stampa combinata</h2>
+  <button class="tb-btn ghost" onclick="window.close()">✕ Chiudi</button>
+  <button class="tb-btn" onclick="window.print()"><i class="fas fa-print"></i> Stampa / PDF</button>
+</div>
+
+<div class="page-wrap" id="page-wrap">
+  <div id="loading"><div class="spin"></div></div>
+  <div class="sheet" id="sheet" style="display:none"></div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+const SB_URL='https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db=supabase.createClient(SB_URL,SB_KEY);
+
+/* Layout definitions:
+   slotW/slotH = size of each slot div
+   sheetW/sheetH = total sheet size
+   totalSlots = number of slot divs to render (including blank)
+   dataSlots = number of listini loaded from ids
+*/
+const LAYOUTS={
+  '2xA5-A4':    {page:'A4 landscape', sheetW:'297mm',sheetH:'210mm', slotW:'148.5mm',slotH:'210mm', cols:2,rows:1, totalSlots:2,dataSlots:2, label:'2×A5 su A4'},
+  'A5-blank-A4':{page:'A4 landscape', sheetW:'297mm',sheetH:'210mm', slotW:'148.5mm',slotH:'210mm', cols:2,rows:1, totalSlots:2,dataSlots:1, label:'A5 + vuoto su A4'},
+  '2xA6-A5':    {page:'A5 landscape', sheetW:'210mm', sheetH:'148mm', slotW:'105mm',  slotH:'148mm',  cols:2,rows:1, totalSlots:2,dataSlots:2, label:'2×A6 su A5'},
+  '4xA6-A4':    {page:'A4 portrait',  sheetW:'210mm', sheetH:'297mm', slotW:'105mm',  slotH:'148.5mm',cols:2,rows:2, totalSlots:4,dataSlots:4, label:'4×A6 su A4'},
+};
+
+async function loadAndRender(){
+  const params=new URLSearchParams(location.search);
+  const ids=(params.get('ids')||'').split(',').filter(Boolean);
+  const layoutKey=params.get('layout')||'2xA5-A4';
+  const L=LAYOUTS[layoutKey];
+
+  if(!ids.length||!L){showErr('Parametri non validi');return;}
+
+  document.getElementById('page-style').textContent=`@page{size:${L.page};margin:0}`;
+  document.getElementById('tb-title').textContent=L.label+' — M361';
+
+  const neededIds=ids.slice(0,L.dataSlots);
+
+  const[listinoResults,vociResults,{data:loghi},{data:fonts}]=await Promise.all([
+    Promise.all(neededIds.map(id=>db.from('listini_prezzi').select('*').eq('id',id).single())),
+    Promise.all(neededIds.map(id=>db.from('listini_voci').select('*').eq('listino_id',id).order('riga_ordine'))),
+    db.from('listini_loghi').select('*'),
+    db.from('listini_font').select('nome,dati_b64,formato'),
+  ]);
+
+  const listini=listinoResults.map(r=>r.data).filter(Boolean);
+  const vociMap={};
+  neededIds.forEach((id,i)=>{vociMap[id]=vociResults[i]?.data||[];});
+
+  const lgMap={};
+  (loghi||[]).forEach(lg=>{lgMap[lg.tipo+'|'+lg.chiave]=lg.immagine_b64;});
+
+  // Inject custom fonts
+  if(fonts?.length){
+    const style=document.createElement('style');
+    fonts.forEach(f=>{
+      const mime=f.formato==='woff'?'font/woff':f.formato==='woff2'?'font/woff2':'font/truetype';
+      style.textContent+=`@font-face{font-family:"${f.nome}";src:url("data:${mime};base64,${f.dati_b64}") format("${f.formato}");}`;
+    });
+    document.head.appendChild(style);
+  }
+
+  // Load Google Fonts
+  const systemFonts=['Arial','Helvetica','Times New Roman','Georgia','Courier New'];
+  const gfNeeded=[...new Set(listini.map(l=>l.font_famiglia||'Poppins'))].filter(f=>!systemFonts.includes(f));
+  if(gfNeeded.length){
+    await Promise.all(gfNeeded.map(f=>{
+      const linkId='gf-'+f.replace(/\s/g,'+');
+      if(document.getElementById(linkId))return Promise.resolve();
+      const link=document.createElement('link');
+      link.id=linkId;link.rel='stylesheet';
+      link.href=`https://fonts.googleapis.com/css2?family=${f.replace(/\s/g,'+')}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap`;
+      document.head.appendChild(link);
+      return new Promise(r=>setTimeout(r,500));
+    }));
+  }
+
+  // Build sheet
+  const sheet=document.getElementById('sheet');
+  sheet.style.width=L.sheetW;
+  sheet.style.minHeight=L.sheetH;
+
+  let html='';
+  for(let i=0;i<L.totalSlots;i++){
+    const l=listini[i]||null;
+    const borderR=(L.cols>1&&(i%L.cols)<L.cols-1)?'border-right:0.5pt solid #d1d5db;':'';
+    const borderB=(L.rows>1&&Math.floor(i/L.cols)<L.rows-1)?'border-bottom:0.5pt solid #d1d5db;':'';
+    html+=`<div class="slot" style="width:${L.slotW};height:${L.slotH};${borderR}${borderB}">`;
+    if(l){
+      const topB64=lgMap['categoria|'+(l.categoria||'altro')]||null;
+      const botB64=lgMap['emporio|'+l.emporio]||null;
+      html+=buildSlotHTML(l,vociMap[l.id]||[],topB64,botB64);
+    }
+    html+=`</div>`;
+  }
+  sheet.innerHTML=html;
+
+  document.getElementById('loading').style.display='none';
+  sheet.style.display='flex';
+}
+
+function buildSlotHTML(l,v,logoTopB64,logoBotB64){
+  const font=l.font_famiglia||'Poppins';
+  const fsVoce=l.font_size_voce||11;
+  const fsSez=l.font_size_sez||12;
+  const mgT=l.mg_top||15,mgB=l.mg_bottom||15,mgL=l.mg_left||15,mgR=l.mg_right||15;
+  const descPct=l.col_desc_pct||70;
+  const linee=l.mostra_linee!==false;
+  const logoTopH=l.logo_top_h||35;
+  const logoBotH=l.logo_bottom_h||28;
+  const logoTopNascosto=l.logo_top_nascosto===true;
+
+  let h=`<div style="padding:${mgT}mm ${mgR}mm ${mgB}mm ${mgL}mm;font-family:'${esc(font)}',sans-serif;font-size:${fsVoce}pt;line-height:1.5;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column">`;
+
+  if(logoTopB64&&!logoTopNascosto){
+    h+=`<div style="text-align:center;margin-bottom:4mm;flex-shrink:0"><img src="data:image/*;base64,${logoTopB64}" style="height:${logoTopH}mm;max-width:100%;object-fit:contain" alt=""></div>`;
+  }
+  if(l.titolo){h+=`<div style="text-align:center;font-weight:800;margin-bottom:2mm;flex-shrink:0">${esc(l.titolo)}</div>`;}
+  if(l.sottotitolo){h+=`<div style="text-align:center;color:#475569;margin-bottom:3mm;font-size:.9em;flex-shrink:0">${esc(l.sottotitolo)}</div>`;}
+
+  h+=`<table style="width:100%;border-collapse:collapse;flex:1"><colgroup><col style="width:${descPct}%"><col style="width:${100-descPct}%"></colgroup><tbody>`;
+  (v||[]).forEach(row=>{
+    if(row.tipo==='voce'){
+      const pt=row.prezzo_testo||(row.prezzo!=null?'€ '+Number(row.prezzo).toFixed(2).replace('.',','):'');
+      const st=`${row.grassetto?'font-weight:800;':''}${row.corsivo?'font-style:italic;':''}`;
+      const bd=linee?'border-bottom:0.3pt solid #e2e8f0;':'';
+      h+=`<tr><td style="${st}${bd}padding:1.5mm 2mm;vertical-align:top">${esc(row.descrizione||'')}</td><td style="${st}${bd}padding:1.5mm 2mm;text-align:right;white-space:nowrap">${esc(pt)}</td></tr>`;
+    }else if(row.tipo==='sezione'){
+      const st=`${row.grassetto?'font-weight:900;':''}${row.corsivo?'font-style:italic;':''}`;
+      h+=`<tr><td colspan="2" style="${st}font-size:${fsSez}pt;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:1pt solid #1e293b;padding:2.5mm 2mm 1mm;color:#1e293b">${esc(row.descrizione||'')}</td></tr>`;
+    }else if(row.tipo==='separatore'){
+      h+=`<tr><td colspan="2" style="padding:0.8mm 0"><hr style="border:none;border-top:0.5pt solid #cbd5e1;margin:0"></td></tr>`;
+    }else if(row.tipo==='spazio'){
+      h+=`<tr><td colspan="2" style="padding:1.5mm 0"></td></tr>`;
+    }
+  });
+  h+=`</tbody></table>`;
+
+  if(l.note_piede){h+=`<div style="text-align:center;font-size:.8em;color:#64748b;margin-top:3mm;padding-top:2mm;border-top:0.5pt solid #e2e8f0;flex-shrink:0">${esc(l.note_piede)}</div>`;}
+  if(logoBotB64){h+=`<div style="text-align:center;margin-top:3mm;flex-shrink:0"><img src="data:image/*;base64,${logoBotB64}" style="height:${logoBotH}mm;max-width:100%;object-fit:contain" alt=""></div>`;}
+
+  h+=`</div>`;
+  return h;
+}
+
+function showErr(msg){
+  document.getElementById('loading').innerHTML=`<div class="err-box"><i class="fas fa-circle-exclamation" style="font-size:32px;color:#B5453A"></i><p>${msg}</p></div>`;
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+loadAndRender();
+</script>
+</body>
+</html>
