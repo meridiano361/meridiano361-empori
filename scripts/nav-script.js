@@ -1398,6 +1398,8 @@ function buildNav() {
   }
 
   // ── TESTO GRANDE (accessibilità) ─────────────────────────────────────────
+  // Inject styles early so the zoom CSS rule exists before applyZoom adds the class
+  injectStyles();
   function applyZoom() {
     if (localStorage.getItem('m361_testo_grande') === '1') {
       document.documentElement.classList.add('m361-grande');
