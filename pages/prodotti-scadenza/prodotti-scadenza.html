@@ -26,13 +26,12 @@
     body{font-family:'Inter',sans-serif;background:var(--bg);font-size:14px;color:var(--S);padding-bottom:100px}
 
     /* ── Header ── */
-    .hd{background:var(--S);padding:14px 16px;display:flex;align-items:center;gap:10px}
-    .hd h1{font-size:17px;font-weight:900;color:#fff;flex:1}
+    .hd{background:#fff;border-bottom:1px solid var(--Gl);padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:56px;z-index:200}
     .btn-add{background:var(--R);color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:inherit;transition:background .15s}
     .btn-add:hover{background:#8c362d}
-    .btn-back{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.75);font-size:17px;padding:4px 10px 4px 0;display:flex;align-items:center;flex-shrink:0;transition:color .15s}
-    .btn-back:hover{color:#fff}
-    .hd-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;font-weight:600;letter-spacing:.03em}
+    .btn-back{background:none;border:none;cursor:pointer;color:var(--G);font-size:17px;padding:4px 10px 4px 0;display:flex;align-items:center;flex-shrink:0;transition:color .15s}
+    .btn-back:hover{color:var(--R)}
+    .hd-sub{font-size:11px;color:var(--G);margin-top:1px;font-weight:600;letter-spacing:.03em}
 
     /* ── Empori selector ── */
     .sel-wrap{padding:24px 16px 32px;max-width:640px;margin:0 auto}
@@ -192,7 +191,6 @@
 <div class="hd">
   <button class="btn-back" id="btn-back" onclick="tornaEmpori()" style="display:none"><i class="fas fa-arrow-left"></i></button>
   <div style="flex:1;min-width:0">
-    <h1><i class="fas fa-clock-rotate-left" style="font-size:15px;opacity:.7;margin-right:4px"></i>Scadenze</h1>
     <div class="hd-sub" id="hd-sub" style="display:none"></div>
   </div>
   <button class="btn-add" id="btn-add-prod" onclick="apriForm()" style="display:none"><i class="fas fa-plus"></i> Aggiungi</button>
@@ -319,7 +317,7 @@ const EMPORI=[
   {nome:'Viadana',       img:'../../assets/images/logo_viadana.png'},
 ];
 
-let user=null,_admin=false,emporio=null;
+let user=null,_admin=false,_selettoreEmpori=false,emporio=null;
 let filtro='tutti',prodotti=[],editId=null;
 let modoSconto='pct'; // 'none' | 'pct' | 'price'
 
@@ -354,7 +352,7 @@ function mostraEmpori(){
 function mostraLista(){
   document.getElementById('screen-empori').style.display='none';
   document.getElementById('screen-list').style.display='block';
-  document.getElementById('btn-back').style.display=_admin?'flex':'none';
+  document.getElementById('btn-back').style.display=_selettoreEmpori?'flex':'none';
   document.getElementById('btn-add-prod').style.display='';
   const sub=document.getElementById('hd-sub');
   sub.textContent=emporio||'';sub.style.display=emporio?'block':'none';
@@ -363,9 +361,12 @@ function tornaEmpori(){emporio=null;mostraEmpori();}
 function selezionaEmporio(emp){emporio=emp;mostraLista();carica();}
 
 /* ── Empori grid ── */
-function buildEmpiGrid(){
+function buildEmpiGrid(filtro=null){
   const g=document.getElementById('sel-grid');g.innerHTML='';
-  EMPORI.forEach(e=>{
+  const lista=filtro
+    ?EMPORI.filter(e=>filtro.some(f=>f.toLowerCase()===e.nome.toLowerCase()))
+    :EMPORI;
+  lista.forEach(e=>{
     const c=document.createElement('div');c.className='emp-card';
     c.innerHTML=`<div class="ec-icon"><img src="${e.img}" alt="${e.nome}"></div><div class="ec-name">${e.nome}</div>`;
     c.onclick=()=>selezionaEmporio(e.nome);
@@ -378,13 +379,22 @@ async function init(){
   user=JSON.parse(localStorage.getItem('m361_user')||'null');
   if(!user)return;
   _admin=typeof isAdmin==='function'&&isAdmin();
-  emporio=user.emporio||null;
-  buildEmpiGrid();
-  if(_admin){
+  const allEmpori=[user.emporio,...(Array.isArray(user.empori_aggiuntivi)?user.empori_aggiuntivi:[])].filter(Boolean);
+  const uniqEmpori=[...new Set(allEmpori)];
+  const isVeroAdmin=user.ruolo==='admin';
+  if(isVeroAdmin){
+    _selettoreEmpori=true;
+    buildEmpiGrid(null);
     mostraEmpori();
-  } else {
+  } else if(uniqEmpori.length===1){
+    _selettoreEmpori=false;
+    emporio=uniqEmpori[0];
     mostraLista();
     await carica();
+  } else {
+    _selettoreEmpori=true;
+    buildEmpiGrid(uniqEmpori.length>0?uniqEmpori:null);
+    mostraEmpori();
   }
 }
 

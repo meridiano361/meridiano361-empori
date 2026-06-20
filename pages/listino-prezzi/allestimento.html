@@ -129,6 +129,14 @@ in Allestimento</textarea>
 
     <div class="set-sec">Layout</div>
     <div class="set-row">
+      <label class="set-lbl">Formato</label>
+      <div class="ori-group">
+        <button class="ori-btn on" data-fmt="A4" onclick="onFmtChange(this)">A4</button>
+        <button class="ori-btn" data-fmt="A5" onclick="onFmtChange(this)">A5</button>
+        <button class="ori-btn" data-fmt="A6" onclick="onFmtChange(this)">A6</button>
+      </div>
+    </div>
+    <div class="set-row">
       <label class="set-lbl">Orientamento</label>
       <div class="ori-group">
         <button class="ori-btn on" data-ori="landscape" onclick="onOriChange(this)">Orizzontale</button>
@@ -160,6 +168,8 @@ const db=supabase.createClient(SB_URL,SB_KEY);
 let logoBotB64=null;
 let emporio='';
 let oriAttuale='landscape';
+let formatoAttuale='A4';
+const FMT_BASE={A4:{w:210,h:297},A5:{w:148,h:210},A6:{w:105,h:148}};
 
 const GF_FONTS=[
   {f:'Playfair Display',q:'Playfair+Display:ital,wght@0,700;1,700'},
@@ -194,7 +204,8 @@ async function init(){
 }
 
 function dims(){
-  return oriAttuale==='landscape'?{w:297,h:210}:{w:210,h:297};
+  const base=FMT_BASE[formatoAttuale]||FMT_BASE.A4;
+  return oriAttuale==='landscape'?{w:base.h,h:base.w}:base;
 }
 
 function render(){
@@ -244,9 +255,16 @@ function onSzChange(v){
 }
 
 function onOriChange(btn){
-  document.querySelectorAll('.ori-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('[data-ori]').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   oriAttuale=btn.dataset.ori;
+  render();
+}
+
+function onFmtChange(btn){
+  document.querySelectorAll('[data-fmt]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  formatoAttuale=btn.dataset.fmt;
   render();
 }
 
