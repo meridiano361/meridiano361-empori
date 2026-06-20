@@ -40,8 +40,9 @@
     @media(min-width:460px){.sel-grid{grid-template-columns:repeat(3,1fr)}}
     .emp-card{background:#fff;border:2px solid var(--Gl);border-radius:16px;padding:22px 12px 18px;text-align:center;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:10px;user-select:none}
     .emp-card:hover{border-color:var(--R);box-shadow:0 4px 18px rgba(181,69,58,.14);transform:translateY(-2px)}
-    .emp-card:hover .ec-icon{background:var(--Rl);color:var(--R)}
-    .ec-icon{width:52px;height:52px;background:var(--bg);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--S2);transition:all .18s}
+    .emp-card:hover .ec-icon{filter:brightness(1.05)}
+    .ec-icon{width:64px;height:64px;border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:all .18s}
+    .ec-icon img{width:100%;height:100%;object-fit:cover}
     .ec-name{font-size:14px;font-weight:800;color:var(--S);line-height:1.2}
     .ec-sub{font-size:10px;color:var(--G);font-weight:600}
 
@@ -385,9 +386,7 @@ async function init(){
   buildFontSelect();
   await loadCustomFonts();
   if(_admin){
-    const{data}=await db.from('operatori').select('emporio').eq('attivo',true).not('emporio','is',null);
-    const emps=[...new Set((data||[]).map(r=>r.emporio).filter(Boolean))].sort();
-    buildEmpiGrid(emps);
+    buildEmpiGrid();
     mostra('empori');
   } else {
     mostra('lista');
@@ -396,12 +395,19 @@ async function init(){
 }
 
 /* ── Empori ── */
-function buildEmpiGrid(emps){
+const EMPORI_LIST=[
+  {nome:'Casalmaggiore', img:'../../assets/images/logo_casalmaggiore.png'},
+  {nome:'Cremona',       img:'../../assets/images/logo_cremona.png'},
+  {nome:'Mantova',       img:'../../assets/images/logo_mantova.png'},
+  {nome:'Reggio Emilia', img:'../../assets/images/logo_reggio_emilia.png'},
+  {nome:'Viadana',       img:'../../assets/images/logo_viadana.png'},
+];
+function buildEmpiGrid(){
   const g=document.getElementById('sel-grid');g.innerHTML='';
-  emps.forEach(emp=>{
+  EMPORI_LIST.forEach(e=>{
     const c=document.createElement('div');c.className='emp-card';
-    c.innerHTML=`<div class="ec-icon"><i class="fas fa-store"></i></div><div class="ec-name">${esc(emp)}</div>`;
-    c.onclick=()=>{emporio=emp;mostra('lista');caricaListini();};
+    c.innerHTML=`<div class="ec-icon"><img src="${e.img}" alt="${e.nome}"></div><div class="ec-name">${e.nome}</div>`;
+    c.onclick=()=>{emporio=e.nome;mostra('lista');caricaListini();};
     g.appendChild(c);
   });
 }
@@ -656,8 +662,13 @@ function toggleItalic(idx){voci[idx].corsivo=!voci[idx].corsivo;renderRows();}
 function updateDesc(idx,v){voci[idx].descrizione=v;}
 function updatePrezzo(idx,v){
   const n=parseFloat(v.replace(',','.'));
-  voci[idx].prezzo=isNaN(n)?null:n;
-  voci[idx].prezzo_testo=v;
+  if(!isNaN(n)&&v.trim()!==''){
+    voci[idx].prezzo=n;
+    voci[idx].prezzo_testo=null;
+  } else {
+    voci[idx].prezzo=null;
+    voci[idx].prezzo_testo=v.trim()||null;
+  }
 }
 
 function renderRows(){
@@ -682,7 +693,7 @@ function renderRow(v,i){
     return `<div class="voce-row">
       <span class="row-icon"><i class="fas fa-circle-dot" style="font-size:9px"></i></span>
       <input class="fi-r fi-desc" type="text" value="${esc(v.descrizione||'')}" placeholder="Descrizione prodotto" style="${st}" oninput="updateDesc(${i},this.value)">
-      <input class="fi-r fi-prz" type="text" value="${esc(v.prezzo_testo||v.prezzo!=null?String(v.prezzo_testo||v.prezzo):'')}" placeholder="€ 0,00" oninput="updatePrezzo(${i},this.value)">
+      <input class="fi-r fi-prz" type="text" value="${esc(v.prezzo_testo!=null?v.prezzo_testo:(v.prezzo!=null?String(v.prezzo).replace('.',','):''))}" placeholder="0,00" oninput="updatePrezzo(${i},this.value)">
       ${acts}
     </div>`;
   }
