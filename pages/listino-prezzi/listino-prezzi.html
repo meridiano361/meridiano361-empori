@@ -189,11 +189,6 @@
     .sel-chk{width:22px;height:22px;border:1.5px solid var(--Gl);border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .15s;color:transparent;margin-left:2px}
     .sel-chk.on{background:var(--R);border-color:var(--R);color:#fff}
 
-    /* Toast */
-    .toast{position:fixed;bottom:22px;right:14px;background:var(--S);color:#fff;padding:9px 16px;border-radius:10px;font-size:12px;font-weight:700;z-index:99999;opacity:0;transform:translateY(6px);transition:all .22s;pointer-events:none}
-    .toast.show{opacity:1;transform:none}
-    .toast.ok{background:#166534}
-    .toast.err{background:#991b1b}
   </style>
 </head>
 <body>
@@ -405,7 +400,6 @@
   </div><!-- /ed-wrap -->
 </div><!-- /screen-editor -->
 
-<div class="toast" id="toast"></div>
 
 <script>
 const SB_URL='https://hsalynvxazxqtmsvjrzc.supabase.co';
@@ -505,12 +499,15 @@ function mostra(s){
     back.style.display=_selettoreEmpori?'flex':'none';
     sub.textContent='Emporio '+emporio;sub.style.display=emporio?'block':'none';
     title.innerHTML='<i class="fas fa-list-ul" style="font-size:14px;opacity:.65;margin-right:5px"></i>Listino Vetrina';
-    acts.innerHTML=`<button class="btn-hd ghost" onclick="nuovoListino()"><i class="fas fa-plus"></i> Nuovo</button>`;
+    acts.innerHTML=`
+      <button class="btn-hd ghost" onclick="apriAllestimento()" title="Foglio vetrina in allestimento"><i class="fas fa-sign-hanging"></i> Allestimento</button>
+      <button class="btn-hd ghost" onclick="nuovoListino()"><i class="fas fa-plus"></i> Nuovo</button>`;
   } else if(s==='editor'){
     back.style.display='flex';
     sub.textContent='Emporio '+emporio;sub.style.display='block';
     title.innerHTML='<i class="fas fa-pen" style="font-size:13px;opacity:.65;margin-right:5px"></i>Editor';
     acts.innerHTML=`
+      <button class="btn-hd ghost" onclick="apriStampaCombinataDaEditor()" title="Stampa combinata"><i class="fas fa-layer-group"></i> Combinata</button>
       <button class="btn-hd ghost" onclick="apriStampa()"><i class="fas fa-print"></i> Stampa</button>
       <button class="btn-hd" onclick="salvaListino()"><i class="fas fa-check"></i> Salva</button>`;
   }
@@ -1074,6 +1071,27 @@ function apriPrintMulti(layout){
   window.open(`print-multi.html?ids=${ids.join(',')}&layout=${layout}`,'_blank');
 }
 
+/* ── Stampa combinata da editor ── */
+function apriStampaCombinataDaEditor(){
+  if(!listino?.id){toast('Salva prima il listino','err');return;}
+  const id=listino.id;
+  const OPTS=[
+    {layout:'A5-blank-A4',label:'A5 + vuoto su A4',   desc:'1 listino su metà foglio A4 orizzontale, altra metà vuota'},
+    {layout:'2xA5-A4',    label:'2×A5 su A4',          desc:'2 listini affiancati su foglio A4 orizzontale'},
+    {layout:'2xA6-A5',    label:'2×A6 su A5',          desc:'2 listini affiancati su foglio A5 orizzontale'},
+    {layout:'4xA6-A4',    label:'4×A6 su A4',          desc:'4 listini in griglia 2×2 su foglio A4'},
+  ];
+  const opDiv=document.getElementById('layout-options');
+  opDiv.innerHTML=OPTS.map(o=>`<button onclick="chiudiModalLayout();window.open('print-multi.html?ids=${id}&layout=${o.layout}','_blank')" style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;cursor:pointer;font-family:inherit;text-align:left;width:100%;transition:all .15s" onmouseover="this.style.borderColor='#B5453A'" onmouseout="this.style.borderColor='#e2e8f0'"><span style="font-size:13px;font-weight:800;color:#1e293b">${o.label}</span><span style="font-size:11px;color:#64748b">${o.desc}</span></button>`).join('');
+  document.getElementById('modal-layout').style.display='flex';
+}
+
+/* ── Vetrina in allestimento ── */
+function apriAllestimento(){
+  if(!emporio){toast('Seleziona un emporio','err');return;}
+  window.open(`allestimento.html?emporio=${encodeURIComponent(emporio)}`,'_blank');
+}
+
 /* ── Stampa ── */
 function apriStampa(){
   if(!listino?.id){toast('Salva prima il listino','err');return;}
@@ -1090,11 +1108,7 @@ function fileToB64(file){
   });
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function toast(msg,tipo=''){
-  const el=document.getElementById('toast');
-  el.textContent=msg;el.className=`toast show${tipo?' '+tipo:''}`;
-  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3000);
-}
+function toast(msg,tipo=''){if(window.M361?.toast)window.M361.toast(msg,tipo);}
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
 else init();

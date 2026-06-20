@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vetrina in Allestimento — M361</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style id="page-style">/* dinamico */</style>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:'Georgia',serif;background:#e8edf2;color:#1e293b}
+
+    @media screen{
+      .toolbar{background:#1e293b;padding:10px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+      .toolbar h2{color:#fff;font-size:14px;font-weight:700;flex:1;opacity:.85}
+      .tb-btn{background:#B5453A;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s;font-family:inherit}
+      .tb-btn:hover{background:#8c362d}
+      .tb-btn.ghost{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:rgba(255,255,255,.85)}
+      .tb-btn.ghost:hover{background:rgba(255,255,255,.08)}
+      .page-wrap{padding:24px 16px 60px;display:flex;justify-content:center;align-items:flex-start;min-height:calc(100vh - 52px)}
+      .page{box-shadow:0 4px 24px rgba(0,0,0,.18);border-radius:4px;background:#fff}
+    }
+    @media print{
+      .toolbar{display:none}
+      .page-wrap{padding:0;background:none;display:block}
+      .page{box-shadow:none;border-radius:0;background:#fff}
+    }
+
+    .page-inner{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+    }
+
+    .testo-allestimento{
+      font-family:'Georgia',serif;
+      font-weight:700;
+      font-style:italic;
+      color:#1e293b;
+      letter-spacing:.06em;
+      line-height:1.2;
+      text-transform:uppercase;
+    }
+
+    .spin{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:rot .8s linear infinite;margin:60px auto;display:block}
+    @keyframes rot{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h2>Vetrina in Allestimento — M361</h2>
+  <button class="tb-btn ghost" onclick="window.close()">✕ Chiudi</button>
+  <button class="tb-btn" onclick="window.print()">🖨 Stampa / PDF</button>
+</div>
+
+<div class="page-wrap" id="page-wrap">
+  <div class="spin" id="spin"></div>
+  <div class="page" id="page" style="display:none"></div>
+</div>
+
+<script>
+const SB_URL='https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db=supabase.createClient(SB_URL,SB_KEY);
+
+async function loadAndRender(){
+  const params=new URLSearchParams(location.search);
+  const emporio=params.get('emporio')||'';
+
+  const pageW=297, pageH=210; // A4 landscape mm
+  document.getElementById('page-style').textContent=`@page{size:${pageW}mm ${pageH}mm;margin:0}`;
+
+  const pageEl=document.getElementById('page');
+  pageEl.style.width=pageW+'mm';
+  pageEl.style.height=pageH+'mm';
+
+  let logoBotB64=null;
+  if(emporio){
+    const{data:loghi}=await db.from('listini_loghi').select('*');
+    const lgMap={};
+    (loghi||[]).forEach(lg=>{lgMap[lg.tipo+'|'+lg.chiave]=lg.immagine_b64;});
+    logoBotB64=lgMap['emporio|'+emporio]||null;
+  }
+
+  const logoBotW=40; // % width
+
+  pageEl.innerHTML=`
+    <div class="page-inner" style="padding:20mm;height:${pageH}mm;box-sizing:border-box">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center">
+        <div class="testo-allestimento" style="font-size:52pt">Vetrina<br>in Allestimento</div>
+      </div>
+      ${logoBotB64?`<div style="flex-shrink:0;text-align:center"><img src="data:image/*;base64,${logoBotB64}" style="max-width:${logoBotW}%;height:auto;max-height:28mm;object-fit:contain" alt=""></div>`:''}
+    </div>`;
+
+  document.getElementById('spin').style.display='none';
+  pageEl.style.display='block';
+}
+
+loadAndRender();
+</script>
+</body>
+</html>

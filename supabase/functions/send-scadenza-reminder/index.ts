@@ -144,6 +144,17 @@ Deno.serve(async (req) => {
   const rispNomi  = (respAcq ?? []).map(r => (r.nome ?? "").toLowerCase().trim());
   const rispEmail = (respAcq ?? []).map(r => r.email).filter(Boolean) as string[];
 
+  // Responsabili emporio → push (per emporio del prodotto)
+  const { data: respEmporiRaw } = await db.from("operatori")
+    .select("nome, emporio").eq("is_resp_emporio", true).eq("attivo", true);
+  const empToRespEmpori = new Map<string, string[]>();
+  for (const op of (respEmporiRaw ?? [])) {
+    const emp  = (op.emporio ?? "").toLowerCase().trim();
+    const nome = (op.nome ?? "").toLowerCase().trim();
+    if (!empToRespEmpori.has(emp)) empToRespEmpori.set(emp, []);
+    empToRespEmpori.get(emp)!.push(nome);
+  }
+
   const { data: subsRaw } = await db.from("push_subscriptions").select("operatore_nome, endpoint, subscription");
   const nomeToSubs = new Map<string, Sub[]>();
   for (const sub of (subsRaw ?? []) as Sub[]) {
@@ -191,6 +202,30 @@ Deno.serve(async (req) => {
             } else {
               results.failed++;
               results.errors.push(`push ${nome}: ${(e as Error).message?.slice(0, 80)}`);
+            }
+          }
+        }
+      }
+    }
+
+    // Invia push ai responsabili emporio dello stesso emporio (se non già coperti da resp acquisti)
+    if (VAPID_PUB && VAPID_PRIV) {
+      const empNomi = empToRespEmpori.get((p.emporio ?? "").toLowerCase().trim()) ?? [];
+      for (const nome of empNomi) {
+        if (rispNomi.includes(nome)) continue; // già notificato come resp acquisti
+        for (const sub of nomeToSubs.get(nome) ?? []) {
+          try {
+            if (!dryrun) {
+              await webpush.sendNotification(sub.subscription as webpush.PushSubscription, payload, { urgency: "high", TTL: 86400 });
+            }
+            results.notifiche_inviate++;
+          } catch (e: unknown) {
+            const status = (e as { statusCode?: number })?.statusCode;
+            if (status === 404 || status === 410) {
+              await db.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+            } else {
+              results.failed++;
+              results.errors.push(`push_emp ${nome}: ${(e as Error).message?.slice(0, 80)}`);
             }
           }
         }

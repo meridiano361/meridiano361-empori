@@ -185,6 +185,12 @@ body { font-family: 'Inter', sans-serif; padding-top: 56px; padding-bottom: 68px
   from { opacity:0; transform:translateX(-50%) translateY(-12px); }
   to   { opacity:1; transform:translateX(-50%) translateY(0); }
 }
+/* ── TOAST CENTRATO ── */
+.m361-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.88);background:#1e293b;color:#fff;padding:14px 28px;border-radius:16px;font-size:14px;font-weight:700;z-index:99999;box-shadow:0 8px 40px rgba(0,0,0,.28);pointer-events:none;white-space:nowrap;max-width:calc(100vw - 40px);text-align:center;opacity:0;transition:opacity .18s,transform .18s;line-height:1.4}
+.m361-toast.m361-show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.m361-toast.ok,.m361-toast.success{background:#166534}
+.m361-toast.err,.m361-toast.error{background:#991b1b}
+.m361-toast.info{background:#1d4ed8}
     `;
     document.head.insertBefore(st, document.head.firstChild);
   }
@@ -1388,6 +1394,25 @@ function buildNav() {
     return String(s || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+
+  // ── GLOBAL TOAST CENTRATO ────────────────────────────────────────────────
+  window.M361 = window.M361 || {};
+  window.M361.toast = function(msg, tipo, duration) {
+    document.querySelectorAll('.m361-toast').forEach(el => {
+      clearTimeout(el._t);
+      el.remove();
+    });
+    const el = document.createElement('div');
+    el.className = 'm361-toast' + (tipo ? ' ' + tipo : '');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('m361-show')));
+    const ms = duration || (tipo === 'err' || tipo === 'error' ? 5000 : 2800);
+    el._t = setTimeout(() => {
+      el.classList.remove('m361-show');
+      setTimeout(() => el.remove(), 220);
+    }, ms);
+  };
 
   // Lancio dello script
   if (document.readyState === 'loading') {
