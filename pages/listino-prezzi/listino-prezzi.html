@@ -383,7 +383,7 @@ const GOOGLE_FONTS=[
 ];
 
 /* ── Stato ── */
-let user=null,_admin=false,emporio=null,screen='empori';
+let user=null,_admin=false,_selettoreEmpori=false,emporio=null,screen='empori';
 let listini=[],tabAttiva='attivi';
 let listino=null,voci=[],nextOrd=0;
 let loghiCache={};
@@ -397,12 +397,21 @@ async function init(){
   emporio=user.emporio||null;
   buildFontSelect();
   await loadCustomFonts();
-  if(_admin){
-    buildEmpiGrid();
-    mostra('empori');
-  } else {
+
+  // Operatori con un solo emporio saltano il selettore
+  const disponibili=typeof getEmporioDisponibili==='function'?getEmporioDisponibili():[];
+  const emporioAuto=!_admin&&disponibili.length===1?disponibili[0]:null;
+
+  if(emporioAuto){
+    _selettoreEmpori=false;
+    emporio=emporioAuto;
     mostra('lista');
     await caricaListini();
+  } else {
+    _selettoreEmpori=true;
+    // Per non-admin multi-emporio: mostra solo i loro empori
+    buildEmpiGrid(!_admin&&disponibili.length>0?disponibili:null);
+    mostra('empori');
   }
 }
 
@@ -414,9 +423,12 @@ const EMPORI_LIST=[
   {nome:'Reggio Emilia', img:'../../assets/images/logo_reggio_emilia.png'},
   {nome:'Viadana',       img:'../../assets/images/logo_viadana.png'},
 ];
-function buildEmpiGrid(){
+function buildEmpiGrid(filtro=null){
   const g=document.getElementById('sel-grid');g.innerHTML='';
-  EMPORI_LIST.forEach(e=>{
+  const lista=filtro
+    ?EMPORI_LIST.filter(e=>filtro.some(f=>f.toLowerCase()===e.nome.toLowerCase()))
+    :EMPORI_LIST;
+  lista.forEach(e=>{
     const c=document.createElement('div');c.className='emp-card';
     c.innerHTML=`<div class="ec-icon"><img src="${e.img}" alt="${e.nome}"></div><div class="ec-name">${e.nome}</div>`;
     c.onclick=()=>{emporio=e.nome;mostra('lista');caricaListini();};
@@ -439,7 +451,7 @@ function mostra(s){
     back.style.display='none';sub.style.display='none';
     title.innerHTML='<i class="fas fa-list-ul" style="font-size:14px;opacity:.65;margin-right:5px"></i>Listino Vetrina';
   } else if(s==='lista'){
-    back.style.display=_admin?'flex':'none';
+    back.style.display=_selettoreEmpori?'flex':'none';
     sub.textContent='Emporio '+emporio;sub.style.display=emporio?'block':'none';
     title.innerHTML='<i class="fas fa-list-ul" style="font-size:14px;opacity:.65;margin-right:5px"></i>Listino Vetrina';
     acts.innerHTML=`<button class="btn-hd ghost" onclick="nuovoListino()"><i class="fas fa-plus"></i> Nuovo</button>`;
@@ -455,7 +467,7 @@ function mostra(s){
 
 function tornaIndietro(){
   if(screen==='editor'){mostra('lista');}
-  else if(screen==='lista'&&_admin){mostra('empori');}
+  else if(screen==='lista'&&_selettoreEmpori){mostra('empori');}
 }
 
 /* ── Lista ── */
