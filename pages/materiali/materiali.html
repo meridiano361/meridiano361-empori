@@ -94,13 +94,15 @@
     .spinner { width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:spin .8s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
 
-    /* ── Toast ── */
-    #toast-container { position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none; }
-    .toast { padding:12px 20px;border-radius:12px;font-size:14px;font-weight:700;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.18);white-space:nowrap;animation:toast-in .25s ease;pointer-events:auto; }
-    .toast-success { background:#059669; }
-    .toast-error   { background:#B5453A; }
-    .toast-info    { background:#3b82f6; }
-    @keyframes toast-in { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
+    /* ── Preview modal ── */
+    #preview-modal { visibility:hidden;opacity:0;pointer-events:none;position:fixed;inset:0;z-index:9995;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.65);transition:opacity .2s; }
+    #preview-modal.open { visibility:visible;opacity:1;pointer-events:auto; }
+    .preview-sheet { background:#fff;border-radius:20px;max-width:920px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:scale(.96);transition:transform .2s; }
+    #preview-modal.open .preview-sheet { transform:scale(1); }
+    .preview-hd { display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #e2e8f0;flex-shrink:0;gap:12px; }
+    .preview-title { font-size:14px;font-weight:800;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1; }
+    .preview-body { flex:1;overflow:auto;min-height:220px;display:flex;align-items:center;justify-content:center;background:#f8fafc;padding:16px; }
+    .preview-ft { padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;flex-shrink:0; }
 
     /* ── Sposta modal ── */
     /* usa la classe .open per mostrare — evita conflitti con display:none in CSS */
@@ -187,7 +189,20 @@
   </div>
 </div>
 
-<div id="toast-container"></div>
+<!-- Modal anteprima file -->
+<div id="preview-modal" onclick="if(event.target===this)chiudiPreview()">
+  <div class="preview-sheet">
+    <div class="preview-hd">
+      <div class="preview-title" id="preview-title"></div>
+      <button onclick="chiudiPreview()" style="background:none;border:none;cursor:pointer;font-size:22px;color:#94a3b8;padding:0 4px;line-height:1;flex-shrink:0">&times;</button>
+    </div>
+    <div class="preview-body" id="preview-body"></div>
+    <div class="preview-ft">
+      <button class="btn-secondary" onclick="chiudiPreview()">Chiudi</button>
+      <a id="preview-dl-link" href="#" target="_blank" class="btn-primary" style="text-decoration:none"><i class="fas fa-download"></i> Scarica</a>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
@@ -305,6 +320,7 @@ function fileRowHtml(f, nomeCartella) {
       <div class="file-meta">${meta}</div>
     </div>
     <div class="file-actions">
+      <button class="btn-icon" onclick="apriPreview('${escJs(url)}','${escJs(f.nome)}','${escJs(f.tipo_mime||'')}')" title="Anteprima"><i class="fas fa-eye"></i></button>
       <a href="${url}" target="_blank" class="btn-icon btn-icon-dl" title="Scarica"><i class="fas fa-download"></i></a>
       ${adm}
     </div>
@@ -539,12 +555,31 @@ function iconaFile(mime) {
   return {bg:'#f1f5f9',color:'#64748b',icon:'fa-file'};
 }
 function showToast(msg, tipo) {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = `toast toast-${tipo==='success'?'success':tipo==='error'?'error':'info'}`;
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => { t.style.transition='opacity .4s'; t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 3200);
+  if (window.M361?.toast) window.M361.toast(msg, tipo==='success'?'ok':tipo==='error'?'err':'info');
+}
+
+function apriPreview(url, nome, mime) {
+  document.getElementById('preview-title').textContent = nome;
+  document.getElementById('preview-dl-link').href = url;
+  const body = document.getElementById('preview-body');
+  body.style.padding = '16px';
+  if (mime && mime.startsWith('image/')) {
+    body.innerHTML = `<img src="${escHtml(url)}" style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:8px">`;
+  } else if (mime === 'application/pdf') {
+    body.style.padding = '0';
+    body.innerHTML = `<iframe src="${escHtml(url)}" style="width:100%;height:65vh;border:none"></iframe>`;
+  } else {
+    body.innerHTML = `<div style="text-align:center;color:#64748b;padding:40px 24px">
+      <i class="fas fa-file" style="font-size:40px;margin-bottom:12px;display:block;color:#cbd5e1"></i>
+      <p style="font-weight:800;font-size:15px;margin:0 0 8px;color:#1e293b">${escHtml(nome)}</p>
+      <p style="font-size:13px;margin:0">Anteprima non disponibile per questo tipo di file.</p>
+    </div>`;
+  }
+  document.getElementById('preview-modal').classList.add('open');
+}
+function chiudiPreview() {
+  document.getElementById('preview-modal').classList.remove('open');
+  setTimeout(() => { document.getElementById('preview-body').innerHTML = ''; }, 200);
 }
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escJs(s)   { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
