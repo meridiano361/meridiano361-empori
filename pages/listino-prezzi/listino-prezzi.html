@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Listino Prezzi — M361</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Poppins preloaded; altri caricati on-demand -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" id="gf-preload">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root{
+      --R:#B5453A;--Rl:rgba(181,69,58,.1);
+      --S:#1e293b;--S2:#334155;--S3:#475569;
+      --G:#94a3b8;--Gl:#e2e8f0;--bg:#f1f5f9;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Poppins','Inter',sans-serif;background:var(--bg);font-size:14px;color:var(--S);padding-bottom:80px}
+
+    /* ── Header ── */
+    .hd{background:var(--S);padding:13px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200}
+    .hd h1{font-size:16px;font-weight:800;color:#fff;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .hd-sub{font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-top:1px;white-space:nowrap}
+    .btn-back{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.7);font-size:17px;padding:4px 10px 4px 0;display:flex;align-items:center;transition:color .15s;flex-shrink:0}
+    .btn-back:hover{color:#fff}
+    .btn-hd{background:var(--R);color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:inherit;transition:background .15s;white-space:nowrap;flex-shrink:0}
+    .btn-hd:hover{background:#8c362d}
+    .btn-hd.ghost{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:rgba(255,255,255,.85)}
+    .btn-hd.ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.6)}
+
+    /* ── Empori screen ── */
+    .sel-wrap{padding:24px 16px 32px;max-width:640px;margin:0 auto}
+    .sel-intro{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--G);text-align:center;margin-bottom:20px}
+    .sel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    @media(min-width:460px){.sel-grid{grid-template-columns:repeat(3,1fr)}}
+    .emp-card{background:#fff;border:2px solid var(--Gl);border-radius:16px;padding:22px 12px 18px;text-align:center;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:10px;user-select:none}
+    .emp-card:hover{border-color:var(--R);box-shadow:0 4px 18px rgba(181,69,58,.14);transform:translateY(-2px)}
+    .emp-card:hover .ec-icon{background:var(--Rl);color:var(--R)}
+    .ec-icon{width:52px;height:52px;background:var(--bg);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--S2);transition:all .18s}
+    .ec-name{font-size:14px;font-weight:800;color:var(--S);line-height:1.2}
+    .ec-sub{font-size:10px;color:var(--G);font-weight:600}
+
+    /* ── Lista screen ── */
+    .ls-bar{display:flex;gap:0;background:#fff;border-bottom:1px solid var(--Gl)}
+    .ls-tab{padding:9px 18px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;border:none;background:transparent;color:var(--G);transition:all .12s;font-family:inherit;border-bottom:2px solid transparent}
+    .ls-tab.on{color:var(--R);border-bottom-color:var(--R)}
+    .ls-body{padding:14px 14px 0}
+    .ls-sec{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.14em;color:var(--G);margin:0 0 10px;display:flex;align-items:center;gap:6px}
+    .ls-sec::before{content:'';width:3px;height:12px;background:var(--R);border-radius:2px}
+    .ls-grid{display:grid;gap:10px}
+    @media(min-width:600px){.ls-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(min-width:960px){.ls-grid{grid-template-columns:repeat(3,1fr)}}
+    .lcard{background:#fff;border:1.5px solid var(--Gl);border-radius:12px;padding:14px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:6px}
+    .lcard:hover{border-color:#cbd5e1;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+    .lcard-top{display:flex;align-items:flex-start;gap:8px}
+    .lcard-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+    .lcard-nome{font-size:14px;font-weight:800;color:var(--S);flex:1;line-height:1.3}
+    .lcard-cat{font-size:10px;color:var(--G);font-weight:600;margin-top:1px}
+    .lcard-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .lcard-pill{padding:2px 8px;border-radius:5px;font-size:10px;font-weight:800;background:var(--bg);color:var(--S3);border:1px solid var(--Gl)}
+    .lcard-acts{display:flex;gap:5px;margin-top:4px;border-top:1px solid var(--Gl);padding-top:8px}
+    .la{background:none;border:1.5px solid var(--Gl);border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--S3);display:flex;align-items:center;gap:4px;transition:all .12s;flex:1;justify-content:center}
+    .la:hover{border-color:var(--R);color:var(--R)}
+    .la.del:hover{border-color:#ef4444;color:#ef4444}
+    .la.print{border-color:#7c3aed;color:#7c3aed}
+    .ls-empty{text-align:center;padding:40px 20px;color:var(--G)}
+    .ls-empty i{font-size:34px;display:block;margin-bottom:10px;opacity:.3}
+    .ls-empty p{font-size:14px;font-weight:700}
+    .spin{width:24px;height:24px;border:3px solid var(--Gl);border-top-color:var(--R);border-radius:50%;animation:rot .8s linear infinite;margin:40px auto;display:block}
+    @keyframes rot{to{transform:rotate(360deg)}}
+    .fab{position:fixed;bottom:90px;right:18px;z-index:180;background:var(--R);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(181,69,58,.4);transition:all .15s}
+    .fab:hover{background:#8c362d;transform:scale(1.06)}
+
+    /* ── Editor screen ── */
+    .ed-wrap{display:flex;flex-direction:column;gap:0}
+    @media(min-width:800px){.ed-wrap{flex-direction:row;align-items:flex-start;gap:0}}
+
+    /* Editor sub-header */
+    .ed-sub{background:#fff;border-bottom:1px solid var(--Gl);padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .fi-nome{border:none;font-size:16px;font-weight:800;color:var(--S);font-family:inherit;outline:none;min-width:180px;flex:1;padding:4px 0;border-bottom:2px solid var(--Gl);transition:border-color .15s;background:transparent}
+    .fi-nome:focus{border-bottom-color:var(--R)}
+    .fmt-group,.cat-group{display:flex;gap:0;background:var(--bg);border-radius:8px;border:1.5px solid var(--Gl);overflow:hidden;flex-shrink:0}
+    .fmt-btn,.cat-btn{border:none;background:transparent;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--G);transition:all .12s;white-space:nowrap}
+    .fmt-btn.on,.cat-btn.on{background:var(--S);color:#fff;border-radius:6px}
+    .cat-btn{padding:5px 8px;font-size:10px}
+
+    /* Editor main */
+    .ed-rows{flex:1;padding:14px;min-width:0}
+    .ed-add-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+    .add-btn{background:#fff;border:1.5px solid var(--Gl);border-radius:8px;padding:7px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--S3);display:flex;align-items:center;gap:5px;transition:all .12s}
+    .add-btn:hover{border-color:var(--R);color:var(--R)}
+    .add-btn.tipo-sez:hover{border-color:#7c3aed;color:#7c3aed}
+    .add-btn.tipo-sep:hover{border-color:var(--G);color:var(--S2)}
+
+    /* Rows */
+    .voce-row{display:flex;align-items:center;gap:5px;background:#fff;border:1.5px solid var(--Gl);border-radius:9px;padding:6px 8px;margin-bottom:6px;transition:border-color .12s}
+    .voce-row:hover{border-color:#cbd5e1}
+    .row-icon{width:22px;flex-shrink:0;text-align:center;font-size:12px;color:var(--G)}
+    .fi-r{border:none;outline:none;font-size:13px;font-family:inherit;color:var(--S);background:transparent;padding:2px 4px;min-width:0}
+    .fi-r::placeholder{color:var(--G)}
+    .fi-desc{flex:1}
+    .fi-prz{width:80px;text-align:right;border-left:1px solid var(--Gl);flex-shrink:0;padding-left:6px}
+    .row-acts{display:flex;gap:1px;flex-shrink:0;margin-left:2px}
+    .ra{background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:5px;font-size:11px;color:var(--G);transition:all .1s;font-family:inherit;line-height:1}
+    .ra:hover{background:var(--bg);color:var(--S2)}
+    .ra.del:hover{color:#ef4444}
+    .ra.on{color:var(--S);background:var(--Gl)}
+
+    /* Section / separator / space rows */
+    .sez-row{display:flex;align-items:center;gap:5px;background:rgba(124,58,237,.06);border:1.5px solid rgba(124,58,237,.25);border-radius:9px;padding:6px 8px;margin-bottom:6px}
+    .sep-row{display:flex;align-items:center;gap:5px;background:var(--bg);border:1.5px solid var(--Gl);border-radius:9px;padding:6px 8px;margin-bottom:6px;opacity:.7}
+    .spc-row{display:flex;align-items:center;gap:5px;background:transparent;border:1.5px dashed var(--Gl);border-radius:9px;padding:6px 8px;margin-bottom:6px;opacity:.6}
+    .sez-label{font-size:11px;color:#7c3aed;font-weight:800;text-transform:uppercase;letter-spacing:.08em;flex-shrink:0}
+    .sep-label{font-size:11px;color:var(--G);flex:1;text-align:center}
+    .fi-sez{border:none;outline:none;font-size:13px;font-weight:800;font-family:inherit;color:#7c3aed;background:transparent;flex:1;padding:2px 4px}
+    .fi-sez::placeholder{color:rgba(124,58,237,.4);font-weight:400}
+
+    /* Settings panel */
+    .ed-settings{background:#fff;border-left:1px solid var(--Gl);padding:14px;min-width:0}
+    @media(min-width:800px){.ed-settings{width:280px;flex-shrink:0;position:sticky;top:56px;max-height:calc(100vh - 56px);overflow-y:auto}}
+    @media(max-width:799px){.ed-settings{border-left:none;border-top:1px solid var(--Gl)}}
+    .set-sec{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.14em;color:var(--G);margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+    .set-sec:first-child{margin-top:0}
+    .set-sec::before{content:'';width:3px;height:12px;background:var(--R);border-radius:2px}
+    .set-row{margin-bottom:10px}
+    .set-lbl{font-size:10px;font-weight:700;color:var(--S3);margin-bottom:4px;display:block}
+    .fi-set{width:100%;padding:7px 10px;border:1.5px solid var(--Gl);border-radius:8px;font-size:13px;font-family:inherit;outline:none;color:var(--S);transition:border-color .15s;background:#fff}
+    .fi-set:focus{border-color:var(--R)}
+    .fi-set.font-preview{padding:8px 10px}
+    .g2s{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .g4s{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px}
+    .fi-mini{padding:6px 8px;border:1.5px solid var(--Gl);border-radius:7px;font-size:12px;font-family:inherit;outline:none;color:var(--S);width:100%;text-align:center;transition:border-color .15s;background:#fff}
+    .fi-mini:focus{border-color:var(--R)}
+    .mini-lbl{font-size:9px;color:var(--G);font-weight:700;text-align:center;margin-top:2px}
+
+    /* Logo upload area */
+    .logo-area{border:2px dashed var(--Gl);border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:border-color .15s;position:relative;overflow:hidden}
+    .logo-area:hover{border-color:var(--R)}
+    .logo-area img{max-height:60px;max-width:100%;object-fit:contain;display:block;margin:0 auto 6px}
+    .logo-area .logo-ph{font-size:24px;color:var(--G);margin-bottom:4px}
+    .logo-area .logo-lbl{font-size:10px;font-weight:700;color:var(--G)}
+    .logo-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+    .logo-del{font-size:10px;font-weight:700;color:#ef4444;cursor:pointer;margin-top:4px;display:inline-block}
+
+    /* Range slider */
+    .fi-range{width:100%;accent-color:var(--R);cursor:pointer}
+    .range-val{font-size:11px;font-weight:800;color:var(--R);float:right;margin-top:-2px}
+
+    /* Toggle */
+    .tog-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border:1.5px solid var(--Gl);cursor:pointer}
+    .tog-lbl{flex:1;font-size:12px;font-weight:700;color:var(--S)}
+    .sw{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0}
+    .sw input{opacity:0;width:0;height:0}
+    .sw-s{position:absolute;inset:0;background:#cbd5e1;border-radius:20px;cursor:pointer;transition:.2s}
+    .sw-s::before{content:'';position:absolute;height:14px;width:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+    .sw input:checked+.sw-s{background:var(--R)}
+    .sw input:checked+.sw-s::before{transform:translateX(16px)}
+
+    /* Font upload */
+    .font-up-area{border:1.5px dashed var(--Gl);border-radius:8px;padding:8px;text-align:center;cursor:pointer;position:relative;overflow:hidden;transition:border-color .15s}
+    .font-up-area:hover{border-color:var(--R)}
+    .font-up-area input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .font-up-area .fu-lbl{font-size:10px;font-weight:700;color:var(--G)}
+
+    /* Custom fonts list */
+    .custom-font-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border-radius:7px;margin-bottom:4px}
+    .cfi-name{flex:1;font-size:12px;font-weight:700;color:var(--S)}
+    .cfi-del{background:none;border:none;cursor:pointer;color:var(--G);font-size:12px;transition:color .1s}
+    .cfi-del:hover{color:#ef4444}
+
+    /* Toast */
+    .toast{position:fixed;bottom:22px;right:14px;background:var(--S);color:#fff;padding:9px 16px;border-radius:10px;font-size:12px;font-weight:700;z-index:99999;opacity:0;transform:translateY(6px);transition:all .22s;pointer-events:none}
+    .toast.show{opacity:1;transform:none}
+    .toast.ok{background:#166534}
+    .toast.err{background:#991b1b}
+  </style>
+</head>
+<body>
+<script src="../../scripts/auth.js"></script>
+<script src="../../scripts/nav-script.js"></script>
+
+<!-- HEADER -->
+<div class="hd" id="hd">
+  <button class="btn-back" id="btn-back" onclick="tornaIndietro()" style="display:none"><i class="fas fa-arrow-left"></i></button>
+  <div style="flex:1;min-width:0">
+    <h1 id="hd-title"><i class="fas fa-list-ul" style="font-size:14px;opacity:.65;margin-right:5px"></i>Listino Prezzi</h1>
+    <div class="hd-sub" id="hd-sub" style="display:none"></div>
+  </div>
+  <div id="hd-acts" style="display:flex;gap:6px"></div>
+</div>
+
+<!-- SCREEN: Empori -->
+<div id="screen-empori" style="display:none">
+  <div class="sel-wrap">
+    <p class="sel-intro">Seleziona il tuo emporio</p>
+    <div class="sel-grid" id="sel-grid"></div>
+  </div>
+</div>
+
+<!-- SCREEN: Lista listini -->
+<div id="screen-lista" style="display:none">
+  <div class="ls-bar">
+    <button class="ls-tab on" data-tab="attivi" onclick="switchTab('attivi',this)">Attivi</button>
+    <button class="ls-tab" data-tab="archivio" onclick="switchTab('archivio',this)">Archivio</button>
+  </div>
+  <div class="ls-body">
+    <div class="ls-sec" id="ls-sec">Caricamento…</div>
+    <div class="ls-grid" id="ls-grid"><div class="spin"></div></div>
+  </div>
+  <button class="fab" onclick="nuovoListino()" title="Nuovo listino"><i class="fas fa-plus"></i></button>
+</div>
+
+<!-- SCREEN: Editor -->
+<div id="screen-editor" style="display:none">
+  <!-- Sub-header -->
+  <div class="ed-sub" id="ed-sub">
+    <input class="fi-nome" id="fi-nome" type="text" placeholder="Nome listino (es. Listino Alimentari Giugno)">
+    <div class="fmt-group" id="fmt-group"></div>
+    <div class="cat-group" id="cat-group"></div>
+  </div>
+  <!-- Content -->
+  <div class="ed-wrap">
+    <!-- Rows editor -->
+    <div class="ed-rows">
+      <div class="ed-add-bar">
+        <button class="add-btn" onclick="addVoce()"><i class="fas fa-plus"></i> Prodotto</button>
+        <button class="add-btn tipo-sez" onclick="addSez()"><i class="fas fa-heading"></i> Sezione</button>
+        <button class="add-btn tipo-sep" onclick="addSep()"><i class="fas fa-minus"></i> Separatore</button>
+        <button class="add-btn" onclick="addSpc()" style="opacity:.7"><i class="fas fa-arrows-up-down"></i> Spazio</button>
+      </div>
+      <div id="rows-container"></div>
+      <div id="rows-empty" style="display:none;text-align:center;padding:30px;color:var(--G)">
+        <i class="fas fa-list-ul" style="font-size:28px;display:block;margin-bottom:8px;opacity:.3"></i>
+        <p style="font-size:13px;font-weight:700">Nessuna riga</p>
+        <p style="font-size:11px;margin-top:4px">Aggiungi prodotti, sezioni o separatori</p>
+      </div>
+    </div>
+    <!-- Settings (admin only) -->
+    <div class="ed-settings" id="ed-settings" style="display:none">
+      <!-- Tipografia -->
+      <div class="set-sec">Tipografia</div>
+      <div class="set-row">
+        <label class="set-lbl">Font</label>
+        <select class="fi-set font-preview" id="fi-font" onchange="onFontChange()"></select>
+      </div>
+      <div class="set-row">
+        <label class="set-lbl">Dimensioni testo (pt)</label>
+        <div class="g2s">
+          <div>
+            <input class="fi-mini" type="number" id="fi-sz-voce" min="7" max="20" value="11" oninput="previewFont()">
+            <div class="mini-lbl">Voci</div>
+          </div>
+          <div>
+            <input class="fi-mini" type="number" id="fi-sz-sez" min="8" max="24" value="12" oninput="previewFont()">
+            <div class="mini-lbl">Sezioni</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loghi -->
+      <div class="set-sec">Loghi</div>
+      <div class="set-row">
+        <label class="set-lbl">Logo vetrina (in alto) <span style="color:var(--G);font-weight:500">— per categoria</span></label>
+        <div class="logo-area" id="logo-top-area">
+          <input type="file" accept="image/*" onchange="uploadLogo('top',this)">
+          <div id="logo-top-preview"><div class="logo-ph"><i class="fas fa-image"></i></div></div>
+          <div class="logo-lbl" id="logo-top-lbl">Clicca per caricare</div>
+          <span class="logo-del" id="logo-top-del" onclick="deleteLogo('top',event)" style="display:none">✕ Rimuovi</span>
+        </div>
+        <div style="margin-top:6px">
+          <label class="set-lbl">Altezza logo <span class="range-val" id="rv-logo-top">35mm</span></label>
+          <input class="fi-range" type="range" id="fi-logo-top-h" min="10" max="80" value="35" oninput="document.getElementById('rv-logo-top').textContent=this.value+'mm'">
+        </div>
+      </div>
+      <div class="set-row">
+        <label class="set-lbl">Logo emporio (in basso)</label>
+        <div class="logo-area" id="logo-bot-area">
+          <input type="file" accept="image/*" onchange="uploadLogo('bot',this)">
+          <div id="logo-bot-preview"><div class="logo-ph"><i class="fas fa-image"></i></div></div>
+          <div class="logo-lbl" id="logo-bot-lbl">Clicca per caricare</div>
+          <span class="logo-del" id="logo-bot-del" onclick="deleteLogo('bot',event)" style="display:none">✕ Rimuovi</span>
+        </div>
+        <div style="margin-top:6px">
+          <label class="set-lbl">Altezza logo <span class="range-val" id="rv-logo-bot">28mm</span></label>
+          <input class="fi-range" type="range" id="fi-logo-bot-h" min="10" max="80" value="28" oninput="document.getElementById('rv-logo-bot').textContent=this.value+'mm'">
+        </div>
+      </div>
+
+      <!-- Layout -->
+      <div class="set-sec">Layout colonne</div>
+      <div class="set-row">
+        <label class="set-lbl">Larghezza descrizione <span class="range-val" id="rv-desc">70%</span> — prezzo <span id="rv-prz">30%</span></label>
+        <input class="fi-range" type="range" id="fi-col-desc" min="40" max="85" value="70" oninput="onColChange()">
+      </div>
+      <div class="set-row">
+        <label class="set-lbl">Linee separatrici</label>
+        <label class="tog-row">
+          <span class="tog-lbl">Mostra linee tra le righe</span>
+          <label class="sw"><input type="checkbox" id="fi-linee" checked><span class="sw-s"></span></label>
+        </label>
+      </div>
+
+      <!-- Margini -->
+      <div class="set-sec">Margini (mm)</div>
+      <div class="set-row">
+        <div class="g4s">
+          <div><input class="fi-mini" type="number" id="fi-mg-top" min="5" max="40" value="15"><div class="mini-lbl">Sopra</div></div>
+          <div><input class="fi-mini" type="number" id="fi-mg-right" min="5" max="40" value="15"><div class="mini-lbl">Destra</div></div>
+          <div><input class="fi-mini" type="number" id="fi-mg-bottom" min="5" max="40" value="15"><div class="mini-lbl">Sotto</div></div>
+          <div><input class="fi-mini" type="number" id="fi-mg-left" min="5" max="40" value="15"><div class="mini-lbl">Sinistra</div></div>
+        </div>
+      </div>
+
+      <!-- Testi opzionali -->
+      <div class="set-sec">Testi</div>
+      <div class="set-row">
+        <label class="set-lbl">Titolo (sopra tabella)</label>
+        <input class="fi-set" type="text" id="fi-titolo" placeholder="es. Listino giugno 2026">
+      </div>
+      <div class="set-row">
+        <label class="set-lbl">Sottotitolo</label>
+        <input class="fi-set" type="text" id="fi-sottotitolo" placeholder="es. Offerte speciali settimana">
+      </div>
+      <div class="set-row">
+        <label class="set-lbl">Nota a piè di pagina</label>
+        <input class="fi-set" type="text" id="fi-piede" placeholder="es. Prezzi IVA inclusa">
+      </div>
+
+      <!-- Font personalizzati -->
+      <div class="set-sec">Font personalizzati</div>
+      <div id="custom-fonts-list"></div>
+      <div class="font-up-area" style="margin-bottom:4px">
+        <input type="file" accept=".ttf,.otf,.woff,.woff2" onchange="uploadFont(this)">
+        <i class="fas fa-font" style="font-size:18px;color:var(--G);margin-bottom:4px;display:block"></i>
+        <div class="fu-lbl">Carica font (.ttf .otf .woff .woff2)</div>
+      </div>
+      <div style="font-size:10px;color:var(--G);margin-top:4px">
+        Il font caricato viene aggiunto al selettore sopra
+      </div>
+    </div><!-- /ed-settings -->
+  </div><!-- /ed-wrap -->
+</div><!-- /screen-editor -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB_URL='https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db=supabase.createClient(SB_URL,SB_KEY);
+
+/* ── Costanti ── */
+const CATEGORIE=[
+  {id:'alimentari',  label:'Alimentari',   icon:'fa-wheat-awn',   color:'#16a34a',bg:'#f0fdf4'},
+  {id:'casa_regalo', label:'Casa & Regalo', icon:'fa-gift',        color:'#d97706',bg:'#fffbeb'},
+  {id:'moda',        label:'Moda',          icon:'fa-shirt',       color:'#7c3aed',bg:'#f5f3ff'},
+  {id:'cosmesi',     label:'Cosmesi',       icon:'fa-pump-soap',   color:'#db2777',bg:'#fdf2f8'},
+  {id:'altro',       label:'Altro',         icon:'fa-tag',         color:'#475569',bg:'#f8fafc'},
+];
+const FORMATI=['A4','A5','A6'];
+const GOOGLE_FONTS=[
+  'Poppins','Inter','Montserrat','Playfair Display','Lato','Raleway',
+  'Cormorant Garamond','DM Sans','Josefin Sans','Nunito','Merriweather',
+  'Cinzel','Bebas Neue','Oswald','Outfit','Karla','Manrope','Barlow',
+  'Jost','EB Garamond','Quicksand','Plus Jakarta Sans','Roboto','Open Sans',
+  'Source Sans 3','Libre Baskerville','Titillium Web','Cabin','Crimson Text',
+];
+
+/* ── Stato ── */
+let user=null,_admin=false,emporio=null,screen='empori';
+let listini=[],tabAttiva='attivi';
+let listino=null,voci=[],nextOrd=0;
+let loghiCache={};
+
+/* ── Init ── */
+async function init(){
+  user=JSON.parse(localStorage.getItem('m361_user')||'null');
+  if(!user)return;
+  _admin=typeof isAdmin==='function'&&isAdmin();
+  emporio=user.emporio||null;
+  buildFontSelect();
+  await loadCustomFonts();
+  if(_admin){
+    const{data}=await db.from('operatori').select('emporio').eq('attivo',true).not('emporio','is',null);
+    const emps=[...new Set((data||[]).map(r=>r.emporio).filter(Boolean))].sort();
+    buildEmpiGrid(emps);
+    mostra('empori');
+  } else {
+    mostra('lista');
+    await caricaListini();
+  }
+}
+
+/* ── Empori ── */
+function buildEmpiGrid(emps){
+  const g=document.getElementById('sel-grid');g.innerHTML='';
+  emps.forEach(emp=>{
+    const c=document.createElement('div');c.className='emp-card';
+    c.innerHTML=`<div class="ec-icon"><i class="fas fa-store"></i></div><div class="ec-name">${esc(emp)}</div>`;
+    c.onclick=()=>{emporio=emp;mostra('lista');caricaListini();};
+    g.appendChild(c);
+  });
+}
+
+/* ── Screen management ── */
+function mostra(s){
+  screen=s;
+  ['empori','lista','editor'].forEach(id=>{
+    document.getElementById('screen-'+id).style.display=id===s?'block':'none';
+  });
+  const back=document.getElementById('btn-back');
+  const sub=document.getElementById('hd-sub');
+  const acts=document.getElementById('hd-acts');
+  const title=document.getElementById('hd-title');
+  acts.innerHTML='';
+  if(s==='empori'){
+    back.style.display='none';sub.style.display='none';
+    title.innerHTML='<i class="fas fa-list-ul" style="font-size:14px;opacity:.65;margin-right:5px"></i>Listino Prezzi';
+  } else if(s==='lista'){
+    back.style.display=_admin?'flex':'none';
+    sub.textContent='Emporio '+emporio;sub.style.display=emporio?'block':'none';
+    title.innerHTML='<i class="fas fa-list-ul" style="font-size:14px;opacity:.65;margin-right:5px"></i>Listino Prezzi';
+    acts.innerHTML=`<button class="btn-hd ghost" onclick="nuovoListino()"><i class="fas fa-plus"></i> Nuovo</button>`;
+  } else if(s==='editor'){
+    back.style.display='flex';
+    sub.textContent='Emporio '+emporio;sub.style.display='block';
+    title.innerHTML='<i class="fas fa-pen" style="font-size:13px;opacity:.65;margin-right:5px"></i>Editor';
+    acts.innerHTML=`
+      <button class="btn-hd ghost" onclick="apriStampa()"><i class="fas fa-print"></i> Stampa</button>
+      <button class="btn-hd" onclick="salvaListino()"><i class="fas fa-check"></i> Salva</button>`;
+  }
+}
+
+function tornaIndietro(){
+  if(screen==='editor'){mostra('lista');}
+  else if(screen==='lista'&&_admin){mostra('empori');}
+}
+
+/* ── Lista ── */
+async function caricaListini(){
+  document.getElementById('ls-grid').innerHTML='<div class="spin"></div>';
+  let q=db.from('listini_prezzi').select('*').eq('emporio',emporio).order('updated_at',{ascending:false});
+  const{data,error}=await q;
+  if(error){toast('Errore: '+error.message,'err');return;}
+  listini=data||[];
+  renderLista();
+}
+
+function switchTab(tab,el){
+  tabAttiva=tab;
+  document.querySelectorAll('.ls-tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderLista();
+}
+
+function renderLista(){
+  const filtered=listini.filter(l=>tabAttiva==='archivio'?l.archiviato:!l.archiviato);
+  const sec=document.getElementById('ls-sec');
+  const grid=document.getElementById('ls-grid');
+  sec.textContent=`${filtered.length} listino${filtered.length!==1?'i':''} ${tabAttiva==='archivio'?'in archivio':'attivi'}`;
+  if(!filtered.length){
+    grid.innerHTML=`<div class="ls-empty"><i class="fas fa-file-invoice"></i><p>Nessun listino</p></div>`;
+    return;
+  }
+  const cat=(id)=>CATEGORIE.find(c=>c.id===id)||CATEGORIE[4];
+  grid.innerHTML=filtered.map(l=>{
+    const c=cat(l.categoria);
+    const d=new Date(l.updated_at).toLocaleDateString('it-IT',{day:'2-digit',month:'short'});
+    return `<div class="lcard">
+      <div class="lcard-top">
+        <div class="lcard-icon" style="background:${c.bg};color:${c.color}"><i class="fas ${c.icon}"></i></div>
+        <div><div class="lcard-nome">${esc(l.nome)}</div><div class="lcard-cat">${c.label}</div></div>
+      </div>
+      <div class="lcard-meta">
+        <span class="lcard-pill"><i class="fas fa-file" style="font-size:9px"></i> ${l.formato}</span>
+        <span class="lcard-pill"><i class="fas fa-font" style="font-size:9px"></i> ${esc(l.font_famiglia||'Poppins')}</span>
+        <span class="lcard-pill" style="color:var(--G)">mod. ${d}</span>
+      </div>
+      <div class="lcard-acts">
+        <button class="la" onclick="apriEditor('${l.id}')"><i class="fas fa-pen"></i> Modifica</button>
+        <button class="la print" onclick="apriStampaById('${l.id}')"><i class="fas fa-print"></i> Stampa</button>
+        <button class="la" onclick="archiviaListino('${l.id}',${l.archiviato})" title="${l.archiviato?'Ripristina':'Archivia'}">
+          <i class="fas fa-${l.archiviato?'box-open':'box-archive'}"></i>
+        </button>
+        <button class="la del" onclick="eliminaListino('${l.id}')"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Editor ── */
+function buildFormati(){
+  const g=document.getElementById('fmt-group');g.innerHTML='';
+  FORMATI.forEach(f=>{
+    const b=document.createElement('button');b.className='fmt-btn'+((!listino||listino.formato===f)&&f==='A4'?' on':listino&&listino.formato===f?' on':'');
+    b.textContent=f;b.onclick=()=>{g.querySelectorAll('.fmt-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');};
+    g.appendChild(b);
+  });
+}
+function buildCategorie(){
+  const g=document.getElementById('cat-group');g.innerHTML='';
+  CATEGORIE.forEach(c=>{
+    const b=document.createElement('button');b.className='cat-btn'+(listino&&listino.categoria===c.id?' on':!listino&&c.id==='altro'?' on':'');
+    b.innerHTML=`<i class="fas ${c.icon}"></i> ${c.label}`;b.onclick=()=>{
+      g.querySelectorAll('.cat-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+      aggiornaCatLogo();
+    };
+    g.appendChild(b);
+  });
+}
+
+function getFormato(){const b=document.querySelector('.fmt-btn.on');return b?b.textContent:'A4';}
+function getCategoria(){const b=document.querySelector('.cat-btn.on');return b?CATEGORIE.find(c=>b.textContent.includes(c.label))?.id||'altro':'altro';}
+
+async function nuovoListino(){
+  listino=null;voci=[];nextOrd=0;
+  document.getElementById('fi-nome').value='';
+  resetSettings();
+  buildFormati();buildCategorie();
+  if(_admin)document.getElementById('ed-settings').style.display='block';
+  renderRows();
+  await loadLoghi('altro');
+  mostra('editor');
+}
+
+async function apriEditor(id){
+  const{data:l}=await db.from('listini_prezzi').select('*').eq('id',id).single();
+  const{data:v}=await db.from('listini_voci').select('*').eq('listino_id',id).order('riga_ordine');
+  listino=l;
+  voci=(v||[]).map(r=>({...r}));
+  nextOrd=voci.length?Math.max(...voci.map(x=>x.riga_ordine))+1:0;
+  document.getElementById('fi-nome').value=l.nome||'';
+  buildFormati();buildCategorie();
+  loadSettings(l);
+  if(_admin)document.getElementById('ed-settings').style.display='block';
+  renderRows();
+  await loadLoghi(l.categoria||'altro');
+  mostra('editor');
+}
+
+function loadSettings(l){
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v??e.value;};
+  s('fi-font',l.font_famiglia||'Poppins');
+  s('fi-sz-voce',l.font_size_voce||11);
+  s('fi-sz-sez',l.font_size_sez||12);
+  s('fi-col-desc',l.col_desc_pct||70);
+  s('fi-mg-top',l.mg_top||15);s('fi-mg-right',l.mg_right||15);
+  s('fi-mg-bottom',l.mg_bottom||15);s('fi-mg-left',l.mg_left||15);
+  s('fi-logo-top-h',l.logo_top_h||35);s('fi-logo-bot-h',l.logo_bottom_h||28);
+  s('fi-titolo',l.titolo||'');s('fi-sottotitolo',l.sottotitolo||'');s('fi-piede',l.note_piede||'');
+  document.getElementById('fi-linee').checked=l.mostra_linee!==false;
+  document.getElementById('rv-desc').textContent=(l.col_desc_pct||70)+'%';
+  document.getElementById('rv-prz').textContent=(100-(l.col_desc_pct||70))+'%';
+  document.getElementById('rv-logo-top').textContent=(l.logo_top_h||35)+'mm';
+  document.getElementById('rv-logo-bot').textContent=(l.logo_bottom_h||28)+'mm';
+  loadGoogleFont(l.font_famiglia||'Poppins');
+  setTimeout(()=>{const s=document.getElementById('fi-font');if(s)s.style.fontFamily=l.font_famiglia||'Poppins';},300);
+}
+
+function resetSettings(){
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  set('fi-font','Poppins');set('fi-sz-voce','11');set('fi-sz-sez','12');
+  set('fi-col-desc','70');set('fi-mg-top','15');set('fi-mg-right','15');
+  set('fi-mg-bottom','15');set('fi-mg-left','15');
+  set('fi-logo-top-h','35');set('fi-logo-bot-h','28');
+  set('fi-titolo','');set('fi-sottotitolo','');set('fi-piede','');
+  document.getElementById('fi-linee').checked=true;
+  document.getElementById('rv-desc').textContent='70%';
+  document.getElementById('rv-prz').textContent='30%';
+  document.getElementById('rv-logo-top').textContent='35mm';
+  document.getElementById('rv-logo-bot').textContent='28mm';
+}
+
+function onColChange(){
+  const v=document.getElementById('fi-col-desc').value;
+  document.getElementById('rv-desc').textContent=v+'%';
+  document.getElementById('rv-prz').textContent=(100-v)+'%';
+}
+
+function getSettings(){
+  const g=(id)=>{const e=document.getElementById(id);return e?e.value:null;};
+  return{
+    font_famiglia:g('fi-font')||'Poppins',
+    font_size_voce:parseInt(g('fi-sz-voce'))||11,
+    font_size_sez:parseInt(g('fi-sz-sez'))||12,
+    col_desc_pct:parseInt(g('fi-col-desc'))||70,
+    mg_top:parseInt(g('fi-mg-top'))||15,mg_right:parseInt(g('fi-mg-right'))||15,
+    mg_bottom:parseInt(g('fi-mg-bottom'))||15,mg_left:parseInt(g('fi-mg-left'))||15,
+    logo_top_h:parseInt(g('fi-logo-top-h'))||35,
+    logo_bottom_h:parseInt(g('fi-logo-bot-h'))||28,
+    titolo:g('fi-titolo')||null,sottotitolo:g('fi-sottotitolo')||null,note_piede:g('fi-piede')||null,
+    mostra_linee:document.getElementById('fi-linee')?.checked!==false,
+  };
+}
+
+async function salvaListino(){
+  const nome=document.getElementById('fi-nome').value.trim();
+  if(!nome){document.getElementById('fi-nome').focus();toast('Inserisci il nome del listino','err');return;}
+  const settings=_admin?getSettings():{};
+  const payload={
+    emporio,nome,categoria:getCategoria(),formato:getFormato(),
+    ...settings,operatore_nome:user.nome||null,updated_at:new Date().toISOString(),
+  };
+  let lid=listino?.id;
+  if(lid){
+    const{error}=await db.from('listini_prezzi').update(payload).eq('id',lid);
+    if(error){toast('Errore salvataggio: '+error.message,'err');return;}
+  } else {
+    const{data,error}=await db.from('listini_prezzi').insert(payload).select().single();
+    if(error){toast('Errore creazione: '+error.message,'err');return;}
+    lid=data.id;listino=data;
+  }
+  // Salva voci: delete all + reinsert (simple approach)
+  await db.from('listini_voci').delete().eq('listino_id',lid);
+  if(voci.length){
+    const rows=voci.map((v,i)=>({listino_id:lid,riga_ordine:i,tipo:v.tipo,
+      descrizione:v.descrizione||null,prezzo:v.prezzo||null,prezzo_testo:v.prezzo_testo||null,
+      grassetto:!!v.grassetto,corsivo:!!v.corsivo}));
+    const{error}=await db.from('listini_voci').insert(rows);
+    if(error){toast('Errore voci: '+error.message,'err');return;}
+  }
+  toast('Salvato ✓','ok');
+}
+
+async function archiviaListino(id,att){
+  const{error}=await db.from('listini_prezzi').update({archiviato:!att,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Errore','err');return;}
+  toast(!att?'Archiviato':'Ripristinato','ok');
+  await caricaListini();
+}
+
+async function eliminaListino(id){
+  if(!confirm('Eliminare questo listino? Le voci verranno rimosse.'))return;
+  await db.from('listini_prezzi').delete().eq('id',id);
+  toast('Eliminato','ok');
+  await caricaListini();
+}
+
+/* ── Voci / Rows ── */
+function addVoce(){voci.push({tipo:'voce',descrizione:'',prezzo:null,prezzo_testo:'',grassetto:false,corsivo:false,_id:nextOrd++});renderRows();}
+function addSez(){voci.push({tipo:'sezione',descrizione:'',_id:nextOrd++});renderRows();}
+function addSep(){voci.push({tipo:'separatore',_id:nextOrd++});renderRows();}
+function addSpc(){voci.push({tipo:'spazio',_id:nextOrd++});renderRows();}
+
+function deleteVoce(idx){voci.splice(idx,1);renderRows();}
+function moveVoce(idx,dir){
+  const ni=idx+dir;if(ni<0||ni>=voci.length)return;
+  [voci[idx],voci[ni]]=[voci[ni],voci[idx]];renderRows();
+}
+function toggleBold(idx){voci[idx].grassetto=!voci[idx].grassetto;renderRows();}
+function toggleItalic(idx){voci[idx].corsivo=!voci[idx].corsivo;renderRows();}
+function updateDesc(idx,v){voci[idx].descrizione=v;}
+function updatePrezzo(idx,v){
+  const n=parseFloat(v.replace(',','.'));
+  voci[idx].prezzo=isNaN(n)?null:n;
+  voci[idx].prezzo_testo=v;
+}
+
+function renderRows(){
+  const c=document.getElementById('rows-container');
+  const e=document.getElementById('rows-empty');
+  if(!voci.length){c.innerHTML='';e.style.display='block';return;}
+  e.style.display='none';
+  c.innerHTML=voci.map((v,i)=>renderRow(v,i)).join('');
+}
+
+function renderRow(v,i){
+  const acts=`
+    <div class="row-acts">
+      <button class="ra${v.grassetto?' on':''}" onclick="toggleBold(${i})" title="Grassetto"><b>B</b></button>
+      <button class="ra${v.corsivo?' on':''}" onclick="toggleItalic(${i})" title="Corsivo"><i>I</i></button>
+      <button class="ra" onclick="moveVoce(${i},-1)" title="Su">↑</button>
+      <button class="ra" onclick="moveVoce(${i},1)" title="Giù">↓</button>
+      <button class="ra del" onclick="deleteVoce(${i})" title="Elimina">✕</button>
+    </div>`;
+  if(v.tipo==='voce'){
+    const st=`${v.grassetto?'font-weight:800;':''}${v.corsivo?'font-style:italic;':''}`;
+    return `<div class="voce-row">
+      <span class="row-icon"><i class="fas fa-circle-dot" style="font-size:9px"></i></span>
+      <input class="fi-r fi-desc" type="text" value="${esc(v.descrizione||'')}" placeholder="Descrizione prodotto" style="${st}" oninput="updateDesc(${i},this.value)">
+      <input class="fi-r fi-prz" type="text" value="${esc(v.prezzo_testo||v.prezzo!=null?String(v.prezzo_testo||v.prezzo):'')}" placeholder="€ 0,00" oninput="updatePrezzo(${i},this.value)">
+      ${acts}
+    </div>`;
+  }
+  if(v.tipo==='sezione'){
+    const st=`${v.grassetto?'font-weight:800;':''}${v.corsivo?'font-style:italic;':''}`;
+    return `<div class="sez-row">
+      <span class="sez-label"><i class="fas fa-heading" style="font-size:9px"></i></span>
+      <input class="fi-r fi-sez" type="text" value="${esc(v.descrizione||'')}" placeholder="Nome sezione…" style="${st}" oninput="updateDesc(${i},this.value)">
+      ${acts}
+    </div>`;
+  }
+  if(v.tipo==='separatore'){
+    return `<div class="sep-row">
+      <span class="row-icon" style="font-size:16px;color:var(--G)">—</span>
+      <span class="sep-label">Linea separatrice</span>
+      ${acts}
+    </div>`;
+  }
+  if(v.tipo==='spazio'){
+    return `<div class="spc-row">
+      <span class="row-icon" style="font-size:9px">↕</span>
+      <span style="flex:1;font-size:11px;color:var(--G)">Spazio vuoto</span>
+      ${acts}
+    </div>`;
+  }
+  return '';
+}
+
+/* ── Loghi ── */
+async function loadLoghi(categoria){
+  const chiavi=[{tipo:'categoria',chiave:categoria},{tipo:'emporio',chiave:emporio}];
+  for(const k of chiavi){
+    if(loghiCache[k.tipo+k.chiave]===undefined){
+      const{data}=await db.from('listini_loghi').select('immagine_b64').eq('tipo',k.tipo).eq('chiave',k.chiave).maybeSingle();
+      loghiCache[k.tipo+k.chiave]=data?.immagine_b64||null;
+    }
+  }
+  showLogoPreview('top',loghiCache['categoria'+categoria]);
+  showLogoPreview('bot',loghiCache['emporio'+emporio]);
+}
+
+async function aggiornaCatLogo(){
+  const cat=getCategoria();
+  if(loghiCache['categoria'+cat]===undefined){
+    const{data}=await db.from('listini_loghi').select('immagine_b64').eq('tipo','categoria').eq('chiave',cat).maybeSingle();
+    loghiCache['categoria'+cat]=data?.immagine_b64||null;
+  }
+  showLogoPreview('top',loghiCache['categoria'+cat]);
+}
+
+function showLogoPreview(which,b64){
+  const prev=document.getElementById('logo-'+which+'-preview');
+  const lbl=document.getElementById('logo-'+which+'-lbl');
+  const del=document.getElementById('logo-'+which+'-del');
+  if(b64){
+    prev.innerHTML=`<img src="data:image/*;base64,${b64}" alt="">`;
+    lbl.textContent='Clicca per cambiare';
+    if(del)del.style.display='inline';
+  } else {
+    prev.innerHTML='<div class="logo-ph"><i class="fas fa-image"></i></div>';
+    lbl.textContent='Clicca per caricare';
+    if(del)del.style.display='none';
+  }
+}
+
+async function uploadLogo(which,input){
+  const file=input.files[0];if(!file)return;
+  const b64=await fileToB64(file);
+  const tipo=which==='top'?'categoria':'emporio';
+  const chiave=which==='top'?getCategoria():emporio;
+  const{error}=await db.from('listini_loghi').upsert({tipo,chiave,immagine_b64:b64,updated_at:new Date().toISOString()},{onConflict:'tipo,chiave'});
+  if(error){toast('Errore upload logo','err');return;}
+  loghiCache[tipo+chiave]=b64;
+  showLogoPreview(which,b64);
+  toast('Logo salvato ✓','ok');
+}
+
+async function deleteLogo(which,e){
+  e.stopPropagation();
+  const tipo=which==='top'?'categoria':'emporio';
+  const chiave=which==='top'?getCategoria():emporio;
+  await db.from('listini_loghi').delete().eq('tipo',tipo).eq('chiave',chiave);
+  loghiCache[tipo+chiave]=null;
+  showLogoPreview(which,null);
+  toast('Logo rimosso','ok');
+}
+
+/* ── Font ── */
+function buildFontSelect(){
+  const sel=document.getElementById('fi-font');if(!sel)return;
+  sel.innerHTML='';
+  GOOGLE_FONTS.forEach(f=>{
+    const o=document.createElement('option');o.value=f;o.textContent=f;o.style.fontFamily=f;
+    sel.appendChild(o);
+  });
+}
+
+function onFontChange(){
+  const f=document.getElementById('fi-font')?.value;if(!f)return;
+  loadGoogleFont(f);
+  setTimeout(()=>{const s=document.getElementById('fi-font');if(s)s.style.fontFamily=f;},400);
+}
+
+function loadGoogleFont(famiglia){
+  const id='gf-'+famiglia.replace(/\s/g,'+');
+  if(document.getElementById(id))return;
+  const link=document.createElement('link');
+  link.id=id;link.rel='stylesheet';
+  const fam=famiglia.replace(/\s/g,'+');
+  link.href=`https://fonts.googleapis.com/css2?family=${fam}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap`;
+  document.head.appendChild(link);
+}
+
+function previewFont(){}
+
+async function loadCustomFonts(){
+  const{data}=await db.from('listini_font').select('nome,dati_b64,formato');
+  if(!data?.length)return;
+  const style=document.createElement('style');
+  data.forEach(f=>{
+    const mime=f.formato==='woff'?'font/woff':f.formato==='woff2'?'font/woff2':'font/truetype';
+    style.textContent+=`@font-face{font-family:"${f.nome}";src:url("data:${mime};base64,${f.dati_b64}") format("${f.formato}");}`;
+  });
+  document.head.appendChild(style);
+  renderCustomFontList(data.map(f=>f.nome));
+  // Add to select
+  const sel=document.getElementById('fi-font');
+  if(sel&&data.length){
+    const grp=document.createElement('optgroup');grp.label='Font personalizzati';
+    data.forEach(f=>{const o=document.createElement('option');o.value=f.nome;o.textContent=f.nome;o.style.fontFamily=f.nome;grp.appendChild(o);});
+    sel.appendChild(grp);
+  }
+}
+
+function renderCustomFontList(nomi){
+  const el=document.getElementById('custom-fonts-list');if(!el)return;
+  el.innerHTML=nomi.map(n=>`<div class="custom-font-item">
+    <span class="cfi-name" style="font-family:'${n}'">${n}</span>
+    <button class="cfi-del" onclick="eliminaFont('${n}')">✕</button>
+  </div>`).join('');
+}
+
+async function uploadFont(input){
+  const file=input.files[0];if(!file)return;
+  const fmt=file.name.split('.').pop().toLowerCase();
+  const allowed=['ttf','otf','woff','woff2'];
+  if(!allowed.includes(fmt)){toast('Formato non supportato','err');return;}
+  const nome=file.name.replace('.'+fmt,'').replace(/[^a-zA-Z0-9 \-_]/g,'');
+  if(!nome){toast('Nome font non valido','err');return;}
+  toast('Caricamento…');
+  const b64=await fileToB64(file);
+  const{error}=await db.from('listini_font').upsert({nome,dati_b64:b64,formato:fmt},{onConflict:'nome'});
+  if(error){toast('Errore: '+error.message,'err');return;}
+  // Inject @font-face
+  const style=document.createElement('style');
+  const mime=fmt==='woff'?'font/woff':fmt==='woff2'?'font/woff2':'font/truetype';
+  style.textContent=`@font-face{font-family:"${nome}";src:url("data:${mime};base64,${b64}") format("${fmt}");}`;
+  document.head.appendChild(style);
+  // Add to select
+  const sel=document.getElementById('fi-font');
+  if(sel){const o=document.createElement('option');o.value=nome;o.textContent=nome+' (custom)';o.style.fontFamily=nome;sel.appendChild(o);}
+  // Add to list
+  const li=document.getElementById('custom-fonts-list');
+  if(li)li.insertAdjacentHTML('beforeend',`<div class="custom-font-item"><span class="cfi-name" style="font-family:'${nome}'">${nome}</span><button class="cfi-del" onclick="eliminaFont('${nome}')">✕</button></div>`);
+  toast('Font caricato ✓','ok');
+  input.value='';
+}
+
+async function eliminaFont(nome){
+  if(!confirm(`Eliminare il font "${nome}"?`))return;
+  await db.from('listini_font').delete().eq('nome',nome);
+  await loadCustomFonts();
+  toast('Font eliminato','ok');
+}
+
+/* ── Stampa ── */
+function apriStampa(){
+  if(!listino?.id){toast('Salva prima il listino','err');return;}
+  window.open(`print.html?id=${listino.id}`,'_blank');
+}
+function apriStampaById(id){window.open(`print.html?id=${id}`,'_blank');}
+
+/* ── Utils ── */
+function fileToB64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=rej;r.readAsDataURL(file);
+  });
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg,tipo=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className=`toast show${tipo?' '+tipo:''}`;
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
+else init();
+</script>
+</body>
+</html>

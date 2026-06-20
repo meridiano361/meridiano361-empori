@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Listino — M361</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style id="page-style">/* dinamico */</style>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:'Poppins',sans-serif;background:#e8edf2;color:#1e293b}
+
+    /* ── Toolbar (solo schermo) ── */
+    @media screen{
+      .toolbar{
+        background:#1e293b;padding:10px 18px;display:flex;align-items:center;gap:10px;
+        position:sticky;top:0;z-index:100;
+      }
+      .toolbar h2{color:#fff;font-size:14px;font-weight:700;flex:1;opacity:.85}
+      .tb-btn{background:#B5453A;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s;font-family:inherit}
+      .tb-btn:hover{background:#8c362d}
+      .tb-btn.ghost{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:rgba(255,255,255,.85)}
+      .tb-btn.ghost:hover{background:rgba(255,255,255,.08)}
+      .page-wrap{padding:24px 16px 60px;display:flex;justify-content:center}
+      .page{
+        background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.18);
+        border-radius:4px;
+        width:210mm; /* A4 default */
+      }
+    }
+    @media print{
+      .toolbar{display:none}
+      .page-wrap{padding:0;background:none}
+      .page{box-shadow:none;width:100%;border-radius:0}
+    }
+
+    /* ── Contenuto pagina ── */
+    .page-inner{
+      padding:15mm 15mm 15mm 15mm; /* override dinamico */
+      font-size:11pt;
+      line-height:1.5;
+    }
+
+    .logo-top{text-align:center;margin-bottom:6mm}
+    .logo-top img{display:inline-block;height:35mm;max-width:100%;object-fit:contain}
+    .logo-bot{text-align:center;margin-top:6mm}
+    .logo-bot img{display:inline-block;height:28mm;max-width:100%;object-fit:contain}
+
+    .listino-titolo{text-align:center;font-weight:800;margin-bottom:2mm;font-size:inherit}
+    .listino-sottotitolo{text-align:center;color:#475569;margin-bottom:5mm;font-size:.9em}
+
+    /* Tabella principale */
+    .lt{width:100%;border-collapse:collapse}
+    .lt .col-d{width:70%}  /* override dinamico */
+    .lt .col-p{width:30%;text-align:right;white-space:nowrap}
+
+    /* Voci */
+    .lt tr.voce td{
+      padding:1.5mm 2mm;
+      font-size:inherit;
+      vertical-align:top;
+    }
+    .lt tr.voce.linee td{border-bottom:0.3pt solid #e2e8f0}
+
+    /* Sezione */
+    .lt tr.sezione td{
+      padding:3mm 2mm 1mm;
+      font-weight:800;
+      font-size:1.05em;
+      color:#1e293b;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      border-bottom:1pt solid #1e293b;
+    }
+
+    /* Separatore */
+    .lt tr.separatore td{padding:1mm 0}
+    .lt tr.separatore td hr{border:none;border-top:0.5pt solid #cbd5e1;margin:0}
+
+    /* Spazio */
+    .lt tr.spazio td{padding:2mm 0}
+
+    /* Piede */
+    .listino-piede{
+      text-align:center;font-size:.8em;color:#64748b;
+      margin-top:5mm;padding-top:3mm;border-top:0.5pt solid #e2e8f0;
+    }
+
+    /* Spinner (screen) */
+    @media screen{
+      .spin{width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:rot .8s linear infinite;margin:60px auto;display:block}
+      @keyframes rot{to{transform:rotate(360deg)}}
+      .err-box{text-align:center;padding:60px 20px;color:#64748b}
+      .err-box p{font-size:14px;font-weight:700;margin-top:10px}
+    }
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h2 id="tb-title">Listino prezzi</h2>
+  <button class="tb-btn ghost" onclick="window.close()"><i class="fas fa-times"></i> Chiudi</button>
+  <button class="tb-btn" onclick="window.print()"><i class="fas fa-print"></i> Stampa / PDF</button>
+</div>
+
+<div class="page-wrap">
+  <div class="page" id="page">
+    <div class="page-inner" id="page-inner">
+      <div class="spin" id="spin"></div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+const SB_URL='https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db=supabase.createClient(SB_URL,SB_KEY);
+
+const FORMATO_W={A4:'210mm',A5:'148mm',A6:'105mm'};
+const FORMATO_H={A4:'297mm',A5:'210mm',A6:'148mm'};
+
+async function loadAndRender(){
+  const id=new URLSearchParams(location.search).get('id');
+  if(!id){showErr('ID listino mancante');return;}
+
+  const[{data:l},{data:v},{data:loghi},{data:fonts}]=await Promise.all([
+    db.from('listini_prezzi').select('*').eq('id',id).single(),
+    db.from('listini_voci').select('*').eq('listino_id',id).order('riga_ordine'),
+    db.from('listini_loghi').select('*'),
+    db.from('listini_font').select('nome,dati_b64,formato'),
+  ]);
+
+  if(!l){showErr('Listino non trovato');return;}
+
+  const fmt=l.formato||'A4';
+  const font=l.font_famiglia||'Poppins';
+  const descPct=l.col_desc_pct||70;
+  const mgT=l.mg_top||15,mgB=l.mg_bottom||15,mgL=l.mg_left||15,mgR=l.mg_right||15;
+  const logoTopH=l.logo_top_h||35;
+  const logoBotH=l.logo_bottom_h||28;
+  const linee=l.mostra_linee!==false;
+
+  document.getElementById('tb-title').textContent=l.nome||'Listino prezzi';
+
+  // Inject custom fonts
+  if(fonts?.length){
+    const style=document.createElement('style');
+    fonts.forEach(f=>{
+      const mime=f.formato==='woff'?'font/woff':f.formato==='woff2'?'font/woff2':'font/truetype';
+      style.textContent+=`@font-face{font-family:"${f.nome}";src:url("data:${mime};base64,${f.dati_b64}") format("${f.formato}");}`;
+    });
+    document.head.appendChild(style);
+  }
+
+  // Load Google Font if needed
+  if(!['Arial','Helvetica','Times New Roman','Georgia','Courier New'].includes(font)){
+    const gfLink=document.createElement('link');
+    gfLink.rel='stylesheet';
+    const fam=font.replace(/\s/g,'+');
+    gfLink.href=`https://fonts.googleapis.com/css2?family=${fam}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap`;
+    document.head.appendChild(gfLink);
+    await new Promise(r=>setTimeout(r,600)); // wait for font
+  }
+
+  // Set page @page CSS
+  const pageStyle=document.getElementById('page-style');
+  pageStyle.textContent=`
+    @page{size:${fmt} portrait;margin:${mgT}mm ${mgR}mm ${mgB}mm ${mgL}mm}
+    body,body *{font-family:"${font}",sans-serif}
+  `;
+
+  // Set page element size (screen preview)
+  const pageEl=document.getElementById('page');
+  pageEl.style.width=FORMATO_W[fmt]||'210mm';
+  pageEl.style.minHeight=FORMATO_H[fmt]||'297mm';
+
+  // Find logos
+  const lgMap={};
+  (loghi||[]).forEach(lg=>{lgMap[lg.tipo+'|'+lg.chiave]=lg.immagine_b64;});
+  const logoTopB64=lgMap['categoria|'+(l.categoria||'altro')]||null;
+  const logoBotB64=lgMap['emporio|'+l.emporio]||null;
+
+  // Build HTML
+  const inner=document.getElementById('page-inner');
+  inner.style.padding=`${mgT}mm ${mgR}mm ${mgB}mm ${mgL}mm`;
+  inner.style.fontSize=`${l.font_size_voce||11}pt`;
+
+  let html='';
+
+  // Logo top
+  if(logoTopB64){
+    html+=`<div class="logo-top"><img src="data:image/*;base64,${logoTopB64}" style="height:${logoTopH}mm" alt="Logo"></div>`;
+  }
+
+  // Titolo / sottotitolo
+  if(l.titolo){html+=`<div class="listino-titolo">${esc(l.titolo)}</div>`;}
+  if(l.sottotitolo){html+=`<div class="listino-sottotitolo">${esc(l.sottotitolo)}</div>`;}
+
+  // Table
+  html+=`<table class="lt"><colgroup><col class="col-d" style="width:${descPct}%"><col class="col-p" style="width:${100-descPct}%"></colgroup><tbody>`;
+  (v||[]).forEach(row=>{
+    if(row.tipo==='voce'){
+      const prezzoTxt=row.prezzo_testo||(row.prezzo!=null?'€ '+Number(row.prezzo).toFixed(2).replace('.',','):'');
+      const st=`${row.grassetto?'font-weight:800;':''}${row.corsivo?'font-style:italic;':''}`;
+      html+=`<tr class="voce${linee?' linee':''}">
+        <td style="${st}">${esc(row.descrizione||'')}</td>
+        <td class="col-p" style="${st}">${esc(prezzoTxt)}</td>
+      </tr>`;
+    } else if(row.tipo==='sezione'){
+      const st=`${row.grassetto?'font-weight:900;':''}${row.corsivo?'font-style:italic;':''}font-size:${l.font_size_sez||12}pt`;
+      html+=`<tr class="sezione"><td colspan="2" style="${st}">${esc(row.descrizione||'')}</td></tr>`;
+    } else if(row.tipo==='separatore'){
+      html+=`<tr class="separatore"><td colspan="2"><hr></td></tr>`;
+    } else if(row.tipo==='spazio'){
+      html+=`<tr class="spazio"><td colspan="2"></td></tr>`;
+    }
+  });
+  html+=`</tbody></table>`;
+
+  // Nota piede
+  if(l.note_piede){html+=`<div class="listino-piede">${esc(l.note_piede)}</div>`;}
+
+  // Logo bottom
+  if(logoBotB64){
+    html+=`<div class="logo-bot"><img src="data:image/*;base64,${logoBotB64}" style="height:${logoBotH}mm" alt="Logo emporio"></div>`;
+  }
+
+  inner.innerHTML=html;
+}
+
+function showErr(msg){
+  const inner=document.getElementById('page-inner');
+  inner.innerHTML=`<div class="err-box"><i class="fas fa-circle-exclamation" style="font-size:32px;color:#B5453A"></i><p>${msg}</p></div>`;
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+loadAndRender();
+</script>
+</body>
+</html>
