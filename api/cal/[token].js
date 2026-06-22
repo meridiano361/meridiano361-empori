@@ -148,8 +148,11 @@ module.exports = async function handler(req, res) {
     const rowDate = new Date(anno, mese - 1, giorno);
     if (rowDate < cutoff) continue;
 
-    // check if this operator is in this turno
-    const inTurno = Array.isArray(operatori) && operatori.some(o => (o.nome || o) === nome);
+    // check if this operator is in this turno (case-insensitive, trim)
+    const nomeKey = nome.toLowerCase().trim();
+    const inTurno = Array.isArray(operatori) && operatori.some(
+      o => (o.nome || o || '').toLowerCase().trim() === nomeKey
+    );
     if (inTurno) {
       myTurni.push({ anno, mese, giorno, turno, aperto, emporio });
     }
@@ -159,7 +162,7 @@ module.exports = async function handler(req, res) {
       for (const [key, val] of Object.entries(assenze)) {
         const parts    = key.split('|');
         const assNome  = parts.slice(4).join('|');
-        if (assNome !== nome) continue;
+        if (assNome.toLowerCase().trim() !== nomeKey) continue;
         const tipo = typeof val === 'string' ? val : val?.tipo;
         const ore  = typeof val === 'object' ? (val?.ore || 0) : 0;
         if (tipo) myAssenze.push({ anno, mese, giorno, tipo, ore, emporio });

@@ -5953,51 +5953,59 @@ async function applicaTurniPredefiniti(anno, mese) {
 </script>
 <!-- ── GOOGLE CALENDAR MODAL v3 ─────────────────────────────────────────── -->
 <div class="modal-bg" id="modal-gcal" onclick="if(event.target===this)closeModal('modal-gcal')">
-  <div class="modal-box" style="max-width:460px;width:93%">
+  <div class="modal-box" style="max-width:440px;width:93%">
 
-    <!-- titolo -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <div style="font-size:17px;font-weight:800;color:#1e293b">🗓 Turni su Google Calendar</div>
-      <button onclick="closeModal('modal-gcal')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1;padding:0 0 0 8px">×</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div style="font-size:17px;font-weight:800;color:#1e293b">🗓 Turni su Calendario</div>
+      <button onclick="closeModal('modal-gcal')" style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1;padding:0">×</button>
     </div>
 
-    <!-- ISTRUZIONI -->
-    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#3b82f6;margin-bottom:4px">Come fare</div>
-      <div style="font-size:11px;color:#6b7280;margin-bottom:10px;font-style:italic">Consigliato da PC</div>
-      <ol style="margin:0;padding-left:18px;font-size:12px;color:#1e40af;line-height:2.1">
-        <li>Clicca <strong>+ Aggiungi a Google Calendar</strong> qui sotto — si apre Google Calendar</li>
-        <li>Copia l'URL qui sotto e incollalo nel campo <strong>"Da URL"</strong></li>
-        <li>Clicca il bottone <strong>Aggiungi calendario</strong></li>
-      </ol>
-      <div style="font-size:10px;color:#93c5fd;margin-top:10px;line-height:1.5">
-        Se Google Calendar ha cambiato interfaccia, cerca "Aggiungi calendario" → "Da URL" e incolla il link.
-      </div>
-      <div style="font-size:11px;color:#3b82f6;margin-top:10px;padding-top:10px;border-top:1px solid #bfdbfe;line-height:1.7">
-        📱 <strong>iPhone / Apple Calendar?</strong> Premi <strong>📋 Copia</strong>, poi vai su<br>
-        Impostazioni → Calendario → Account → Aggiungi account → Altro → Aggiungi calendario con abbonamento → incolla il link → Abbonati.
-      </div>
-      <div style="font-size:11px;color:#3b82f6;margin-top:8px;line-height:1.7">
-        💻 <strong>Outlook o altro calendario?</strong> Premi <strong>📋 Copia</strong>, poi nel tuo calendario cerca <em>Aggiungi calendario da URL</em> (o <em>Iscriviti tramite web</em>) e incolla il link.
-      </div>
-    </div>
+    <!-- Stato / errore -->
+    <div id="gcal-ics-err" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#b91c1c;font-weight:600"></div>
 
-    <!-- LINK CALENDARIO PERSONALE -->
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px">
+    <!-- Link personale -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
       <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px">Il tuo link personale</div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
         <input id="gcal-ics-url" type="text" readonly
           style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:11px;font-family:'DM Mono',monospace;color:#64748b;background:#fff;min-width:0"
-          value="caricamento…">
+          value="">
         <button id="gcal-ics-copy-btn" onclick="gcalCopyIcsUrl()" class="btn-s" disabled
           style="flex-shrink:0;padding:8px 12px;font-size:11px">📋 Copia</button>
       </div>
-      <button onclick="gcalOpenInGoogle()" class="btn-p"
-        style="width:100%;justify-content:center;font-size:13px;padding:11px;background:#2563eb;border-color:#2563eb">
-        + Aggiungi a Google Calendar
+      <!-- Google Calendar -->
+      <button id="gcal-ics-open-btn" onclick="gcalOpenInGoogle()" disabled
+        style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s;margin-bottom:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#fff"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#fff"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#fff"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#fff"/></svg>
+        Aggiungi a Google Calendar
       </button>
-      <div style="font-size:10px;color:#94a3b8;margin-top:8px;line-height:1.5">
-        ℹ️ Il link è personale e privato. Google Calendar si aggiorna ogni 8–24 ore.
+      <!-- Istruzioni brevi Google -->
+      <div id="gcal-instructions" style="display:none;font-size:11px;color:#3b82f6;background:#eff6ff;border-radius:8px;padding:10px 12px;line-height:1.7;margin-bottom:8px">
+        Si è aperto Google Calendar con il link già inserito.<br>
+        Clicca <strong>Aggiungi calendario</strong> per confermare.
+        <span style="color:#93c5fd;display:block;margin-top:4px;font-size:10px">Se non vedi il campo, cerca "Aggiungi da URL" nel menu a sinistra.</span>
+      </div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.5">
+        🔒 Link privato — non condividerlo. Il calendario si aggiorna ogni 12–24 ore.
+      </div>
+    </div>
+
+    <!-- iPhone -->
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:#166534;margin-bottom:4px">📱 iPhone / Apple Calendar</div>
+      <div style="font-size:11px;color:#15803d;line-height:1.7">
+        Premi <strong>📋 Copia</strong> qui sopra, poi:<br>
+        Impostazioni → Calendario → Account → Aggiungi account → Altro<br>
+        → <strong>Aggiungi calendario con abbonamento</strong> → incolla → Abbonati
+      </div>
+    </div>
+
+    <!-- Outlook -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:4px">💻 Outlook / altri calendari</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.7">
+        Premi <strong>📋 Copia</strong>, poi nel tuo calendario cerca<br>
+        <em>Aggiungi calendario da URL</em> o <em>Iscriviti tramite web</em> e incolla il link.
       </div>
     </div>
 
@@ -6220,14 +6228,21 @@ async function _gcalAutoReconnect() {
 
 // ── ICS token per-operatore ───────────────────────────────────────────────────
 async function _gcalGetIcsToken() {
-  const { email } = _gcalOpInfo();
-  if (!email || !db) return null;
-  const { data } = await db.from('operatori').select('ics_token').eq('email', email).limit(1);
+  const u = typeof getOperatoreLoggato === 'function' ? getOperatoreLoggato() : null;
+  if (!u?.id) return null;
+  // Leggi prima da localStorage (il login salva select('*') — già presente)
+  if (u.ics_token) return u.ics_token;
+  // Fallback: query DB per id
+  if (!db) return null;
+  const { data } = await db.from('operatori').select('ics_token').eq('id', u.id).limit(1);
   let token = data?.[0]?.ics_token;
   if (!token) {
     const arr = new Uint8Array(24); crypto.getRandomValues(arr);
-    token = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
-    await db.from('operatori').update({ ics_token: token }).eq('email', email);
+    token = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+    await db.from('operatori').update({ ics_token: token }).eq('id', u.id);
+    // Aggiorna anche il localStorage per le prossime aperture
+    u.ics_token = token;
+    try { localStorage.setItem('m361_user', JSON.stringify(u)); } catch (_) {}
   }
   return token;
 }
@@ -6323,16 +6338,32 @@ function _gcalUpdateHeaderBtn() {
 // ── apertura modal ────────────────────────────────────────────────────────────
 async function openGcalModal() {
   document.getElementById('modal-gcal').classList.add('show');
-  _gcalRenderState();
-  // carica ICS token in background
+
   const icsUrlEl   = document.getElementById('gcal-ics-url');
   const icsCopyBtn = document.getElementById('gcal-ics-copy-btn');
-  if (icsUrlEl?.value === 'caricamento…') {
-    _gcalGetIcsToken().then(token => {
-      if (!token) return;
-      icsUrlEl.value = `${window.location.origin}/api/cal/${token}`;
-      if (icsCopyBtn) icsCopyBtn.disabled = false;
-    }).catch(() => {});
+  const icsOpenBtn = document.getElementById('gcal-ics-open-btn');
+  const icsErrEl   = document.getElementById('gcal-ics-err');
+  const icsInstEl  = document.getElementById('gcal-instructions');
+
+  // Reset stato ad ogni apertura
+  icsUrlEl.value          = 'Caricamento…';
+  icsCopyBtn.disabled     = true;
+  if (icsOpenBtn) icsOpenBtn.disabled = true;
+  if (icsErrEl)  icsErrEl.style.display  = 'none';
+  if (icsInstEl) icsInstEl.style.display = 'none';
+
+  try {
+    const token = await _gcalGetIcsToken();
+    if (!token) throw new Error('Sessione non valida — esci e rientra nell\'app.');
+    icsUrlEl.value      = `${window.location.origin}/api/cal/${token}`;
+    icsCopyBtn.disabled = false;
+    if (icsOpenBtn) icsOpenBtn.disabled = false;
+  } catch (e) {
+    icsUrlEl.value = '';
+    if (icsErrEl) {
+      icsErrEl.textContent = e.message || 'Errore nel caricamento del link. Riprova.';
+      icsErrEl.style.display = 'block';
+    }
   }
 }
 
@@ -6394,15 +6425,17 @@ async function gcalSyncNow() {
 // ── ICS: copia link e apri Google Calendar ────────────────────────────────────
 function gcalCopyIcsUrl() {
   const url = document.getElementById('gcal-ics-url')?.value;
-  if (!url || url === 'caricamento…') return;
+  if (!url || url.startsWith('Caricamento') || url.startsWith('Errore')) return;
   (navigator.clipboard?.writeText(url) || Promise.reject())
     .then(()  => showToast('Link copiato ✓', 'ok'))
     .catch(()  => { document.getElementById('gcal-ics-url')?.select(); document.execCommand('copy'); showToast('Link copiato ✓', 'ok'); });
 }
 function gcalOpenInGoogle() {
   const url = document.getElementById('gcal-ics-url')?.value;
-  if (!url || url === 'caricamento…') return;
+  if (!url || url.startsWith('Caricamento') || url.startsWith('Errore')) return;
   window.open(`https://calendar.google.com/calendar/r/settings/addbyurl?url=${encodeURIComponent(url)}`, '_blank');
+  const icsInstEl = document.getElementById('gcal-instructions');
+  if (icsInstEl) icsInstEl.style.display = 'block';
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
