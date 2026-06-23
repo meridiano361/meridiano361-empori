@@ -52,13 +52,15 @@ Deno.serve(async (req) => {
     10,
   );
 
-  // ?force=1   → ignora il controllo dell'ora
-  // ?dryrun=1  → simula tutto senza inviare push reali (implica force=1)
+  // ?force=1        → ignora il controllo dell'ora
+  // ?dryrun=1       → simula tutto senza inviare push reali (implica force=1)
   // ?operatore=Nome → invia solo a quell'operatore (case-insensitive, per test)
+  // ?msg=Testo      → sovrascrive il body della notifica con testo personalizzato (solo con ?operatore)
   const urlObj   = new URL(req.url);
   const dryrun   = urlObj.searchParams.get("dryrun") === "1";
   const force    = dryrun || urlObj.searchParams.get("force") === "1";
   const soloOp   = (urlObj.searchParams.get("operatore") ?? "").toLowerCase().trim();
+  const customMsg = urlObj.searchParams.get("msg") ?? "";
 
   if (!force && romanHour !== 8) {
     return new Response(
@@ -255,7 +257,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const body = `Oggi sei in turno ${
+    const body = customMsg || `Oggi sei in turno ${
       fasceTesto.length === 1
         ? fasceTesto[0]
         : fasceTesto.slice(0, -1).join(", ") + " e " + fasceTesto.at(-1)
