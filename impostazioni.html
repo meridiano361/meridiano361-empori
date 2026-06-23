@@ -263,6 +263,14 @@
                     </div>
                     <i class="fas fa-chevron-right menu-card-arrow"></i>
                 </div>
+                <div class="menu-card" onclick="openSection('personalizzazione'); loadLoginCaption()">
+                    <span class="menu-card-icon">🎨</span>
+                    <div class="menu-card-body">
+                        <div class="menu-card-title">Personalizzazione login</div>
+                        <div class="menu-card-desc">Testo visualizzato in basso nella schermata di accesso</div>
+                    </div>
+                    <i class="fas fa-chevron-right menu-card-arrow"></i>
+                </div>
             </div>
         </div>
 
@@ -498,6 +506,44 @@
                     <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:4px">Logo vetrina / marchio — posizione: alto al centro</div>
                     <div style="font-size:12px;color:#64748b;margin-bottom:18px">Abbinato alla categoria del listino. Appare in cima alla pagina stampata.</div>
                     <div id="loghi-categorie-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SEZIONE: PERSONALIZZAZIONE LOGIN ──────────────────────────────── -->
+        <div id="section-personalizzazione" class="section-page">
+            <div class="section-page-head">
+                <button class="back-btn" onclick="closeSection()">
+                    <i class="fas fa-arrow-left"></i> Impostazioni
+                </button>
+                <span class="section-page-title">🎨 Personalizzazione login</span>
+            </div>
+
+            <div class="s-card">
+                <div class="s-card-body">
+                    <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:4px">
+                        Testo pannello sinistro — posizione: basso
+                    </div>
+                    <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.55">
+                        Testo visualizzato in basso a sinistra nella schermata di accesso (es. "Collezione Primavera 2026" oppure "piattaforma gestione empori"). Lascia vuoto per usare il testo di default.
+                    </div>
+                    <textarea
+                        id="login-caption-input"
+                        placeholder="piattaforma gestione empori"
+                        rows="2"
+                        style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:'Inter',sans-serif;color:#1e293b;resize:vertical;outline:none;transition:border-color .15s;line-height:1.5"
+                        onfocus="this.style.borderColor='#B5453A'"
+                        onblur="this.style.borderColor='#e2e8f0'"
+                    ></textarea>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:10px">
+                        <span style="font-size:11px;color:#94a3b8;font-weight:500">Default: "piattaforma gestione empori"</span>
+                        <button onclick="saveLoginCaption()"
+                            style="background:#B5453A;color:#fff;border:none;border-radius:10px;padding:10px 22px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;font-family:'Inter',sans-serif;transition:background .15s"
+                            onmouseover="this.style.background='#8c362d'"
+                            onmouseout="this.style.background='#B5453A'"
+                        >Salva</button>
+                    </div>
+                    <div id="caption-save-msg" style="display:none;margin-top:10px;font-size:12px;font-weight:700"></div>
                 </div>
             </div>
         </div>
@@ -2228,6 +2274,35 @@
         } catch (e) {
             showToast('Errore rete: ' + e.message, 'err', 6000);
         }
+    }
+
+    // ── PERSONALIZZAZIONE LOGIN ─────────────────────────────────────────────
+    async function loadLoginCaption() {
+        const { data } = await _supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'login_caption')
+            .maybeSingle();
+        const el = document.getElementById('login-caption-input');
+        if (el && data?.value !== undefined) el.value = data.value;
+    }
+
+    async function saveLoginCaption() {
+        const value = (document.getElementById('login-caption-input').value || '').trim();
+        const msg   = document.getElementById('caption-save-msg');
+        const { error } = await _supabase.from('app_settings').upsert(
+            { key: 'login_caption', value, updated_at: new Date().toISOString() },
+            { onConflict: 'key' }
+        );
+        msg.style.display = 'block';
+        if (!error) {
+            msg.style.color   = '#059669';
+            msg.textContent   = '✓ Salvato';
+        } else {
+            msg.style.color   = '#dc2626';
+            msg.textContent   = 'Errore nel salvataggio.';
+        }
+        setTimeout(() => { msg.style.display = 'none'; }, 3000);
     }
     </script>
 </body>
