@@ -56,18 +56,11 @@ self.addEventListener('push', event => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      // Manda banner in-app a tutte le finestre aperte
+      // Manda banner in-app a tutte le finestre aperte (UI aggiuntiva, non sostitutiva)
       list.forEach(c => c.postMessage({ type: 'm361-push', title: data.title, body: data.body }));
 
-      // Se l'app è in foreground, iOS scarta subito la notifica OS — la saltiamo.
-      // Il banner in-app (postMessage sopra) è sufficiente quando l'app è aperta.
-      const isVisible = list.some(c => c.visibilityState === 'visible');
-      if (isVisible) return Promise.resolve();
-
-      // Tag giornaliero: se arrivano più push con lo stesso tag nello stesso giorno
-      // (es. operatore con 2 subscription), la seconda rimpiazza la prima senza
-      // rifare il suono/vibrazione (renotify: false), evitando il flash immediato.
-      // Usa il tag dal payload se presente (univoco per invio), altrimenti fallback giornaliero.
+      // Mostra SEMPRE la notifica OS — persistente nel centro notifiche finché
+      // l'utente non la scorre via. Il banner in-app sopra è solo un'aggiunta visiva.
       // renotify:true garantisce suono/vibrazione anche se c'è già una notifica con lo stesso tag.
       const tag = data.tag || `m361-${new Date().toISOString().slice(0, 10)}`;
       return self.registration.showNotification(data.title, {
