@@ -10,6 +10,7 @@
     <title>M361 - Impostazioni</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="assets/style/admin.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --red:#B5453A; --red-dark:#8c362d; }
@@ -187,91 +188,112 @@
     </div>
 
     <!-- CONTENUTO ADMIN -->
-    <div id="admin-content" class="hidden impostazioni-container">
+    <div id="admin-content" class="hidden">
 
-        <!-- ── MENU PRINCIPALE ───────────────────────────────────────────── -->
-        <div id="admin-menu">
-            <div class="mb-6">
-                <div style="font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#94a3b8;display:flex;align-items:center;gap:10px;margin-bottom:8px">
-                    <span style="width:3px;height:16px;background:#B5453A;border-radius:2px;display:inline-block;flex-shrink:0"></span>
-                    Impostazioni
-                </div>
-                <p class="text-slate-500 text-sm">Seleziona una sezione da gestire.</p>
+      <!-- ── Overlay mobile ── -->
+      <div class="adm-overlay" id="adm-overlay" onclick="chiudiSidebar()"></div>
+
+      <!-- ── Sidebar ── -->
+      <aside class="adm-sidebar" id="adm-sidebar">
+        <div class="adm-brand">
+          <div class="adm-brand-name">M361 Empori</div>
+          <span class="adm-brand-sub">Amministrazione</span>
+        </div>
+        <nav class="adm-nav">
+          <div class="adm-nav-body">
+            <button class="adm-nav-item adm-active" id="nav-home"              onclick="openSection('home')">            <i class="fas fa-house"></i><span>Home</span></button>
+            <button class="adm-nav-item"             id="nav-operatori"        onclick="openSection('operatori')">       <i class="fas fa-users"></i><span>Operatori</span></button>
+            <button class="adm-nav-item"             id="nav-notifiche"        onclick="openSection('notifiche')">       <i class="fas fa-bell"></i><span>Notifiche</span></button>
+            <button class="adm-nav-item"             id="nav-empori"           onclick="openSection('empori')">          <i class="fas fa-store"></i><span>Empori</span></button>
+            <button class="adm-nav-item"             id="nav-backup"           onclick="openSection('backup')">          <i class="fas fa-download"></i><span>Backup dati</span></button>
+            <button class="adm-nav-item"             id="nav-categorie"        onclick="openSection('categorie')">       <i class="fas fa-tag"></i><span>Categorie</span></button>
+            <button class="adm-nav-item"             id="nav-info"             onclick="openSection('info')">            <i class="fas fa-circle-info"></i><span>Info app</span></button>
+            <button class="adm-nav-item"             id="nav-accessi"          onclick="openSection('accessi')">         <i class="fas fa-key"></i><span>Accessi</span></button>
+            <button class="adm-nav-item"             id="nav-loghi"            onclick="openSection('loghi')">           <i class="fas fa-image"></i><span>Loghi listini</span></button>
+            <button class="adm-nav-item"             id="nav-personalizzazione" onclick="openSection('personalizzazione')"><i class="fas fa-palette"></i><span>Personalizzazione</span></button>
+          </div>
+          <div class="adm-nav-foot">
+            <div class="adm-nav-role">SUPER ADMIN</div>
+            <button class="adm-nav-item adm-nav-logout" onclick="window.__m361Logout && window.__m361Logout()">
+              <i class="fas fa-right-from-bracket"></i><span>Esci</span>
+            </button>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- ── Content area ── -->
+      <div class="adm-main">
+
+        <!-- Mobile top bar -->
+        <div class="adm-mobile-bar">
+          <button class="adm-hamburger" onclick="aprireSidebar()" aria-label="Apri menu">
+            <i class="fas fa-bars"></i>
+          </button>
+          <span class="adm-mobile-title" id="adm-mobile-title">Pannello admin</span>
+        </div>
+
+        <!-- ═══ SEZIONE HOME ══════════════════════════════════════════ -->
+        <div class="adm-section adm-active" id="section-home">
+          <div class="adm-page-head">
+            <div class="adm-breadcrumb">M361 EMPORI</div>
+            <h1 class="adm-page-title">Pannello admin</h1>
+          </div>
+          <div class="adm-home-grid">
+            <div class="adm-home-card" onclick="openSection('operatori')">
+              <div class="adm-home-icon" style="background:#dbeafe"><i class="fas fa-users" style="color:#2563eb"></i></div>
+              <div class="adm-home-card-title">Operatori</div>
+              <div class="adm-home-card-desc">Aggiungi, modifica e gestisci permessi e ruoli</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
             </div>
-            <div class="menu-grid">
-                <div class="menu-card" onclick="openSection('operatori')">
-                    <span class="menu-card-icon">👥</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Operatori</div>
-                        <div class="menu-card-desc">Aggiungi, modifica e gestisci i permessi</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('notifiche')">
-                    <span class="menu-card-icon">🔔</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Notifiche</div>
-                        <div class="menu-card-desc">Invia avvisi a tutti gli operatori</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('empori')">
-                    <span class="menu-card-icon">🏪</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Empori attivi</div>
-                        <div class="menu-card-desc">Elenco dei punti vendita configurati</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('backup')">
-                    <span class="menu-card-icon">📥</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Backup dati</div>
-                        <div class="menu-card-desc">Esporta ordini CSV e sincronizza operatori</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('categorie')">
-                    <span class="menu-card-icon">🏷</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Categorie prodotti</div>
-                        <div class="menu-card-desc">Categorie ricavate dagli ordini registrati</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('info')">
-                    <span class="menu-card-icon">ℹ️</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Info app</div>
-                        <div class="menu-card-desc">Versione, statistiche e database</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('accessi')">
-                    <span class="menu-card-icon">🔑</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Accessi</div>
-                        <div class="menu-card-desc">Chi ha fatto login e chi non si è mai connesso</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('loghi')">
-                    <span class="menu-card-icon">🖼</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Loghi listini</div>
-                        <div class="menu-card-desc">Logo emporio (in basso) e logo vetrina (in alto) per i listini prezzi</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
-                <div class="menu-card" onclick="openSection('personalizzazione')">
-                    <span class="menu-card-icon">🎨</span>
-                    <div class="menu-card-body">
-                        <div class="menu-card-title">Personalizzazione login</div>
-                        <div class="menu-card-desc">Testo visualizzato in basso nella schermata di accesso</div>
-                    </div>
-                    <i class="fas fa-chevron-right menu-card-arrow"></i>
-                </div>
+            <div class="adm-home-card" onclick="openSection('notifiche')">
+              <div class="adm-home-icon" style="background:#fef3c7"><i class="fas fa-bell" style="color:#d97706"></i></div>
+              <div class="adm-home-card-title">Notifiche</div>
+              <div class="adm-home-card-desc">Invia avvisi push a tutti gli operatori</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
             </div>
+            <div class="adm-home-card" onclick="openSection('empori')">
+              <div class="adm-home-icon" style="background:#dcfce7"><i class="fas fa-store" style="color:#16a34a"></i></div>
+              <div class="adm-home-card-title">Empori</div>
+              <div class="adm-home-card-desc">Elenco dei punti vendita configurati</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('backup')">
+              <div class="adm-home-icon" style="background:#ede9fe"><i class="fas fa-download" style="color:#7c3aed"></i></div>
+              <div class="adm-home-card-title">Backup dati</div>
+              <div class="adm-home-card-desc">Esporta ordini CSV e sincronizza operatori</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('categorie')">
+              <div class="adm-home-icon" style="background:#ffe4e6"><i class="fas fa-tag" style="color:#e11d48"></i></div>
+              <div class="adm-home-card-title">Categorie</div>
+              <div class="adm-home-card-desc">Categorie prodotti ricavate dagli ordini</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('info')">
+              <div class="adm-home-icon" style="background:#cffafe"><i class="fas fa-circle-info" style="color:#0891b2"></i></div>
+              <div class="adm-home-card-title">Info app</div>
+              <div class="adm-home-card-desc">Versione, statistiche e database</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('accessi')">
+              <div class="adm-home-icon" style="background:#e0e7ff"><i class="fas fa-key" style="color:#4f46e5"></i></div>
+              <div class="adm-home-card-title">Accessi</div>
+              <div class="adm-home-card-desc">Log login operatori e utenti non connessi</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('loghi')">
+              <div class="adm-home-icon" style="background:#ffedd5"><i class="fas fa-image" style="color:#ea580c"></i></div>
+              <div class="adm-home-card-title">Loghi listini</div>
+              <div class="adm-home-card-desc">Logo emporio e vetrina per i listini stampati</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('personalizzazione')">
+              <div class="adm-home-icon" style="background:#fdf1f0"><i class="fas fa-palette" style="color:#B5453A"></i></div>
+              <div class="adm-home-card-title">Personalizzazione</div>
+              <div class="adm-home-card-desc">Aspetto e testi della pagina di accesso</div>
+              <div class="adm-home-arrow"><i class="fas fa-arrow-right"></i></div>
+            </div>
+          </div>
         </div>
 
         <!-- ── SEZIONE: OPERATORI ─────────────────────────────────────────── -->
@@ -662,9 +684,11 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div><!-- end section-personalizzazione -->
 
-    </div>
+      </div><!-- end adm-main -->
+
+    </div><!-- end admin-content -->
 
     <!-- CONTENUTO RESPONSABILE DEL PERSONALE -->
     <div id="resp-content" class="hidden impostazioni-container">
@@ -962,6 +986,9 @@
     const currentUser = JSON.parse(localStorage.getItem('m361_user') || 'null');
     const _isAdmin = !!(currentUser && isAdminEmail(currentUser.email));
 
+    // Applica layout admin (nasconde bottom nav, toglie padding-bottom)
+    if (_isAdmin) document.body.classList.add('adm-mode');
+
     async function initPage() {
         if (!currentUser) { document.getElementById('access-denied').classList.remove('hidden'); return; }
         if (_isAdmin) {
@@ -985,21 +1012,56 @@
     // ── NAVIGAZIONE SEZIONI ADMIN ──────────────────────────────────────────
     let _sectionLoaded = {};
 
+    const _ADM_TITLES = {
+        home:'Pannello admin', operatori:'Operatori', notifiche:'Notifiche',
+        empori:'Empori', backup:'Backup dati', categorie:'Categorie',
+        info:'Info app', accessi:'Accessi', loghi:'Loghi listini',
+        personalizzazione:'Personalizzazione',
+    };
+
     function openSection(id) {
-        document.getElementById('admin-menu').style.display = 'none';
+        // Sidebar nav
+        document.querySelectorAll('.adm-nav-item').forEach(el => el.classList.remove('adm-active'));
+        const navItem = document.getElementById('nav-' + id);
+        if (navItem) navItem.classList.add('adm-active');
+
+        // Nascondi tutte le sezioni
+        document.querySelectorAll('.adm-section').forEach(el => el.classList.remove('adm-active'));
         document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
-        document.getElementById('section-' + id).classList.add('active');
+
+        // Mostra la sezione richiesta
+        const section = document.getElementById('section-' + id);
+        if (!section) return;
+        if (section.classList.contains('adm-section')) {
+            section.classList.add('adm-active');
+        } else {
+            section.classList.add('active');
+        }
+
+        // Inietta header oe-b2b se non presente (sezioni legacy)
+        if (!section.querySelector('.adm-page-head') && id !== 'home') {
+            const head = document.createElement('div');
+            head.className = 'adm-page-head';
+            head.innerHTML = `<div class="adm-breadcrumb">ADMIN</div><h1 class="adm-page-title">${_ADM_TITLES[id] || id}</h1>`;
+            section.insertBefore(head, section.firstChild);
+        }
+
+        // Titolo mobile
+        const mt = document.getElementById('adm-mobile-title');
+        if (mt) mt.textContent = _ADM_TITLES[id] || id;
+
+        chiudiSidebar();
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // Lazy load: carica i dati solo la prima volta che si apre la sezione
+        // Lazy load
         if (!_sectionLoaded[id]) {
             _sectionLoaded[id] = true;
-            if (id === 'operatori')  loadUsers();
-            if (id === 'notifiche')  caricaNotificheInviate(true);
-            if (id === 'info')       caricaInfoApp();
-            if (id === 'categorie')  caricaCategorie();
-            if (id === 'accessi')    caricaAccessi();
-            if (id === 'loghi')           caricaLoghi();
+            if (id === 'operatori')         loadUsers();
+            if (id === 'notifiche')         caricaNotificheInviate(true);
+            if (id === 'info')              caricaInfoApp();
+            if (id === 'categorie')         caricaCategorie();
+            if (id === 'accessi')           caricaAccessi();
+            if (id === 'loghi')             caricaLoghi();
             if (id === 'personalizzazione') caricaLoginSettings();
         }
     }
@@ -1071,10 +1133,17 @@
         showToast('Logo rimosso');
     }
 
-    function closeSection() {
-        document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
-        document.getElementById('admin-menu').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    function closeSection() { openSection('home'); }
+
+    function aprireSidebar() {
+        document.getElementById('adm-sidebar').classList.add('adm-open');
+        document.getElementById('adm-overlay').classList.add('adm-open');
+    }
+    function chiudiSidebar() {
+        const s = document.getElementById('adm-sidebar');
+        const o = document.getElementById('adm-overlay');
+        if (s) s.classList.remove('adm-open');
+        if (o) o.classList.remove('adm-open');
     }
 
     // ── ACCORDION (usato solo in resp-content) ─────────────────────────────
