@@ -537,12 +537,13 @@
 
             <!-- Domain: Pagina di accesso -->
             <div class="pref-domain">
-                <div class="pref-domain-header">
+                <div class="pref-domain-header" onclick="togglePrefDomain(this)">
                     <div class="pref-domain-icon"><i class="fas fa-sign-in-alt"></i></div>
                     <div>
                         <div class="pref-domain-title">Pagina di accesso</div>
                         <div class="pref-domain-sub">Aspetto e contenuti della schermata di login</div>
                     </div>
+                    <i class="fas fa-chevron-down pref-domain-toggle"></i>
                 </div>
                 <div class="pref-layout">
                 <div class="pref-controls">
@@ -605,11 +606,33 @@
                         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:10px">Dimensione immagine</div>
                         <div style="display:flex;flex-direction:column;gap:9px">
                             <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:#374151;font-family:'Inter',sans-serif">
-                                <input type="radio" name="pref-img-size" value="cover" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Copri tutto</strong> — riempie il pannello, può ritagliare i bordi</span></label>
+                                <input type="radio" name="pref-img-size" value="cover" onchange="onImgSizeChange()" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Copri tutto</strong> — riempie il pannello, può ritagliare i bordi</span></label>
                             <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:#374151;font-family:'Inter',sans-serif">
-                                <input type="radio" name="pref-img-size" value="contain" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Adatta</strong> — mostra l'immagine intera, può lasciare spazio vuoto ai lati</span></label>
+                                <input type="radio" name="pref-img-size" value="contain" onchange="onImgSizeChange()" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Adatta</strong> — mostra l'immagine intera, può lasciare spazio vuoto ai lati</span></label>
                             <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:#374151;font-family:'Inter',sans-serif">
-                                <input type="radio" name="pref-img-size" value="auto" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Dimensione originale</strong> — nessun ridimensionamento</span></label>
+                                <input type="radio" name="pref-img-size" value="auto" onchange="onImgSizeChange()" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Dimensione originale</strong> — nessun ridimensionamento</span></label>
+                            <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:#374151;font-family:'Inter',sans-serif">
+                                <input type="radio" name="pref-img-size" value="custom" onchange="onImgSizeChange()" style="accent-color:#B5453A;width:15px;height:15px;margin-top:2px;flex-shrink:0"> <span><strong>Personalizzata</strong> — imposta larghezza e altezza manualmente</span></label>
+                        </div>
+                        <!-- Pannello dimensioni personalizzate -->
+                        <div id="pref-img-custom" class="pref-img-custom">
+                            <div style="margin-bottom:16px">
+                                <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:8px">Larghezza — <span id="pref-img-w-pct">100</span>%</div>
+                                <input type="range" id="pref-img-w" min="10" max="200" value="100" step="5"
+                                    oninput="document.getElementById('pref-img-w-pct').textContent=this.value"
+                                    style="width:100%;accent-color:#B5453A;cursor:pointer">
+                            </div>
+                            <div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                                    <span style="font-size:11px;font-weight:600;color:#64748b">Altezza — <span id="pref-img-h-pct">auto</span></span>
+                                    <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#64748b;cursor:pointer">
+                                        <input type="checkbox" id="pref-img-h-auto" checked onchange="updateImgSizeLabel()" style="accent-color:#B5453A;width:14px;height:14px"> Proporzionale
+                                    </label>
+                                </div>
+                                <input type="range" id="pref-img-h" min="10" max="200" value="100" step="5" disabled
+                                    oninput="document.getElementById('pref-img-h-pct').textContent=this.value+'%'"
+                                    style="width:100%;accent-color:#B5453A;cursor:default;opacity:.4">
+                            </div>
                         </div>
                     </div>
 
@@ -2616,8 +2639,27 @@
 
             // Image size radio
             if (s.login_left_image_size) {
-                const r = document.querySelector(`input[name="pref-img-size"][value="${s.login_left_image_size}"]`);
-                if (r) r.checked = true;
+                const knownSizes = ['cover', 'contain', 'auto'];
+                if (knownSizes.includes(s.login_left_image_size)) {
+                    const r = document.querySelector(`input[name="pref-img-size"][value="${s.login_left_image_size}"]`);
+                    if (r) r.checked = true;
+                } else {
+                    const rCustom = document.querySelector('input[name="pref-img-size"][value="custom"]');
+                    if (rCustom) { rCustom.checked = true; document.getElementById('pref-img-custom').classList.add('active'); }
+                    const parts = s.login_left_image_size.split(' ');
+                    const w = parseInt(parts[0]) || 100;
+                    const wEl = document.getElementById('pref-img-w');
+                    if (wEl) { wEl.value = w; document.getElementById('pref-img-w-pct').textContent = w; }
+                    if (parts[1] && parts[1] !== 'auto') {
+                        const h = parseInt(parts[1]) || 100;
+                        const hAutoEl = document.getElementById('pref-img-h-auto');
+                        const hEl     = document.getElementById('pref-img-h');
+                        if (hAutoEl) hAutoEl.checked = false;
+                        if (hEl) { hEl.value = h; hEl.disabled = false; hEl.style.opacity = '1'; hEl.style.cursor = 'pointer'; }
+                        const hLbl = document.getElementById('pref-img-h-pct');
+                        if (hLbl) hLbl.textContent = h + '%';
+                    }
+                }
             }
 
             // Overlay
@@ -2705,8 +2747,39 @@
         updateLoginPreview();
     }
 
+    function togglePrefDomain(headerEl) {
+        headerEl.closest('.pref-domain').classList.toggle('pref-collapsed');
+    }
+
+    function onImgSizeChange() {
+        const val   = document.querySelector('input[name="pref-img-size"]:checked')?.value;
+        const panel = document.getElementById('pref-img-custom');
+        if (panel) panel.classList.toggle('active', val === 'custom');
+    }
+
+    function updateImgSizeLabel() {
+        const hAuto   = document.getElementById('pref-img-h-auto');
+        const hSlider = document.getElementById('pref-img-h');
+        const hLabel  = document.getElementById('pref-img-h-pct');
+        if (!hAuto || !hSlider || !hLabel) return;
+        const isAuto = hAuto.checked;
+        hSlider.disabled     = isAuto;
+        hSlider.style.opacity = isAuto ? '.4' : '1';
+        hSlider.style.cursor  = isAuto ? 'default' : 'pointer';
+        hLabel.textContent    = isAuto ? 'auto' : hSlider.value + '%';
+    }
+
+    function _resolveImgSize() {
+        const sizeEl = document.querySelector('input[name="pref-img-size"]:checked');
+        const raw    = sizeEl ? sizeEl.value : 'cover';
+        if (raw !== 'custom') return raw;
+        const w     = document.getElementById('pref-img-w')?.value || '100';
+        const hAuto = document.getElementById('pref-img-h-auto')?.checked !== false;
+        const h     = hAuto ? 'auto' : (document.getElementById('pref-img-h')?.value || '100') + '%';
+        return w + '% ' + h;
+    }
+
     function getLoginPreviewSettings() {
-        const sizeEl   = document.querySelector('input[name="pref-img-size"]:checked');
         const imgPrev  = document.getElementById('pref-left-image-preview');
         const logoPrev = document.getElementById('pref-left-logo-preview');
         return {
@@ -2723,7 +2796,7 @@
             login_left_logo_url:        logoPrev?.style.display !== 'none'
                                             ? (document.getElementById('pref-left-logo-preview-img')?.src || '') : '',
             login_left_image_position:  _prefImagePos,
-            login_left_image_size:      sizeEl ? sizeEl.value : 'cover',
+            login_left_image_size:      _resolveImgSize(),
             login_left_overlay_color:   document.getElementById('pref-overlay-color')?.value,
             login_left_overlay_opacity: document.getElementById('pref-overlay-opacity')?.value,
             login_left_img_brightness:  document.getElementById('pref-brightness')?.value,
@@ -2753,12 +2826,11 @@
 
     async function saveLoginLeft() {
         const msg  = document.getElementById('pref-left-save-msg');
-        const sizeEl = document.querySelector('input[name="pref-img-size"]:checked');
         const rows = [
             { key: 'login_left_bg_color',        value: document.getElementById('pref-left-bg-color').value },
             { key: 'login_caption',              value: (document.getElementById('pref-caption').value || '').trim() },
             { key: 'login_left_image_position',  value: _prefImagePos },
-            { key: 'login_left_image_size',      value: sizeEl ? sizeEl.value : 'cover' },
+            { key: 'login_left_image_size',      value: _resolveImgSize() },
             { key: 'login_left_overlay_color',   value: document.getElementById('pref-overlay-color').value },
             { key: 'login_left_overlay_opacity', value: document.getElementById('pref-overlay-opacity').value },
             { key: 'login_left_img_brightness',  value: document.getElementById('pref-brightness').value },
