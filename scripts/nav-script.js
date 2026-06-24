@@ -173,6 +173,11 @@ body { font-family: 'Inter', sans-serif; padding-top: 56px; padding-bottom: 68px
 .mn-item.mn-logout { opacity:.7; }
 .mn-item.mn-logout:hover { opacity:1;background:rgba(255,255,255,.12); }
 .mn-item.mn-logout:hover i,.mn-item.mn-logout:hover span { color:#fff; }
+/* ── User info block (top-right) ── */
+.hd-user-info { display:flex;flex-direction:column;align-items:flex-start;gap:0;line-height:1; }
+.hd-user-name { font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis; }
+.hd-user-email { font-size:10px;font-weight:500;color:#94a3b8;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;margin-top:2px; }
+@media(max-width:640px) { .hd-user-email { display:none; } .hd-user-name { max-width:90px; } }
 @media(max-width:480px) {
   #m361-nav { height:54px; }
   .mn-item { padding:0 7px;min-width:44px;gap:1px; }
@@ -471,7 +476,8 @@ html.m361-grande{zoom:1.25}
     const logoSrc = BASE + 'assets/images/logom361_rosso.jpg';
     const isHome = getCurrentId() === 'home';
     const profile = getUserProfile();
-    const nomeBreve = profile ? (profile.nome || '').split(' ')[0] : '';
+    const nomeFull = profile ? (profile.nome  || '') : '';
+    const emailFull = profile ? (profile.email || '') : '';
 
     const hdr = document.createElement('header');
     hdr.id = 'm361-header';
@@ -485,13 +491,21 @@ html.m361-grande{zoom:1.25}
       </a>
       <div class="hd-right">
         <button id="m361-install-btn" onclick="window.__m361InstallApp&&window.__m361InstallApp()" style="display:none;align-items:center;gap:4px;font-size:10px;font-weight:700;background:#B5453A;color:#fff;border:none;border-radius:8px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;flex-shrink:0;line-height:1"><i class="fas fa-download"></i> Installa</button>
+        <button id="back-btn" ${isHome ? 'class="hidden"' : ''} onclick="history.back()">
+          <i class="fas fa-arrow-left"></i> Indietro
+        </button>
         <button id="m361-bell-btn" onclick="window.__m361BellClick&&window.__m361BellClick()" title="Notifiche" style="position:relative;background:none;border:none;cursor:pointer;padding:4px 8px;color:#64748b;font-size:18px;display:flex;align-items:center;flex-shrink:0;line-height:1">
           <i class="fas fa-bell"></i>
           <span id="m361-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#B5453A;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 4px;line-height:1">0</span>
         </button>
-        ${nomeBreve ? '<button id="m361-profile-btn" onclick="window.__m361OpenChangePwd&&window.__m361OpenChangePwd()" title="Cambia password" style="background:none;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;color:#64748b;padding:4px 9px;font-family:Inter,sans-serif;display:flex;align-items:center;gap:5px;flex-shrink:0;line-height:1;transition:all .15s" onmouseenter="this.style.borderColor=\'#B5453A\';this.style.color=\'#B5453A\'" onmouseleave="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#64748b\'"><i class=\'fas fa-user\' style=\'font-size:9px\'></i>'+nomeBreve+'</button>' : ''}
-        <button id="back-btn" ${isHome ? 'class="hidden"' : ''} onclick="history.back()">
-          <i class="fas fa-arrow-left"></i> Indietro
+        ${nomeFull ? `<button id="m361-profile-btn" onclick="window.__m361OpenChangePwd&&window.__m361OpenChangePwd()" title="Impostazioni profilo" style="background:none;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;padding:5px 10px;font-family:Inter,sans-serif;display:flex;align-items:center;flex-shrink:0;transition:border-color .15s" onmouseenter="this.style.borderColor='#B5453A'" onmouseleave="this.style.borderColor='#e2e8f0'">
+          <div class="hd-user-info">
+            <span class="hd-user-name">${nomeFull}</span>
+            <span class="hd-user-email">${emailFull}</span>
+          </div>
+        </button>` : ''}
+        <button id="m361-logout-btn" onclick="if(confirm('Vuoi uscire?'))window.__m361Logout&&window.__m361Logout()" title="Esci" style="background:none;border:none;cursor:pointer;padding:6px 8px;color:#64748b;font-size:17px;display:flex;align-items:center;flex-shrink:0;line-height:1;transition:color .15s" onmouseenter="this.style.color='#B5453A'" onmouseleave="this.style.color='#64748b'">
+          <i class="fas fa-right-from-bracket"></i>
         </button>
       </div>
     `;
@@ -534,8 +548,6 @@ function buildNav() {
     return a;
   };
 
-  let logoutItem = null;
-
   if (typeof NAV !== 'undefined') {
     NAV.forEach((section, si) => {
       const visibleNonLogout = section.items.filter(item => {
@@ -550,7 +562,7 @@ function buildNav() {
       }
       section.items.forEach(item => {
         if (item.section && userSections.length > 0 && !userSections.includes(item.section)) return;
-        if (item.isLogout) { logoutItem = item; return; }
+        if (item.isLogout) return;
         scrollWrap.appendChild(renderItem(item));
       });
     });
@@ -586,15 +598,6 @@ function buildNav() {
   }
 
   nav.appendChild(scrollWrap);
-
-  // ESCI fisso a destra, fuori dallo scroll
-  if (logoutItem) {
-    const sep = document.createElement('div');
-    sep.className = 'mn-sep';
-    nav.appendChild(sep);
-    nav.appendChild(renderItem(logoutItem));
-  }
-
   document.body.appendChild(nav);
 }
 
