@@ -6,13 +6,14 @@
   <link rel="manifest" href="/manifest.json">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#B5453A">
   <title>Accedi | M361 Empori</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
+    html, body { height: 100%; background: #B5453A; }
     body { font-family: 'Inter', sans-serif; -webkit-text-size-adjust: 100%; }
 
     /* ── Split wrapper ── */
@@ -282,11 +283,11 @@
 <div class="lw">
 
   <!-- ── Pannello brand ── -->
-  <div class="lw-brand">
+  <div class="lw-brand" id="login-brand">
     <div class="lw-logo">
-      <img src="/assets/images/logom361_nero.jpg" alt="Meridiano 361">
+      <img src="/assets/images/logom361_nero.jpg" alt="Meridiano 361" id="login-logo">
     </div>
-    <div class="lw-caption" id="login-caption">piattaforma gestione empori</div>
+    <div class="lw-caption" id="login-caption">Il portale riservato agli operatori degli empori di Meridiano 361</div>
   </div>
 
   <!-- ── Pannello form ── -->
@@ -295,7 +296,7 @@
 
       <!-- Vista login -->
       <div id="login-view">
-        <h1 class="lw-title">Gestire l'emporio con cura.</h1>
+        <h1 class="lw-title" id="login-title">Gestire l'emporio, con cura.</h1>
 
         <div id="error-msg" class="lw-error">
           <i class="fas fa-exclamation-circle"></i>
@@ -304,7 +305,7 @@
 
         <form id="login-form">
           <div class="lw-field">
-            <label class="lw-label" for="email">Indirizzo email</label>
+            <label class="lw-label" for="email">Email</label>
             <input type="email" id="email" class="lw-input" autocomplete="email" required>
           </div>
 
@@ -323,8 +324,8 @@
             <span id="btn-label">Accedi</span>
           </button>
 
-          <a href="/richiedi-accesso.html" class="lw-link" style="margin-top:20px">Richiedi credenziali di accesso</a>
-          <button type="button" class="lw-link" onclick="showRecovery()" style="margin-top:8px">Ho dimenticato la password</button>
+          <a href="/richiedi-accesso.html" class="lw-link" id="login-link1" style="margin-top:20px">Richiedi credenziali di accesso</a>
+          <button type="button" class="lw-link" id="login-link2-btn" onclick="showRecovery()" style="margin-top:8px">Ho dimenticato la password</button>
         </form>
       </div>
 
@@ -344,7 +345,7 @@
         </div>
 
         <div class="lw-field">
-          <label class="lw-label" for="recovery-email">Indirizzo email</label>
+          <label class="lw-label" for="recovery-email">Email</label>
           <input type="email" id="recovery-email" class="lw-input" autocomplete="email">
         </div>
 
@@ -370,16 +371,37 @@
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
   );
 
-  // Carica il testo configurabile dal DB (lettura pubblica, anon)
-  (async function loadCaption() {
+  // Carica tutte le impostazioni di personalizzazione dal DB (lettura pubblica, anon)
+  (async function loadLoginSettings() {
     try {
-      const { data } = await _supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'login_caption')
-        .maybeSingle();
-      if (data?.value) document.getElementById('login-caption').textContent = data.value;
-    } catch (_) { /* keep default */ }
+      const { data } = await _supabase.from('app_settings').select('key, value');
+      const s = {};
+      for (const row of (data || [])) s[row.key] = row.value;
+
+      const el = id => document.getElementById(id);
+      const brand = el('login-brand');
+
+      if (s.login_caption)        el('login-caption').textContent       = s.login_caption;
+      if (s.login_title)          el('login-title').textContent         = s.login_title;
+      if (s.login_btn_text)       el('btn-label').textContent           = s.login_btn_text;
+      if (s.login_link1_text)     el('login-link1').textContent         = s.login_link1_text;
+      if (s.login_link1_url)      el('login-link1').href                = s.login_link1_url;
+      if (s.login_link2_text)     el('login-link2-btn').textContent     = s.login_link2_text;
+      if (s.login_left_logo_url)  el('login-logo').src                  = s.login_left_logo_url;
+
+      if (s.login_btn_color) {
+        el('submit-btn').style.background = s.login_btn_color;
+      }
+      if (s.login_left_bg_color && !s.login_left_image_url) {
+        brand.style.backgroundColor = s.login_left_bg_color;
+      }
+      if (s.login_left_image_url) {
+        brand.style.backgroundImage    = `url('${s.login_left_image_url}')`;
+        brand.style.backgroundSize     = 'cover';
+        brand.style.backgroundPosition = 'center';
+        if (s.login_left_bg_color) brand.style.backgroundColor = s.login_left_bg_color;
+      }
+    } catch (_) { /* keep HTML defaults */ }
   })();
 
   function showRecovery() {
