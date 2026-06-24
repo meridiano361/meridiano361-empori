@@ -405,49 +405,54 @@
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
   );
 
-  // Carica tutte le impostazioni di personalizzazione dal DB (lettura pubblica, anon)
+  function applyLoginSettings(s) {
+    const el    = id => document.getElementById(id);
+    const brand = el('login-brand');
+
+    if (s.login_caption)       el('login-caption').textContent   = s.login_caption;
+    if (s.login_title)         el('login-title').textContent     = s.login_title;
+    if (s.login_btn_text)      el('btn-label').textContent       = s.login_btn_text;
+    if (s.login_link1_text)    el('login-link1').textContent     = s.login_link1_text;
+    if (s.login_link1_url)     el('login-link1').href            = s.login_link1_url;
+    if (s.login_link2_text)    el('login-link2-btn').textContent = s.login_link2_text;
+    if (s.login_left_logo_url) el('login-logo').src              = s.login_left_logo_url;
+
+    if (s.login_btn_color)     el('submit-btn').style.background = s.login_btn_color;
+    if (s.login_left_bg_color) brand.style.backgroundColor       = s.login_left_bg_color;
+
+    const bgImg   = el('login-bg-img');
+    const overlay = el('login-bg-overlay');
+
+    if (s.login_left_image_url) {
+      bgImg.style.backgroundImage = `url('${s.login_left_image_url}')`;
+    }
+    bgImg.style.backgroundSize     = s.login_left_image_size     || 'cover';
+    bgImg.style.backgroundPosition = s.login_left_image_position || 'center center';
+
+    const brightness = s.login_left_img_brightness || '100';
+    const blur       = s.login_left_img_blur       || '0';
+    bgImg.style.filter = (brightness !== '100' || parseFloat(blur) !== 0)
+      ? `brightness(${brightness}%) blur(${parseFloat(blur)}px)` : '';
+
+    const opac = parseFloat(s.login_left_overlay_opacity || '0') / 100;
+    overlay.style.background = s.login_left_overlay_color || '#000000';
+    overlay.style.opacity    = String(opac);
+  }
+
+  // Carica tutte le impostazioni dal DB (lettura pubblica, anon)
   (async function loadLoginSettings() {
     try {
       const { data } = await _supabase.from('app_settings').select('key, value');
       const s = {};
       for (const row of (data || [])) s[row.key] = row.value;
-
-      const el = id => document.getElementById(id);
-      const brand = el('login-brand');
-
-      if (s.login_caption)        el('login-caption').textContent       = s.login_caption;
-      if (s.login_title)          el('login-title').textContent         = s.login_title;
-      if (s.login_btn_text)       el('btn-label').textContent           = s.login_btn_text;
-      if (s.login_link1_text)     el('login-link1').textContent         = s.login_link1_text;
-      if (s.login_link1_url)      el('login-link1').href                = s.login_link1_url;
-      if (s.login_link2_text)     el('login-link2-btn').textContent     = s.login_link2_text;
-      if (s.login_left_logo_url)  el('login-logo').src                  = s.login_left_logo_url;
-
-      if (s.login_btn_color) {
-        el('submit-btn').style.background = s.login_btn_color;
-      }
-      if (s.login_left_bg_color) {
-        brand.style.backgroundColor = s.login_left_bg_color;
-      }
-      if (s.login_left_image_url) {
-        const bgImg = el('login-bg-img');
-        bgImg.style.backgroundImage    = `url('${s.login_left_image_url}')`;
-        bgImg.style.backgroundSize     = s.login_left_image_size     || 'cover';
-        bgImg.style.backgroundPosition = s.login_left_image_position || 'center center';
-        const brightness = s.login_left_img_brightness || '100';
-        const blur       = s.login_left_img_blur       || '0';
-        if (brightness !== '100' || blur !== '0') {
-          bgImg.style.filter = `brightness(${brightness}%) blur(${parseFloat(blur)}px)`;
-        }
-        const overlay = el('login-bg-overlay');
-        const opac = parseFloat(s.login_left_overlay_opacity || '0') / 100;
-        if (opac > 0) {
-          overlay.style.background = s.login_left_overlay_color || '#000000';
-          overlay.style.opacity    = String(opac);
-        }
-      }
+      applyLoginSettings(s);
     } catch (_) { /* keep HTML defaults */ }
   })();
+
+  // Aggiornamento in tempo reale dall'anteprima dell'admin
+  window.addEventListener('message', e => {
+    if (e.data && e.data.type === 'm361-preview') applyLoginSettings(e.data.settings);
+  });
 
   function showRecovery() {
     document.getElementById('login-view').style.display    = 'none';

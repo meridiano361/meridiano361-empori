@@ -535,6 +535,18 @@
                 <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#B5453A;background:#fdf1f0;border-radius:6px;padding:3px 9px">Solo admin</span>
             </div>
 
+            <!-- Domain: Pagina di accesso -->
+            <div class="pref-domain">
+                <div class="pref-domain-header">
+                    <div class="pref-domain-icon"><i class="fas fa-sign-in-alt"></i></div>
+                    <div>
+                        <div class="pref-domain-title">Pagina di accesso</div>
+                        <div class="pref-domain-sub">Aspetto e contenuti della schermata di login</div>
+                    </div>
+                </div>
+                <div class="pref-layout">
+                <div class="pref-controls">
+
             <!-- ── 1. Sfondo e logo ── -->
             <div class="s-card" style="margin-bottom:16px">
                 <div class="s-card-body">
@@ -769,6 +781,21 @@
                     </div>
                 </div>
             </div>
+                </div><!-- end pref-controls -->
+                <div class="pref-preview-col">
+                    <div class="pref-preview-sticky">
+                        <div class="pref-preview-label">Anteprima live</div>
+                        <div class="pref-preview-wrap">
+                            <iframe id="login-preview-iframe" src="/login.html"></iframe>
+                        </div>
+                        <p class="pref-preview-note">
+                            <i class="fas fa-circle" style="color:#22c55e;font-size:7px;vertical-align:middle;margin-right:4px"></i>
+                            Aggiornamento in tempo reale
+                        </p>
+                    </div>
+                </div>
+                </div><!-- end pref-layout -->
+            </div><!-- end pref-domain -->
         </div><!-- end section-personalizzazione -->
 
       </div><!-- end adm-main -->
@@ -1148,6 +1175,7 @@
             if (id === 'loghi')             caricaLoghi();
             if (id === 'personalizzazione') caricaLoginSettings();
         }
+        if (id === 'personalizzazione') setTimeout(initPreviewScale, 100);
     }
 
     // ── LOGHI LISTINI ─────────────────────────────────────────────────────
@@ -2612,6 +2640,7 @@
                 document.getElementById('pref-blur').value = s.login_left_img_blur;
                 document.getElementById('pref-blur-px').textContent = s.login_left_img_blur;
             }
+            updateLoginPreview();
         } catch (e) {
             console.warn('caricaLoginSettings error:', e);
         }
@@ -2646,6 +2675,7 @@
 
         document.getElementById(previewImgId).src = publicUrl + '?t=' + Date.now();
         document.getElementById(previewId).style.display = 'block';
+        updateLoginPreview();
         if (msgEl) { msgEl.style.color = '#059669'; msgEl.textContent = '✓ Caricato'; setTimeout(() => { msgEl.style.display = 'none'; }, 3000); }
         input.value = '';
     }
@@ -2657,6 +2687,7 @@
         );
         if (!error) {
             document.getElementById(previewId).style.display = 'none';
+            updateLoginPreview();
         } else {
             showToast('Errore rimozione immagine', 'err');
         }
@@ -2671,6 +2702,53 @@
             btn.style.background = active ? '#B5453A' : '#f8fafc';
             btn.querySelector('span').style.background = active ? '#fff' : '#cbd5e1';
         });
+        updateLoginPreview();
+    }
+
+    function getLoginPreviewSettings() {
+        const sizeEl   = document.querySelector('input[name="pref-img-size"]:checked');
+        const imgPrev  = document.getElementById('pref-left-image-preview');
+        const logoPrev = document.getElementById('pref-left-logo-preview');
+        return {
+            login_left_bg_color:        document.getElementById('pref-left-bg-color')?.value,
+            login_caption:              document.getElementById('pref-caption')?.value,
+            login_title:                document.getElementById('pref-title')?.value,
+            login_btn_text:             document.getElementById('pref-btn-text')?.value,
+            login_btn_color:            document.getElementById('pref-btn-color')?.value,
+            login_link1_text:           document.getElementById('pref-link1-text')?.value,
+            login_link1_url:            document.getElementById('pref-link1-url')?.value,
+            login_link2_text:           document.getElementById('pref-link2-text')?.value,
+            login_left_image_url:       imgPrev?.style.display !== 'none'
+                                            ? (document.getElementById('pref-left-image-preview-img')?.src || '') : '',
+            login_left_logo_url:        logoPrev?.style.display !== 'none'
+                                            ? (document.getElementById('pref-left-logo-preview-img')?.src || '') : '',
+            login_left_image_position:  _prefImagePos,
+            login_left_image_size:      sizeEl ? sizeEl.value : 'cover',
+            login_left_overlay_color:   document.getElementById('pref-overlay-color')?.value,
+            login_left_overlay_opacity: document.getElementById('pref-overlay-opacity')?.value,
+            login_left_img_brightness:  document.getElementById('pref-brightness')?.value,
+            login_left_img_blur:        document.getElementById('pref-blur')?.value,
+        };
+    }
+
+    function updateLoginPreview() {
+        const iframe = document.getElementById('login-preview-iframe');
+        if (!iframe?.contentWindow) return;
+        iframe.contentWindow.postMessage({ type: 'm361-preview', settings: getLoginPreviewSettings() }, '*');
+    }
+
+    function initPreviewScale() {
+        const wrap   = document.querySelector('.pref-preview-wrap');
+        const iframe = document.getElementById('login-preview-iframe');
+        if (!wrap || !iframe) return;
+        const wrapW = wrap.clientWidth;
+        if (!wrapW) return;
+        const virtualW = 1200;
+        const scale    = wrapW / virtualW;
+        iframe.style.width     = virtualW + 'px';
+        iframe.style.height    = Math.ceil(480 / scale) + 'px';
+        iframe.style.transform = `scale(${scale})`;
+        updateLoginPreview();
     }
 
     async function saveLoginLeft() {
@@ -2741,6 +2819,12 @@
         }
         setTimeout(() => { msg.style.display = 'none'; }, 3000);
     }
+
+    // Aggiorna l'anteprima ad ogni modifica ai controlli della pagina di accesso
+    document.getElementById('section-personalizzazione')
+        ?.addEventListener('input',  updateLoginPreview);
+    document.getElementById('section-personalizzazione')
+        ?.addEventListener('change', updateLoginPreview);
     </script>
 </body>
 </html>
