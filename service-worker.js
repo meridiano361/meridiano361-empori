@@ -1,4 +1,4 @@
-const CACHE_NAME = 'm361-empori-v11';
+const CACHE_NAME = 'm361-empori-v12';
 
 const PRECACHE_URLS = [
   '/',
@@ -71,14 +71,22 @@ self.addEventListener('push', event => {
         tag,
         renotify:           true,
         data:               { url: data.url },
+        actions: [
+          { action: 'open',    title: 'Vedi turni' },
+          { action: 'dismiss', title: 'Ho letto ✓' },
+        ],
       });
     })
   );
 });
 
 self.addEventListener('notificationclick', event => {
-  // Non chiudiamo la notifica al click: rimane nel centro notifiche
-  // finché l'utente non la scorre via manualmente.
+  if (event.action === 'dismiss') {
+    event.notification.close();
+    return;
+  }
+
+  event.notification.close();
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const client of list) {

@@ -1373,17 +1373,23 @@ function buildNav() {
     el.className = 'm361-inapp-push';
     el.style.cssText =
       'position:fixed;top:68px;left:50%;transform:translateX(-50%);' +
-      'background:#1e293b;color:#fff;padding:14px 20px;border-radius:14px;' +
+      'background:#1e293b;color:#fff;padding:14px 20px 14px 20px;border-radius:14px;' +
       'box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:10001;' +
-      'min-width:260px;max-width:calc(100vw - 32px);' +
-      'font-family:Inter,sans-serif;cursor:pointer;' +
+      'min-width:280px;max-width:calc(100vw - 32px);' +
+      'font-family:Inter,sans-serif;' +
       'animation:m361-slide-down .3s ease';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText =
+      'position:absolute;top:8px;right:10px;background:transparent;border:none;' +
+      'color:#94a3b8;font-size:16px;cursor:pointer;padding:4px 6px;line-height:1;' +
+      'font-family:inherit';
+    closeBtn.onclick = (e) => { e.stopPropagation(); el.remove(); };
     el.innerHTML =
-      `<div style="font-weight:700;font-size:14px${body ? ';margin-bottom:4px' : ''}">🔔 ${_escHtml(title)}</div>` +
-      (body ? `<div style="font-size:12px;color:#94a3b8;line-height:1.4">${_escHtml(body)}</div>` : '');
-    el.onclick = () => el.remove();
+      `<div style="font-weight:700;font-size:14px;padding-right:28px${body ? ';margin-bottom:6px' : ''}">🔔 ${_escHtml(title)}</div>` +
+      (body ? `<div style="font-size:13px;color:#cbd5e1;line-height:1.5">${_escHtml(body)}</div>` : '');
+    el.appendChild(closeBtn);
     document.body.appendChild(el);
-    setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 5000);
   }
 
   // Ascolta i messaggi inviati dal Service Worker (push ricevuti in foreground)
