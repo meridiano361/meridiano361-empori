@@ -162,6 +162,7 @@ body { font-family: 'Nunito', sans-serif; padding-top: 56px; padding-bottom: 68p
 #m361-nav-scroll::-webkit-scrollbar { display:none; }
 @supports(padding-bottom:env(safe-area-inset-bottom)) { #m361-nav { height:calc(60px + env(safe-area-inset-bottom)); } }
 .mn-sep { width:1px;background:rgba(255,255,255,.18);margin:12px 0;flex-shrink:0; }
+#m361-nav-right { flex-shrink:0;display:flex;align-items:stretch;border-left:1px solid rgba(255,255,255,.18); }
 .mn-item { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0 10px;min-width:52px;text-decoration:none;cursor:pointer;transition:all .12s;border:none;background:transparent;flex-shrink:0;font-family:'Nunito',sans-serif;-webkit-tap-highlight-color:transparent;min-height:44px; }
 .mn-item i { font-size:15px;color:rgba(255,255,255,.6);transition:color .12s;line-height:1; }
 .mn-item span { font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.6);white-space:nowrap;transition:color .12s; }
@@ -568,21 +569,6 @@ function buildNav() {
     });
   }
 
-  // Tasto Impostazioni nel scroll wrap
-  if (user && (user.email === 'e.mazzolari@meridiano361.it' || user.is_resp_personale)) {
-    const sep = document.createElement('div');
-    sep.className = 'mn-sep';
-    scrollWrap.appendChild(sep);
-    const isFullAdmin = user.email === 'e.mazzolari@meridiano361.it';
-    scrollWrap.appendChild(renderItem({
-      id: 'impostazioni',
-      label: isFullAdmin ? 'Admin' : 'Personale',
-      icon: isFullAdmin ? 'fa-gear' : 'fa-users-gear',
-      href: 'impostazioni.html',
-      active: true
-    }));
-  }
-
   // Profilo personale — per ora solo Emilio (tester iniziale)
   if (user && user.email === 'e.mazzolari@meridiano361.it') {
     const sep = document.createElement('div');
@@ -598,6 +584,22 @@ function buildNav() {
   }
 
   nav.appendChild(scrollWrap);
+
+  // Tasto Admin — angolo in basso a destra, fuori dallo scroll
+  if (user && (user.email === 'e.mazzolari@meridiano361.it' || user.is_resp_personale)) {
+    const rightAnchor = document.createElement('div');
+    rightAnchor.id = 'm361-nav-right';
+    const isFullAdmin = user.email === 'e.mazzolari@meridiano361.it';
+    rightAnchor.appendChild(renderItem({
+      id: 'impostazioni',
+      label: isFullAdmin ? 'Admin' : 'Personale',
+      icon: isFullAdmin ? 'fa-gear' : 'fa-users-gear',
+      href: 'impostazioni.html',
+      active: true
+    }));
+    nav.appendChild(rightAnchor);
+  }
+
   document.body.appendChild(nav);
 }
 
