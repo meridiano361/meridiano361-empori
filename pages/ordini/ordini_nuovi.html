@@ -433,9 +433,23 @@
                 <div class="lg:col-span-3 section-card">
                     <div class="flex items-center justify-between mb-5">
                         <h2 class="section-title" style="margin-bottom:0">Cliente</h2>
-                        <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold text-[#B5453A] border border-red-200 bg-red-50 rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-red-100 transition-colors">
-                            <i class="fas fa-plus"></i> Nuovo cliente
-                        </button>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="toggleCercaRubrica()" class="text-xs font-bold text-slate-600 border border-slate-200 bg-white rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-slate-50 transition-colors">
+                                <i class="fas fa-search"></i> Cerca cliente
+                            </button>
+                            <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold text-[#B5453A] border border-red-200 bg-red-50 rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-red-100 transition-colors">
+                                <i class="fas fa-plus"></i> Nuovo cliente
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Pannello cerca rubrica -->
+                    <div id="cerca-rubrica-panel" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Cerca in rubrica</div>
+                        <div class="relative mb-3">
+                            <input type="text" id="cr-search" placeholder="Nome o cognome..." class="form-input pr-10" oninput="cercaInRubrica(this.value)">
+                            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        </div>
+                        <div id="cr-results" class="max-h-48 overflow-y-auto -mx-1"></div>
                     </div>
                     <!-- Inline new client form -->
                     <div id="nuovo-cliente-form" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
@@ -1079,6 +1093,8 @@ function calcSubtotal(groupId) {
         // RUBRICA CLIENTI AUTOCOMPLETE
         let clientiResults = [];
         let acTimer = null;
+        let _crResults = [];
+        let _crTimer  = null;
 
         function escHtml(str) {
             return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1089,7 +1105,8 @@ function calcSubtotal(groupId) {
                 const { data } = await _supabase
                     .from('clienti')
                     .select('*')
-                    .ilike('cognome', `%${q}%`)
+                    .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%`)
+                    .order('cognome')
                     .limit(8);
 
                 clientiResults = data || [];
@@ -1101,8 +1118,8 @@ function calcSubtotal(groupId) {
                 dropdown.innerHTML = clientiResults.map((c, i) => `
                     <div class="px-4 py-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0"
                          onclick="selectCliente(${i})">
-                        <div style="font-weight:600;color:#334155">${escHtml(c.cognome)} ${escHtml(c.nome)}</div>
-                        ${c.telefono ? `<div style="font-size:11px;color:#94a3b8">${escHtml(c.telefono)}${c.emporio ? ' · ' + escHtml(c.emporio) : ''}</div>` : ''}
+                        <div style="font-weight:700;color:#334155">${escHtml(c.cliente || c.cognome + ' ' + c.nome)}</div>
+                        ${c.telefono ? `<div style="font-size:11px;color:#94a3b8">${escHtml(c.telefono)}${c.wa ? ' <i class=\'fab fa-whatsapp\' style=\'color:#25D366\'></i>' : ''}</div>` : ''}
                     </div>`).join('');
                 dropdown.classList.remove('hidden');
             } catch(e) {
@@ -1113,16 +1130,76 @@ function calcSubtotal(groupId) {
         function selectCliente(idx) {
             const c = clientiResults[idx];
             if (!c) return;
-            document.getElementById('cust-nome').value = c.nome || '';
-            document.getElementById('cust-cognome').value = c.cognome || '';
-            document.getElementById('cust-cel').value = c.telefono || '';
+            document.getElementById('cust-nome').value    = c.nome     || '';
+            document.getElementById('cust-cognome').value = c.cognome  || '';
+            document.getElementById('cust-cel').value     = c.telefono || '';
             const emailEl = document.getElementById('cust-email');
             if (emailEl) emailEl.value = c.email || '';
             document.getElementById('cognome-ac-dropdown').classList.add('hidden');
+            refreshNumeroOrdinePreview();
         }
 
+        // ── CERCA IN RUBRICA ────────────────────────────────────────────────
+        function toggleCercaRubrica() {
+            const panel = document.getElementById('cerca-rubrica-panel');
+            const nuovoForm = document.getElementById('nuovo-cliente-form');
+            nuovoForm.classList.add('hidden');   // chiudi "nuovo cliente" se aperto
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                document.getElementById('cr-search').value = '';
+                cercaInRubrica('');
+                setTimeout(() => document.getElementById('cr-search').focus(), 50);
+            }
+        }
+
+        async function cercaInRubrica(q) {
+            clearTimeout(_crTimer);
+            _crTimer = setTimeout(async () => {
+                const resultsEl = document.getElementById('cr-results');
+                resultsEl.innerHTML = '<div class="text-xs text-slate-400 text-center py-3">Caricamento…</div>';
+                try {
+                    let query = _supabase.from('clienti').select('*').order('cognome').limit(15);
+                    if (q.trim().length > 0) {
+                        query = query.or(`cognome.ilike.%${q}%,nome.ilike.%${q}%`);
+                    }
+                    const { data } = await query;
+                    _crResults = data || [];
+                    if (_crResults.length === 0) {
+                        resultsEl.innerHTML = '<div class="text-sm text-slate-400 text-center py-3">Nessun cliente trovato</div>';
+                        return;
+                    }
+                    resultsEl.innerHTML = _crResults.map((c, i) => `
+                        <div class="px-3 py-2 cursor-pointer hover:bg-white rounded-lg flex items-center justify-between gap-2 transition-colors"
+                             onclick="selectClienteFromRubrica(${i})">
+                            <div>
+                                <span style="font-weight:700;color:#334155;font-size:13px">${escHtml(c.cliente || c.cognome + ' ' + c.nome)}</span>
+                                ${c.telefono ? `<span style="font-size:11px;color:#94a3b8;margin-left:8px">${escHtml(c.telefono)}</span>` : ''}
+                            </div>
+                            ${c.wa ? '<i class="fab fa-whatsapp text-green-500" style="font-size:14px;flex-shrink:0"></i>' : ''}
+                        </div>`).join('');
+                } catch(e) {
+                    resultsEl.innerHTML = '<div class="text-sm text-red-400 text-center py-3">Errore caricamento</div>';
+                }
+            }, q.trim() ? 300 : 0);
+        }
+
+        function selectClienteFromRubrica(idx) {
+            const c = _crResults[idx];
+            if (!c) return;
+            document.getElementById('cust-nome').value    = c.nome     || '';
+            document.getElementById('cust-cognome').value = c.cognome  || '';
+            document.getElementById('cust-cel').value     = c.telefono || '';
+            const emailEl = document.getElementById('cust-email');
+            if (emailEl) emailEl.value = c.email || '';
+            document.getElementById('cerca-rubrica-panel').classList.add('hidden');
+            refreshNumeroOrdinePreview();
+        }
+
+        // ── NUOVO CLIENTE ───────────────────────────────────────────────────
         function toggleNuovoClienteForm() {
             const form = document.getElementById('nuovo-cliente-form');
+            const cercaPanel = document.getElementById('cerca-rubrica-panel');
+            cercaPanel.classList.add('hidden');  // chiudi "cerca" se aperto
             form.classList.toggle('hidden');
             if (!form.classList.contains('hidden')) {
                 document.getElementById('nc-wa').value = 'true';
@@ -1146,9 +1223,21 @@ function calcSubtotal(groupId) {
             const cognome = document.getElementById('nc-cognome').value.trim();
             if (!nome || !cognome) { await m361Alert('Nome e cognome obbligatori', '', 'warning'); return; }
             const tel = document.getElementById('nc-tel').value.trim();
+
+            // Genera campo "cliente" univoco: controlla duplicati nome+cognome
+            const { data: existing } = await _supabase
+                .from('clienti')
+                .select('id')
+                .ilike('nome', nome)
+                .ilike('cognome', cognome);
+            const count = (existing || []).length;
+            const baseCliente = `${nome} ${cognome}`;
+            const clienteVal  = count === 0 ? baseCliente : `${baseCliente} ${count}`;
+
             const clienteData = {
                 nome,
                 cognome,
+                cliente:  clienteVal,
                 telefono: tel || null,
                 wa:       document.getElementById('nc-wa').value === 'true',
                 email:    document.getElementById('nc-email').value.trim() || null,
@@ -1156,14 +1245,14 @@ function calcSubtotal(groupId) {
             try {
                 const { error } = await _supabase.from('clienti').insert([clienteData]);
                 if (error) throw error;
-                document.getElementById('cust-nome').value = nome;
+                document.getElementById('cust-nome').value    = nome;
                 document.getElementById('cust-cognome').value = cognome;
-                document.getElementById('cust-cel').value = tel;
+                document.getElementById('cust-cel').value     = tel;
                 const emailEl = document.getElementById('cust-email');
                 if (emailEl) emailEl.value = clienteData.email || '';
                 ['nc-nome','nc-cognome','nc-tel','nc-email'].forEach(id => document.getElementById(id).value = '');
                 toggleNuovoClienteForm();
-                showToastM361(`${nome} ${cognome} aggiunto alla rubrica!`, 'success');
+                showToastM361(`${clienteVal} aggiunto alla rubrica!`, 'success');
             } catch(e) {
                 await m361Alert('Errore salvataggio cliente: ' + e.message, 'Errore', 'error');
             }
