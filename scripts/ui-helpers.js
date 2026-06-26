@@ -10,7 +10,7 @@
   s.textContent = `
     @keyframes m361-toast-in  { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
     @keyframes m361-toast-out { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(10px)} }
-    .m361-toast { position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    .m361-toast { position:fixed;bottom:90px;top:auto;left:50%;transform:translateX(-50%);
       color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;
       font-family:Nunito,sans-serif;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.25);
       display:flex;align-items:center;gap:8px;white-space:nowrap;
