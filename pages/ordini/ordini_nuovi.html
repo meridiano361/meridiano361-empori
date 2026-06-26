@@ -476,9 +476,9 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                        <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input">
+                        <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input" oninput="clearSelectedCliente()">
                         <div class="relative">
-                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input">
+                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="clearSelectedCliente()">
                             <div id="cognome-ac-dropdown" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
                         </div>
                         <div class="relative">
@@ -496,6 +496,16 @@
                                 <input type="radio" name="mod_consegna" value="Spedizione" class="hidden"> Sped.
                             </label>
                         </div>
+                    </div>
+                    <!-- Azioni rubrica: visibili solo dopo aver selezionato un cliente esistente -->
+                    <div id="rubrica-actions" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                        <span class="text-xs text-slate-400 mr-1"><i class="fas fa-address-book mr-1"></i>Cliente in rubrica:</span>
+                        <button type="button" onclick="aggiornaRubrica()" class="text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                            <i class="fas fa-save"></i> Salva modifiche
+                        </button>
+                        <button type="button" onclick="eliminaClienteRubrica()" class="text-xs font-bold text-[#B5453A] border border-red-200 bg-red-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-red-100 transition-colors">
+                            <i class="fas fa-trash"></i> Elimina dalla rubrica
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1095,6 +1105,7 @@ function calcSubtotal(groupId) {
         let acTimer = null;
         let _crResults = [];
         let _crTimer  = null;
+        let _selectedClienteId = null;
 
         function escHtml(str) {
             return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1127,6 +1138,19 @@ function calcSubtotal(groupId) {
             }
         }
 
+        function setSelectedCliente(c) {
+            _selectedClienteId = c ? c.id : null;
+            const bar = document.getElementById('rubrica-actions');
+            if (bar) bar.classList.toggle('hidden', !_selectedClienteId);
+        }
+
+        function clearSelectedCliente() {
+            if (!_selectedClienteId) return;
+            _selectedClienteId = null;
+            const bar = document.getElementById('rubrica-actions');
+            if (bar) bar.classList.add('hidden');
+        }
+
         function selectCliente(idx) {
             const c = clientiResults[idx];
             if (!c) return;
@@ -1136,6 +1160,7 @@ function calcSubtotal(groupId) {
             const emailEl = document.getElementById('cust-email');
             if (emailEl) emailEl.value = c.email || '';
             document.getElementById('cognome-ac-dropdown').classList.add('hidden');
+            setSelectedCliente(c);
             refreshNumeroOrdinePreview();
         }
 
@@ -1192,7 +1217,69 @@ function calcSubtotal(groupId) {
             const emailEl = document.getElementById('cust-email');
             if (emailEl) emailEl.value = c.email || '';
             document.getElementById('cerca-rubrica-panel').classList.add('hidden');
+            setSelectedCliente(c);
             refreshNumeroOrdinePreview();
+        }
+
+        // ── MODIFICA / ELIMINA CLIENTE IN RUBRICA ──────────────────────────
+        async function aggiornaRubrica() {
+            if (!_selectedClienteId) return;
+            const nome    = document.getElementById('cust-nome').value.trim();
+            const cognome = document.getElementById('cust-cognome').value.trim();
+            if (!nome || !cognome) { await m361Alert('Nome e cognome obbligatori', '', 'warning'); return; }
+            const tel   = document.getElementById('cust-cel').value.trim();
+            const email = document.getElementById('cust-email')?.value.trim() || null;
+
+            // Recupera dati attuali per decidere se ricalcolare il campo "cliente"
+            const { data: current } = await _supabase
+                .from('clienti').select('nome,cognome,cliente').eq('id', _selectedClienteId).single();
+
+            let clienteVal = current?.cliente || `${nome} ${cognome}`;
+            const sameNome    = current && current.nome.toLowerCase()    === nome.toLowerCase();
+            const sameCognome = current && current.cognome.toLowerCase() === cognome.toLowerCase();
+            if (!sameNome || !sameCognome) {
+                // Nome o cognome cambiati: ricalcola campo cliente con deduplicazione
+                const { data: dup } = await _supabase
+                    .from('clienti').select('id')
+                    .ilike('nome', nome).ilike('cognome', cognome)
+                    .neq('id', _selectedClienteId);
+                const count = (dup || []).length;
+                const base  = `${nome} ${cognome}`;
+                clienteVal  = count === 0 ? base : `${base} ${count}`;
+            }
+
+            const { error } = await _supabase
+                .from('clienti')
+                .update({ nome, cognome, cliente: clienteVal, telefono: tel || null, email })
+                .eq('id', _selectedClienteId);
+
+            if (error) {
+                await m361Alert('Errore aggiornamento: ' + error.message, 'Errore', 'error');
+            } else {
+                M361.toast(`${clienteVal} aggiornato in rubrica`, 'ok');
+            }
+        }
+
+        async function eliminaClienteRubrica() {
+            if (!_selectedClienteId) return;
+            const nome    = document.getElementById('cust-nome').value.trim();
+            const cognome = document.getElementById('cust-cognome').value.trim();
+            const ok = await m361Confirm(
+                `Eliminare definitivamente ${nome} ${cognome} dalla rubrica? L'operazione non è reversibile.`,
+                'Elimina cliente', 'Elimina', 'Annulla', 'error'
+            );
+            if (!ok) return;
+
+            const { error } = await _supabase
+                .from('clienti').delete().eq('id', _selectedClienteId);
+
+            if (error) {
+                await m361Alert('Errore eliminazione: ' + error.message, 'Errore', 'error');
+            } else {
+                _selectedClienteId = null;
+                document.getElementById('rubrica-actions').classList.add('hidden');
+                M361.toast(`${nome} ${cognome} eliminato dalla rubrica`, 'err');
+            }
         }
 
         // ── NUOVO CLIENTE ───────────────────────────────────────────────────
