@@ -322,7 +322,7 @@ function defaultPdvData(){
 /* ── DATA ── */
 async function loadEventi(){
   if(!_sb) return;
-  const {data,error} = await _sb.from('calendario_eventi').select('*').eq('anno',_annoAttivo).order('data_inizio',{nullsFirst:true}).order('id');
+  const {data,error} = await _sb.from('campagne_commerciali').select('*').eq('anno',_annoAttivo).order('data_inizio',{nullsFirst:true}).order('id');
   if(error){ showToastM361('Errore caricamento: '+error.message,'error'); return; }
   _eventi = data||[];
   render();
@@ -521,9 +521,9 @@ async function saveEvento(){
   };
   let err;
   if(_editId){
-    ({error:err}=await _sb.from('calendario_eventi').update(row).eq('id',_editId));
+    ({error:err}=await _sb.from('campagne_commerciali').update(row).eq('id',_editId));
   } else {
-    ({error:err}=await _sb.from('calendario_eventi').insert([row]));
+    ({error:err}=await _sb.from('campagne_commerciali').insert([row]));
   }
   if(err){ showToastM361('Errore: '+err.message,'error'); return; }
   closeForm();
@@ -536,7 +536,7 @@ async function deleteEvento(){
   const ev=_eventi.find(e=>e.id===_editId);
   const ok=await m361Confirm(`Eliminare "${ev?.titolo}"?`,'Elimina campagna','Elimina','Annulla','error');
   if(!ok) return;
-  const {error}=await _sb.from('calendario_eventi').delete().eq('id',_editId);
+  const {error}=await _sb.from('campagne_commerciali').delete().eq('id',_editId);
   if(error){ showToastM361('Errore eliminazione','error'); return; }
   closeForm();
   showToastM361('Campagna eliminata','success');
@@ -571,7 +571,7 @@ async function saveInline(){
   const pdvData=JSON.parse(JSON.stringify(ev.pdv_data||defaultPdvData()));
   if(!pdvData[pdv]) pdvData[pdv]={aderisce:true,azioni:'',r2026:'',r2025:'',r2024:'',r2023:''};
   pdvData[pdv][key]=val;
-  const {error}=await _sb.from('calendario_eventi').update({pdv_data:pdvData}).eq('id',evId);
+  const {error}=await _sb.from('campagne_commerciali').update({pdv_data:pdvData}).eq('id',evId);
   if(error){ showToastM361('Errore: '+error.message,'error'); return; }
   ev.pdv_data=pdvData;
   closeInline();
