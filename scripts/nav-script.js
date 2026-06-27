@@ -232,6 +232,8 @@ html.m361-grande{zoom:1.25}
     }
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
+      // Già installata e aperta come app standalone: non mostrare il pulsante
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) return;
       window.__m361_installPrompt = e;
       const btn = document.getElementById('m361-install-btn');
       if (btn) btn.style.display = 'flex';
@@ -1166,7 +1168,8 @@ function buildNav() {
     try {
       // iOS richiede la modalità standalone (aggiunta alla schermata Home)
       const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      if (isIOS && window.navigator.standalone !== true) {
+      const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+      if (isIOS && !isStandalone) {
         return 'Su iPhone le notifiche funzionano solo dall\'app installata. Vai su Safari → icona Condividi → "Aggiungi a schermata Home", poi riapri l\'app da lì e riattiva le notifiche.';
       }
 
