@@ -145,8 +145,8 @@ function getCurrentPageId(){ return 'calendario'; }
           <th>MECCANICA</th>
           <th>DATA INIZIO</th>
           <th>DATA FINE</th>
-          <th>PDV</th>
-          <th>ADESIONI</th>
+          <th>PUNTO VENDITA</th>
+          <th>ADERISCE</th>
           <th>AZIONI</th>
           <th id="th-ris0">RISULTATO 2026</th>
           <th id="th-ris1">RISULTATO 2025</th>
@@ -297,7 +297,8 @@ const SETTORI = {
   A: { label:'Alimentare',color:'#d97706' },
   N: { label:'Natyr',     color:'#16a34a' },
 };
-const PDV_LIST = ['CR','CA','VI','WEB'];
+const PDV_LIST   = ['CR','CA','VI','RE','WEB'];
+const PDV_LABELS = { CR:'Cremona', CA:'Casalmaggiore', VI:'Viadana', RE:'Reggio E.', WEB:'Web' };
 const ANNI     = [2026,2025,2024,2023];
 const MESI     = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 
@@ -377,7 +378,7 @@ function renderTable(evs){
       const ris  = ANNI.map(a=>{ const v=d['r'+a]||''; return v; });
 
       html+=`
-        <td class="td-pdv">${pk}</td>
+        <td class="td-pdv">${PDV_LABELS[pk]||pk}</td>
         <td class="td-ader ${d.aderisce?'si':'no'}">${d.aderisce?'sì':'no'}</td>
         <td class="td-azioni" onclick="openInline(event,${ev.id},'${pk}','azioni')" title="Clicca per modificare">${escH(d.azioni||'')}&nbsp;</td>
         <td class="td-ris${ris[0]?'':' empty'}" onclick="openInline(event,${ev.id},'${pk}','${rKey}')" title="Clicca per modificare">${escH(ris[0])||'—'}</td>
@@ -402,7 +403,7 @@ function renderMobile(evs){
       const d=pdv[pk]||{};
       const rKey='r'+_annoAttivo;
       return `<div class="pdv-row">
-        <span class="pdv-lbl">${pk}</span>
+        <span class="pdv-lbl">${PDV_LABELS[pk]||pk}</span>
         <span class="${d.aderisce?'badge-si':'badge-no'}">${d.aderisce?'sì':'no'}</span>
         ${d.azioni?`<span style="font-size:11px;color:var(--s600);flex:1">${escH(d.azioni)}</span>`:'<span style="flex:1"></span>'}
         ${d[rKey]?`<span style="font-size:11px;color:var(--s700);font-weight:700">${escH(d[rKey])}</span>`:''}
@@ -445,7 +446,7 @@ function buildPdvForm(pdv){
   body.innerHTML=PDV_LIST.map(pk=>{
     const d=pdv[pk]||{aderisce:true,azioni:'',r2026:'',r2025:'',r2024:'',r2023:''};
     return `<tr>
-      <td class="pdv-name">${pk}</td>
+      <td class="pdv-name" style="width:110px">${PDV_LABELS[pk]||pk}</td>
       <td style="text-align:center">
         <input type="checkbox" id="pdv-ader-${pk}" ${d.aderisce?'checked':''} style="width:16px;height:16px;accent-color:var(--red);cursor:pointer">
       </td>
