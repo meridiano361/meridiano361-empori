@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendario Commerciale</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --red:#B5453A;--red-dark:#8c362d;--red-light:#fdf1f0;
+      --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;
+      --s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s800:#1e293b;
+    }
+    *{box-sizing:border-box}
+    body{font-family:'Nunito',sans-serif;background:#f0f2f5;font-size:15px}
+
+    .sec-t{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--s400);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .sec-t::before{content:'';width:3px;height:16px;background:var(--red);border-radius:2px;flex-shrink:0}
+
+    /* CALENDAR GRID */
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--s200);border:1px solid var(--s200);border-radius:16px;overflow:hidden}
+    .cal-head{background:var(--s100);padding:8px 4px;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--s500)}
+    .cal-day{background:#fff;min-height:80px;padding:6px;cursor:pointer;transition:background .12s;position:relative}
+    .cal-day:hover{background:#fef9f9}
+    .cal-day.today{background:#fff5f5}
+    .cal-day.other-month{background:#fafbfc}
+    .cal-day.other-month .day-num{color:var(--s300)}
+    .day-num{font-size:12px;font-weight:800;color:var(--s600);margin-bottom:4px;line-height:1}
+    .cal-day.today .day-num{width:22px;height:22px;background:var(--red);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px}
+    .ev-chip{font-size:10px;font-weight:700;padding:2px 5px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;cursor:pointer;color:#fff;display:block;line-height:1.3}
+    .ev-chip:hover{opacity:.85}
+    .ev-more{font-size:9px;font-weight:700;color:var(--s400);margin-top:1px}
+
+    /* CATEGORIE COLORS */
+    .cat-promo{background:#B5453A}
+    .cat-scadenza{background:#D97706}
+    .cat-consegna{background:#059669}
+    .cat-riunione{background:#7c3aed}
+    .cat-altro{background:#475569}
+
+    /* CHIPS FILTRO */
+    .filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+    .fchip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:2px solid transparent;transition:all .12s}
+    .fchip.active{border-color:currentColor}
+
+    /* LISTA EVENTI */
+    .ev-row{background:#fff;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;border:1px solid var(--s200);cursor:pointer;transition:all .14s}
+    .ev-row:hover{border-color:var(--s400);box-shadow:0 2px 8px rgba(0,0,0,.07)}
+    .ev-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+    .ev-info{flex:1;min-width:0}
+    .ev-title{font-size:14px;font-weight:800;color:var(--s800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ev-meta{font-size:11px;color:var(--s400);margin-top:1px}
+    .ev-cat-badge{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;padding:2px 7px;border-radius:6px;color:#fff;flex-shrink:0}
+
+    /* FORM MODALE */
+    .form-input{width:100%;border:1px solid var(--s200);border-radius:10px;padding:10px 14px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:600;color:var(--s800);background:#fff;outline:none;transition:border .15s}
+    .form-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(181,69,58,.1)}
+    .form-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--s500);margin-bottom:4px;display:block}
+    .btn-primary{background:var(--red);color:#fff;border:none;border-radius:10px;padding:11px 24px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:background .15s}
+    .btn-primary:hover{background:var(--red-dark)}
+    .btn-ghost{background:var(--s100);color:var(--s600);border:1px solid var(--s200);border-radius:10px;padding:11px 20px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
+    .btn-danger{background:#fff;color:#B5453A;border:1px solid #fecaca;border-radius:10px;padding:11px 18px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
+    .btn-danger:hover{background:#fef2f2}
+
+    @media(max-width:600px){
+      .cal-day{min-height:56px;padding:4px 3px}
+      .ev-chip{display:none}
+      .day-num{font-size:11px}
+    }
+  </style>
+</head>
+<body>
+
+<script src="../../scripts/nav-script.js"></script>
+<script src="../../scripts/ui-helpers.js"></script>
+<script>
+function getCurrentId(){ return 'calendario'; }
+function getCurrentPageId(){ return 'calendario'; }
+</script>
+
+<div id="m361-content" style="padding:16px;max-width:900px;margin:0 auto">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:20px;font-weight:900;color:var(--s800)">Calendario Commerciale</div>
+      <div style="font-size:12px;color:var(--s400);font-weight:600;margin-top:1px">Promozioni, scadenze e appuntamenti</div>
+    </div>
+    <button onclick="openForm()" class="btn-primary" style="display:flex;align-items:center;gap:8px">
+      <i class="fas fa-plus"></i> Nuovo evento
+    </button>
+  </div>
+
+  <!-- Navigazione mese -->
+  <div style="background:#fff;border-radius:16px;border:1px solid var(--s200);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+    <button onclick="changeMonth(-1)" style="background:var(--s100);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:16px;color:var(--s600);display:flex;align-items:center;justify-content:center">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <div style="font-size:18px;font-weight:900;color:var(--s800)" id="month-label"></div>
+    <button onclick="changeMonth(1)" style="background:var(--s100);border:none;border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:16px;color:var(--s600);display:flex;align-items:center;justify-content:center">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  </div>
+
+  <!-- Filtro categorie -->
+  <div class="filter-chips" id="filter-chips">
+    <div class="fchip active" data-cat="" style="background:#1e293b;color:#fff" onclick="setFilter('')">Tutti</div>
+    <div class="fchip" data-cat="promo" style="background:#fef2f2;color:#B5453A" onclick="setFilter('promo')"><i class="fas fa-tag mr-1"></i>Promozione</div>
+    <div class="fchip" data-cat="scadenza" style="background:#fffbeb;color:#D97706" onclick="setFilter('scadenza')"><i class="fas fa-clock mr-1"></i>Scadenza</div>
+    <div class="fchip" data-cat="consegna" style="background:#f0fdf4;color:#059669" onclick="setFilter('consegna')"><i class="fas fa-truck mr-1"></i>Consegna</div>
+    <div class="fchip" data-cat="riunione" style="background:#f5f3ff;color:#7c3aed" onclick="setFilter('riunione')"><i class="fas fa-users mr-1"></i>Riunione</div>
+    <div class="fchip" data-cat="altro" style="background:var(--s100);color:var(--s600)" onclick="setFilter('altro')"><i class="fas fa-circle mr-1"></i>Altro</div>
+  </div>
+
+  <!-- Griglia calendario -->
+  <div style="background:#fff;border-radius:16px;border:1px solid var(--s200);overflow:hidden;margin-bottom:20px">
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- Lista eventi del mese -->
+  <div class="sec-t">Eventi del mese</div>
+  <div id="ev-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  <div id="ev-empty" style="display:none;text-align:center;padding:32px 16px;color:var(--s400);font-size:14px;font-weight:600">
+    <i class="fas fa-calendar-xmark" style="font-size:28px;margin-bottom:8px;display:block;opacity:.4"></i>
+    Nessun evento per questo mese
+  </div>
+
+</div>
+
+<!-- MODALE FORM -->
+<div id="ev-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;display:none;align-items:center;justify-content:center;padding:16px;font-family:'Nunito',sans-serif">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="background:var(--red);color:#fff;padding:16px 20px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px">
+      <i class="fas fa-calendar-plus"></i>
+      <span id="modal-title">Nuovo evento</span>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label class="form-label">Titolo *</label>
+        <input type="text" id="f-titolo" class="form-input" placeholder="Es. Promozione estate" autocomplete="off">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Data inizio *</label>
+          <input type="date" id="f-data" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Data fine</label>
+          <input type="date" id="f-data-fine" class="form-input">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Categoria</label>
+        <select id="f-categoria" class="form-input">
+          <option value="promo">🏷 Promozione</option>
+          <option value="scadenza">⏰ Scadenza</option>
+          <option value="consegna">🚚 Consegna</option>
+          <option value="riunione">👥 Riunione</option>
+          <option value="altro" selected>● Altro</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Note</label>
+        <textarea id="f-note" class="form-input" rows="2" placeholder="Dettagli aggiuntivi…" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="padding:12px 20px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--s100)">
+      <button id="f-delete-btn" onclick="deleteEvento()" class="btn-danger" style="display:none"><i class="fas fa-trash"></i> Elimina</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button onclick="closeForm()" class="btn-ghost">Annulla</button>
+        <button onclick="saveEvento()" class="btn-primary">Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwNzIxMzEsImV4cCI6MjA1MzY0ODEzMX0.CYcO9bVJBLpOPqcIBsC5hFXDiNMSBswjBi0s_w2rHQw';
+const _sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const CATEGORIE = {
+  promo:    { label:'Promozione', color:'#B5453A', cls:'cat-promo'    },
+  scadenza: { label:'Scadenza',   color:'#D97706', cls:'cat-scadenza' },
+  consegna: { label:'Consegna',   color:'#059669', cls:'cat-consegna' },
+  riunione: { label:'Riunione',   color:'#7c3aed', cls:'cat-riunione' },
+  altro:    { label:'Altro',      color:'#475569', cls:'cat-altro'    },
+};
+
+const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+               'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const GIORNI = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+
+let _eventi = [];
+let _currentYear, _currentMonth;
+let _activeFilter = '';
+let _editId = null;
+
+function _today(){ const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; }
+
+function changeMonth(dir) {
+  _currentMonth += dir;
+  if (_currentMonth > 11) { _currentMonth = 0; _currentYear++; }
+  if (_currentMonth < 0)  { _currentMonth = 11; _currentYear--; }
+  render();
+}
+
+function setFilter(cat) {
+  _activeFilter = cat;
+  document.querySelectorAll('.fchip').forEach(c => {
+    const isMine = c.dataset.cat === cat;
+    c.classList.toggle('active', isMine);
+    if (isMine) c.style.fontWeight = '900';
+    else c.style.fontWeight = '700';
+  });
+  renderList();
+  renderGrid();
+}
+
+async function loadEventi() {
+  if (!_sb) return;
+  const startOf = `${_currentYear}-${String(_currentMonth+1).padStart(2,'0')}-01`;
+  const endOf   = new Date(_currentYear, _currentMonth+1, 0);
+  const endStr  = `${_currentYear}-${String(_currentMonth+1).padStart(2,'0')}-${String(endOf.getDate()).padStart(2,'0')}`;
+  const { data } = await _sb.from('calendario_eventi').select('*')
+    .or(`data.gte.${startOf},data_fine.gte.${startOf}`)
+    .lte('data', endStr)
+    .order('data');
+  _eventi = data || [];
+  renderGrid();
+  renderList();
+}
+
+function filteredEventi() {
+  if (!_activeFilter) return _eventi;
+  return _eventi.filter(e => e.categoria === _activeFilter);
+}
+
+function eventiForDay(dateStr) {
+  return filteredEventi().filter(e => {
+    const start = e.data;
+    const end   = e.data_fine || e.data;
+    return dateStr >= start && dateStr <= end;
+  });
+}
+
+function renderGrid() {
+  const grid = document.getElementById('cal-grid');
+  if (!grid) return;
+
+  // Intestazioni
+  let html = GIORNI.map(g => `<div class="cal-head">${g}</div>`).join('');
+
+  const firstDay = new Date(_currentYear, _currentMonth, 1);
+  let startDow = firstDay.getDay(); // 0=dom
+  startDow = startDow === 0 ? 6 : startDow - 1; // converti a lun=0
+
+  const daysInMonth = new Date(_currentYear, _currentMonth + 1, 0).getDate();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Celle giorni precedenti
+  const prevDays = new Date(_currentYear, _currentMonth, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--) {
+    const d = prevDays - i;
+    const m = _currentMonth === 0 ? 12 : _currentMonth;
+    const y = _currentMonth === 0 ? _currentYear - 1 : _currentYear;
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    html += `<div class="cal-day other-month" onclick="openForm('${ds}')">
+      <div class="day-num">${d}</div></div>`;
+  }
+
+  // Celle del mese corrente
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${_currentYear}-${String(_currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = ds === todayStr;
+    const evs = eventiForDay(ds);
+    const maxShow = 2;
+    let chipsHtml = evs.slice(0, maxShow).map(e => {
+      const cat = CATEGORIE[e.categoria] || CATEGORIE.altro;
+      return `<span class="ev-chip ${cat.cls}" onclick="event.stopPropagation();openForm(null,${e.id})" title="${escHtml(e.titolo)}">${escHtml(e.titolo)}</span>`;
+    }).join('');
+    if (evs.length > maxShow) chipsHtml += `<div class="ev-more">+${evs.length - maxShow} altri</div>`;
+    const dayNumHtml = isToday
+      ? `<div class="day-num" style="display:flex"><span style="width:22px;height:22px;background:var(--red);color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px">${d}</span></div>`
+      : `<div class="day-num">${d}</div>`;
+    html += `<div class="cal-day${isToday?' today':''}" onclick="openForm('${ds}')">
+      ${dayNumHtml}${chipsHtml}</div>`;
+  }
+
+  // Riempi fino a completare la griglia (multiplo di 7)
+  const total = startDow + daysInMonth;
+  const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= remainder; d++) {
+    const m = _currentMonth === 11 ? 1 : _currentMonth + 2;
+    const y = _currentMonth === 11 ? _currentYear + 1 : _currentYear;
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    html += `<div class="cal-day other-month" onclick="openForm('${ds}')">
+      <div class="day-num">${d}</div></div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function renderList() {
+  const list   = document.getElementById('ev-list');
+  const empty  = document.getElementById('ev-empty');
+  const evs    = filteredEventi();
+  if (!evs.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = evs.map(e => {
+    const cat = CATEGORIE[e.categoria] || CATEGORIE.altro;
+    const dateLabel = e.data_fine && e.data_fine !== e.data
+      ? `${formatDate(e.data)} → ${formatDate(e.data_fine)}`
+      : formatDate(e.data);
+    return `<div class="ev-row" onclick="openForm(null,${e.id})">
+      <div class="ev-dot" style="background:${cat.color}"></div>
+      <div class="ev-info">
+        <div class="ev-title">${escHtml(e.titolo)}</div>
+        <div class="ev-meta"><i class="fas fa-calendar mr-1"></i>${dateLabel}${e.note ? ' · '+escHtml(e.note.substring(0,50)) : ''}</div>
+      </div>
+      <span class="ev-cat-badge" style="background:${cat.color}">${cat.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function formatDate(ds) {
+  if (!ds) return '';
+  const [y,m,d] = ds.split('-');
+  return `${d} ${MESI[parseInt(m)-1].substring(0,3)} ${y}`;
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function render() {
+  document.getElementById('month-label').textContent = `${MESI[_currentMonth]} ${_currentYear}`;
+  loadEventi();
+}
+
+// --- FORM ---
+function openForm(dateStr, evId) {
+  _editId = evId || null;
+  const modal = document.getElementById('ev-modal');
+  const delBtn = document.getElementById('f-delete-btn');
+  document.getElementById('modal-title').textContent = evId ? 'Modifica evento' : 'Nuovo evento';
+  delBtn.style.display = evId ? 'block' : 'none';
+
+  if (evId) {
+    const ev = _eventi.find(e => e.id === evId);
+    if (!ev) return;
+    document.getElementById('f-titolo').value    = ev.titolo || '';
+    document.getElementById('f-data').value      = ev.data   || '';
+    document.getElementById('f-data-fine').value = ev.data_fine || '';
+    document.getElementById('f-categoria').value = ev.categoria || 'altro';
+    document.getElementById('f-note').value      = ev.note   || '';
+  } else {
+    document.getElementById('f-titolo').value    = '';
+    document.getElementById('f-data').value      = dateStr || '';
+    document.getElementById('f-data-fine').value = '';
+    document.getElementById('f-categoria').value = 'altro';
+    document.getElementById('f-note').value      = '';
+  }
+
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('f-titolo').focus(), 50);
+}
+
+function closeForm() {
+  document.getElementById('ev-modal').style.display = 'none';
+  _editId = null;
+}
+
+async function saveEvento() {
+  const titolo = document.getElementById('f-titolo').value.trim();
+  if (!titolo) { showToastM361('Inserisci un titolo', 'warning'); return; }
+  const data = document.getElementById('f-data').value;
+  if (!data) { showToastM361('Inserisci una data', 'warning'); return; }
+
+  const row = {
+    titolo,
+    data,
+    data_fine: document.getElementById('f-data-fine').value || null,
+    categoria: document.getElementById('f-categoria').value,
+    note:      document.getElementById('f-note').value.trim() || null,
+    colore:    CATEGORIE[document.getElementById('f-categoria').value]?.color || '#475569',
+  };
+
+  let err;
+  if (_editId) {
+    ({ error: err } = await _sb.from('calendario_eventi').update(row).eq('id', _editId));
+  } else {
+    ({ error: err } = await _sb.from('calendario_eventi').insert([row]));
+  }
+
+  if (err) { showToastM361('Errore: ' + err.message, 'error'); return; }
+  closeForm();
+  showToastM361(_editId ? 'Evento aggiornato' : 'Evento aggiunto', 'success');
+  render();
+}
+
+async function deleteEvento() {
+  if (!_editId) return;
+  const ev = _eventi.find(e => e.id === _editId);
+  const ok = await m361Confirm(`Eliminare "${ev?.titolo}"?`, 'Elimina evento', 'Elimina', 'Annulla', 'error');
+  if (!ok) return;
+  const { error } = await _sb.from('calendario_eventi').delete().eq('id', _editId);
+  if (error) { showToastM361('Errore eliminazione', 'error'); return; }
+  closeForm();
+  showToastM361('Evento eliminato', 'success');
+  render();
+}
+
+// Chiudi modale cliccando fuori
+document.getElementById('ev-modal').addEventListener('click', function(e){
+  if (e.target === this) closeForm();
+});
+
+// INIT
+const _now = _today();
+_currentYear  = _now.y;
+_currentMonth = _now.m;
+render();
+</script>
+</body>
+</html>

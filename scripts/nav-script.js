@@ -103,7 +103,7 @@
     { group: 'Negozio', items: [
       { id: 'turni',        label: 'Turni',        icon: 'fa-users',          href: 'pages/turni/turni.html',        section: 'turni',   active: true  },
       { id: 'cassa',        label: 'Cassa',        icon: 'fa-cash-register',  href: 'pages/cassa/cassa.html',        section: 'cassa',   active: true  },
-      { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: false },
+      { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: true, adminOnly: true },
       { id: 'rifornimento', label: 'Rifornimento', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: true  },
       { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/prezzi.html',          section: null,      active: true  },
       { id: 'preordini',   label: 'Preordini',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: true  },
@@ -551,10 +551,12 @@ function buildNav() {
     return a;
   };
 
+  const isFullAdmin = user && user.email === 'e.mazzolari@meridiano361.it';
   if (typeof NAV !== 'undefined') {
     NAV.forEach((section, si) => {
       const visibleNonLogout = section.items.filter(item => {
         if (item.isLogout) return false;
+        if (item.adminOnly && !isFullAdmin) return false;
         if (item.section && userSections.length > 0 && !userSections.includes(item.section)) return false;
         return true;
       });
@@ -564,6 +566,7 @@ function buildNav() {
         scrollWrap.appendChild(sep);
       }
       section.items.forEach(item => {
+        if (item.adminOnly && !isFullAdmin) return;
         if (item.section && userSections.length > 0 && !userSections.includes(item.section)) return;
         if (item.isLogout) return;
         scrollWrap.appendChild(renderItem(item));
