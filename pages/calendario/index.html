@@ -79,6 +79,12 @@
     .btn-ghost{background:var(--s100);color:var(--s600);border:1px solid var(--s200);border-radius:9px;padding:10px 18px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
     .btn-del{background:#fff;color:var(--red);border:1px solid #fecaca;border-radius:9px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
 
+    /* PDV ADERENTI CHIPS */
+    .pdv-ader-chips{display:flex;flex-wrap:wrap;gap:8px}
+    .pdv-ader-chip{display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:20px;border:2px solid var(--s200);background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:var(--s500);transition:all .15s;user-select:none}
+    .pdv-ader-chip.on{border-color:var(--red);background:#fdf1f0;color:var(--red)}
+    .pdv-ader-chip i{font-size:13px;transition:color .15s}
+
     /* PDV FORM TABLE */
     .pdv-form-tbl{width:100%;border-collapse:collapse;font-size:13px}
     .pdv-form-tbl th{padding:6px 8px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--s500);background:var(--s50);border-bottom:1px solid var(--s200);text-align:left}
@@ -186,7 +192,7 @@ function getCurrentPageId(){ return 'calendario'; }
         <i class="fas fa-info-circle mr-1"></i> Info campagna
       </button>
       <button class="modal-tab" id="tab-pdv" onclick="switchTab('pdv')" style="flex:1;padding:11px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;border:none;background:transparent;cursor:pointer;color:var(--s400);border-bottom:2px solid transparent;margin-bottom:-2px">
-        <i class="fas fa-store mr-1"></i> PDV & Risultati
+        <i class="fas fa-chart-bar mr-1"></i> Risultati
       </button>
     </div>
 
@@ -245,17 +251,20 @@ function getCurrentPageId(){ return 'calendario'; }
           <input type="date" id="f-data-fin" class="form-input">
         </div>
       </div>
+      <div>
+        <label class="form-label">PDV aderenti</label>
+        <div id="pdv-aderisce-wrap" class="pdv-ader-chips"></div>
+      </div>
     </div>
 
-    <!-- Tab: PDV -->
+    <!-- Tab: Risultati -->
     <div id="panel-pdv" style="padding:20px;display:none">
-      <div style="font-size:11px;color:var(--s400);font-weight:700;margin-bottom:12px">Partecipazione per punto vendita e risultati storici</div>
+      <div style="font-size:11px;color:var(--s400);font-weight:700;margin-bottom:12px">Azioni e risultati storici per punto vendita</div>
       <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--s200)">
         <table class="pdv-form-tbl">
           <thead>
             <tr>
               <th>PDV</th>
-              <th>Aderisce</th>
               <th>Azioni</th>
               <th>Ris. 2026</th>
               <th>Ris. 2025</th>
@@ -440,16 +449,30 @@ function setSettore(s){
 }
 
 /* ── FORM ── */
+function buildAderisceChips(pdv){
+  const wrap=document.getElementById('pdv-aderisce-wrap');
+  if(!wrap) return;
+  wrap.innerHTML=PDV_LIST.map(pk=>{
+    const on=(pdv[pk]?.aderisce)!==false;
+    return `<div class="pdv-ader-chip${on?' on':''}" id="chip-ader-${pk}" onclick="toggleChip('${pk}')">
+      <i class="fas ${on?'fa-circle-check':'fa-circle'}"></i>${PDV_LABELS[pk]||pk}
+    </div>`;
+  }).join('');
+}
+function toggleChip(pk){
+  const chip=document.getElementById('chip-ader-'+pk);
+  if(!chip) return;
+  const on=chip.classList.toggle('on');
+  chip.querySelector('i').className=`fas ${on?'fa-circle-check':'fa-circle'}`;
+}
+
 function buildPdvForm(pdv){
   const body=document.getElementById('pdv-form-body');
   if(!body) return;
   body.innerHTML=PDV_LIST.map(pk=>{
-    const d=pdv[pk]||{aderisce:true,azioni:'',r2026:'',r2025:'',r2024:'',r2023:''};
+    const d=pdv[pk]||{azioni:'',r2026:'',r2025:'',r2024:'',r2023:''};
     return `<tr>
       <td class="pdv-name" style="width:110px">${PDV_LABELS[pk]||pk}</td>
-      <td style="text-align:center">
-        <input type="checkbox" id="pdv-ader-${pk}" ${d.aderisce?'checked':''} style="width:16px;height:16px;accent-color:var(--red);cursor:pointer">
-      </td>
       <td><input type="text" id="pdv-azioni-${pk}" class="mini-inp" value="${escH(d.azioni||'')}" placeholder="azioni…"></td>
       <td><input type="text" id="pdv-r2026-${pk}" class="mini-inp" value="${escH(d.r2026||'')}" placeholder="es. 66 pz | €4.446"></td>
       <td><input type="text" id="pdv-r2025-${pk}" class="mini-inp" value="${escH(d.r2025||'')}" placeholder=""></td>
@@ -474,6 +497,7 @@ function openForm(evId){
   document.getElementById('f-data-fin').value  = ev?.data_fine||'';
 
   const pdv = ev?.pdv_data||defaultPdvData();
+  buildAderisceChips(pdv);
   buildPdvForm(pdv);
 
   switchTab('info');
@@ -494,8 +518,9 @@ function switchTab(t){
 function collectPdvData(){
   const pdv={};
   PDV_LIST.forEach(pk=>{
+    const chip=document.getElementById('chip-ader-'+pk);
     pdv[pk]={
-      aderisce: document.getElementById('pdv-ader-'+pk)?.checked??true,
+      aderisce: chip ? chip.classList.contains('on') : true,
       azioni:   document.getElementById('pdv-azioni-'+pk)?.value||'',
       r2026:    document.getElementById('pdv-r2026-'+pk)?.value||'',
       r2025:    document.getElementById('pdv-r2025-'+pk)?.value||'',
