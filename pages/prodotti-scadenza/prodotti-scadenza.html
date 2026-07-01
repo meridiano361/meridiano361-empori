@@ -98,6 +98,8 @@
       .tbl td{padding:10px 13px;font-size:clamp(13px,0.3vw + 12px,15px);vertical-align:middle}
       .tbl td.td-desc{font-weight:700;max-width:220px}
       .tbl td.td-desc small{display:block;font-size:11px;color:var(--G);font-weight:500}
+      .prod-link{cursor:pointer;transition:color .12s}
+      .prod-link:hover{color:var(--R)}
       .tbl td.td-num{font-weight:700;text-align:right}
       .tbl td.td-acts{text-align:right;white-space:nowrap}
       .tbl-act{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:7px;font-size:12px;color:var(--G);font-family:inherit;font-weight:700;transition:all .12s;display:inline-flex;align-items:center;gap:4px}
@@ -270,7 +272,7 @@
 <div class="sec" id="sec-lbl">Caricamento…</div>
 
 <div class="prod-list" id="prod-list">
-  <table class="tbl" id="tbl"><tbody><tr><td colspan="9" style="text-align:center;padding:30px"><div class="spin"></div></td></tr></tbody></table>
+  <table class="tbl" id="tbl"><tbody><tr><td colspan="11" style="text-align:center;padding:30px"><div class="spin"></div></td></tr></tbody></table>
   <div class="card-list" id="card-list"><div class="spin"></div></div>
 </div>
 
@@ -453,7 +455,7 @@ async function init(){
 async function carica(){
   ['tbl','card-list'].forEach(id=>{
     const el=document.getElementById(id);
-    el.innerHTML=id==='tbl'?'<tbody><tr><td colspan="9" style="text-align:center;padding:28px"><div class="spin"></div></td></tr></tbody>':'<div class="spin"></div>';
+    el.innerHTML=id==='tbl'?'<tbody><tr><td colspan="11" style="text-align:center;padding:28px"><div class="spin"></div></td></tr></tbody>':'<div class="spin"></div>';
   });
   let q=db.from('prodotti_scadenza').select('*').order('scadenza',{ascending:true});
   if(emporio)q=q.eq('emporio',emporio);
@@ -535,7 +537,7 @@ function render(){
 
   if(!lista.length){
     const emp=`<div class="empty"><i class="fas fa-box-open"></i><p>Nessun prodotto</p><small>${filtro==='tutti'?'Usa il tasto + per aggiungere':'Nessun prodotto in questo intervallo'}</small></div>`;
-    document.getElementById('tbl').innerHTML=`<tbody><tr><td colspan="9">${emp}</td></tr></tbody>`;
+    document.getElementById('tbl').innerHTML=`<tbody><tr><td colspan="11">${emp}</td></tr></tbody>`;
     document.getElementById('card-list').innerHTML=emp;
     return;
   }
@@ -554,37 +556,48 @@ function render(){
     ${thSort('qty','Qtà')}
     ${thSort('scad','Scadenza')}
     ${thSort('gg','Giorni','center')}
-    <th style="text-align:center">Sconto</th>
     ${thSort('prezzo','Prezzo','right')}
-    <th style="text-align:right">Scontato</th>
+    <th style="text-align:center">Sug. %</th>
+    <th style="text-align:right">Sug. €</th>
+    <th style="text-align:center">Appl. %</th>
+    <th style="text-align:right">Appl. €</th>
     <th style="text-align:center">Stato</th>
     <th></th>
   </tr></thead>`;
 
   const rows=lista.map(p=>{
     const uc=urgCls(p._gg),ucol=urgColor(p._gg),ubg=urgBg(p._gg);
-    // Sconto e scontato: verde fisso (positivo), il rosso resta solo ai Giorni
     const scCol='var(--g)';
-    const scontoApplicato=p.sconto_applicato;
-    const scontoLabel=p.sconto_accettato
-      ?(scontoApplicato?`<span style="color:${scCol};font-weight:900;font-size:13px">−${scontoApplicato}%</span>`
-        :(p.prezzo_scontato&&p.prezzo_iniziale?`<span style="color:${scCol};font-weight:900;font-size:13px">€ dir.</span>`
-          :`<span style="color:var(--G);font-size:12px">—</span>`))
-      :(p._sc>0?`<span style="color:var(--G);font-size:11px">Sug. −${p._sc}%</span>`:`<span style="color:var(--G);font-size:12px">—</span>`);
+    // Sconto consigliato
+    const sugPct = p._sc>0
+      ? `<span style="color:var(--g);font-weight:800;font-size:12px">−${p._sc}%</span>`
+      : `<span style="color:var(--G);font-size:11px">—</span>`;
+    const sugEur = (p.prezzo_iniziale&&p._sc>0)
+      ? `<span style="color:var(--S3);font-size:12px">${fmtE(p.prezzo_iniziale*(1-p._sc/100))}</span>`
+      : `<span style="color:var(--G);font-size:11px">—</span>`;
+    // Sconto applicato
+    const applPct = (p.sconto_accettato&&p.sconto_applicato)
+      ? `<span style="color:${scCol};font-weight:900;font-size:13px">−${p.sconto_applicato}%</span>`
+      : `<span style="color:var(--G);font-size:11px">—</span>`;
+    const applEur = (p.sconto_accettato&&p.prezzo_scontato)
+      ? `<span style="color:${scCol};font-weight:900">${fmtE(p.prezzo_scontato)}</span>`
+      : `<span style="color:var(--G);font-size:11px">—</span>`;
     const chips=[
       p.in_promo?`<span class="chip chip-promo"><i class="fas fa-tag" style="font-size:8px"></i> In promo</span>`:'',
       p.solo_alcuni?`<span class="chip chip-solo"><i class="fas fa-circle-info" style="font-size:8px"></i> Parz.</span>`:'',
     ].filter(Boolean).join(' ');
     return `<tr>
-      <td class="td-desc">${esc(capFirst(p.descrizione))}${p.codice?`<small>${esc(p.codice)}</small>`:''}</td>
+      <td class="td-desc"><span class="prod-link" onclick="apriModifica('${p.id}')">${esc(capFirst(p.descrizione))}</span>${p.codice?`<small>${esc(p.codice)}</small>`:''}</td>
       <td class="td-num">${p.quantita}</td>
       <td style="font-size:12px;white-space:nowrap">${fmtD(p.scadenza)}</td>
       <td style="text-align:center">
         <span style="background:${ubg};color:${ucol};border:1.5px solid ${ucol}44;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:800">${fmtGg(p._gg)}</span>
       </td>
-      <td style="text-align:center">${scontoLabel}</td>
       <td class="td-num" style="color:var(--S3);font-size:12px">${p.prezzo_iniziale?fmtE(p.prezzo_iniziale):'—'}</td>
-      <td class="td-num">${p.prezzo_scontato&&p.sconto_accettato?`<span style="color:${scCol};font-weight:900">${fmtE(p.prezzo_scontato)}</span>`:`<span style="color:var(--G);font-size:12px">—</span>`}</td>
+      <td style="text-align:center">${sugPct}</td>
+      <td class="td-num">${sugEur}</td>
+      <td style="text-align:center">${applPct}</td>
+      <td class="td-num">${applEur}</td>
       <td style="text-align:center">${chips||'<span style="color:var(--G);font-size:11px">—</span>'}</td>
       <td class="td-acts">
         <button class="tbl-act ${p.in_promo?'promo-on':''}" onclick="togglePromo('${p.id}',${p.in_promo})"><i class="fas fa-tag"></i> ${p.in_promo?'In promo':'Promo'}</button>
@@ -656,15 +669,6 @@ function setModeSconto(mode){
   const priceRow=document.getElementById('sc-price-row');
   pctRow.style.display=mode==='pct'?'flex':'none';
   priceRow.style.display=mode==='price'?'flex':'none';
-  if(mode==='pct'){
-    // Pre-fill with suggested if field is empty
-    const pctInput=document.getElementById('f-sc-pct');
-    if(!pctInput.value){
-      const qty=parseInt(document.getElementById('f-qty').value)||1;
-      const scad=document.getElementById('f-scad').value;
-      if(scad){const gg=ggAlla(scad);pctInput.value=calcSconto(qty,gg)||'';}
-    }
-  }
   aggPrezzo();
 }
 
@@ -694,9 +698,6 @@ function aggPrezzo(){
     scEl.textContent=`−${sc}%`;scEl.style.color=ucol;
     box.style.borderColor=ucol+'55';
     ext.style.display='block';
-    // Pre-fill pct if empty and mode=pct
-    const pctInput=document.getElementById('f-sc-pct');
-    if(modoSconto==='pct'&&!pctInput.value)pctInput.value=sc;
   } else {
     scEl.textContent='Nessuno';scEl.style.color='var(--G)';
     box.style.borderColor='var(--Gl)';ext.style.display='none';ppRow.style.display='none';
