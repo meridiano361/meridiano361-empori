@@ -283,6 +283,13 @@ function getCurrentPageId(){ return 'calendario'; }
         </div>
       </div>
       <div>
+        <label class="form-label">Link info operative</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="url" id="f-link-info" class="form-input" placeholder="https://…" autocomplete="off" style="flex:1">
+          <a id="f-link-preview" href="#" target="_blank" rel="noopener" style="display:none;color:var(--red);font-size:20px;flex-shrink:0" title="Apri link"><i class="fas fa-arrow-up-right-from-square"></i></a>
+        </div>
+      </div>
+      <div>
         <label class="form-label">PDV aderenti</label>
         <div id="pdv-aderisce-wrap" class="pdv-ader-chips"></div>
       </div>
@@ -417,8 +424,9 @@ function renderTable(evs){
       if(isF){
         const rs=PDV_LIST.length;
         const titleClick=_canEdit?`onclick="openForm(${ev.id})" style="color:${s.color}"`:`style="color:${s.color};cursor:default"`;
+        const linkIcon=ev.link_info?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400);font-size:11px;margin-left:6px;vertical-align:middle;font-weight:400;text-transform:none" title="Info operative"><i class="fas fa-arrow-up-right-from-square"></i></a>`:'';
         html+=`
-          <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}</td>
+          <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}${linkIcon}</td>
           <td class="td-settore" rowspan="${rs}" style="color:${s.color}">${escH(ev.settore||'')}</td>
           <td class="td-tipo" rowspan="${rs}">${escH(ev.tipologia||'')}</td>
           <td class="td-mecc" rowspan="${rs}">${mecH}</td>
@@ -470,6 +478,7 @@ function renderMobile(evs){
             ${ev.settore?`<span style="color:${s.color}">${ev.settore}</span> · `:''}
             ${ev.tipologia?escH(ev.tipologia)+' · ':''}
             ${dateStr}
+            ${ev.link_info?` · <a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400)"><i class="fas fa-arrow-up-right-from-square"></i> info</a>`:''}
           </div>
           ${ev.meccanica?`<div style="font-size:11px;color:var(--s500);margin-top:4px;line-height:1.35">${escH(ev.meccanica)}</div>`:''}
         </div>
@@ -557,13 +566,23 @@ function openForm(evId){
   document.getElementById('modal-title').textContent=evId?'Modifica campagna':'Nuova campagna';
   document.getElementById('f-del-btn').style.display=(evId&&_canEdit)?'block':'none';
 
-  document.getElementById('f-titolo').value  = ev?.titolo||'';
-  document.getElementById('f-anno').value    = ev?.anno||_annoAttivo;
-  document.getElementById('f-settore').value = ev?.settore||'G';
+  document.getElementById('f-titolo').value    = ev?.titolo||'';
+  document.getElementById('f-anno').value      = ev?.anno||_annoAttivo;
+  document.getElementById('f-settore').value   = ev?.settore||'G';
   document.getElementById('f-tipologia').value = ev?.tipologia||'';
   document.getElementById('f-meccanica').value = ev?.meccanica||'';
   document.getElementById('f-data-ini').value  = ev?.data_inizio||'';
   document.getElementById('f-data-fin').value  = ev?.data_fine||'';
+  const linkVal = ev?.link_info||'';
+  document.getElementById('f-link-info').value = linkVal;
+  const linkPrev = document.getElementById('f-link-preview');
+  linkPrev.style.display = linkVal ? 'inline' : 'none';
+  if(linkVal) linkPrev.href = linkVal;
+  document.getElementById('f-link-info').oninput = function(){
+    const v=this.value.trim();
+    linkPrev.style.display=v?'inline':'none';
+    if(v) linkPrev.href=v;
+  };
 
   const pdv = ev?.pdv_data||defaultPdvData();
   buildAderisceChips(pdv);
@@ -613,6 +632,7 @@ async function saveEvento(){
     meccanica:  document.getElementById('f-meccanica').value.trim()||null,
     data_inizio:document.getElementById('f-data-ini').value||null,
     data_fine:  document.getElementById('f-data-fin').value||null,
+    link_info:  document.getElementById('f-link-info').value.trim()||null,
     pdv_data:   collectPdvData(),
   };
   let err;
