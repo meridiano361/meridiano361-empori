@@ -17,17 +17,18 @@
     *{box-sizing:border-box}
     body{font-family:'Nunito',sans-serif;background:#f0f2f5;font-size:15px}
 
-    /* YEAR TABS — underline style */
-    .year-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--s200)}
-    .year-tab{padding:7px 18px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--s400);transition:color .14s;font-family:'Nunito',sans-serif;border-bottom:2px solid transparent;margin-bottom:-1px}
-    .year-tab:hover{color:var(--s600)}
-    .year-tab.active{color:var(--red);border-bottom-color:var(--red)}
-
-    /* SETTORE — plain text links */
-    .s-chips{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
-    .s-chip{padding:5px 12px;font-size:13px;font-weight:400;cursor:pointer;background:transparent;border:none;color:var(--s400);transition:color .12s;font-family:'Nunito',sans-serif}
-    .s-chip:hover{color:var(--s700)}
-    .s-chip.active{color:var(--s800);font-weight:600}
+    /* FILTRI — barra collassabile */
+    .filtri-bar{background:#fff;border:1px solid var(--s200);margin-bottom:12px}
+    .filtri-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:9px 14px;background:transparent;border:none;cursor:pointer;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;color:var(--s700)}
+    .filtri-toggle:hover{background:var(--s50)}
+    .filtri-body{padding:6px 14px 10px;border-top:1px solid var(--s100)}
+    .filtri-row{display:flex;align-items:center;flex-wrap:wrap;padding:2px 0;gap:0}
+    .filtri-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--s400);width:56px;flex-shrink:0}
+    .f-chip{padding:4px 10px;font-size:13px;font-weight:400;cursor:pointer;background:transparent;border:none;color:var(--s400);transition:color .12s;font-family:'Nunito',sans-serif}
+    .f-chip:hover{color:var(--s700)}
+    .f-chip.active{color:var(--s800);font-weight:700}
+    #filtri-arrow{font-size:11px;color:var(--s400);margin-left:auto;transition:transform .18s}
+    #filtri-arrow.open{transform:rotate(180deg)}
 
     /* TABLE */
     .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--s200);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.05)}
@@ -96,6 +97,8 @@
     .mini-inp{border:1px solid var(--s200);border-radius:7px;padding:5px 9px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;width:100%;outline:none;transition:border .12s}
     .mini-inp:focus{border-color:var(--red)}
 
+    .no-click{cursor:default!important;pointer-events:none}
+
     /* INLINE EDIT POPOVER */
     .inline-pop{position:fixed;z-index:99999;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.18);padding:12px;border:1px solid var(--s200);display:flex;gap:8px;align-items:center;min-width:220px}
     .inline-pop input{flex:1;border:1px solid var(--s200);border-radius:7px;padding:7px 10px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:600;outline:none}
@@ -114,31 +117,58 @@ function getCurrentPageId(){ return 'calendario'; }
 <div id="m361-content" style="padding:16px">
 
   <!-- Header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-    <div>
-      <div style="font-size:20px;font-weight:700;color:var(--s800)">Calendario Commerciale</div>
-    </div>
-    <button onclick="openForm()" class="btn-prim" style="display:flex;align-items:center;gap:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+    <div style="font-size:20px;font-weight:700;color:var(--s800)">Calendario Commerciale</div>
+    <button id="btn-nuova" onclick="openForm()" class="btn-prim" style="display:flex;align-items:center;gap:8px">
       <i class="fas fa-plus"></i> Nuova campagna
     </button>
   </div>
 
-  <!-- Year tabs -->
-  <div class="year-tabs" id="year-tabs">
-    <button class="year-tab active" data-year="2026" onclick="setAnno(2026)">2026</button>
-    <button class="year-tab" data-year="2025" onclick="setAnno(2025)">2025</button>
-    <button class="year-tab" data-year="2024" onclick="setAnno(2024)">2024</button>
-    <button class="year-tab" data-year="2023" onclick="setAnno(2023)">2023</button>
-  </div>
-
-  <!-- Settore chips -->
-  <div class="s-chips" id="s-chips">
-    <div class="s-chip active" data-s="" onclick="setSettore('')">Tutti</div>
-    <div class="s-chip" data-s="M" onclick="setSettore('M')">M — Moda</div>
-    <div class="s-chip" data-s="C" onclick="setSettore('C')">C — Casa</div>
-    <div class="s-chip" data-s="G" onclick="setSettore('G')">G — Generale</div>
-    <div class="s-chip" data-s="A" onclick="setSettore('A')">A — Alimentare</div>
-    <div class="s-chip" data-s="N" onclick="setSettore('N')">N — Natyr</div>
+  <!-- Filtri collassabili -->
+  <div class="filtri-bar">
+    <button class="filtri-toggle" onclick="toggleFiltri()">
+      <i class="fas fa-sliders" style="font-size:12px;color:var(--s400)"></i>
+      Filtri
+      <span id="filtri-summary" style="font-size:12px;color:var(--s500);font-weight:400;flex:1;text-align:left;padding-left:6px"></span>
+      <i id="filtri-arrow" class="fas fa-chevron-up open"></i>
+    </button>
+    <div id="filtri-body">
+      <div class="filtri-row">
+        <span class="filtri-lbl">Anno</span>
+        <button class="f-chip active" data-anno="2026" onclick="setAnno(2026)">2026</button>
+        <button class="f-chip" data-anno="2025" onclick="setAnno(2025)">2025</button>
+        <button class="f-chip" data-anno="2024" onclick="setAnno(2024)">2024</button>
+        <button class="f-chip" data-anno="2023" onclick="setAnno(2023)">2023</button>
+      </div>
+      <div class="filtri-row">
+        <span class="filtri-lbl">Settore</span>
+        <button class="f-chip active" data-s="" onclick="setSettore('')">Tutti</button>
+        <button class="f-chip" data-s="M" onclick="setSettore('M')">M — Moda</button>
+        <button class="f-chip" data-s="C" onclick="setSettore('C')">C — Casa</button>
+        <button class="f-chip" data-s="G" onclick="setSettore('G')">G — Generale</button>
+        <button class="f-chip" data-s="A" onclick="setSettore('A')">A — Alimentare</button>
+        <button class="f-chip" data-s="N" onclick="setSettore('N')">N — Natyr</button>
+      </div>
+      <div class="filtri-row">
+        <span class="filtri-lbl">PDV</span>
+        <button class="f-chip active" data-pdv="" onclick="setPdv('')">Tutti</button>
+        <button class="f-chip" data-pdv="CR" onclick="setPdv('CR')">CR</button>
+        <button class="f-chip" data-pdv="CA" onclick="setPdv('CA')">CA</button>
+        <button class="f-chip" data-pdv="VI" onclick="setPdv('VI')">VI</button>
+        <button class="f-chip" data-pdv="RE" onclick="setPdv('RE')">RE</button>
+        <button class="f-chip" data-pdv="WEB" onclick="setPdv('WEB')">WEB</button>
+      </div>
+      <div class="filtri-row">
+        <span class="filtri-lbl">Tipo</span>
+        <button class="f-chip active" data-tipo="" onclick="setTipo('')">Tutti</button>
+        <button class="f-chip" data-tipo="Saldi" onclick="setTipo('Saldi')">Saldi</button>
+        <button class="f-chip" data-tipo="Promo" onclick="setTipo('Promo')">Promo</button>
+        <button class="f-chip" data-tipo="Prenotazione" onclick="setTipo('Prenotazione')">Prenotazione</button>
+        <button class="f-chip" data-tipo="Focus" onclick="setTipo('Focus')">Focus</button>
+        <button class="f-chip" data-tipo="Evento" onclick="setTipo('Evento')">Evento</button>
+        <button class="f-chip" data-tipo="Altro" onclick="setTipo('Altro')">Altro</button>
+      </div>
+    </div>
   </div>
 
   <!-- Table (desktop) -->
@@ -315,8 +345,11 @@ const MESI     = ['gennaio','febbraio','marzo','aprile','maggio','giugno','lugli
 let _eventi = [];
 let _annoAttivo = 2026;
 let _settoreAttivo = '';
+let _pdvAttivo = '';
+let _tipoAttivo = '';
+let _canEdit = false;
 let _editId = null;
-let _inlineCtx = null; // {evId, pdv, key}
+let _inlineCtx = null;
 
 function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtDate(ds){
@@ -340,8 +373,15 @@ async function loadEventi(){
 }
 
 function filtered(){
-  if(!_settoreAttivo) return _eventi;
-  return _eventi.filter(e=>e.settore===_settoreAttivo);
+  return _eventi.filter(e=>{
+    if(_settoreAttivo && e.settore!==_settoreAttivo) return false;
+    if(_tipoAttivo && e.tipologia!==_tipoAttivo) return false;
+    if(_pdvAttivo){
+      const pdv=e.pdv_data||{};
+      if(!pdv[_pdvAttivo]?.aderisce) return false;
+    }
+    return true;
+  });
 }
 
 /* ── RENDER ── */
@@ -376,8 +416,9 @@ function renderTable(evs){
 
       if(isF){
         const rs=PDV_LIST.length;
+        const titleClick=_canEdit?`onclick="openForm(${ev.id})" style="color:${s.color}"`:`style="color:${s.color};cursor:default"`;
         html+=`
-          <td class="td-titolo" rowspan="${rs}" style="color:${s.color}" onclick="openForm(${ev.id})">${escH(ev.titolo)}</td>
+          <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}</td>
           <td class="td-settore" rowspan="${rs}" style="color:${s.color}">${escH(ev.settore||'')}</td>
           <td class="td-tipo" rowspan="${rs}">${escH(ev.tipologia||'')}</td>
           <td class="td-mecc" rowspan="${rs}">${mecH}</td>
@@ -387,12 +428,13 @@ function renderTable(evs){
 
       const rKey = 'r'+_annoAttivo;
       const ris  = ANNI.map(a=>{ const v=d['r'+a]||''; return v; });
+      const inlClick=(field)=>_canEdit?`onclick="openInline(event,${ev.id},'${pk}','${field}')" title="Clicca per modificare" class="td-azioni"`:'class="td-azioni no-click"';
 
       html+=`
         <td class="td-pdv">${pk}</td>
         <td class="td-ader ${d.aderisce?'si':'no'}">${d.aderisce?'sì':'no'}</td>
-        <td class="td-azioni" onclick="openInline(event,${ev.id},'${pk}','azioni')" title="Clicca per modificare">${escH(d.azioni||'')}&nbsp;</td>
-        <td class="td-ris${ris[0]?'':' empty'}" onclick="openInline(event,${ev.id},'${pk}','${rKey}')" title="Clicca per modificare">${escH(ris[0])||'—'}</td>
+        <td ${inlClick('azioni')}>${escH(d.azioni||'')}&nbsp;</td>
+        <td class="td-ris${ris[0]?'':' empty'}${_canEdit?'':' no-click'}" ${_canEdit?`onclick="openInline(event,${ev.id},'${pk}','${rKey}')" title="Clicca per modificare"`:''}>${escH(ris[0])||'—'}</td>
         <td class="td-ris${ris[1]?'':' empty'}">${escH(ris[1])||'—'}</td>
         <td class="td-ris${ris[2]?'':' empty'}">${escH(ris[2])||'—'}</td>
         <td class="td-ris${ris[3]?'':' empty'}">${escH(ris[3])||'—'}</td>
@@ -441,13 +483,37 @@ function renderMobile(evs){
 /* ── FILTERS ── */
 function setAnno(a){
   _annoAttivo=a;
-  document.querySelectorAll('.year-tab').forEach(t=>t.classList.toggle('active',+t.dataset.year===a));
+  document.querySelectorAll('[data-anno]').forEach(t=>t.classList.toggle('active',+t.dataset.anno===a));
   loadEventi();
 }
 function setSettore(s){
   _settoreAttivo=s;
-  document.querySelectorAll('.s-chip').forEach(c=>c.classList.toggle('active',c.dataset.s===s));
-  render();
+  document.querySelectorAll('[data-s]').forEach(c=>c.classList.toggle('active',c.dataset.s===s));
+  updateFiltriSummary(); render();
+}
+function setPdv(p){
+  _pdvAttivo=p;
+  document.querySelectorAll('[data-pdv]').forEach(c=>c.classList.toggle('active',c.dataset.pdv===p));
+  updateFiltriSummary(); render();
+}
+function setTipo(t){
+  _tipoAttivo=t;
+  document.querySelectorAll('[data-tipo]').forEach(c=>c.classList.toggle('active',c.dataset.tipo===t));
+  updateFiltriSummary(); render();
+}
+function toggleFiltri(){
+  const body=document.getElementById('filtri-body');
+  const arrow=document.getElementById('filtri-arrow');
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  arrow.classList.toggle('open',!isOpen);
+}
+function updateFiltriSummary(){
+  const parts=[];
+  if(_settoreAttivo) parts.push(SETTORI[_settoreAttivo]?.label||_settoreAttivo);
+  if(_pdvAttivo) parts.push(_pdvAttivo);
+  if(_tipoAttivo) parts.push(_tipoAttivo);
+  document.getElementById('filtri-summary').textContent=parts.length?'· '+parts.join(', '):'';
 }
 
 /* ── FORM ── */
@@ -485,10 +551,11 @@ function buildPdvForm(pdv){
 }
 
 function openForm(evId){
+  if(!_canEdit){ showToastM361('Non hai i permessi per modificare campagne','warning'); return; }
   _editId=evId||null;
   const ev=evId?_eventi.find(e=>e.id===evId):null;
   document.getElementById('modal-title').textContent=evId?'Modifica campagna':'Nuova campagna';
-  document.getElementById('f-del-btn').style.display=evId?'block':'none';
+  document.getElementById('f-del-btn').style.display=(evId&&_canEdit)?'block':'none';
 
   document.getElementById('f-titolo').value  = ev?.titolo||'';
   document.getElementById('f-anno').value    = ev?.anno||_annoAttivo;
@@ -534,6 +601,7 @@ function collectPdvData(){
 }
 
 async function saveEvento(){
+  if(!_canEdit){ showToastM361('Non hai i permessi','warning'); return; }
   if(!_sb){ showToastM361('Connessione non disponibile, ricarica la pagina','error'); return; }
   const titolo=document.getElementById('f-titolo').value.trim();
   if(!titolo){ showToastM361('Inserisci il titolo','warning'); switchTab('info'); document.getElementById('f-titolo').focus(); return; }
@@ -560,7 +628,7 @@ async function saveEvento(){
 }
 
 async function deleteEvento(){
-  if(!_editId) return;
+  if(!_canEdit || !_editId) return;
   const ev=_eventi.find(e=>e.id===_editId);
   const ok=await m361Confirm(`Eliminare "${ev?.titolo}"?`,'Elimina campagna','Elimina','Annulla','error');
   if(!ok) return;
@@ -573,6 +641,7 @@ async function deleteEvento(){
 
 /* ── INLINE EDIT (risultati / azioni) ── */
 function openInline(evt, evId, pdv, key){
+  if(!_canEdit) return;
   evt.stopPropagation();
   const ev=_eventi.find(e=>e.id===evId);
   if(!ev) return;
@@ -623,7 +692,17 @@ document.addEventListener('click',e=>{
 document.getElementById('ev-modal').addEventListener('click',function(e){ if(e.target===this) closeForm(); });
 
 // INIT
-loadEventi();
+function init(){
+  const u=JSON.parse(localStorage.getItem('m361_user')||'null');
+  if(!u){ window.location.href='/login.html'; return; }
+  _canEdit=!!(u.is_full_admin||u.is_resp_acquisti||u.is_resp_emporio||u.ruolo==='admin');
+  if(!_canEdit){
+    const btn=document.getElementById('btn-nuova');
+    if(btn) btn.style.display='none';
+  }
+  loadEventi();
+}
+init();
 </script>
 </body>
 </html>
