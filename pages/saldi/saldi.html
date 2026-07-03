@@ -132,6 +132,20 @@
     .icon-btn.del:hover{background:#fee2e2;color:#ef4444}
     .icon-btn.cal:hover{background:var(--blue-lt);color:var(--blue-tx)}
 
+    /* ── Period header controls ── */
+    .per-date-inp{font-size:10px;border:1px solid var(--s200);border-radius:4px;padding:2px 5px;font-family:'Nunito',sans-serif;color:var(--s600);width:108px;outline:none;transition:border .12s}
+    .per-date-inp:focus{border-color:var(--red)}
+    .per-add-btn{background:none;border:1.5px dashed var(--s300);border-radius:6px;width:22px;height:22px;cursor:pointer;color:var(--s400);font-size:15px;font-weight:700;line-height:1;padding:0;font-family:'Nunito',sans-serif;transition:all .15s}
+    .per-add-btn:hover{border-color:var(--red);color:var(--red)}
+    .per-del-btn{background:none;border:none;cursor:pointer;color:var(--s300);padding:2px 4px;border-radius:3px;font-size:10px;line-height:1;transition:color .12s}
+    .per-del-btn:hover{color:#ef4444}
+
+    /* ── Flexible table text ── */
+    .sld-tbl td{word-break:break-word;overflow-wrap:break-word}
+    .sld-tbl thead th{white-space:normal}
+    .td-nome{min-width:130px;max-width:220px}
+    .td-codice{min-width:70px}
+
     /* ── Empty state ── */
     .empty{text-align:center;padding:56px 20px;color:var(--s300)}
     .empty i{font-size:32px;margin-bottom:12px;display:block}
@@ -219,39 +233,6 @@
     </div>
 </main>
 
-<!-- Modal periodi -->
-<div class="modal-ov" id="modal-periodi">
-  <div class="modal-box">
-    <div class="modal-head">
-      <div>
-        <div class="modal-title">Periodi di sconto</div>
-        <div class="modal-sub" id="m-nome-sub"></div>
-      </div>
-      <button class="modal-close" onclick="closePeriodi()">×</button>
-    </div>
-    <div class="modal-body">
-      <div id="m-periodi-list"></div>
-      <div id="m-add-form" style="display:none">
-        <div class="add-per-form">
-          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s500);margin-bottom:10px"><i class="fas fa-plus"></i> Nuovo periodo</div>
-          <div class="f-row">
-            <div><div class="f-lbl">Dal</div><input class="f-inp" type="date" id="m-dal"></div>
-            <div><div class="f-lbl">Al</div><input class="f-inp" type="date" id="m-al"></div>
-          </div>
-          <div style="max-width:150px">
-            <div class="f-lbl">Sconto %</div>
-            <input class="f-inp" type="number" id="m-pct" min="1" max="99" step="0.5" placeholder="es. 20">
-          </div>
-          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-            <button class="btn-prim" onclick="addPeriodo()" style="font-size:13px;padding:8px 14px"><i class="fas fa-plus"></i> Aggiungi</button>
-            <div id="m-saldo-preview" style="display:none;font-size:14px;font-weight:700;color:var(--green)"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Modal import -->
 <div class="modal-ov" id="modal-import">
   <div class="modal-box" style="max-width:640px">
@@ -297,18 +278,17 @@ const EMPORI_MAP = {
 const EMP   = new URLSearchParams(location.search).get('emp') || '';
 const TODAY = new Date().toISOString().split('T')[0];
 
-let _u          = null;
-let _canEdit    = false;
-let _campagne   = [];
-let _selCampId  = null;
-let _prodotti   = [];
-let _periodi    = {};
-let _activeProd = null;
-let _importRows = [];
-let _sortCol    = 'nome_prodotto';
-let _sortDir    = 'asc';
-let _filter     = {};
-let _nPeriods   = parseInt(localStorage.getItem('saldi_nper')||'3');
+let _u               = null;
+let _canEdit         = false;
+let _campagne        = [];
+let _selCampId       = null;
+let _prodotti        = [];
+let _campagnaPeriodi = []; // [{id, campagna_id, numero, data_inizio, data_fine}]
+let _sconti          = {}; // { prodotto_id: { campagna_periodo_id: sconto_pct } }
+let _importRows      = [];
+let _sortCol         = 'nome_prodotto';
+let _sortDir         = 'asc';
+let _filter          = {};
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 function init(){
@@ -401,18 +381,32 @@ async function deleteCampagna(id){
 
 // ── DATA ─────────────────────────────────────────────────────────────────────
 async function loadData(){
-  if(!_selCampId){ _prodotti=[]; _periodi={}; renderTable(); return; }
+  if(!_selCampId){ _prodotti=[]; _campagnaPeriodi=[]; _sconti={}; renderTable(); return; }
+
+  const {data:cps} = await db.from('saldi_campagna_periodi')
+    .select('*').eq('campagna_id',_selCampId).order('numero');
+  _campagnaPeriodi = cps || [];
+
+  // Auto-crea 3 periodi vuoti per nuove campagne (solo admin)
+  if(!_campagnaPeriodi.length && _canEdit){
+    const defs = [1,2,3].map(n=>({campagna_id:_selCampId,numero:n,data_inizio:null,data_fine:null}));
+    const {data:ins} = await db.from('saldi_campagna_periodi').insert(defs).select().order('numero');
+    _campagnaPeriodi = ins || [];
+  }
+
   const {data:prods} = await db.from('saldi_prodotti').select('*').eq('campagna_id',_selCampId);
   _prodotti = prods || [];
-  _periodi  = {};
+  _sconti   = {};
+
   if(_prodotti.length){
     const ids = _prodotti.map(p=>p.id);
-    const {data:prs} = await db.from('saldi_periodi').select('*').in('prodotto_id',ids).order('data_inizio');
-    for(const p of prs||[]){
-      if(!_periodi[p.prodotto_id]) _periodi[p.prodotto_id]=[];
-      _periodi[p.prodotto_id].push(p);
+    const {data:scs} = await db.from('saldi_sconti').select('*').in('prodotto_id',ids);
+    for(const s of scs||[]){
+      if(!_sconti[s.prodotto_id]) _sconti[s.prodotto_id]={};
+      _sconti[s.prodotto_id][s.campagna_periodo_id] = parseFloat(s.sconto_pct);
     }
   }
+
   renderTable();
 }
 
@@ -428,32 +422,19 @@ function setFilter(col,val){
   renderTable();
 }
 
-function getActivePeriod(prodId){
-  return (_periodi[prodId]||[]).find(p=>p.data_inizio<=TODAY&&p.data_fine>=TODAY)||null;
-}
-
 function getFilteredSorted(){
   let rows=[..._prodotti];
   const fc=(_filter.codice||'').toLowerCase();
   const fn=(_filter.nome_prodotto||'').toLowerCase();
   if(fc) rows=rows.filter(r=>(r.codice||'').toLowerCase().includes(fc));
   if(fn) rows=rows.filter(r=>r.nome_prodotto.toLowerCase().includes(fn));
-  if(_filter.sconto==='si') rows=rows.filter(r=>!!getActivePeriod(r.id));
-  if(_filter.sconto==='no') rows=rows.filter(r=>!getActivePeriod(r.id));
   ['prezzato_negozio','prezzato_online','non_presente_online'].forEach(f=>{
     if(_filter[f]==='si') rows=rows.filter(r=>r[f]);
     if(_filter[f]==='no') rows=rows.filter(r=>!r[f]);
   });
 
   rows.sort((a,b)=>{
-    let va,vb;
-    if(_sortCol==='_saldo'){
-      const apa=getActivePeriod(a.id),apb=getActivePeriod(b.id);
-      va=apa?parseFloat(a.prezzo)*(1-parseFloat(apa.sconto_pct)/100):0;
-      vb=apb?parseFloat(b.prezzo)*(1-parseFloat(apb.sconto_pct)/100):0;
-    } else {
-      va=a[_sortCol]??''; vb=b[_sortCol]??'';
-    }
+    let va=a[_sortCol]??'', vb=b[_sortCol]??'';
     if(typeof va==='number'||typeof vb==='number'){va=Number(va)||0;vb=Number(vb)||0;}
     else if(typeof va==='boolean'){va=va?1:0;vb=vb?1:0;}
     else{va=String(va).toLowerCase();vb=String(vb).toLowerCase();}
@@ -470,20 +451,53 @@ const SORT_META = {
   nome_prodotto:       {id:'th-nome',   label:'Nome Prodotto'},
   qta:                 {id:'th-qta',    label:'Qtà'},
   prezzo:              {id:'th-prezzo', label:'Prezzo'},
-  prezzato_negozio:    {id:'th-pneg',   label:'In negozio'},
-  prezzato_online:     {id:'th-ponl',   label:'Online'},
-  non_presente_online: {id:'th-pnop',   label:'Non online'},
+  non_presente_online: {id:'th-pnop',   label:'Non presente online'},
 };
 
-function addPeriodCol(){
-  _nPeriods++;
-  localStorage.setItem('saldi_nper', _nPeriods);
+async function addPeriodCol(){
+  if(!_selCampId||!_canEdit) return;
+  const nextNum = _campagnaPeriodi.length + 1;
+  const {data,error} = await db.from('saldi_campagna_periodi')
+    .insert({campagna_id:_selCampId,numero:nextNum,data_inizio:null,data_fine:null})
+    .select().single();
+  if(error){alert('Errore: '+error.message);return;}
+  _campagnaPeriodi.push(data);
   renderTable();
 }
 
+async function deletePeriodCol(periodoId){
+  if(!confirm('Eliminare questo periodo? Gli sconti associati verranno rimossi.')) return;
+  await db.from('saldi_campagna_periodi').delete().eq('id',periodoId);
+  _campagnaPeriodi = _campagnaPeriodi.filter(p=>p.id!==periodoId);
+  Object.values(_sconti).forEach(s=>{ delete s[periodoId]; });
+  renderTable();
+}
+
+async function savePeriodDate(periodoId, field, value){
+  await db.from('saldi_campagna_periodi').update({[field]:value||null}).eq('id',periodoId);
+  const p = _campagnaPeriodi.find(p=>p.id===periodoId);
+  if(p) p[field]=value||null;
+}
+
+async function saveSconto(prodId, periodoId, rawVal){
+  const pct = Math.min(100,Math.max(0,parseFloat(rawVal)||0));
+  await db.from('saldi_sconti')
+    .upsert({prodotto_id:prodId,campagna_periodo_id:periodoId,sconto_pct:pct},
+            {onConflict:'prodotto_id,campagna_periodo_id'});
+  if(!_sconti[prodId]) _sconti[prodId]={};
+  _sconti[prodId][periodoId]=pct;
+  const prod=_prodotti.find(p=>p.id===prodId);
+  const el=document.getElementById(`sld-${prodId}-${periodoId}`);
+  if(el&&prod){
+    const s=parseFloat(prod.prezzo||0)*(1-pct/100);
+    el.textContent=pct>0?fmtEur(s):'—';
+    el.style.color=pct>0?'var(--green)':'var(--s300)';
+    el.style.fontWeight=pct>0?'800':'normal';
+  }
+}
+
 function buildThead(){
-  const PB = 'border-left:2px solid var(--s200)'; // periodo boundary
-  const PBL = 'border-left:2px solid var(--s100)';
+  const PB = 'border-left:2px solid var(--s200)';
 
   // ── Riga 1: header gruppi ──
   let h1 = `
@@ -492,48 +506,76 @@ function buildThead(){
     <th class="sortable" style="text-align:right" onclick="sortBy('qta')" id="th-qta">Qtà</th>
     <th class="sortable" style="text-align:right" onclick="sortBy('prezzo')" id="th-prezzo">Prezzo</th>
   `;
-  for(let i=0;i<_nPeriods;i++){
-    h1+=`<th colspan="3" style="text-align:center;${PB};font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--s500);background:var(--s50)">PERIODO ${i+1}</th>`;
+
+  for(const cp of _campagnaPeriodi){
+    const dal = cp.data_inizio ? fmtDate(cp.data_inizio) : '—';
+    const al  = cp.data_fine   ? fmtDate(cp.data_fine)   : '—';
+    const dateBlock = _canEdit
+      ? `<div style="display:flex;align-items:center;gap:3px;margin-top:4px;justify-content:center;flex-wrap:wrap">
+           <input type="date" value="${cp.data_inizio||''}" class="per-date-inp" onchange="savePeriodDate(${cp.id},'data_inizio',this.value)" title="Dal">
+           <span style="color:var(--s400);font-size:10px;flex-shrink:0">→</span>
+           <input type="date" value="${cp.data_fine||''}" class="per-date-inp" onchange="savePeriodDate(${cp.id},'data_fine',this.value)" title="Al">
+           <button onclick="deletePeriodCol(${cp.id})" class="per-del-btn" title="Rimuovi periodo"><i class="fas fa-times"></i></button>
+         </div>`
+      : `<div style="font-size:10px;color:var(--s500);margin-top:3px;font-weight:600;white-space:nowrap">${dal} → ${al}</div>`;
+    h1 += `<th colspan="2" style="text-align:center;${PB};background:var(--s50);padding:8px 10px;min-width:140px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--s600);text-transform:uppercase">PERIODO ${cp.numero}</div>
+      ${dateBlock}
+    </th>`;
   }
-  h1+=`<th style="text-align:center;width:34px;background:var(--s50)" title="Aggiungi colonna periodo">
-    <button onclick="addPeriodCol()" style="background:none;border:1.5px dashed var(--s300);border-radius:6px;width:22px;height:22px;cursor:pointer;color:var(--s400);font-size:15px;font-weight:700;line-height:1;padding:0;font-family:'Nunito',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--s300)';this.style.color='var(--s400)'" title="Aggiungi periodo">+</button>
-  </th>`;
-  h1+=`
-    <th class="sortable" style="text-align:center" onclick="sortBy('prezzato_negozio')" id="th-pneg">In negozio</th>
-    <th class="sortable" style="text-align:center" onclick="sortBy('prezzato_online')" id="th-ponl">Online</th>
-    <th class="sortable" style="text-align:center" onclick="sortBy('non_presente_online')" id="th-pnop">Non online</th>
+
+  if(_canEdit){
+    h1 += `<th style="text-align:center;width:34px;background:var(--s50)">
+      <button onclick="addPeriodCol()" class="per-add-btn" title="Aggiungi periodo">+</button>
+    </th>`;
+  }
+
+  h1 += `
+    <th colspan="2" style="text-align:center;${PB};background:var(--s50);font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--s600)">PREZZATO</th>
+    <th class="sortable" style="text-align:center;${PB}" onclick="sortBy('non_presente_online')" id="th-pnop">Non presente online</th>
     <th></th>
   `;
 
-  // ── Riga 2: filtri + etichette periodo ──
+  // ── Riga 2: filtri + sotto-etichette ──
   let h2 = `
     <th><input class="flt-inp" type="text" placeholder="Filtra..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" oninput="setFilter('codice',this.value)"></th>
     <th><input class="flt-inp" type="text" placeholder="Filtra..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" oninput="setFilter('nome_prodotto',this.value)"></th>
     <th></th><th></th>
   `;
-  for(let i=0;i<_nPeriods;i++){
-    h2+=`
-      <th style="${PB};font-size:10px;font-weight:700;color:var(--s500);text-align:center">Data</th>
-      <th style="font-size:10px;font-weight:700;color:var(--s500);text-align:center">Sconto %</th>
-      <th style="font-size:10px;font-weight:700;color:var(--s500);text-align:right">€ Saldo</th>
+  for(const cp of _campagnaPeriodi){
+    h2 += `
+      <th style="${PB};padding:5px 8px;text-align:center">
+        <div style="font-size:9px;font-weight:800;color:var(--s500);margin-bottom:2px">SCONTO %</div>
+      </th>
+      <th style="padding:5px 8px;text-align:right">
+        <div style="font-size:9px;font-weight:800;color:var(--s500);margin-bottom:2px">€ SALDO</div>
+      </th>
     `;
   }
-  h2+=`<th></th>`;
-  h2+=`
-    <th><select class="flt-sel" onchange="setFilter('prezzato_negozio',this.value)">
-      <option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option>
-    </select></th>
-    <th><select class="flt-sel" onchange="setFilter('prezzato_online',this.value)">
-      <option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option>
-    </select></th>
-    <th><select class="flt-sel" onchange="setFilter('non_presente_online',this.value)">
-      <option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option>
-    </select></th>
+  if(_canEdit) h2 += `<th></th>`;
+  h2 += `
+    <th style="${PB};padding:6px 8px">
+      <div style="font-size:9px;font-weight:800;color:var(--s500);text-align:center;margin-bottom:3px">In negozio</div>
+      <select class="flt-sel" onchange="setFilter('prezzato_negozio',this.value)">
+        <option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option>
+      </select>
+    </th>
+    <th style="padding:6px 8px">
+      <div style="font-size:9px;font-weight:800;color:var(--s500);text-align:center;margin-bottom:3px">Online</div>
+      <select class="flt-sel" onchange="setFilter('prezzato_online',this.value)">
+        <option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option>
+      </select>
+    </th>
+    <th style="${PB}">
+      <select class="flt-sel" onchange="setFilter('non_presente_online',this.value)">
+        <option value="">Tutti</option><option value="si">Sì</option><option value="no">No</option>
+      </select>
+    </th>
     <th></th>
   `;
 
   document.getElementById('tbl-head').innerHTML=`<tr>${h1}</tr><tr class="flt-row">${h2}</tr>`;
-  // aggiorna frecce sort
+  // Aggiorna frecce sort
   Object.entries(SORT_META).forEach(([col,{id,label}])=>{
     const el=document.getElementById(id);
     if(!el) return;
@@ -545,33 +587,26 @@ function buildThead(){
 }
 
 function buildPerCells(p){
-  const sorted=[...(_periodi[p.id]||[])].sort((a,b)=>a.data_inizio.localeCompare(b.data_inizio));
   const PBL='border-left:2px solid var(--s100)';
   let html='';
-  for(let i=0;i<_nPeriods;i++){
-    const per=sorted[i];
-    if(per){
-      const pct=parseFloat(per.sconto_pct);
-      const saldo=parseFloat(p.prezzo||0)*(1-pct/100);
-      const isAct=per.data_inizio<=TODAY&&per.data_fine>=TODAY;
-      const isFut=per.data_inizio>TODAY;
-      const dc=isAct?'var(--green)':isFut?'var(--blue)':'var(--s400)';
-      const sc=isAct?'var(--green)':'var(--s600)';
+  for(const cp of _campagnaPeriodi){
+    const pct=(_sconti[p.id]||{})[cp.id]||0;
+    const saldo=parseFloat(p.prezzo||0)*(1-pct/100);
+    if(_canEdit){
       html+=`
-        <td style="${PBL};font-size:11px;color:${dc};white-space:nowrap;cursor:pointer" onclick="openPeriodi(${p.id})" title="Gestisci periodi">
-          ${fmtDate(per.data_inizio)}→${fmtDate(per.data_fine)}
+        <td style="${PBL};padding:6px 8px;text-align:center">
+          <input type="number" min="0" max="100" step="0.5" value="${pct||''}"
+                 placeholder="—" class="td-inp td-inp-num"
+                 onblur="saveSconto(${p.id},${cp.id},this.value)"
+                 style="max-width:58px;text-align:center">
         </td>
-        <td style="text-align:center;font-weight:700;color:${sc};font-size:12px">${pct.toFixed(pct%1?1:0)}%</td>
-        <td style="text-align:right;font-weight:800;color:${sc};white-space:nowrap">${fmtEur(saldo)}</td>`;
+        <td id="sld-${p.id}-${cp.id}" style="text-align:right;font-weight:${pct?'800':'normal'};color:${pct?'var(--green)':'var(--s300)'};white-space:nowrap;padding:6px 8px">${pct>0?fmtEur(saldo):'—'}</td>`;
     } else {
-      const oc=_canEdit?`onclick="openPeriodi(${p.id})"`:''
       html+=`
-        <td style="${PBL};color:var(--s200);font-size:11px;${_canEdit?'cursor:pointer':''}" ${oc}>—</td>
-        <td style="text-align:center;color:var(--s200)">—</td>
-        <td style="text-align:right;color:var(--s200)">—</td>`;
+        <td style="${PBL};text-align:center;font-weight:700;color:${pct?'var(--s700)':'var(--s200)'};padding:6px 8px">${pct?pct.toFixed(pct%1?1:0)+'%':'—'}</td>
+        <td id="sld-${p.id}-${cp.id}" style="text-align:right;font-weight:${pct?'800':'normal'};color:${pct?'var(--green)':'var(--s200)'};white-space:nowrap;padding:6px 8px">${pct>0?fmtEur(saldo):'—'}</td>`;
     }
   }
-  html+=`<td></td>`;
   return html;
 }
 
@@ -579,7 +614,7 @@ function renderTable(){
   buildThead();
 
   const tbody=document.getElementById('tbl-body');
-  const COLS=4+3*_nPeriods+1+3+1;
+  const COLS=4+2*_campagnaPeriodi.length+(_canEdit?1:0)+2+1+1;
 
   if(!_selCampId){
     tbody.innerHTML=`<tr><td colspan="${COLS}" class="empty"><i class="fas fa-tags"></i><p>Seleziona o crea una tabella saldi</p></td></tr>`;
@@ -598,8 +633,8 @@ function renderTable(){
   let html='';
   for(const p of rows){
     const perCells=buildPerCells(p);
-    const calBtn=`<button class="icon-btn cal" onclick="openPeriodi(${p.id})" title="Periodi di sconto"><i class="fas fa-calendar-days"></i></button>`;
     const delBtn=_canEdit?`<button class="icon-btn del" onclick="deleteProd(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>`:'';
+    const plusTd=_canEdit?`<td></td>`:'';
 
     if(_canEdit){
       html+=`<tr data-id="${p.id}">
@@ -607,11 +642,11 @@ function renderTable(){
         <td class="td-nome"><input class="td-inp td-inp-nome" value="${escH(p.nome_prodotto)}" autocomplete="off" onblur="saveProd(${p.id},'nome_prodotto',this.value||'Prodotto')" placeholder="Nome prodotto"></td>
         <td class="td-num"><input class="td-inp td-inp-num" type="number" min="0" value="${p.qta}" onblur="saveProd(${p.id},'qta',Math.max(0,parseInt(this.value)||0))"></td>
         <td class="td-num"><input class="td-inp td-inp-num" type="number" min="0" step="0.01" value="${parseFloat(p.prezzo||0).toFixed(2)}" onblur="saveProd(${p.id},'prezzo',parseFloat(this.value)||0)"></td>
-        ${perCells}
+        ${perCells}${plusTd}
         ${flagCell(p.id,'prezzato_negozio')}
         ${flagCell(p.id,'prezzato_online')}
         ${flagCell(p.id,'non_presente_online')}
-        <td class="td-act">${calBtn}${delBtn}</td>
+        <td class="td-act">${delBtn}</td>
       </tr>`;
     } else {
       html+=`<tr data-id="${p.id}">
@@ -623,7 +658,7 @@ function renderTable(){
         ${flagCell(p.id,'prezzato_negozio')}
         ${flagCell(p.id,'prezzato_online')}
         ${flagCell(p.id,'non_presente_online')}
-        <td class="td-act">${calBtn}</td>
+        <td class="td-act"></td>
       </tr>`;
     }
   }
@@ -662,7 +697,6 @@ async function addRow(){
   }).select().single();
   if(error){alert('Errore: '+error.message);return;}
   _prodotti.push(data);
-  _periodi[data.id]=[];
   renderTable();
   setTimeout(()=>{
     const inp=document.querySelector(`tr[data-id="${data.id}"] .td-inp-nome`);
@@ -671,12 +705,11 @@ async function addRow(){
 }
 
 async function deleteProd(id){
-  if(!confirm('Eliminare questo prodotto e i suoi periodi di sconto?')) return;
+  if(!confirm('Eliminare questo prodotto e i suoi sconti?')) return;
   const {error}=await db.from('saldi_prodotti').delete().eq('id',id);
   if(error){alert('Errore: '+error.message);return;}
   _prodotti=_prodotti.filter(p=>p.id!==id);
-  delete _periodi[id];
-  if(_activeProd===id) closePeriodi();
+  delete _sconti[id];
   renderTable();
 }
 
@@ -685,90 +718,11 @@ async function pulisciTabella(){
   if(!c){alert('Nessuna tabella selezionata.');return;}
   if(!confirm(`Eliminare TUTTI i prodotti della tabella "${c.nome}"?\nQuesta operazione non è reversibile.`)) return;
   if(_prodotti.length){
-    await db.from('saldi_periodi').delete().in('prodotto_id',_prodotti.map(p=>p.id));
     await db.from('saldi_prodotti').delete().eq('campagna_id',_selCampId);
   }
-  _prodotti=[];_periodi={};
+  _prodotti=[];_sconti={};
   renderTable();
 }
-
-// ── PERIOD MODAL ───────────────────────────────────────────────────────────────
-function openPeriodi(prodId){
-  _activeProd=prodId;
-  const prod=_prodotti.find(p=>p.id===prodId);
-  document.getElementById('m-nome-sub').textContent=`${prod.nome_prodotto||'—'} · ${fmtEur(prod.prezzo)}`;
-  document.getElementById('m-add-form').style.display=_canEdit?'':'none';
-  renderPeriodi();
-  document.getElementById('modal-periodi').classList.add('show');
-}
-
-function closePeriodi(){
-  document.getElementById('modal-periodi').classList.remove('show');
-  _activeProd=null;
-}
-
-function renderPeriodi(){
-  const list=document.getElementById('m-periodi-list');
-  const prs=[...(_periodi[_activeProd]||[])].sort((a,b)=>a.data_inizio.localeCompare(b.data_inizio));
-  const prod=_prodotti.find(p=>p.id===_activeProd);
-  if(!prs.length){
-    list.innerHTML=`<div style="text-align:center;padding:20px;color:var(--s400);font-size:14px"><i class="fas fa-calendar-xmark" style="font-size:24px;display:block;margin-bottom:8px"></i>Nessun periodo definito</div>`;
-    return;
-  }
-  list.innerHTML=prs.map(per=>{
-    const isActive=per.data_inizio<=TODAY&&per.data_fine>=TODAY;
-    const isFuture=per.data_inizio>TODAY;
-    const badgeCls=isActive?'badge-green':isFuture?'badge-blue':'badge-grey';
-    const badgeLbl=isActive?'Attivo':isFuture?'Futuro':'Scaduto';
-    const pct=parseFloat(per.sconto_pct);
-    const saldo=parseFloat(prod.prezzo)*(1-pct/100);
-    const del=_canEdit?`<button class="icon-btn del" onclick="deletePeriodo(${per.id})" title="Elimina"><i class="fas fa-trash"></i></button>`:'';
-    return `<div class="per-row">
-      <div class="per-info">
-        <div class="per-date"><span class="badge ${badgeCls}">${badgeLbl}</span> &nbsp;${fmtDate(per.data_inizio)} → ${fmtDate(per.data_fine)}</div>
-        <div class="per-vals">Sconto: <strong>${pct.toFixed(pct%1?1:0)}%</strong> &nbsp;·&nbsp; Saldo: <strong style="color:var(--green)">${fmtEur(saldo)}</strong></div>
-      </div>${del}</div>`;
-  }).join('');
-}
-
-async function addPeriodo(){
-  const dal=document.getElementById('m-dal').value;
-  const al =document.getElementById('m-al').value;
-  const pct=parseFloat(document.getElementById('m-pct').value);
-  if(!dal||!al||!pct||pct<=0||pct>100){alert('Compila tutti i campi (sconto 1–100%).');return;}
-  if(al<dal){alert('La data fine deve essere successiva alla data inizio.');return;}
-  const {error}=await db.from('saldi_periodi').insert({prodotto_id:_activeProd,data_inizio:dal,data_fine:al,sconto_pct:pct});
-  if(error){alert('Errore: '+error.message);return;}
-  const {data:prs}=await db.from('saldi_periodi').select('*').eq('prodotto_id',_activeProd).order('data_inizio');
-  _periodi[_activeProd]=prs||[];
-  ['m-dal','m-al','m-pct'].forEach(id=>{document.getElementById(id).value='';});
-  document.getElementById('m-saldo-preview').style.display='none';
-  renderPeriodi();
-  renderTable();
-}
-
-async function deletePeriodo(id){
-  if(!confirm('Eliminare questo periodo di sconto?')) return;
-  await db.from('saldi_periodi').delete().eq('id',id);
-  const {data:prs}=await db.from('saldi_periodi').select('*').eq('prodotto_id',_activeProd).order('data_inizio');
-  _periodi[_activeProd]=prs||[];
-  renderPeriodi();
-  renderTable();
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('m-pct')?.addEventListener('input',function(){
-    const prod=_prodotti.find(p=>p.id===_activeProd);
-    const pct=parseFloat(this.value);
-    const preview=document.getElementById('m-saldo-preview');
-    if(prod&&pct>0&&pct<100){
-      preview.textContent=`→ Saldo: ${fmtEur(parseFloat(prod.prezzo)*(1-pct/100))}`;
-      preview.style.display='block';
-    } else {
-      preview.style.display='none';
-    }
-  });
-});
 
 // ── FILE IMPORT ────────────────────────────────────────────────────────────────
 function stripBom(s){return typeof s==='string'?s.replace(/^﻿/,''):s}
@@ -879,7 +833,6 @@ function closeImport(){
   _importRows=[];
 }
 
-document.getElementById('modal-periodi').addEventListener('click',function(e){if(e.target===this)closePeriodi();});
 document.getElementById('modal-import').addEventListener('click',function(e){if(e.target===this)closeImport();});
 
 // Chrome autofilla i campi filtro con dati salvati — svuotiamo subito dopo il load
