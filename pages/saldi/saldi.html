@@ -119,6 +119,24 @@
       transform:rotate(45deg);
     }
 
+    /* ── Row selection checkboxes ── */
+    .chk-row{
+      appearance:none;-webkit-appearance:none;
+      width:16px;height:16px;
+      border:2px solid var(--s300);border-radius:4px;
+      cursor:pointer;position:relative;flex-shrink:0;
+      transition:all .15s;background:#fff;display:inline-block;vertical-align:middle;
+    }
+    .chk-row:hover{border-color:var(--red)}
+    .chk-row:checked{background:var(--red);border-color:var(--red)}
+    .chk-row:checked::after{
+      content:'';position:absolute;
+      left:3px;top:0px;width:6px;height:10px;
+      border:2px solid #fff;border-top:none;border-left:none;
+      transform:rotate(45deg);
+    }
+    .sld-tbl tbody tr.row-sel td{background:#fef9f9!important}
+
     /* ── Badges ── */
     .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:6px;white-space:nowrap}
     .badge-green{background:var(--green-lt);color:var(--green-tx)}
@@ -205,6 +223,9 @@
         <i class="fas fa-file-import"></i> Importa CSV / XLSX
         <input type="file" id="file-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="onFileSelected(this)">
       </label>
+      <button class="btn-danger" id="btn-delete-sel" onclick="deleteSelected()" style="display:none">
+        <i class="fas fa-trash"></i> <span id="btn-delete-sel-txt">Elimina 0 selezionati</span>
+      </button>
       <button class="btn-danger" onclick="pulisciTabella()">
         <i class="fas fa-trash"></i> Pulisci tabella
       </button>
@@ -279,6 +300,7 @@ let _prodotti        = [];
 let _campagnaPeriodi = []; // [{id, campagna_id, numero, data_inizio, data_fine}]
 let _sconti          = {}; // { prodotto_id: { campagna_periodo_id: sconto_pct } }
 let _showAllPeriods  = false;
+let _selected        = new Set();
 let _importRows      = [];
 let _sortCol         = 'nome_prodotto';
 let _sortDir         = 'asc';
@@ -375,6 +397,7 @@ async function deleteCampagna(id){
 
 // ── DATA ─────────────────────────────────────────────────────────────────────
 async function loadData(){
+  _selected.clear();
   if(!_selCampId){ _prodotti=[]; _campagnaPeriodi=[]; _sconti={}; renderTable(); return; }
 
   const {data:cps} = await db.from('saldi_campagna_periodi')
@@ -516,7 +539,10 @@ function buildThead(){
   const PB = 'border-left:2px solid var(--s200)';
 
   // ── Riga 1: header gruppi ──
-  let h1 = `
+  let h1 = _canEdit
+    ? `<th style="width:32px;text-align:center;padding:4px 6px"><input type="checkbox" class="chk-row" id="chk-all" onchange="selectAll(this.checked)" title="Seleziona tutto"></th>`
+    : '';
+  h1 += `
     <th class="sortable" onclick="sortBy('codice')" id="th-codice">Codice</th>
     <th class="sortable" onclick="sortBy('nome_prodotto')" id="th-nome">Nome Prodotto</th>
     <th class="sortable" style="text-align:right" onclick="sortBy('qta')" id="th-qta">Qtà</th>
@@ -553,7 +579,8 @@ function buildThead(){
   `;
 
   // ── Riga 2: filtri + sotto-etichette ──
-  let h2 = `
+  let h2 = _canEdit ? `<th style="width:32px;background:var(--s50)"></th>` : '';
+  h2 += `
     <th><input class="flt-inp" type="text" placeholder="Filtra..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" oninput="setFilter('codice',this.value)"></th>
     <th><input class="flt-inp" type="text" placeholder="Filtra..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" oninput="setFilter('nome_prodotto',this.value)"></th>
     <th></th><th></th>
@@ -643,7 +670,7 @@ function renderTable(){
   buildThead();
 
   const tbody=document.getElementById('tbl-body');
-  const COLS=4+2*visiblePeriods().length+(_canEdit?1:0)+2+1+1;
+  const COLS=4+2*visiblePeriods().length+(_canEdit?2:0)+2+1+1;
 
   if(!_selCampId){
     tbody.innerHTML=`<tr><td colspan="${COLS}" class="empty"><i class="fas fa-tags"></i><p>Seleziona o crea una tabella saldi</p></td></tr>`;
@@ -665,8 +692,10 @@ function renderTable(){
     const delBtn=_canEdit?`<button class="icon-btn del" onclick="deleteProd(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>`:'';
     const plusTd=_canEdit?`<td></td>`:'';
 
+    const isSel = _selected.has(p.id);
     if(_canEdit){
-      html+=`<tr data-id="${p.id}">
+      html+=`<tr data-id="${p.id}"${isSel?' class="row-sel"':''}>
+        <td class="td-act"><input type="checkbox" class="chk-row chk-row-item" ${isSel?'checked':''} onchange="toggleSelect(${p.id},this.checked)"></td>
         <td class="td-codice"><input class="td-inp" value="${escH(p.codice||'')}" autocomplete="off" onblur="saveProd(${p.id},'codice',this.value)" placeholder="—"></td>
         <td class="td-nome"><input class="td-inp td-inp-nome" value="${escH(p.nome_prodotto)}" autocomplete="off" onblur="saveProd(${p.id},'nome_prodotto',this.value||'Prodotto')" placeholder="Nome prodotto"></td>
         <td class="td-num"><input class="td-inp td-inp-num" type="number" min="0" value="${p.qta}" onblur="saveProd(${p.id},'qta',Math.max(0,parseInt(this.value)||0))"></td>
@@ -714,6 +743,57 @@ async function toggleFlag(id, field, val){
   if(error){alert('Errore: '+error.message);return;}
   const prod=_prodotti.find(p=>p.id===id);
   if(prod) prod[field]=val;
+}
+
+// ── MULTI-SELECT ──────────────────────────────────────────────────────────────
+function toggleSelect(id, checked){
+  if(checked) _selected.add(id);
+  else _selected.delete(id);
+  updateSelectionUI();
+}
+
+function selectAll(checked){
+  const rows = getFilteredSorted();
+  if(checked) rows.forEach(p => _selected.add(p.id));
+  else _selected.clear();
+  document.querySelectorAll('.chk-row-item').forEach(cb => cb.checked = checked);
+  updateSelectionUI();
+}
+
+function updateSelectionUI(){
+  const n = _selected.size;
+  const btn = document.getElementById('btn-delete-sel');
+  if(btn){
+    btn.style.display = n ? 'inline-flex' : 'none';
+    const txt = document.getElementById('btn-delete-sel-txt');
+    if(txt) txt.textContent = `Elimina ${n} selezionato${n===1?'':'i'}`;
+  }
+  const chkAll = document.getElementById('chk-all');
+  if(chkAll){
+    const rows = getFilteredSorted();
+    const allChecked = rows.length > 0 && rows.every(p => _selected.has(p.id));
+    const someChecked = rows.some(p => _selected.has(p.id));
+    chkAll.checked = allChecked;
+    chkAll.indeterminate = someChecked && !allChecked;
+  }
+  document.querySelectorAll('#tbl-body tr[data-id]').forEach(tr => {
+    const id = parseInt(tr.dataset.id);
+    if(_selected.has(id)) tr.classList.add('row-sel');
+    else tr.classList.remove('row-sel');
+  });
+}
+
+async function deleteSelected(){
+  if(!_selected.size) return;
+  const n = _selected.size;
+  if(!confirm(`Eliminare ${n} prodotto${n===1?'':'i'} selezionato${n===1?'':'i'} e i relativi sconti?\nQuesta operazione non è reversibile.`)) return;
+  const ids = [..._selected];
+  const {error} = await db.from('saldi_prodotti').delete().in('id', ids);
+  if(error){ alert('Errore: '+error.message); return; }
+  _prodotti = _prodotti.filter(p => !ids.includes(p.id));
+  ids.forEach(id => delete _sconti[id]);
+  _selected.clear();
+  renderTable();
 }
 
 // ── ADD / DELETE ──────────────────────────────────────────────────────────────
