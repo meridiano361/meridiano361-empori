@@ -43,9 +43,14 @@
     .cal-tbl tr.ev-first td{border-top:2px solid var(--s200)}
     .cal-tbl tr:last-child td{border-bottom:none}
 
-    /* Campagne terminate */
-    .cal-tbl tr.ev-past td{color:#adb5bd!important;background:#f8f9fa}
-    .cal-tbl tr.ev-past.ev-first td{border-top-color:#dee2e6}
+    /* Campagne attive: bianche (default, nessuna classe)             */
+    /* Campagne future: grigio chiaro                                  */
+    .cal-tbl tr.ev-future td{background:#f1f5f9!important;color:var(--s400)!important}
+    .cal-tbl tr.ev-future td a{color:var(--s300)!important}
+    /* Campagne passate: sfondo nero, testo bianco                     */
+    .cal-tbl tr.ev-past td{background:#1e293b!important;color:#94a3b8!important}
+    .cal-tbl tr.ev-past td a{color:#475569!important}
+    .cal-tbl tr.ev-past.ev-first td{border-top-color:#334155}
 
     .td-titolo{font-weight:600;font-size:15px;cursor:pointer;min-width:130px;line-height:1.3;text-transform:uppercase}
     .td-titolo:hover{text-decoration:underline;text-underline-offset:2px}
@@ -452,12 +457,14 @@ function renderTable(evs){
     const pdv    = ev.pdv_data||defaultPdvData();
     const mecH   = escH(ev.meccanica||'');
     const isFw   = !!mecH; // has meccanica
-    const isPast = !!(ev.data_fine && ev.data_fine < todayStr);
+    const isPast   = !!(ev.data_fine   && ev.data_fine   < todayStr);
+    const isFuture = !!(ev.data_inizio && ev.data_inizio > todayStr);
+    const stateClass = isPast ? ' ev-past' : isFuture ? ' ev-future' : '';
 
     PDV_LIST.forEach((pk,pi)=>{
       const d   = pdv[pk]||{aderisce:false,azioni:'',r2026:'',r2025:'',r2024:'',r2023:''};
       const isF = pi===0;
-      html+=`<tr class="${isF?'ev-first':''}${isPast?' ev-past':''}">`;
+      html+=`<tr class="${isF?'ev-first':''}${stateClass}">`;
 
       if(isF){
         const rs=PDV_LIST.length;
@@ -494,10 +501,14 @@ function renderMobile(evs){
   const wrap=document.getElementById('mobile-cards');
   if(!wrap) return;
   if(!evs.length){ wrap.innerHTML=''; return; }
+  const todayStr2=new Date().toISOString().split('T')[0];
   wrap.innerHTML=evs.map(ev=>{
     const s=SETTORI[ev.settore]||SETTORI.G;
     const pdv=ev.pdv_data||defaultPdvData();
     const dateStr=[fmtDate(ev.data_inizio),fmtDate(ev.data_fine)].filter(Boolean).join(' → ');
+    const isPastM=!!(ev.data_fine&&ev.data_fine<todayStr2);
+    const isFutureM=!!(ev.data_inizio&&ev.data_inizio>todayStr2);
+    const cardStyle=isPastM?'background:#1e293b;border-color:#334155':isFutureM?'background:#f1f5f9;border-color:#e2e8f0':'';
     const pdvRows=PDV_LIST.map(pk=>{
       const d=pdv[pk]||{};
       const rKey='r'+_annoAttivo;
@@ -508,12 +519,12 @@ function renderMobile(evs){
         ${d[rKey]?`<span style="font-size:11px;color:var(--s700);font-weight:700">${escH(d[rKey])}</span>`:''}
       </div>`;
     }).join('');
-    return `<div class="ev-card">
-      <div class="ev-card-head" onclick="openForm(${ev.id})">
+    return `<div class="ev-card" style="${cardStyle}">
+      <div class="ev-card-head" onclick="openForm(${ev.id})" style="${isPastM?'border-color:#334155':''}">
         <div style="flex:1">
-          <div class="ev-card-titolo" style="color:${s.color}">${escH(ev.titolo)}</div>
-          <div class="ev-card-meta">
-            ${ev.settore?`<span style="color:${s.color}">${ev.settore}</span> · `:''}
+          <div class="ev-card-titolo" style="color:${isPastM?'#94a3b8':s.color}">${escH(ev.titolo)}</div>
+          <div class="ev-card-meta" style="${isPastM?'color:#475569':''}">
+            ${ev.settore?`<span style="color:${isPastM?'#475569':s.color}">${ev.settore}</span> · `:''}
             ${ev.tipologia?escH(ev.tipologia)+' · ':''}
             ${dateStr}
             ${ev.link_info?` · <a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400)"><i class="fas fa-arrow-up-right-from-square"></i> info</a>`:''}
