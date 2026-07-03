@@ -57,6 +57,7 @@
       letter-spacing:.07em;color:var(--s500);background:#fff;
       border-bottom:2px solid var(--s100);white-space:normal;text-align:left;
       vertical-align:bottom;
+      position:sticky;top:64px;z-index:3;
     }
     .sld-tbl thead th.sortable{cursor:pointer;user-select:none;transition:color .12s}
     .sld-tbl thead th.sortable:hover{color:var(--s700)}
@@ -65,6 +66,7 @@
     .sld-tbl thead tr.flt-row th{
       padding:4px 6px;background:var(--s50);
       border-bottom:2px solid var(--s200);
+      position:sticky;top:104px;z-index:2;
     }
     .flt-inp{
       width:100%;border:1.5px solid var(--s200);border-radius:6px;
@@ -589,6 +591,15 @@ function buildThead(){
   `;
 
   document.getElementById('tbl-head').innerHTML=`<tr>${h1}</tr><tr class="flt-row">${h2}</tr>`;
+
+  // Calcola top riga filtri = nav (64px) + altezza effettiva riga 1
+  requestAnimationFrame(()=>{
+    const row1 = document.querySelector('#tbl-head tr:first-child');
+    if(!row1) return;
+    const top = 64 + Math.round(row1.getBoundingClientRect().height);
+    document.querySelectorAll('#tbl-head tr.flt-row th').forEach(th => th.style.top = top+'px');
+  });
+
   // Aggiorna frecce sort
   Object.entries(SORT_META).forEach(([col,{id,label}])=>{
     const el=document.getElementById(id);
