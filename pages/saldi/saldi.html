@@ -471,122 +471,145 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 
 // ── FILE IMPORT ──────────────────────────────────────────────────────────────
-function detectColumns(headers){
-  // Normalizza: rimuovi BOM, lowercase, collassa spazi
-  const hl = headers.map(h =>
-    (h||'').toString().replace(/^﻿/,'').toLowerCase().replace(/[\s ]+/g,' ').trim()
-  );
 
-  // Prima cerca corrispondenza esatta, poi sottostringa
+function stripBom(s){ return typeof s==='string' ? s.replace(/^﻿/,'') : s; }
+
+function normalizeHdr(h){
+  return stripBom((h||'').toString()).toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+function detectColumns(headers){
+  const hl = headers.map(normalizeHdr);
   const find = (...keys) => {
-    for(const k of keys){ const i=hl.findIndex(h=>h===k);       if(i!==-1) return i; }
-    for(const k of keys){ const i=hl.findIndex(h=>h.includes(k)); if(i!==-1) return i; }
+    for(const k of keys){ const i=hl.findIndex(h=>h===k);          if(i!==-1)return i; }
+    for(const k of keys){ const i=hl.findIndex(h=>h.startsWith(k)); if(i!==-1)return i; }
+    for(const k of keys){ const i=hl.findIndex(h=>h.includes(k));   if(i!==-1)return i; }
     return -1;
   };
-
   return {
-    codice: find('codice','cod','sku','art','articolo','riferimento','ref','cod.art','art.','item code'),
-    nome:   find('descrizione','nome prodotto','nome','prodotto','desc','articolo','item','article','denominazione','titolo'),
-    qta:    find('quantità','quantita','qta','qty','pz','pezzi','disponib','quantit','q.tà','q.ta'),
-    prezzo: find('prezzo','price','pvp','pvl','listino','costo','€','importo','p.v.p','p.v.l','prezzo vendita'),
+    codice: find('codice','cod','sku','art','articolo','riferimento','ref','item code','cod.art'),
+    nome:   find('descrizione','nome prodotto','nome','prodotto','desc','articolo','denominazione','titolo','item'),
+    qta:    find('quantita','quantità','qta','qty','pezzi','pz','disponibilita','disponib','quantit'),
+    prezzo: find('prezzo','price','pvp','pvl','listino','costo','importo','prezzo vendita'),
   };
 }
 
 function parseNum(v){
   if(v===undefined||v===null||v==='') return 0;
-  return parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(',','.')) || 0;
+  let s = String(v).trim().replace(/\s/g,'');
+  if(s.includes('.')&&s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(','))             s=s.replace(',','.');
+  s=s.replace(/[^\d.-]/g,'');
+  return parseFloat(s)||0;
 }
 
 function rowsFromSheet(ws){
-  const json = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-  if(!json.length) return {headers:[], rows:[]};
-  // Trova la prima riga che sembra un'intestazione (almeno 2 celle non vuote)
-  let hdrIdx = 0;
-  for(let i=0;i<Math.min(json.length,5);i++){
-    if(json[i].filter(c=>String(c).trim()!=='').length >= 2){ hdrIdx=i; break; }
+  const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(!json.length) return {headers:[],rows:[]};
+  let hdrIdx=0;
+  for(let i=0;i<Math.min(json.length,8);i++){
+    if(json[i].filter(c=>String(c).trim()!=='').length>=2){hdrIdx=i;break;}
   }
-  const headers = json[hdrIdx].map(h=>String(h));
-  const rows = json.slice(hdrIdx+1).filter(r=>r.some(c=>String(c).trim()!==''));
-  return {headers, rows};
+  return {
+    headers: json[hdrIdx].map(h=>String(h)),
+    rows:    json.slice(hdrIdx+1).filter(r=>r.some(c=>String(c).trim()!=='')),
+  };
+}
+
+function parseCSV(text){
+  const clean=stripBom(text);
+  const lines=clean.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return {headers:[],rows:[]};
+  const f=lines[0];
+  const sep=f.includes(';')?';':f.includes('\t')?'\t':',';
+  const split=l=>l.split(sep).map(c=>c.replace(/^["'\s]+|["'\s]+$/g,''));
+  return {headers:split(lines[0]),rows:lines.slice(1).map(split).filter(r=>r.some(c=>c!==''))};
 }
 
 function onFileSelected(input){
-  const file = input.files[0];
-  if(!file){ return; }
+  const file=input.files[0];
+  if(!file)return;
   input.value='';
 
-  const isCsv = file.name.toLowerCase().endsWith('.csv');
-  const reader = new FileReader();
+  const ext=file.name.toLowerCase().split('.').pop();
+  const isCsv=ext==='csv';
+  const reader=new FileReader();
 
-  reader.onload = (e)=>{
-    let headers, rows;
-    if(isCsv){
-      // Rimuovi BOM e normalizza newline
-      const text = (e.target.result||'').replace(/^﻿/,'');
-      const lines = text.split(/\r?\n/).filter(l=>l.trim());
-      const first = lines[0]||'';
-      const sep = first.includes(';') ? ';' : first.includes('\t') ? '\t' : ',';
-      const splitLine = l => l.split(sep).map(c=>c.replace(/^["']|["']$/g,'').trim());
-      headers = splitLine(lines[0]||'');
-      rows = lines.slice(1).map(splitLine).filter(r=>r.some(c=>c!==''));
-    } else {
-      const wb = XLSX.read(e.target.result, {type:'array'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      ({headers, rows} = rowsFromSheet(ws));
+  reader.onerror=()=>alert('Errore nella lettura del file. Riprova o usa un formato diverso.');
+
+  reader.onload=(e)=>{
+    try{
+      let headers,rows;
+      if(isCsv){
+        ({headers,rows}=parseCSV(e.target.result||''));
+      } else {
+        if(typeof XLSX==='undefined') throw new Error('Libreria XLSX non caricata. Ricarica la pagina.');
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        if(!wb.SheetNames.length) throw new Error('Il file non contiene fogli.');
+        ({headers,rows}=rowsFromSheet(wb.Sheets[wb.SheetNames[0]]));
+      }
+
+      if(!headers.length) throw new Error('Nessuna intestazione trovata nel file.');
+
+      const cols=detectColumns(headers);
+      if(cols.nome===-1){
+        alert(
+          'Colonna "Descrizione / Nome" non trovata.\n\n'+
+          'Intestazioni rilevate:\n'+headers.map((h,i)=>'  ['+i+'] "'+h+'"').join('\n')+
+          '\n\nAssicurati che una colonna si chiami "descrizione", "nome" o "prodotto".'
+        );
+        return;
+      }
+
+      _importRows=rows.map(r=>({
+        codice:        cols.codice!==-1?String(r[cols.codice]??'').trim():'',
+        nome_prodotto: String(r[cols.nome]??'').trim(),
+        qta:           cols.qta!==-1?Math.max(0,Math.round(parseNum(r[cols.qta]))):0,
+        prezzo:        cols.prezzo!==-1?parseNum(r[cols.prezzo]):0,
+      })).filter(r=>r.nome_prodotto);
+
+      if(!_importRows.length){
+        alert('Nessuna riga valida trovata.\nControlla che il file non sia vuoto e che la colonna "descrizione" contenga dati.');
+        return;
+      }
+
+      document.getElementById('imp-body').innerHTML=_importRows.slice(0,50).map(r=>
+        '<tr><td>'+escH(r.codice||'—')+'</td><td>'+escH(r.nome_prodotto)+'</td>'+
+        '<td style="text-align:right">'+r.qta+'</td>'+
+        '<td style="text-align:right">'+fmtEur(r.prezzo)+'</td></tr>'
+      ).join('');
+
+      document.getElementById('imp-sub').textContent=_importRows.length+' prodotti trovati';
+      document.getElementById('imp-warn').textContent=
+        'I prodotti saranno aggiunti a quelli già presenti. I periodi di sconto non verranno modificati.';
+      document.getElementById('modal-import').classList.add('show');
+
+    }catch(err){
+      alert('Errore elaborazione file:\n'+err.message);
     }
-
-    const cols = detectColumns(headers);
-    if(cols.nome===-1){
-      alert(`Colonna "Nome / Descrizione" non trovata.\nIntestazioni rilevate: ${headers.slice(0,8).join(' | ')}\n\nAssicurati che una colonna si chiami "descrizione", "nome" o "prodotto".`);
-      return;
-    }
-
-    _importRows = rows.map(r=>({
-      codice:        cols.codice!==-1 ? String(r[cols.codice]||'').trim() : '',
-      nome_prodotto: String(r[cols.nome]||'').trim(),
-      qta:           cols.qta!==-1    ? Math.round(parseNum(r[cols.qta])) : 0,
-      prezzo:        cols.prezzo!==-1 ? parseNum(r[cols.prezzo]) : 0,
-    })).filter(r=>r.nome_prodotto);
-
-    if(!_importRows.length){ alert('Nessuna riga valida trovata nel file.'); return; }
-
-    // show preview
-    const tbody = document.getElementById('imp-body');
-    tbody.innerHTML = _importRows.slice(0,50).map(r=>`
-      <tr>
-        <td>${escH(r.codice||'—')}</td>
-        <td>${escH(r.nome_prodotto)}</td>
-        <td style="text-align:right">${r.qta}</td>
-        <td style="text-align:right">${fmtEur(r.prezzo)}</td>
-      </tr>
-    `).join('');
-
-    document.getElementById('imp-sub').textContent = `${_importRows.length} prodotti trovati`;
-    document.getElementById('imp-warn').textContent =
-      `I prodotti saranno aggiunti a quelli già presenti. I periodi di sconto esistenti non verranno modificati.`;
-
-    document.getElementById('modal-import').classList.add('show');
   };
 
-  if(isCsv) reader.readAsText(file, 'UTF-8');
+  if(isCsv) reader.readAsText(file,'UTF-8');
   else       reader.readAsArrayBuffer(file);
 }
 
 async function confirmImport(){
-  if(!_importRows.length) return;
+  if(!_importRows.length)return;
   closeImport();
-
-  const rows = _importRows.map(r=>({...r, emporio:EMP}));
-  const {error} = await db.from('saldi_prodotti').insert(rows);
-  if(error){ alert('Errore durante l\'importazione: '+error.message); return; }
-
-  _importRows = [];
+  const rows=_importRows.map(r=>({...r,emporio:EMP}));
+  let errMsg=null;
+  for(let i=0;i<rows.length;i+=500){
+    const {error}=await db.from('saldi_prodotti').insert(rows.slice(i,i+500));
+    if(error){errMsg=error.message;break;}
+  }
+  if(errMsg){alert('Errore durante l\'importazione:\n'+errMsg);return;}
+  _importRows=[];
   await loadData();
 }
 
 function closeImport(){
   document.getElementById('modal-import').classList.remove('show');
-  _importRows = [];
+  _importRows=[];
 }
 
 // close modals on overlay click
