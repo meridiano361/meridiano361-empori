@@ -1,4 +1,4 @@
--- Saldi v2: tabelle campagne + colonna prezzato + campagna_id su prodotti
+-- Saldi v2: tabelle campagne + flag prezzato (negozio / online / non presente online)
 
 CREATE TABLE IF NOT EXISTS saldi_campagne (
   id         BIGSERIAL PRIMARY KEY,
@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS saldi_campagne (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE saldi_prodotti ADD COLUMN IF NOT EXISTS campagna_id BIGINT REFERENCES saldi_campagne(id) ON DELETE CASCADE;
-ALTER TABLE saldi_prodotti ADD COLUMN IF NOT EXISTS prezzato BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE saldi_prodotti ADD COLUMN IF NOT EXISTS campagna_id        BIGINT  REFERENCES saldi_campagne(id) ON DELETE CASCADE;
+ALTER TABLE saldi_prodotti ADD COLUMN IF NOT EXISTS prezzato_negozio   BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE saldi_prodotti ADD COLUMN IF NOT EXISTS prezzato_online     BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE saldi_prodotti ADD COLUMN IF NOT EXISTS non_presente_online BOOLEAN NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS saldi_campagne_emporio_idx ON saldi_campagne(emporio);
 
