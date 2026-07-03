@@ -220,8 +220,8 @@
         <i class="fas fa-plus"></i> Aggiungi riga
       </button>
       <label class="btn-sec btn-sm" style="cursor:pointer">
-        <i class="fas fa-file-import"></i> Importa CSV / XLSX
-        <input type="file" id="file-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="onFileSelected(this)">
+        <i class="fas fa-file-import"></i> Importa CSV / XLSX / TXT
+        <input type="file" id="file-input" accept=".csv,.xls,.xlsx,.txt" style="display:none" onchange="onFileSelected(this)">
       </label>
       <button class="btn-danger" onclick="pulisciTabella()">
         <i class="fas fa-trash"></i> Pulisci tabella
@@ -503,11 +503,17 @@ function togglePeriods(){
 function updatePeriodToggle(){
   const bar = document.getElementById('period-toggle-bar');
   if(!bar) return;
+  const BTN = (onclick,ico,lbl) =>
+    `<button onclick="${onclick}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:1.5px solid var(--s200);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--s500);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--s200)';this.style.color='var(--s500)'"><i class="fas ${ico}"></i> ${lbl}</button>`;
+  let html = '';
+  if(_selCampId) html += BTN('printSaldi()','fa-print','Stampa PDF');
   const hasPast = _campagnaPeriodi.some(cp => cp.data_fine && cp.data_fine < TODAY);
-  if(!hasPast || !_campagnaPeriodi.length){ bar.innerHTML=''; return; }
-  const ico = _showAllPeriods ? 'fa-eye-slash' : 'fa-eye';
-  const lbl = _showAllPeriods ? 'Nascondi periodi passati' : 'Mostra tutti i periodi';
-  bar.innerHTML=`<button onclick="togglePeriods()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:1.5px solid var(--s200);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--s500);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--s200)';this.style.color='var(--s500)'"><i class="fas ${ico}"></i> ${lbl}</button>`;
+  if(hasPast && _campagnaPeriodi.length){
+    const ico = _showAllPeriods ? 'fa-eye-slash' : 'fa-eye';
+    const lbl = _showAllPeriods ? 'Nascondi periodi passati' : 'Mostra tutti i periodi';
+    html += BTN('togglePeriods()',ico,lbl);
+  }
+  bar.innerHTML = html;
 }
 
 async function addPeriodCol(){
@@ -896,6 +902,115 @@ async function pulisciTabella(){
   renderTable();
 }
 
+// ── PRINT PDF ─────────────────────────────────────────────────────────────────
+function printSaldi(){
+  const camp = _campagne.find(c => c.id === _selCampId);
+  if(!camp){ alert('Seleziona una tabella saldi.'); return; }
+  const rows = getFilteredSorted();
+  if(!rows.length){ alert('Nessun prodotto da stampare.'); return; }
+  const periods = _campagnaPeriodi; // tutti i periodi (non solo visibili) per la stampa
+  const empLabel = EMPORI_MAP[EMP]?.label || EMP;
+
+  let perHeadRow1 = '', perHeadRow2 = '';
+  for(const cp of periods){
+    const dal = cp.data_inizio ? fmtDate(cp.data_inizio) : '—';
+    const al  = cp.data_fine   ? fmtDate(cp.data_fine)   : '—';
+    perHeadRow1 += `<th colspan="2" class="per-h">Periodo ${cp.numero}<br><span style="font-weight:400;font-size:8px">${dal} → ${al}</span></th>`;
+    perHeadRow2 += `<th class="per-sub bl">Sconto%</th><th class="per-sub">€ Saldo</th>`;
+  }
+
+  let rowsHtml = '';
+  for(const [i, p] of rows.entries()){
+    let perTds = '';
+    for(const cp of periods){
+      const pct = (_sconti[p.id] || {})[cp.id] || 0;
+      const saldo = parseFloat(p.prezzo || 0) * (1 - pct / 100);
+      perTds += `<td class="bl c">${pct ? pct.toFixed(pct%1?1:0)+'%' : '—'}</td>`;
+      perTds += `<td class="r${pct?' saldo':''}">${pct > 0 ? fmtEur(saldo) : '—'}</td>`;
+    }
+    const online = p.non_presente_online ? '✗' : '';
+    rowsHtml += `<tr class="${i%2===0?'even':''}">
+      <td class="cod">${escH(p.codice||'—')}</td>
+      <td class="nome">${escH(p.nome_prodotto)}</td>
+      <td class="r">${p.qta}</td>
+      <td class="r">${fmtEur(p.prezzo)}</td>
+      ${perTds}
+      <td class="c">${p.prezzato_negozio?'✓':''}</td>
+      <td class="c">${p.prezzato_online?'✓':''}</td>
+      <td class="c grey">${online}</td>
+    </tr>`;
+  }
+
+  const printDate = new Date().toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Saldi ${escH(empLabel)} — ${escH(camp.nome)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#1e293b;padding:16px 20px}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #B5453A;padding-bottom:10px;margin-bottom:14px}
+  .hdr-l .brand{font-size:11px;font-weight:bold;color:#64748b;letter-spacing:.08em;text-transform:uppercase}
+  .hdr-l h1{font-size:20px;font-weight:900;color:#B5453A;margin-top:2px}
+  .hdr-r{text-align:right;font-size:9px;color:#64748b;line-height:1.6}
+  table{width:100%;border-collapse:collapse}
+  th{padding:5px 7px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;background:#f8fafc;border-bottom:2px solid #e2e8f0;vertical-align:bottom}
+  td{padding:4px 7px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  tr.even td{background:#f8fafc}
+  .bl{border-left:1.5px solid #e2e8f0}
+  .per-h{text-align:center;background:#f1f5f9}
+  .per-sub{text-align:center;background:#f8fafc;font-size:7.5px}
+  .cod{font-size:9px;color:#64748b;white-space:nowrap}
+  .nome{font-weight:600}
+  .r{text-align:right;white-space:nowrap}
+  .c{text-align:center}
+  .grey{color:#94a3b8}
+  .saldo{font-weight:700;color:#B5453A}
+  .footer{margin-top:14px;font-size:8.5px;color:#94a3b8;text-align:right}
+  @media print{
+    body{padding:8mm 10mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @page{margin:8mm}
+  }
+</style></head><body>
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="brand">Meridiano 361 — ${escH(empLabel)}</div>
+    <h1>Saldi — ${escH(camp.nome)}</h1>
+  </div>
+  <div class="hdr-r">${rows.length} prodotti<br>Stampato il ${printDate}</div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2">Codice</th>
+      <th rowspan="2">Nome Prodotto</th>
+      <th rowspan="2" class="r">Qtà</th>
+      <th rowspan="2" class="r">Prezzo</th>
+      ${perHeadRow1}
+      <th colspan="2" class="bl c" rowspan="2" style="background:#f1f5f9">Prezzato</th>
+      <th rowspan="2" class="bl c">Non online</th>
+    </tr>
+    <tr>
+      ${perHeadRow2}
+    </tr>
+    <tr>
+      <th></th><th></th><th></th><th></th>
+      ${periods.map(()=>'').join('')}
+      <th class="bl c" style="font-size:7.5px">Negozio</th>
+      <th class="c" style="font-size:7.5px">Online</th>
+      <th class="bl"></th>
+    </tr>
+  </thead>
+  <tbody>${rowsHtml}</tbody>
+</table>
+<div class="footer">Meridiano 361 App — ${printDate}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=1200,height=750');
+  if(!w){ alert('Il browser ha bloccato il popup. Consenti i popup per questo sito.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
 // ── FILE IMPORT ────────────────────────────────────────────────────────────────
 function stripBom(s){return typeof s==='string'?s.replace(/^﻿/,''):s}
 function normalizeHdr(h){return stripBom((h||'').toString()).toLowerCase().replace(/\s+/g,' ').trim()}
@@ -933,7 +1048,8 @@ function parseCSV(text){
   const clean=stripBom(text);
   const lines=clean.split(/\r?\n/).filter(l=>l.trim());
   if(!lines.length)return{headers:[],rows:[]};
-  const sep=lines[0].includes(';')?';':lines[0].includes('\t')?'\t':',';
+  const l0=lines[0];
+  const sep=l0.includes(';')?';':l0.includes('\t')?'\t':l0.includes('|')?'|':',';
   const split=l=>l.split(sep).map(c=>c.replace(/^["'\s]+|["'\s]+$/g,''));
   return{headers:split(lines[0]),rows:lines.slice(1).map(split).filter(r=>r.some(c=>c!==''))};
 }
@@ -944,7 +1060,7 @@ function onFileSelected(input){
   if(!file)return;
   input.value='';
   const ext=file.name.toLowerCase().split('.').pop();
-  const isCsv=ext==='csv';
+  const isCsv=ext==='csv'||ext==='txt';
   const reader=new FileReader();
   reader.onerror=()=>alert('Errore nella lettura del file.');
   reader.onload=(e)=>{
