@@ -110,6 +110,7 @@
       { id: 'materiali',   label: 'Materiali',   icon: 'fa-folder-open',    href: 'pages/materiali/materiali.html',    section: null,      active: true  },
       { id: 'scadenze',   label: 'Scadenze',    icon: 'fa-clock-rotate-left', href: 'pages/prodotti-scadenza/prodotti-scadenza.html', section: null, active: true },
       { id: 'listino',    label: 'Vetrina',     icon: 'fa-list-ul',           href: 'pages/listino-prezzi/listino-prezzi.html',       section: null, active: true },
+      { id: 'saldi',      label: 'Saldi',       icon: 'fa-percent',           href: 'pages/saldi/index.html',                        section: null, active: true },
     ]},
     { group: null, items: [
       { id: 'guida', label: 'Aiuto', icon: 'fa-circle-question', href: 'pages/guida/guida.html', section: null, active: true },

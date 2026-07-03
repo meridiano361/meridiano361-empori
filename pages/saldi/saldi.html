@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="../../assets/style/nav-style.css">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Saldi — M361</title>
+  <title>M361 — Saldi</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
@@ -105,8 +105,6 @@
 <script src="../../scripts/nav-script.js"></script>
 
 <main class="max-w-5xl mx-auto p-4 md:p-6">
-  <button class="bk" onclick="history.back()"><i class="fas fa-chevron-left"></i> Saldi</button>
-
   <div class="emp-hd">
     <img id="emp-logo" src="" alt="">
     <div>
@@ -249,7 +247,7 @@ function init(){
   const info = EMPORI_MAP[EMP];
   document.getElementById('emp-logo').src = `/assets/images/${info.img}`;
   document.getElementById('emp-name').textContent = info.label;
-  document.title = `Saldi ${info.label} — M361`;
+  document.title = `M361 — Saldi ${info.label}`;
 
   const isGlobal = _u.is_full_admin || _u.ruolo === 'admin';
   const isOwnEmp = _u.is_resp_emporio && (_u.emporio||'').toLowerCase().replace(/\s+/g,'') === EMP;
@@ -474,13 +472,23 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 // ── FILE IMPORT ──────────────────────────────────────────────────────────────
 function detectColumns(headers){
-  const hl = headers.map(h=>(h||'').toString().toLowerCase().trim());
-  const find = (...keys) => keys.reduce((acc,k)=> acc!==-1 ? acc : hl.findIndex(h=>h.includes(k)), -1);
+  // Normalizza: rimuovi BOM, lowercase, collassa spazi
+  const hl = headers.map(h =>
+    (h||'').toString().replace(/^﻿/,'').toLowerCase().replace(/[\s ]+/g,' ').trim()
+  );
+
+  // Prima cerca corrispondenza esatta, poi sottostringa
+  const find = (...keys) => {
+    for(const k of keys){ const i=hl.findIndex(h=>h===k);       if(i!==-1) return i; }
+    for(const k of keys){ const i=hl.findIndex(h=>h.includes(k)); if(i!==-1) return i; }
+    return -1;
+  };
+
   return {
-    codice: find('codice','cod.','sku','art.','articolo','art ','art\t'),
-    nome:   find('nome prodotto','nome','prodotto','descrizione','desc','articolo','item','article'),
-    qta:    find('quantit','qta','qty','pz','pezzi','disponib'),
-    prezzo: find('prezzo','price','pvp','pvl','listino','costo','€','importo'),
+    codice: find('codice','cod','sku','art','articolo','riferimento','ref','cod.art','art.','item code'),
+    nome:   find('descrizione','nome prodotto','nome','prodotto','desc','articolo','item','article','denominazione','titolo'),
+    qta:    find('quantità','quantita','qta','qty','pz','pezzi','disponib','quantit','q.tà','q.ta'),
+    prezzo: find('prezzo','price','pvp','pvl','listino','costo','€','importo','p.v.p','p.v.l','prezzo vendita'),
   };
 }
 
@@ -492,8 +500,13 @@ function parseNum(v){
 function rowsFromSheet(ws){
   const json = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
   if(!json.length) return {headers:[], rows:[]};
-  const headers = json[0].map(h=>String(h));
-  const rows = json.slice(1).filter(r=>r.some(c=>c!==''));
+  // Trova la prima riga che sembra un'intestazione (almeno 2 celle non vuote)
+  let hdrIdx = 0;
+  for(let i=0;i<Math.min(json.length,5);i++){
+    if(json[i].filter(c=>String(c).trim()!=='').length >= 2){ hdrIdx=i; break; }
+  }
+  const headers = json[hdrIdx].map(h=>String(h));
+  const rows = json.slice(hdrIdx+1).filter(r=>r.some(c=>String(c).trim()!==''));
   return {headers, rows};
 }
 
@@ -508,12 +521,14 @@ function onFileSelected(input){
   reader.onload = (e)=>{
     let headers, rows;
     if(isCsv){
-      const text = e.target.result;
+      // Rimuovi BOM e normalizza newline
+      const text = (e.target.result||'').replace(/^﻿/,'');
       const lines = text.split(/\r?\n/).filter(l=>l.trim());
-      const sep = lines[0].includes(';')?';':',';
-      const all = lines.map(l=>l.split(sep).map(c=>c.replace(/^["']|["']$/g,'').trim()));
-      headers = all[0]||[];
-      rows = all.slice(1).filter(r=>r.some(c=>c!==''));
+      const first = lines[0]||'';
+      const sep = first.includes(';') ? ';' : first.includes('\t') ? '\t' : ',';
+      const splitLine = l => l.split(sep).map(c=>c.replace(/^["']|["']$/g,'').trim());
+      headers = splitLine(lines[0]||'');
+      rows = lines.slice(1).map(splitLine).filter(r=>r.some(c=>c!==''));
     } else {
       const wb = XLSX.read(e.target.result, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -522,7 +537,7 @@ function onFileSelected(input){
 
     const cols = detectColumns(headers);
     if(cols.nome===-1){
-      alert('Impossibile trovare la colonna "Nome prodotto" nel file.\nAssicurati che l\'intestazione contenga "nome", "prodotto" o "descrizione".');
+      alert(`Colonna "Nome / Descrizione" non trovata.\nIntestazioni rilevate: ${headers.slice(0,8).join(' | ')}\n\nAssicurati che una colonna si chiami "descrizione", "nome" o "prodotto".`);
       return;
     }
 
