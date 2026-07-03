@@ -223,13 +223,30 @@
         <i class="fas fa-file-import"></i> Importa CSV / XLSX
         <input type="file" id="file-input" accept=".csv,.xls,.xlsx" style="display:none" onchange="onFileSelected(this)">
       </label>
-      <button class="btn-danger" id="btn-delete-sel" onclick="deleteSelected()" style="display:none">
-        <i class="fas fa-trash"></i> <span id="btn-delete-sel-txt">Elimina 0 selezionati</span>
-      </button>
       <button class="btn-danger" onclick="pulisciTabella()">
         <i class="fas fa-trash"></i> Pulisci tabella
       </button>
     </div>
+  </div>
+
+  <!-- Barra azioni selezione multipla -->
+  <div id="sel-bar" style="display:none;background:var(--red-lt);border:1.5px solid #fca5a5;border-radius:12px;padding:10px 16px;margin-bottom:12px;align-items:center;gap:12px;flex-wrap:wrap">
+    <span id="sel-count" style="font-size:13px;font-weight:800;color:var(--red);white-space:nowrap"></span>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
+      <select id="sel-period-sel" style="border:1.5px solid #fca5a5;border-radius:8px;padding:5px 8px;font-size:12px;font-family:'Nunito',sans-serif;color:var(--s700);background:#fff;outline:none;max-width:170px;cursor:pointer"></select>
+      <input type="number" id="sel-pct-inp" min="0" max="100" step="0.5" placeholder="Sconto %"
+             style="border:1.5px solid #fca5a5;border-radius:8px;padding:5px 8px;font-size:12px;font-family:'Nunito',sans-serif;color:var(--s700);background:#fff;outline:none;width:90px;text-align:right">
+      <button class="btn-prim btn-sm" onclick="applyDiscountToSelected()">
+        <i class="fas fa-percent"></i> Applica sconto
+      </button>
+      <span style="width:1px;height:22px;background:#fca5a5;display:inline-block;flex-shrink:0"></span>
+      <button class="btn-danger" id="btn-delete-sel" onclick="deleteSelected()">
+        <i class="fas fa-trash"></i> <span id="btn-delete-sel-txt">Elimina</span>
+      </button>
+    </div>
+    <button onclick="clearSelection()" style="background:none;border:none;cursor:pointer;font-size:11px;font-weight:700;color:var(--s500);font-family:'Nunito',sans-serif;white-space:nowrap;padding:4px 8px;border-radius:8px;transition:all .12s" onmouseover="this.style.background='rgba(0,0,0,.06)'" onmouseout="this.style.background='none'">
+      <i class="fas fa-times"></i> Deseleziona
+    </button>
   </div>
 
   <!-- Area tabella: larghezza piena -->
@@ -762,12 +779,28 @@ function selectAll(checked){
 
 function updateSelectionUI(){
   const n = _selected.size;
-  const btn = document.getElementById('btn-delete-sel');
-  if(btn){
-    btn.style.display = n ? 'inline-flex' : 'none';
-    const txt = document.getElementById('btn-delete-sel-txt');
-    if(txt) txt.textContent = `Elimina ${n} selezionato${n===1?'':'i'}`;
+  const bar = document.getElementById('sel-bar');
+  if(bar) bar.style.display = n ? 'flex' : 'none';
+
+  const cnt = document.getElementById('sel-count');
+  if(cnt) cnt.textContent = `${n} prodotto${n===1?'':'i'} selezionato${n===1?'':'i'}`;
+
+  const txt = document.getElementById('btn-delete-sel-txt');
+  if(txt) txt.textContent = `Elimina ${n===1?'selezionato':'selezionati'}`;
+
+  // Popola dropdown periodi nella sel-bar
+  const ps = document.getElementById('sel-period-sel');
+  if(ps){
+    const vps = visiblePeriods();
+    ps.innerHTML = vps.length
+      ? vps.map(cp=>{
+          const dal = cp.data_inizio ? fmtDate(cp.data_inizio) : '—';
+          const al  = cp.data_fine   ? fmtDate(cp.data_fine)   : '—';
+          return `<option value="${cp.id}">Periodo ${cp.numero} (${dal}→${al})</option>`;
+        }).join('')
+      : '<option value="">Nessun periodo</option>';
   }
+
   const chkAll = document.getElementById('chk-all');
   if(chkAll){
     const rows = getFilteredSorted();
@@ -781,6 +814,36 @@ function updateSelectionUI(){
     if(_selected.has(id)) tr.classList.add('row-sel');
     else tr.classList.remove('row-sel');
   });
+}
+
+function clearSelection(){
+  _selected.clear();
+  document.querySelectorAll('.chk-row-item').forEach(cb => cb.checked = false);
+  updateSelectionUI();
+}
+
+async function applyDiscountToSelected(){
+  if(!_selected.size) return;
+  const periodoId = parseInt(document.getElementById('sel-period-sel')?.value);
+  const pctRaw = document.getElementById('sel-pct-inp')?.value;
+  if(!periodoId){ alert('Seleziona un periodo.'); return; }
+  if(pctRaw === '' || pctRaw === null){ alert('Inserisci una percentuale di sconto.'); return; }
+  const pct = Math.min(100, Math.max(0, parseFloat(pctRaw) || 0));
+
+  const ids = [..._selected];
+  const upsertRows = ids.map(prodId => ({
+    prodotto_id: prodId,
+    campagna_periodo_id: periodoId,
+    sconto_pct: pct,
+  }));
+  const {error} = await db.from('saldi_sconti')
+    .upsert(upsertRows, {onConflict:'prodotto_id,campagna_periodo_id'});
+  if(error){ alert('Errore: '+error.message); return; }
+  for(const prodId of ids){
+    if(!_sconti[prodId]) _sconti[prodId] = {};
+    _sconti[prodId][periodoId] = pct;
+  }
+  renderTable();
 }
 
 async function deleteSelected(){
