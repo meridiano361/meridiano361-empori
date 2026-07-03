@@ -84,7 +84,7 @@
     .sld-tbl tbody tr:hover td{background:#fffbeb}
     .td-codice{font-size:11px;color:var(--s500);font-weight:700;min-width:100px;letter-spacing:.01em;white-space:nowrap}
     .td-nome{min-width:180px;max-width:260px;word-break:break-word}
-    .td-num{text-align:right;white-space:nowrap;min-width:52px;color:var(--s700)}
+    .td-num{text-align:right;white-space:nowrap;min-width:68px;color:var(--s700)}
     .td-flag{text-align:center;min-width:46px}
     .td-act{text-align:center;min-width:32px;white-space:nowrap}
 
@@ -211,8 +211,8 @@
 
   <!-- Area tabella: larghezza piena -->
   <div class="tbl-area">
-      <!-- camp-title nascosto, usato solo da JS -->
       <span id="camp-title" style="display:none"></span>
+      <div id="period-toggle-bar" style="display:flex;justify-content:flex-end;margin-bottom:6px;min-height:24px"></div>
       <div class="tbl-wrap">
         <table class="sld-tbl">
           <thead id="tbl-head"></thead>
@@ -276,6 +276,7 @@ let _selCampId       = null;
 let _prodotti        = [];
 let _campagnaPeriodi = []; // [{id, campagna_id, numero, data_inizio, data_fine}]
 let _sconti          = {}; // { prodotto_id: { campagna_periodo_id: sconto_pct } }
+let _showAllPeriods  = false;
 let _importRows      = [];
 let _sortCol         = 'nome_prodotto';
 let _sortDir         = 'asc';
@@ -445,6 +446,28 @@ const SORT_META = {
   non_presente_online: {id:'th-pnop',   label:'Non presente online'},
 };
 
+function visiblePeriods(){
+  if(_showAllPeriods) return _campagnaPeriodi;
+  // Mostra solo periodi non ancora terminati (correnti + futuri + senza date)
+  const relevant = _campagnaPeriodi.filter(cp => !cp.data_fine || cp.data_fine >= TODAY);
+  return relevant.length ? relevant : _campagnaPeriodi;
+}
+
+function togglePeriods(){
+  _showAllPeriods = !_showAllPeriods;
+  renderTable();
+}
+
+function updatePeriodToggle(){
+  const bar = document.getElementById('period-toggle-bar');
+  if(!bar) return;
+  const hasPast = _campagnaPeriodi.some(cp => cp.data_fine && cp.data_fine < TODAY);
+  if(!hasPast || !_campagnaPeriodi.length){ bar.innerHTML=''; return; }
+  const ico = _showAllPeriods ? 'fa-eye-slash' : 'fa-eye';
+  const lbl = _showAllPeriods ? 'Nascondi periodi passati' : 'Mostra tutti i periodi';
+  bar.innerHTML=`<button onclick="togglePeriods()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:1.5px solid var(--s200);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:var(--s500);cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--s200)';this.style.color='var(--s500)'"><i class="fas ${ico}"></i> ${lbl}</button>`;
+}
+
 async function addPeriodCol(){
   if(!_selCampId||!_canEdit) return;
   const nextNum = _campagnaPeriodi.length + 1;
@@ -482,7 +505,7 @@ async function saveSconto(prodId, periodoId, rawVal){
   if(el&&prod){
     const s=parseFloat(prod.prezzo||0)*(1-pct/100);
     el.textContent=pct>0?fmtEur(s):'—';
-    el.style.color=pct>0?'var(--green)':'var(--s300)';
+    el.style.color=pct>0?'var(--red)':'var(--s300)';
     el.style.fontWeight=pct>0?'800':'normal';
   }
 }
@@ -498,7 +521,7 @@ function buildThead(){
     <th class="sortable" style="text-align:right" onclick="sortBy('prezzo')" id="th-prezzo">Prezzo</th>
   `;
 
-  for(const cp of _campagnaPeriodi){
+  for(const cp of visiblePeriods()){
     const dal = cp.data_inizio ? fmtDate(cp.data_inizio) : '—';
     const al  = cp.data_fine   ? fmtDate(cp.data_fine)   : '—';
     const dateBlock = _canEdit
@@ -533,7 +556,7 @@ function buildThead(){
     <th><input class="flt-inp" type="text" placeholder="Filtra..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" oninput="setFilter('nome_prodotto',this.value)"></th>
     <th></th><th></th>
   `;
-  for(const cp of _campagnaPeriodi){
+  for(const cp of visiblePeriods()){
     h2 += `
       <th style="${PB};padding:4px 6px;text-align:center">
         <div style="font-size:9px;font-weight:800;color:var(--s500)">SCONTO %</div>
@@ -580,7 +603,7 @@ function buildThead(){
 function buildPerCells(p){
   const PBL='border-left:2px solid var(--s100)';
   let html='';
-  for(const cp of _campagnaPeriodi){
+  for(const cp of visiblePeriods()){
     const pct=(_sconti[p.id]||{})[cp.id]||0;
     const saldo=parseFloat(p.prezzo||0)*(1-pct/100);
     if(_canEdit){
@@ -589,23 +612,24 @@ function buildPerCells(p){
           <input type="number" min="0" max="100" step="0.5" value="${pct||''}"
                  placeholder="—" class="td-inp td-inp-num"
                  onblur="saveSconto(${p.id},${cp.id},this.value)"
-                 style="max-width:52px;text-align:center">
+                 style="max-width:52px;text-align:center;color:${pct?'var(--red)':'inherit'};font-weight:${pct?'700':'normal'}">
         </td>
-        <td id="sld-${p.id}-${cp.id}" style="text-align:right;font-weight:${pct?'800':'normal'};color:${pct?'var(--green)':'var(--s300)'};white-space:nowrap;padding:4px 6px">${pct>0?fmtEur(saldo):'—'}</td>`;
+        <td id="sld-${p.id}-${cp.id}" style="text-align:right;font-weight:${pct?'800':'normal'};color:${pct?'var(--red)':'var(--s300)'};white-space:nowrap;padding:4px 6px">${pct>0?fmtEur(saldo):'—'}</td>`;
     } else {
       html+=`
-        <td style="${PBL};text-align:center;font-weight:700;color:${pct?'var(--s700)':'var(--s200)'};padding:4px 6px">${pct?pct.toFixed(pct%1?1:0)+'%':'—'}</td>
-        <td id="sld-${p.id}-${cp.id}" style="text-align:right;font-weight:${pct?'800':'normal'};color:${pct?'var(--green)':'var(--s200)'};white-space:nowrap;padding:4px 6px">${pct>0?fmtEur(saldo):'—'}</td>`;
+        <td style="${PBL};text-align:center;font-weight:700;color:${pct?'var(--red)':'var(--s200)'};padding:4px 6px">${pct?pct.toFixed(pct%1?1:0)+'%':'—'}</td>
+        <td id="sld-${p.id}-${cp.id}" style="text-align:right;font-weight:${pct?'800':'normal'};color:${pct?'var(--red)':'var(--s200)'};white-space:nowrap;padding:4px 6px">${pct>0?fmtEur(saldo):'—'}</td>`;
     }
   }
   return html;
 }
 
 function renderTable(){
+  updatePeriodToggle();
   buildThead();
 
   const tbody=document.getElementById('tbl-body');
-  const COLS=4+2*_campagnaPeriodi.length+(_canEdit?1:0)+2+1+1;
+  const COLS=4+2*visiblePeriods().length+(_canEdit?1:0)+2+1+1;
 
   if(!_selCampId){
     tbody.innerHTML=`<tr><td colspan="${COLS}" class="empty"><i class="fas fa-tags"></i><p>Seleziona o crea una tabella saldi</p></td></tr>`;
