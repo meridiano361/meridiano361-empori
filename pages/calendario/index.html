@@ -320,10 +320,26 @@ function getCurrentPageId(){ return 'calendario'; }
         </div>
       </div>
       <div>
-        <label class="form-label">Link info operative</label>
-        <div style="display:flex;gap:8px;align-items:center">
+        <label class="form-label">Info operative</label>
+        <!-- Pill: file/link allegato -->
+        <div id="f-file-pill" style="display:none;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--s200);border-radius:9px;background:var(--s50)">
+          <i class="fas fa-file-alt" style="color:var(--red);font-size:18px;flex-shrink:0"></i>
+          <span id="f-file-name" style="flex:1;font-size:13px;font-weight:600;color:var(--s700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <a id="f-file-link" href="#" target="_blank" rel="noopener" style="color:var(--s400);font-size:15px;flex-shrink:0" title="Apri"><i class="fas fa-arrow-up-right-from-square"></i></a>
+          <button onclick="removeInfoOpFile()" style="background:none;border:none;color:var(--s400);font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1" title="Rimuovi"><i class="fas fa-times"></i></button>
+        </div>
+        <!-- Input area: upload + URL -->
+        <div id="f-file-input-wrap" style="display:flex;gap:8px;align-items:center">
+          <label id="f-file-lbl" style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid var(--s200);border-radius:9px;background:#fff;font-size:13px;font-weight:700;color:var(--s600);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:border-color .15s,color .15s">
+            <i class="fas fa-paperclip"></i> Allega file
+            <input type="file" id="f-file-inp" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="onInfoFileSelected(this)" style="display:none">
+          </label>
+          <span style="color:var(--s300);font-size:12px;flex-shrink:0">o URL</span>
           <input type="url" id="f-link-info" class="form-input" placeholder="https://…" autocomplete="off" style="flex:1">
-          <a id="f-link-preview" href="#" target="_blank" rel="noopener" style="display:none;color:var(--red);font-size:20px;flex-shrink:0" title="Apri link"><i class="fas fa-arrow-up-right-from-square"></i></a>
+        </div>
+        <!-- Upload progress -->
+        <div id="f-upload-progress" style="display:none;align-items:center;gap:8px;font-size:13px;color:var(--s500);padding:6px 2px">
+          <i class="fas fa-spinner fa-spin"></i> Caricamento…
         </div>
       </div>
       <div>
@@ -396,6 +412,8 @@ let _dataFin = '';
 let _canEdit = false;
 let _editId = null;
 let _inlineCtx = null;
+let _pendingInfoFile = null;
+let _currentInfoUrl  = '';
 
 function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtDate(ds){
@@ -469,7 +487,9 @@ function renderTable(evs){
       if(isF){
         const rs=PDV_LIST.length;
         const titleClick=_canEdit?`onclick="openForm(${ev.id})" style="color:${s.color}"`:`style="color:${s.color};cursor:default"`;
-        const linkIcon=ev.link_info?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400);font-size:11px;margin-left:6px;vertical-align:middle;font-weight:400;text-transform:none" title="Info operative"><i class="fas fa-arrow-up-right-from-square"></i></a>`:'';
+        const _liExt=(ev.link_info||'').split('.').pop().toLowerCase();
+        const _liIco=_liExt==='pdf'?'fa-file-pdf':(['doc','docx'].includes(_liExt)?'fa-file-word':['xls','xlsx'].includes(_liExt)?'fa-file-excel':'fa-arrow-up-right-from-square');
+        const linkIcon=ev.link_info?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400);font-size:11px;margin-left:6px;vertical-align:middle;font-weight:400;text-transform:none" title="Info operative"><i class="fas ${_liIco}"></i></a>`:'';
         html+=`
           <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}${linkIcon}</td>
           <td class="td-settore" rowspan="${rs}" style="color:${s.color}">${escH(ev.settore||'')}</td>
@@ -594,6 +614,42 @@ function setTipo(t){
   closeFlt(); render();
 }
 
+/* ── INFO FILE ── */
+function onInfoFileSelected(input){
+  const file=input.files[0];
+  if(!file) return;
+  _pendingInfoFile=file;
+  _currentInfoUrl='';
+  document.getElementById('f-file-name').textContent=file.name;
+  const fl=document.getElementById('f-file-link');
+  fl.href='#'; fl.style.display='none';
+  document.getElementById('f-file-pill').style.display='flex';
+  document.getElementById('f-file-input-wrap').style.display='none';
+  document.getElementById('f-link-info').value='';
+}
+function showInfoOpFile(name, url){
+  _currentInfoUrl=url;
+  _pendingInfoFile=null;
+  document.getElementById('f-file-name').textContent=name||url;
+  const fl=document.getElementById('f-file-link');
+  fl.href=url||'#';
+  fl.style.display=url?'inline':'none';
+  document.getElementById('f-file-pill').style.display='flex';
+  document.getElementById('f-file-input-wrap').style.display='none';
+  document.getElementById('f-link-info').value='';
+}
+function removeInfoOpFile(){
+  _pendingInfoFile=null;
+  _currentInfoUrl='';
+  document.getElementById('f-file-pill').style.display='none';
+  document.getElementById('f-file-input-wrap').style.display='flex';
+  document.getElementById('f-file-name').textContent='';
+  const fl=document.getElementById('f-file-link');
+  fl.href='#'; fl.style.display='none';
+  document.getElementById('f-link-info').value='';
+  document.getElementById('f-file-inp').value='';
+}
+
 /* ── FORM ── */
 function buildAderisceChips(pdv){
   const wrap=document.getElementById('pdv-aderisce-wrap');
@@ -642,16 +698,15 @@ function openForm(evId){
   document.getElementById('f-meccanica').value = ev?.meccanica||'';
   document.getElementById('f-data-ini').value  = ev?.data_inizio||'';
   document.getElementById('f-data-fin').value  = ev?.data_fine||'';
-  const linkVal = ev?.link_info||'';
-  document.getElementById('f-link-info').value = linkVal;
-  const linkPrev = document.getElementById('f-link-preview');
-  linkPrev.style.display = linkVal ? 'inline' : 'none';
-  if(linkVal) linkPrev.href = linkVal;
-  document.getElementById('f-link-info').oninput = function(){
-    const v=this.value.trim();
-    linkPrev.style.display=v?'inline':'none';
-    if(v) linkPrev.href=v;
-  };
+  _pendingInfoFile = null;
+  const savedUrl = ev?.link_info||'';
+  if(savedUrl){
+    const parts = savedUrl.split('/');
+    const fname = decodeURIComponent(parts[parts.length-1].split('?')[0]);
+    showInfoOpFile(fname||savedUrl, savedUrl);
+  } else {
+    removeInfoOpFile();
+  }
 
   const pdv = ev?.pdv_data||defaultPdvData();
   buildAderisceChips(pdv);
@@ -693,6 +748,30 @@ async function saveEvento(){
   if(!_sb){ showToastM361('Connessione non disponibile, ricarica la pagina','error'); return; }
   const titolo=document.getElementById('f-titolo').value.trim();
   if(!titolo){ showToastM361('Inserisci il titolo','warning'); switchTab('info'); document.getElementById('f-titolo').focus(); return; }
+
+  // Upload pending file if selected
+  let infoUrl = _currentInfoUrl;
+  if(_pendingInfoFile){
+    const prog=document.getElementById('f-upload-progress');
+    prog.style.display='flex';
+    const ext=_pendingInfoFile.name.split('.').pop();
+    const safeName=_pendingInfoFile.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path=`campagne/${Date.now()}_${safeName}`;
+    const {error:upErr}=await _sb.storage.from('info-operative').upload(path,_pendingInfoFile,{upsert:true});
+    prog.style.display='none';
+    if(upErr){ showToastM361('Errore upload: '+upErr.message,'error'); return; }
+    const {data:pubData}=_sb.storage.from('info-operative').getPublicUrl(path);
+    infoUrl=pubData.publicUrl;
+    _currentInfoUrl=infoUrl;
+    _pendingInfoFile=null;
+    // Update pill link now that URL is known
+    const fl=document.getElementById('f-file-link');
+    fl.href=infoUrl; fl.style.display='inline';
+  }
+  // If pill is hidden, fall back to manual URL input
+  const pillVisible=document.getElementById('f-file-pill').style.display!=='none';
+  const finalInfoUrl=pillVisible?(infoUrl||null):(document.getElementById('f-link-info').value.trim()||null);
+
   const row={
     anno:       parseInt(document.getElementById('f-anno').value),
     titolo,
@@ -701,7 +780,7 @@ async function saveEvento(){
     meccanica:  document.getElementById('f-meccanica').value.trim()||null,
     data_inizio:document.getElementById('f-data-ini').value||null,
     data_fine:  document.getElementById('f-data-fin').value||null,
-    link_info:  document.getElementById('f-link-info').value.trim()||null,
+    link_info:  finalInfoUrl,
     pdv_data:   collectPdvData(),
   };
   let err;
