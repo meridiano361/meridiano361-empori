@@ -146,8 +146,8 @@
     st.id = 'm361-styles';
     st.textContent = `
 *, *::before, *::after { box-sizing: border-box; }
-body { font-family: 'Nunito', sans-serif; padding-top: 56px; padding-bottom: 68px; }
-#m361-header { position:fixed;top:0;left:0;right:0;height:56px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:9000;box-shadow:0 1px 4px rgba(0,0,0,.05);gap:12px; }
+body { font-family: 'Nunito', sans-serif; padding-top: 64px; padding-bottom: 68px; }
+#m361-header { position:fixed;top:0;left:0;right:0;height:64px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:9000;box-shadow:0 1px 4px rgba(0,0,0,.05);gap:12px; }
 #m361-header .hd-left { display:flex;align-items:center;gap:0;text-decoration:none;flex:1;min-width:0; }
 #m361-header .hd-logo { height:28px;object-fit:contain;flex-shrink:0; }
 #m361-header .hd-logo-fb { font-weight:900;font-size:16px;color:#B5453A;letter-spacing:.08em;flex-shrink:0;display:none; }
