@@ -16,17 +16,14 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- Lettura pubblica
-CREATE POLICY "info-operative public read"
-ON storage.objects FOR SELECT TO anon
-USING (bucket_id = 'info-operative');
+-- Policy unica per tutte le operazioni (progetto usa anon key senza Supabase Auth)
+DROP POLICY IF EXISTS "info-operative public read" ON storage.objects;
+DROP POLICY IF EXISTS "info-operative anon upload" ON storage.objects;
+DROP POLICY IF EXISTS "info-operative anon delete" ON storage.objects;
+DROP POLICY IF EXISTS "info-operative all access" ON storage.objects;
 
--- Upload per utenti autenticati via anon key
-CREATE POLICY "info-operative anon upload"
-ON storage.objects FOR INSERT TO anon
+CREATE POLICY "info-operative all access"
+ON storage.objects
+FOR ALL
+USING (bucket_id = 'info-operative')
 WITH CHECK (bucket_id = 'info-operative');
-
--- Eliminazione (opzionale, per rimuovere file vecchi)
-CREATE POLICY "info-operative anon delete"
-ON storage.objects FOR DELETE TO anon
-USING (bucket_id = 'info-operative');
