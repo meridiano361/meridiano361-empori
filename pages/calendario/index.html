@@ -228,6 +228,7 @@ function getCurrentPageId(){ return 'calendario'; }
           <th id="th-ris1">RISULTATO 2025</th>
           <th id="th-ris2">RISULTATO 2024</th>
           <th id="th-ris3">RISULTATO 2023</th>
+          <th style="width:36px;padding:8px 6px"></th>
         </tr>
       </thead>
       <tbody id="cal-body"></tbody>
@@ -509,6 +510,7 @@ function renderTable(evs){
           <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_fine)}</td>
           <td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 6px;width:36px">${allegCell}</td>
           <td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 6px;width:36px">${linkCell}</td>`;
+        html+=`<td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 2px;width:36px">${_canEdit?`<button onclick="deleteEventoDirect(${ev.id},event)" style="background:none;border:none;cursor:pointer;color:var(--s300);padding:5px;border-radius:6px;line-height:1;transition:color .15s" onmouseenter="this.style.color='#B5453A'" onmouseleave="this.style.color='var(--s300)'" title="Elimina campagna"><i class="fas fa-trash" style="font-size:13px"></i></button>`:''}</td>`;
       }
 
       const rKey = 'r'+_annoAttivo;
@@ -817,6 +819,17 @@ async function deleteEvento(){
   loadEventi();
 }
 
+async function deleteEventoDirect(evId, evt){
+  evt.stopPropagation();
+  const ev=_eventi.find(e=>e.id===evId);
+  const ok=await m361Confirm(`Eliminare "${ev?.titolo}"?`,'Elimina campagna','Elimina','Annulla','error');
+  if(!ok) return;
+  const {error}=await _sb.from('campagne_commerciali').delete().eq('id',evId);
+  if(error){ showToastM361('Errore eliminazione','error'); return; }
+  showToastM361('Campagna eliminata','success');
+  loadEventi();
+}
+
 /* ── INLINE EDIT (risultati / azioni) ── */
 function openInline(evt, evId, pdv, key){
   if(!_canEdit) return;
@@ -876,7 +889,7 @@ document.addEventListener('click',e=>{ if(!e.target.closest('.flt-wrap')) closeF
 function init(){
   const u=JSON.parse(localStorage.getItem('m361_user')||'null');
   if(!u){ window.location.href='/login.html'; return; }
-  _canEdit=!!(u.is_full_admin||u.is_resp_emporio||u.ruolo==='admin');
+  _canEdit=!!(u.is_full_admin||u.is_resp_emporio||u.ruolo==='admin'||u.ruolo==='dipendente');
   if(!_canEdit){
     const btn=document.getElementById('btn-nuova');
     if(btn) btn.style.display='none';
