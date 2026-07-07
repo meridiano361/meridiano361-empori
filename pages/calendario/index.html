@@ -31,6 +31,14 @@
     .flt-opt:hover{background:var(--s50)}
     .flt-opt.active{color:var(--red);font-weight:700;background:#fdf1f0}
 
+    /* ANNI PRECEDENTI — nascoste di default */
+    #th-ris1,#th-ris2,#th-ris3{display:none}
+    #cal-tbl .td-ris-prev{display:none}
+    #cal-tbl.show-prev #th-ris1,#cal-tbl.show-prev #th-ris2,#cal-tbl.show-prev #th-ris3{display:table-cell}
+    #cal-tbl.show-prev .td-ris-prev{display:table-cell}
+    .btn-prev-toggle{background:none;border:1px solid var(--s200);border-radius:5px;cursor:pointer;color:var(--s400);font-size:10px;padding:1px 5px;margin-left:4px;vertical-align:middle;line-height:1.4;transition:all .12s;font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap}
+    .btn-prev-toggle:hover{border-color:var(--s400);color:var(--s600)}
+
     /* TABLE */
     .tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 190px);-webkit-overflow-scrolling:touch;border:1px solid var(--s200);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.05)}
     .cal-tbl{width:100%;border-collapse:collapse;font-size:15px;min-width:900px}
@@ -224,7 +232,7 @@ function getCurrentPageId(){ return 'calendario'; }
           <th>PUNTO VENDITA</th>
           <th>ADERISCE</th>
           <th>AZIONI</th>
-          <th id="th-ris0">RISULTATO 2026</th>
+          <th id="th-ris0">RISULTATO <span id="th-ris0-anno">2026</span><button class="btn-prev-toggle" id="btn-prev-years" onclick="togglePrevYears()" title="Mostra/nascondi anni precedenti">▸ anni prec.</button></th>
           <th id="th-ris1">RISULTATO 2025</th>
           <th id="th-ris2">RISULTATO 2024</th>
           <th id="th-ris3">RISULTATO 2023</th>
@@ -462,7 +470,7 @@ function render(){
 
   // Update headers
   document.getElementById('th-anno').textContent = _annoAttivo;
-  ANNI.forEach((a,i)=>{ const el=document.getElementById('th-ris'+i); if(el) el.textContent='RISULTATO '+a; });
+  const sp=document.getElementById('th-ris0-anno'); if(sp) sp.textContent=ANNI[0];
 
   renderTable(evs);
   renderMobile(evs);
@@ -510,7 +518,6 @@ function renderTable(evs){
           <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_fine)}</td>
           <td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 6px;width:36px">${allegCell}</td>
           <td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 6px;width:36px">${linkCell}</td>`;
-        html+=`<td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 2px;width:36px">${_canEdit?`<button onclick="deleteEventoDirect(${ev.id},event)" style="background:none;border:none;cursor:pointer;color:var(--s300);padding:5px;border-radius:6px;line-height:1;transition:color .15s" onmouseenter="this.style.color='#B5453A'" onmouseleave="this.style.color='var(--s300)'" title="Elimina campagna"><i class="fas fa-trash" style="font-size:13px"></i></button>`:''}</td>`;
       }
 
       const rKey = 'r'+_annoAttivo;
@@ -522,9 +529,10 @@ function renderTable(evs){
         <td class="td-ader ${d.aderisce?'si':'no'}">${d.aderisce?'sì':'no'}</td>
         <td ${inlClick('azioni')}>${escH(d.azioni||'')}&nbsp;</td>
         <td class="td-ris${ris[0]?'':' empty'}${_canEdit?'':' no-click'}" ${_canEdit?`onclick="openInline(event,${ev.id},'${pk}','${rKey}')" title="Clicca per modificare"`:''}>${escH(ris[0])||'—'}</td>
-        <td class="td-ris${ris[1]?'':' empty'}">${escH(ris[1])||'—'}</td>
-        <td class="td-ris${ris[2]?'':' empty'}">${escH(ris[2])||'—'}</td>
-        <td class="td-ris${ris[3]?'':' empty'}">${escH(ris[3])||'—'}</td>
+        <td class="td-ris td-ris-prev${ris[1]?'':' empty'}">${escH(ris[1])||'—'}</td>
+        <td class="td-ris td-ris-prev${ris[2]?'':' empty'}">${escH(ris[2])||'—'}</td>
+        <td class="td-ris td-ris-prev${ris[3]?'':' empty'}">${escH(ris[3])||'—'}</td>
+        ${isF?`<td rowspan="${PDV_LIST.length}" style="text-align:center;vertical-align:middle;padding:4px 2px;width:36px">${_canEdit?`<button onclick="deleteEventoDirect(${ev.id},event)" style="background:none;border:none;cursor:pointer;color:var(--s300);padding:5px;border-radius:6px;line-height:1;transition:color .15s" onmouseenter="this.style.color='#B5453A'" onmouseleave="this.style.color='var(--s300)'" title="Elimina campagna"><i class="fas fa-trash" style="font-size:13px"></i></button>`:''}</td>`:'' }
       </tr>`;
     });
   });
@@ -639,7 +647,6 @@ function onInfoFileSelected(input){
   fl.href='#'; fl.style.display='none';
   document.getElementById('f-file-pill').style.display='flex';
   document.getElementById('f-file-input-wrap').style.display='none';
-  document.getElementById('f-link-info').value='';
 }
 function showInfoOpFile(name, url){
   _currentInfoUrl=url;
@@ -650,7 +657,6 @@ function showInfoOpFile(name, url){
   fl.style.display=url?'inline':'none';
   document.getElementById('f-file-pill').style.display='flex';
   document.getElementById('f-file-input-wrap').style.display='none';
-  document.getElementById('f-link-info').value='';
 }
 function removeInfoOpFile(){
   _pendingInfoFile=null;
@@ -660,7 +666,6 @@ function removeInfoOpFile(){
   document.getElementById('f-file-name').textContent='';
   const fl=document.getElementById('f-file-link');
   fl.href='#'; fl.style.display='none';
-  document.getElementById('f-link-info').value='';
   document.getElementById('f-file-inp').value='';
 }
 
@@ -817,6 +822,13 @@ async function deleteEvento(){
   closeForm();
   showToastM361('Campagna eliminata','success');
   loadEventi();
+}
+
+function togglePrevYears(){
+  const tbl=document.getElementById('cal-tbl');
+  const btn=document.getElementById('btn-prev-years');
+  const show=tbl.classList.toggle('show-prev');
+  if(btn) btn.textContent=show?'◂ nascondi':'▸ anni prec.';
 }
 
 async function deleteEventoDirect(evId, evt){
