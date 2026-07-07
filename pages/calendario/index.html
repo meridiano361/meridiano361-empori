@@ -219,6 +219,7 @@ function getCurrentPageId(){ return 'calendario'; }
           <th>MECCANICA</th>
           <th>DATA INIZIO</th>
           <th>DATA FINE</th>
+          <th>ALLEGATI</th>
           <th>PUNTO VENDITA</th>
           <th>ADERISCE</th>
           <th>AZIONI</th>
@@ -487,16 +488,20 @@ function renderTable(evs){
       if(isF){
         const rs=PDV_LIST.length;
         const titleClick=_canEdit?`onclick="openForm(${ev.id})" style="color:${s.color}"`:`style="color:${s.color};cursor:default"`;
-        const _liExt=(ev.link_info||'').split('.').pop().toLowerCase();
-        const _liIco=_liExt==='pdf'?'fa-file-pdf':(['doc','docx'].includes(_liExt)?'fa-file-word':['xls','xlsx'].includes(_liExt)?'fa-file-excel':'fa-arrow-up-right-from-square');
-        const linkIcon=ev.link_info?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400);font-size:11px;margin-left:6px;vertical-align:middle;font-weight:400;text-transform:none" title="Info operative"><i class="fas ${_liIco}"></i></a>`:'';
+        const _liExt=(ev.link_info||'').split('.').pop().toLowerCase().split('?')[0];
+        const _liIco=_liExt==='pdf'?'fa-file-pdf':(['doc','docx'].includes(_liExt)?'fa-file-word':['xls','xlsx'].includes(_liExt)?'fa-file-excel':'fa-paperclip');
+        const _liName=ev.link_info?decodeURIComponent(ev.link_info.split('/').pop().split('?')[0]).replace(/^\d+_/,''):'';
+        const allegatiCell=ev.link_info
+          ?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:5px;color:var(--s600);font-size:11px;font-weight:700;text-decoration:none;padding:3px 8px;background:var(--s50);border:1px solid var(--s200);border-radius:8px;max-width:140px;overflow:hidden" title="${escH(_liName)}"><i class="fas ${_liIco}" style="flex-shrink:0;color:#B5453A"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(_liName)}</span></a>`
+          :`<span style="color:var(--s300);font-size:11px">—</span>`;
         html+=`
-          <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}${linkIcon}</td>
+          <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}</td>
           <td class="td-settore" rowspan="${rs}" style="color:${s.color}">${escH(ev.settore||'')}</td>
           <td class="td-tipo" rowspan="${rs}">${escH(ev.tipologia||'')}</td>
           <td class="td-mecc" rowspan="${rs}">${mecH}</td>
           <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_inizio)}</td>
-          <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_fine)}</td>`;
+          <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_fine)}</td>
+          <td rowspan="${rs}" style="vertical-align:middle;padding:6px 10px">${allegatiCell}</td>`;
       }
 
       const rKey = 'r'+_annoAttivo;
