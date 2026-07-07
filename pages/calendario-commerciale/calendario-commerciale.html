@@ -160,8 +160,10 @@ async function loadEventi() {
     .from('campagne_commerciali')
     .select('*')
     .eq('anno', parseInt(currentYear))
-    .order('data_inizio', { nullsFirst: true })
-    .order('id');
+    .order('data_inizio', { ascending: true, nullsFirst: true })
+    .order('id', { ascending: true });
+  if (error) console.error('[CC] Errore query:', error);
+  else console.log('[CC] Campagne caricate:', data?.length, data?.map(e => e.titolo + ' (' + e.data_inizio + ')'));
   _eventi[currentYear] = error ? [] : (data || []);
   render();
 }
@@ -321,7 +323,7 @@ function renderLista(evs) {
         <span class="month-name">${label}</span>
         <span class="month-count">${items.length}</span>
       </div>
-      ${items.map(ev => renderCard(ev)).join('')}
+      ${items.map(ev => { try { return renderCard(ev); } catch(e) { console.error('[CC] renderCard error:', ev?.id, ev?.titolo, e); return ''; } }).join('')}
     </div>`;
   }).join('');
 }
