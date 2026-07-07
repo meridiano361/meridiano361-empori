@@ -219,7 +219,8 @@ function getCurrentPageId(){ return 'calendario'; }
           <th>MECCANICA</th>
           <th>DATA INIZIO</th>
           <th>DATA FINE</th>
-          <th>ALLEGATI</th>
+          <th style="text-align:center;width:36px;padding:8px 6px" title="Allegati"><i class="fas fa-paperclip"></i></th>
+          <th style="text-align:center;width:36px;padding:8px 6px" title="Link"><i class="fas fa-link"></i></th>
           <th>PUNTO VENDITA</th>
           <th>ADERISCE</th>
           <th>AZIONI</th>
@@ -320,27 +321,29 @@ function getCurrentPageId(){ return 'calendario'; }
           <input type="date" id="f-data-fin" class="form-input">
         </div>
       </div>
-      <div>
-        <label class="form-label">Info operative</label>
-        <!-- Pill: file/link allegato -->
-        <div id="f-file-pill" style="display:none;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--s200);border-radius:9px;background:var(--s50)">
-          <i class="fas fa-file-alt" style="color:var(--red);font-size:18px;flex-shrink:0"></i>
-          <span id="f-file-name" style="flex:1;font-size:13px;font-weight:600;color:var(--s700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-          <a id="f-file-link" href="#" target="_blank" rel="noopener" style="color:var(--s400);font-size:15px;flex-shrink:0" title="Apri"><i class="fas fa-arrow-up-right-from-square"></i></a>
-          <button onclick="removeInfoOpFile()" style="background:none;border:none;color:var(--s400);font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1" title="Rimuovi"><i class="fas fa-times"></i></button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label class="form-label"><i class="fas fa-paperclip" style="margin-right:4px"></i>Allegato</label>
+          <!-- Pill: file allegato -->
+          <div id="f-file-pill" style="display:none;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--s200);border-radius:9px;background:var(--s50)">
+            <i class="fas fa-file-alt" style="color:var(--red);font-size:18px;flex-shrink:0"></i>
+            <span id="f-file-name" style="flex:1;font-size:13px;font-weight:600;color:var(--s700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <a id="f-file-link" href="#" target="_blank" rel="noopener" style="color:var(--s400);font-size:15px;flex-shrink:0" title="Apri"><i class="fas fa-arrow-up-right-from-square"></i></a>
+            <button onclick="removeInfoOpFile()" style="background:none;border:none;color:var(--s400);font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1" title="Rimuovi"><i class="fas fa-times"></i></button>
+          </div>
+          <div id="f-file-input-wrap">
+            <label id="f-file-lbl" style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid var(--s200);border-radius:9px;background:#fff;font-size:13px;font-weight:700;color:var(--s600);cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s">
+              <i class="fas fa-paperclip"></i> Allega file
+              <input type="file" id="f-file-inp" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="onInfoFileSelected(this)" style="display:none">
+            </label>
+          </div>
+          <div id="f-upload-progress" style="display:none;align-items:center;gap:8px;font-size:13px;color:var(--s500);padding:6px 2px">
+            <i class="fas fa-spinner fa-spin"></i> Caricamento…
+          </div>
         </div>
-        <!-- Input area: upload + URL -->
-        <div id="f-file-input-wrap" style="display:flex;gap:8px;align-items:center">
-          <label id="f-file-lbl" style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid var(--s200);border-radius:9px;background:#fff;font-size:13px;font-weight:700;color:var(--s600);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:border-color .15s,color .15s">
-            <i class="fas fa-paperclip"></i> Allega file
-            <input type="file" id="f-file-inp" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="onInfoFileSelected(this)" style="display:none">
-          </label>
-          <span style="color:var(--s300);font-size:12px;flex-shrink:0">o URL</span>
-          <input type="url" id="f-link-info" class="form-input" placeholder="https://…" autocomplete="off" style="flex:1">
-        </div>
-        <!-- Upload progress -->
-        <div id="f-upload-progress" style="display:none;align-items:center;gap:8px;font-size:13px;color:var(--s500);padding:6px 2px">
-          <i class="fas fa-spinner fa-spin"></i> Caricamento…
+        <div>
+          <label class="form-label"><i class="fas fa-link" style="margin-right:4px"></i>Link esterno</label>
+          <input type="url" id="f-link-esterno" class="form-input" placeholder="https://…" autocomplete="off">
         </div>
       </div>
       <div>
@@ -491,9 +494,12 @@ function renderTable(evs){
         const _liExt=(ev.link_info||'').split('.').pop().toLowerCase().split('?')[0];
         const _liIco=_liExt==='pdf'?'fa-file-pdf':(['doc','docx'].includes(_liExt)?'fa-file-word':['xls','xlsx'].includes(_liExt)?'fa-file-excel':'fa-paperclip');
         const _liName=ev.link_info?decodeURIComponent(ev.link_info.split('/').pop().split('?')[0]).replace(/^\d+_/,''):'';
-        const allegatiCell=ev.link_info
-          ?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:5px;color:var(--s600);font-size:11px;font-weight:700;text-decoration:none;padding:3px 8px;background:var(--s50);border:1px solid var(--s200);border-radius:8px;max-width:140px;overflow:hidden" title="${escH(_liName)}"><i class="fas ${_liIco}" style="flex-shrink:0;color:#B5453A"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(_liName)}</span></a>`
-          :`<span style="color:var(--s300);font-size:11px">—</span>`;
+        const allegCell=ev.link_info
+          ?`<a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:#B5453A;font-size:15px" title="${escH(_liName)}"><i class="fas ${_liIco}"></i></a>`
+          :``;
+        const linkCell=ev.link_esterno
+          ?`<a href="${escH(ev.link_esterno)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s500);font-size:15px" title="${escH(ev.link_esterno)}"><i class="fas fa-link"></i></a>`
+          :``;
         html+=`
           <td class="td-titolo${_canEdit?'':' no-click'}" rowspan="${rs}" ${titleClick}>${escH(ev.titolo)}</td>
           <td class="td-settore" rowspan="${rs}" style="color:${s.color}">${escH(ev.settore||'')}</td>
@@ -501,7 +507,8 @@ function renderTable(evs){
           <td class="td-mecc" rowspan="${rs}">${mecH}</td>
           <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_inizio)}</td>
           <td class="td-data" rowspan="${rs}">${fmtDate(ev.data_fine)}</td>
-          <td rowspan="${rs}" style="vertical-align:middle;padding:6px 10px">${allegatiCell}</td>`;
+          <td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 6px;width:36px">${allegCell}</td>
+          <td rowspan="${rs}" style="text-align:center;vertical-align:middle;padding:4px 6px;width:36px">${linkCell}</td>`;
       }
 
       const rKey = 'r'+_annoAttivo;
@@ -712,6 +719,7 @@ function openForm(evId){
   } else {
     removeInfoOpFile();
   }
+  document.getElementById('f-link-esterno').value = ev?.link_esterno||'';
 
   const pdv = ev?.pdv_data||defaultPdvData();
   buildAderisceChips(pdv);
@@ -773,20 +781,17 @@ async function saveEvento(){
     const fl=document.getElementById('f-file-link');
     fl.href=infoUrl; fl.style.display='inline';
   }
-  // If pill is hidden, fall back to manual URL input
-  const pillVisible=document.getElementById('f-file-pill').style.display!=='none';
-  const finalInfoUrl=pillVisible?(infoUrl||null):(document.getElementById('f-link-info').value.trim()||null);
-
   const row={
-    anno:       parseInt(document.getElementById('f-anno').value),
-    titolo:     titolo.toUpperCase(),
-    settore:    document.getElementById('f-settore').value,
-    tipologia:  document.getElementById('f-tipologia').value||null,
-    meccanica:  document.getElementById('f-meccanica').value.trim()||null,
-    data_inizio:document.getElementById('f-data-ini').value||null,
-    data_fine:  document.getElementById('f-data-fin').value||null,
-    link_info:  finalInfoUrl,
-    pdv_data:   collectPdvData(),
+    anno:          parseInt(document.getElementById('f-anno').value),
+    titolo:        titolo.toUpperCase(),
+    settore:       document.getElementById('f-settore').value,
+    tipologia:     document.getElementById('f-tipologia').value||null,
+    meccanica:     document.getElementById('f-meccanica').value.trim()||null,
+    data_inizio:   document.getElementById('f-data-ini').value||null,
+    data_fine:     document.getElementById('f-data-fin').value||null,
+    link_info:     infoUrl||null,
+    link_esterno:  document.getElementById('f-link-esterno').value.trim()||null,
+    pdv_data:      collectPdvData(),
   };
   let err;
   if(_editId){
