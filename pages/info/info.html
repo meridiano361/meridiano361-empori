@@ -411,7 +411,7 @@
 
     // ─── RENDER ───────────────────────────────────────────────────────────
     function render() {
-        const empReqs  = requests.filter(r => r.emporio === currentEmporio);
+        const empReqs  = requests.filter(r => (r.emporio||'').toLowerCase() === (currentEmporio||'').toLowerCase());
         const aperte   = empReqs.filter(r => r.stato !== 'Esaurito');
         const esaudite = empReqs.filter(r => r.stato === 'Esaurito');
 
@@ -551,16 +551,28 @@
         {id:'viadana',       nome:'Viadana',         img:'../../assets/images/logo_viadana.png'},
     ];
 
+    // Converte qualsiasi variante di nome/slug emporio → id dell'EMPORI_LIST
+    // Gestisce sia display name ("Reggio Emilia", "Mantova") sia slug ("reggioemilia", "mantova")
     function nomeToId(nome) {
-        const e = EMPORI_LIST.find(x => x.nome.toLowerCase() === nome.toLowerCase());
-        return e ? e.id : null;
+        if (!nome) return null;
+        const lower = nome.toLowerCase();
+        // 1. Match diretto sull'id (es. "reggioemilia", "mantova")
+        const byId = EMPORI_LIST.find(x => x.id === lower);
+        if (byId) return byId.id;
+        // 2. Match sul nome visualizzato (es. "Reggio Emilia")
+        const byNome = EMPORI_LIST.find(x => x.nome.toLowerCase() === lower);
+        if (byNome) return byNome.id;
+        // 3. Match tramite slug del nome (es. "reggio emilia" → "reggioemilia")
+        const slug = lower.replace(/\s+/g, '');
+        const bySlug = EMPORI_LIST.find(x => x.id === slug);
+        return bySlug ? bySlug.id : null;
     }
 
     function buildEmpiGrid(filtroNomi=null) {
         const g = document.getElementById('emp-grid-container');
         g.innerHTML = '';
         const lista = filtroNomi
-            ? EMPORI_LIST.filter(e => filtroNomi.some(n => n.toLowerCase() === e.nome.toLowerCase()))
+            ? EMPORI_LIST.filter(e => filtroNomi.some(n => nomeToId(n) === e.id))
             : EMPORI_LIST;
         lista.forEach(e => {
             const btn = document.createElement('button');
@@ -569,6 +581,8 @@
             btn.onclick = () => selectEmporio(e.id);
             g.appendChild(btn);
         });
+        // Se nessun emporio trovato (lista vuota), mostra tutto
+        if (filtroNomi && lista.length === 0) buildEmpiGrid(null);
     }
 
     function init() {
@@ -576,7 +590,7 @@
         if (!user) return;
         const allEmpori = [user.emporio, ...(Array.isArray(user.empori_aggiuntivi) ? user.empori_aggiuntivi : [])].filter(Boolean);
         const uniqNomi  = [...new Set(allEmpori)];
-        const isVeroAdmin = user.ruolo === 'admin';
+        const isVeroAdmin = user.ruolo === 'admin' || user.ruolo === 'dipendente';
 
         if (isVeroAdmin) {
             buildEmpiGrid(null);
