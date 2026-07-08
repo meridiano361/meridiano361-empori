@@ -106,7 +106,7 @@
       { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: true },
       { id: 'rifornimento', label: 'Rifornimento', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: false },
       { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/prezzi.html',          section: null,      active: true  },
-      { id: 'preordini',   label: 'Preordini',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: true  },
+      { id: 'preordini',   label: 'Preordini',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: false },
       { id: 'materiali',   label: 'Materiali',   icon: 'fa-folder-open',    href: 'pages/materiali/materiali.html',    section: null,      active: true  },
       { id: 'scadenze',   label: 'Scadenze',    icon: 'fa-clock-rotate-left', href: 'pages/prodotti-scadenza/prodotti-scadenza.html', section: null, active: true },
       { id: 'listino',    label: 'Vetrina',     icon: 'fa-list-ul',           href: 'pages/listino-prezzi/listino-prezzi.html',       section: null, active: true },
@@ -171,7 +171,7 @@ body { font-family: 'Nunito', sans-serif; padding-top: 64px; padding-bottom: 68p
 .mn-item.mn-current i,.mn-item.mn-current span { color:#fff; }
 .mn-item.mn-active:not(.mn-current):hover { background:rgba(255,255,255,.12); }
 .mn-item.mn-active:hover i,.mn-item.mn-active:hover span { color:#fff; }
-.mn-item.mn-wip { opacity:.3;cursor:not-allowed;pointer-events:none; }
+.mn-item.mn-wip { opacity:.3 !important;cursor:not-allowed;pointer-events:none !important; }
 .mn-item.mn-logout { opacity:.7; }
 .mn-item.mn-logout:hover { opacity:1;background:rgba(255,255,255,.12); }
 .mn-item.mn-logout:hover i,.mn-item.mn-logout:hover span { color:#fff; }
