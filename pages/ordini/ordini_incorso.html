@@ -456,6 +456,9 @@
                 <input type="text" id="filtro-cliente" placeholder="Cerca cliente..." oninput="applicaFiltri()" class="filtro-input" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
             </div>
             <div class="filtro-item">
+                <input type="text" id="filtro-prodotto" placeholder="Cerca prodotto..." oninput="applicaFiltri()" class="filtro-input" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+            </div>
+            <div class="filtro-item">
                 <select id="filtro-emporio" onchange="applicaFiltri()" class="filtro-input">
                     <option value="">Tutti gli empori</option>
                     <option value="Cremona">Cremona</option>
@@ -1003,6 +1006,17 @@
                 });
             }
 
+            const filterProdotto = (document.getElementById('filtro-prodotto')?.value || '').toLowerCase().trim();
+            if (filterProdotto) {
+                filtered = filtered.filter(order => {
+                    const articoli = order.articoli || [];
+                    return articoli.some(a =>
+                        (a.descrizione || '').toLowerCase().includes(filterProdotto) ||
+                        (a.codice || '').toLowerCase().includes(filterProdotto)
+                    );
+                });
+            }
+
             const filterEmporio = document.getElementById('filtro-emporio')?.value || '';
             if (filterEmporio) {
                 filtered = filtered.filter(order => (order.emporio || order.citta || '') === filterEmporio);
@@ -1023,6 +1037,7 @@
 
         function resetFiltri() {
             document.getElementById('filtro-cliente').value = '';
+            document.getElementById('filtro-prodotto').value = '';
             document.getElementById('filtro-emporio').value = '';
             document.getElementById('filtro-data').value = '';
             applyCurrentFilter();
