@@ -208,12 +208,7 @@ function getCurrentPageId(){ return 'calendario'; }
       <button class="flt-btn" id="flt-btn-anno" onclick="toggleFlt('anno')">
         <span id="flt-lbl-anno">2026</span><i class="fas fa-chevron-down flt-arr"></i>
       </button>
-      <div class="flt-pop" id="flt-pop-anno">
-        <button class="flt-opt active" data-anno="2026" onclick="setAnno(2026)">2026</button>
-        <button class="flt-opt" data-anno="2025" onclick="setAnno(2025)">2025</button>
-        <button class="flt-opt" data-anno="2024" onclick="setAnno(2024)">2024</button>
-        <button class="flt-opt" data-anno="2023" onclick="setAnno(2023)">2023</button>
-      </div>
+      <div class="flt-pop" id="flt-pop-anno"></div>
     </div>
     <div class="flt-wrap">
       <button class="flt-btn" id="flt-btn-settore" onclick="toggleFlt('settore')">
@@ -370,12 +365,7 @@ function getCurrentPageId(){ return 'calendario'; }
         </div>
         <div style="min-width:80px">
           <label class="form-label">Anno *</label>
-          <select id="f-anno" class="form-input">
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-            <option value="2023">2023</option>
-          </select>
+          <select id="f-anno" class="form-input"></select>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -498,7 +488,7 @@ const SETTORI = {
 };
 const PDV_LIST   = ['CR','CA','VI','RE','WEB'];
 const PDV_LABELS = { CR:'Cremona', CA:'Casalmaggiore', VI:'Viadana', RE:'Reggio E.', WEB:'Web' };
-const ANNI     = [2026,2025,2024,2023];
+let ANNI = JSON.parse(localStorage.getItem('cal_anni')||'null') || [2026,2025,2024,2023];
 const MESI     = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 
 let _eventi = [];
@@ -526,16 +516,25 @@ function fmtDate(ds){
 }
 function defaultPdvData(){
   const o={};
-  PDV_LIST.forEach(p=>{ o[p]={aderisce:true,azioni:'',r2026:'',r2025:'',r2024:'',r2023:''}; });
+  const rKeys={}; ANNI.forEach(a=>{ rKeys['r'+a]=''; });
+  PDV_LIST.forEach(p=>{ o[p]={aderisce:true,azioni:'',...rKeys}; });
   return o;
 }
 
 /* ── DATA ── */
 async function loadEventi(){
   if(!_sb) return;
-  const {data,error} = await _sb.from('campagne_commerciali').select('*').eq('anno',_annoAttivo).order('data_inizio',{nullsFirst:true}).order('id');
-  if(error){ showToastM361('Errore caricamento: '+error.message,'error'); return; }
-  _eventi = data||[];
+  const y1=`${_annoAttivo}-01-01`, y2=`${_annoAttivo}-12-31`;
+  // Load campaigns with dates overlapping this year, plus undated campaigns assigned to this year
+  const [r1,r2] = await Promise.all([
+    _sb.from('campagne_commerciali').select('*').lte('data_inizio',y2).gte('data_fine',y1),
+    _sb.from('campagne_commerciali').select('*').is('data_inizio',null).eq('anno',_annoAttivo)
+  ]);
+  if(r1.error){ showToastM361('Errore caricamento: '+r1.error.message,'error'); return; }
+  if(r2.error){ showToastM361('Errore caricamento: '+r2.error.message,'error'); return; }
+  const seen=new Set();
+  _eventi=[...(r1.data||[]),...(r2.data||[])].filter(e=>{ if(seen.has(e.id))return false; seen.add(e.id); return true; })
+    .sort((a,b)=>{ if(!a.data_inizio)return 1; if(!b.data_inizio)return -1; return a.data_inizio.localeCompare(b.data_inizio)||a.id-b.id; });
   render();
 }
 
@@ -561,7 +560,7 @@ function render(){
   } else {
     document.getElementById('empty-state').style.display = evs.length?'none':'block';
     document.getElementById('th-anno').textContent = _annoAttivo;
-    const sp=document.getElementById('th-ris0-anno'); if(sp) sp.textContent=ANNI[0];
+    updateRisHeaders();
     renderTable(evs);
     renderMobile(evs);
   }
@@ -579,7 +578,7 @@ function setView(v){
     const evs=filtered();
     document.getElementById('empty-state').style.display = evs.length?'none':'block';
     document.getElementById('th-anno').textContent = _annoAttivo;
-    const sp=document.getElementById('th-ris0-anno'); if(sp) sp.textContent=ANNI[0];
+    updateRisHeaders();
     renderTable(evs);
     renderMobile(evs);
   } else {
@@ -894,9 +893,38 @@ function toggleFlt(name){
 }
 function setAnno(a){
   _annoAttivo=a;
-  document.querySelectorAll('[data-anno]').forEach(t=>t.classList.toggle('active',+t.dataset.anno===a));
-  document.getElementById('flt-lbl-anno').textContent=a;
-  closeFlt(); loadEventi();
+  closeFlt();
+  rebuildAnnoDropdown();
+  loadEventi();
+}
+function rebuildAnnoDropdown(){
+  const pop=document.getElementById('flt-pop-anno');
+  if(!pop) return;
+  const next=Math.max(...ANNI)+1;
+  pop.innerHTML=ANNI.map(a=>`<button class="flt-opt${a===_annoAttivo?' active':''}" data-anno="${a}" onclick="setAnno(${a})">${a}</button>`).join('')
+    +`<div style="border-top:1px solid var(--s100);margin-top:4px;padding-top:4px"><button class="flt-opt" style="color:var(--red);width:100%;text-align:left" onclick="addAnno()"><i class="fas fa-plus" style="font-size:10px;margin-right:4px"></i>Aggiungi ${next}</button></div>`;
+  document.getElementById('flt-lbl-anno').textContent=_annoAttivo;
+}
+function rebuildFormAnnoSelect(){
+  const sel=document.getElementById('f-anno');
+  if(!sel) return;
+  sel.innerHTML=ANNI.map(a=>`<option value="${a}">${a}</option>`).join('');
+}
+function updateRisHeaders(){
+  const sp=document.getElementById('th-ris0-anno'); if(sp) sp.textContent=ANNI[0];
+  for(let i=1;i<=3;i++){
+    const th=document.getElementById('th-ris'+i);
+    if(th){ if(ANNI[i]){ th.textContent='RISULTATO '+ANNI[i]; th.style.display=''; } else th.style.display='none'; }
+  }
+}
+function addAnno(){
+  const next=Math.max(...ANNI)+1;
+  ANNI.unshift(next);
+  localStorage.setItem('cal_anni',JSON.stringify(ANNI));
+  rebuildAnnoDropdown();
+  rebuildFormAnnoSelect();
+  updateRisHeaders();
+  showToastM361('Anno '+next+' aggiunto','success');
 }
 function setSettore(s){
   _settoreAttivo=s;
@@ -1206,6 +1234,8 @@ function init(){
     const btn=document.getElementById('btn-nuova');
     if(btn) btn.style.display='none';
   }
+  rebuildAnnoDropdown();
+  rebuildFormAnnoSelect();
   loadEventi();
 }
 init();
