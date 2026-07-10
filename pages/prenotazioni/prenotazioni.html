@@ -337,8 +337,7 @@ function init() {
   const empori = [_u.emporio, ...(_u.empori_aggiuntivi || [])].filter(Boolean);
   const uniq = [...new Set(empori)];
 
-  if (_canRiepilogo) {
-    // admin, dipendente, resp_acquisti, resp_negozio vedono tutti gli empori
+  if (_u.ruolo === 'admin') {
     buildEmpiGrid(null);
     showScreen('empori');
   } else if (uniq.length === 1) {
@@ -389,7 +388,10 @@ async function selezionaEmporio(nome) {
 async function loadCampagne() {
   document.getElementById('campagne-list').innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
   const {data, error} = await _db.from('campagne_prenotazione').select('*').order('created_at', {ascending: false});
-  if (error) { showToastM361('Errore caricamento campagne', 'error'); return; }
+  if (error) {
+    document.getElementById('campagne-list').innerHTML = `<div class="empty-state" style="color:#ef4444"><i class="fas fa-triangle-exclamation"></i><br><br>Errore: ${error.message}</div>`;
+    return;
+  }
   _campagne = data || [];
   renderCampagne();
 }
