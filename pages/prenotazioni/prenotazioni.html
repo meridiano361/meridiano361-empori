@@ -734,13 +734,24 @@ async function saveCampagna() {
   const titolo = document.getElementById('fc-titolo').value.trim();
   if (!titolo) { showToastM361('Inserisci un titolo per la campagna', 'warning'); return; }
 
+  // Leggi prodotti direttamente dal DOM
+  const prodotti = [];
+  document.querySelectorAll('#fc-prodotti .camp-prod-row').forEach(row => {
+    const inp = row.querySelectorAll('input');
+    prodotti.push({
+      descrizione: inp[0]?.value.trim() || '',
+      codice:      inp[1]?.value.trim() || '',
+      prezzo:      parseFloat(inp[2]?.value) || 0,
+    });
+  });
+
   const payload = {
     titolo,
     descrizione: document.getElementById('fc-desc').value.trim() || null,
     data_apertura: document.getElementById('fc-apertura').value || null,
     data_chiusura: document.getElementById('fc-chiusura').value || null,
     attiva: document.getElementById('fc-attiva').checked,
-    prodotti: _campProdotti.map(p => ({...p, prezzo: parseFloat(p.prezzo) || 0})),
+    prodotti,
   };
 
   const btn = document.getElementById('btn-save-camp');
