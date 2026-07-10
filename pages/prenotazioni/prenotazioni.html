@@ -906,27 +906,34 @@ function addLink() {
 async function uploadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
   const files = [...fileList];
-  const uploadLabel = document.querySelector('label:has(#fc-file-input)');
+  const uploadLabel = document.getElementById('fc-file-input')?.parentElement;
   const origHtml = uploadLabel?.innerHTML;
   if (uploadLabel) uploadLabel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
 
-  let ok = 0;
-  for (const file of files) {
-    const path = `allegati/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const {error} = await _db.storage.from('prenotazioni').upload(path, file, {upsert: true});
-    if (error) {
-      const msg = error.message?.includes('Bucket') || error.statusCode === 404
-        ? 'Bucket Storage non trovato. Crea il bucket "prenotazioni" su Supabase → Storage.'
-        : 'Errore upload ' + file.name + ': ' + error.message;
-      showToastM361(msg, 'error');
-      continue;
-    }
+  // Upload in parallelo
+  const results = await Promise.all(files.map(async file => {
+    const path = `allegati/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const {error} = await _db.storage.from('prenotazioni').upload(path, file);
+    if (error) return {ok: false, file, error};
     const {data} = _db.storage.from('prenotazioni').getPublicUrl(path);
-    _campAllegati.push({tipo: 'file', nome: file.name, url: data.publicUrl});
-    ok++;
-  }
+    return {ok: true, file, url: data.publicUrl};
+  }));
+
   document.getElementById('fc-file-input').value = '';
   if (uploadLabel && origHtml) uploadLabel.innerHTML = origHtml;
+
+  let ok = 0;
+  for (const r of results) {
+    if (!r.ok) {
+      const msg = r.error.message?.toLowerCase().includes('bucket')
+        ? 'Bucket Storage non trovato. Crea il bucket "prenotazioni" su Supabase → Storage.'
+        : 'Errore upload ' + r.file.name + ': ' + r.error.message;
+      showToastM361(msg, 'error');
+    } else {
+      _campAllegati.push({tipo: 'file', nome: r.file.name, url: r.url});
+      ok++;
+    }
+  }
   renderAllegatiModal();
   if (ok > 0) showToastM361(ok === 1 ? 'File caricato' : `${ok} file caricati`, 'success');
 }
