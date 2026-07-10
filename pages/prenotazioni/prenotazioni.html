@@ -314,7 +314,7 @@
             <input type="file" id="fc-file-input" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" style="display:none" onchange="uploadFiles(this.files)">
           </label>
           <input type="url" id="fc-link-url" class="form-input-sm" style="flex:2;min-width:140px" placeholder="https://..." autocomplete="off">
-          <input type="text" id="fc-link-nome" class="form-input-sm" style="flex:1;min-width:90px" placeholder="Nome link" autocomplete="off">
+          <input type="text" id="fc-link-nome" class="form-input-sm" style="flex:1;min-width:90px" placeholder="Nome link" autocomplete="new-password" name="fc-link-nome-x">
           <button onclick="addLink()" class="btn-secondary btn-sm"><i class="fas fa-plus"></i></button>
         </div>
       </div>
@@ -910,6 +910,15 @@ async function uploadFiles(fileList) {
   const origHtml = uploadLabel?.innerHTML;
   if (uploadLabel) uploadLabel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
 
+  // Verifica immediata che il bucket esista
+  const {data: buckets, error: bucketErr} = await _db.storage.listBuckets();
+  if (bucketErr || !buckets?.some(b => b.name === 'prenotazioni')) {
+    if (uploadLabel && origHtml) uploadLabel.innerHTML = origHtml;
+    document.getElementById('fc-file-input').value = '';
+    showToastM361('Bucket "prenotazioni" non trovato su Supabase Storage. Crealo prima di caricare file.', 'error');
+    return;
+  }
+
   // Upload in parallelo
   const results = await Promise.all(files.map(async file => {
     const path = `allegati/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -925,10 +934,7 @@ async function uploadFiles(fileList) {
   let ok = 0;
   for (const r of results) {
     if (!r.ok) {
-      const msg = r.error.message?.toLowerCase().includes('bucket')
-        ? 'Bucket Storage non trovato. Crea il bucket "prenotazioni" su Supabase → Storage.'
-        : 'Errore upload ' + r.file.name + ': ' + r.error.message;
-      showToastM361(msg, 'error');
+      showToastM361('Errore upload ' + r.file.name + ': ' + r.error.message, 'error');
     } else {
       _campAllegati.push({tipo: 'file', nome: r.file.name, url: r.url});
       ok++;
