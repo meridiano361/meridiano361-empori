@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stampa Prenotazioni</title>
+  <style>
+    @page { size: A4 landscape; margin: 8mm 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { font-family: Arial, Helvetica, sans-serif; background: #fff; color: #111; padding: 12px 16px; }
+
+    .header { text-align: center; margin-bottom: 14px; }
+    .header-title { font-size: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: .12em; }
+    .header-sub { font-size: 11px; margin-top: 3px; color: #444; }
+    .header-meta { font-size: 11px; margin-top: 2px; color: #888; font-style: italic; }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+
+    th {
+      border: 1.5px solid #555;
+      padding: 6px 4px;
+      text-align: center;
+      font-size: 9px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      line-height: 1.3;
+      vertical-align: middle;
+      word-break: break-word;
+      background: #fff;
+    }
+
+    td {
+      border: 1px solid #888;
+      height: 22px;
+      padding: 0;
+    }
+
+    tbody tr:nth-child(even) td { background: #fafafa; }
+
+    /* Alternating product header colors */
+    .pc-0  { background: #fef3e2; color: #5c3a1e; }
+    .pc-1  { background: #fde0d0; color: #6b2f1a; }
+    .pc-2  { background: #f9c5be; color: #7a2018; }
+    .pc-3  { background: #f5a8a2; color: #7a1510; }
+    .pc-4  { background: #ef8e8a; color: #6b0f0e; }
+    .pc-5  { background: #e87070; color: #fff; }
+    .pc-6  { background: #de4f50; color: #fff; }
+    .pc-7  { background: #c0392b; color: #fff; }
+
+    .no-print { display: block; }
+
+    .print-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #B5453A;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 22px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(181,69,58,.35);
+      font-family: Arial, sans-serif;
+    }
+    .print-btn:hover { background: #8c362d; }
+
+    .close-btn {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: #e2e8f0;
+      color: #334155;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+    }
+
+    .loading { text-align: center; padding: 60px; color: #94a3b8; font-size: 14px; }
+
+    @media print {
+      body { padding: 0; }
+      .no-print, .print-btn, .close-btn { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title" id="h-title">PRENOTAZIONE</div>
+  <div class="header-sub" id="h-sub"></div>
+  <div class="header-meta" id="h-meta"></div>
+</div>
+
+<div id="table-wrap"><div class="loading">Caricamento...</div></div>
+
+<button class="print-btn no-print" onclick="window.print()">
+  &#128438; Stampa
+</button>
+<button class="close-btn no-print" onclick="window.close()">&#8592; Chiudi</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const {createClient} = supabase;
+const _db = createClient(
+  'https://hsalynvxazxqtmsvjrzc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+);
+
+const params = new URLSearchParams(window.location.search);
+const campagnaId = params.get('campagna');
+const emporio    = params.get('emporio') || '';
+const nRighe     = Math.max(10, Math.min(50, parseInt(params.get('righe') || '24')));
+
+async function init() {
+  if (!campagnaId) {
+    document.getElementById('table-wrap').innerHTML = '<p style="color:red;padding:32px">Parametro campagna mancante.</p>';
+    return;
+  }
+  const {data, error} = await _db.from('campagne_prenotazione').select('*').eq('id', campagnaId).maybeSingle();
+  if (error || !data) {
+    document.getElementById('table-wrap').innerHTML = '<p style="color:red;padding:32px">Campagna non trovata.</p>';
+    return;
+  }
+
+  const prod = data.prodotti || [];
+
+  // Header
+  document.title = 'Prenotazioni — ' + (data.titolo || '');
+  document.getElementById('h-title').textContent = 'PRENOTAZIONE — ' + (data.titolo || '').toUpperCase();
+  const fmt = d => d ? new Date(d+'T00:00:00').toLocaleDateString('it',{day:'2-digit',month:'long',year:'numeric'}) : '';
+  const dates = [fmt(data.data_apertura), fmt(data.data_chiusura)].filter(Boolean).join(' → ');
+  if (dates) document.getElementById('h-sub').textContent = dates;
+  if (emporio) document.getElementById('h-meta').textContent = emporio;
+
+  // Column widths: nome=17%, cell=12%, ritiro=9%, products share the rest
+  const prodShare = prod.length > 0 ? Math.floor((62) / prod.length) : 0;
+
+  const colgroupCols = `
+    <col style="width:17%">
+    <col style="width:12%">
+    ${prod.map(() => `<col style="width:${prodShare}%">`).join('')}
+    <col style="width:9%">
+  `;
+
+  const prodHeaders = prod.map((p, i) => {
+    const cls = 'pc-' + (i % 8);
+    const desc = p.descrizione || ('Prodotto ' + (i+1));
+    const sub  = [p.codice ? p.codice : '', p.prezzo ? '€' + Number(p.prezzo).toFixed(2) : ''].filter(Boolean).join(' ');
+    return `<th class="${cls}">${esc(desc)}${sub ? '<br><span style="font-size:8px;font-weight:normal;opacity:.8">'+esc(sub)+'</span>' : ''}</th>`;
+  }).join('');
+
+  const rows = Array.from({length: nRighe}, (_, ri) => `
+    <tr>
+      <td></td>
+      <td></td>
+      ${prod.map(() => '<td></td>').join('')}
+      <td></td>
+    </tr>`).join('');
+
+  document.getElementById('table-wrap').innerHTML = `
+    <table>
+      <colgroup>${colgroupCols}</colgroup>
+      <thead>
+        <tr>
+          <th style="font-size:10px">NOME</th>
+          <th style="font-size:10px">CELL.</th>
+          ${prodHeaders}
+          <th>RITIRO O<br>CONSEGNA</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+init();
+</script>
+</body>
+</html>
