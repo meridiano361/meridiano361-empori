@@ -910,16 +910,6 @@ async function uploadFiles(fileList) {
   const origHtml = uploadLabel?.innerHTML;
   if (uploadLabel) uploadLabel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
 
-  // Verifica immediata che il bucket esista
-  const {data: buckets, error: bucketErr} = await _db.storage.listBuckets();
-  if (bucketErr || !buckets?.some(b => b.name === 'prenotazioni')) {
-    if (uploadLabel && origHtml) uploadLabel.innerHTML = origHtml;
-    document.getElementById('fc-file-input').value = '';
-    showToastM361('Bucket "prenotazioni" non trovato su Supabase Storage. Crealo prima di caricare file.', 'error');
-    return;
-  }
-
-  // Upload in parallelo
   const results = await Promise.all(files.map(async file => {
     const path = `allegati/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const {error} = await _db.storage.from('prenotazioni').upload(path, file);
@@ -934,7 +924,9 @@ async function uploadFiles(fileList) {
   let ok = 0;
   for (const r of results) {
     if (!r.ok) {
-      showToastM361('Errore upload ' + r.file.name + ': ' + r.error.message, 'error');
+      const msg = r.error?.message || 'Errore sconosciuto';
+      const extra = msg.toLowerCase().includes('not found') ? ' (verifica che il bucket "prenotazioni" esista su Supabase Storage)' : '';
+      showToastM361('Errore upload ' + r.file.name + ': ' + msg + extra, 'error');
     } else {
       _campAllegati.push({tipo: 'file', nome: r.file.name, url: r.url});
       ok++;
