@@ -282,6 +282,10 @@
         </div>
       </div>
       <div class="form-group">
+        <label>Empori</label>
+        <div id="fc-empori" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+      </div>
+      <div class="form-group">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <label style="margin:0">Prodotti</label>
           <button onclick="addProdottoCampagna()" class="btn-green btn-sm"><i class="fas fa-plus"></i> Aggiungi prodotto</button>
@@ -398,19 +402,24 @@ async function loadCampagne() {
 
 function renderCampagne() {
   const el = document.getElementById('campagne-list');
-  if (_campagne.length === 0) {
-    el.innerHTML = `<div class="empty-state">Nessuna campagna disponibile.${_canAdmin ? '<br><br>Clicca "+ Nuova campagna" per iniziare.' : ''}</div>`;
+  // Filtra per emporio corrente (empori vuoto = valida per tutti)
+  const visibili = _campagne.filter(c => {
+    const emp = c.empori;
+    return !emp || emp.length === 0 || emp.includes(_emporio);
+  });
+  if (visibili.length === 0) {
+    el.innerHTML = `<div class="empty-state">Nessuna campagna disponibile per ${_emporio}.${_canAdmin ? '<br><br>Clicca "+ Nuova prenotazione" per iniziare.' : ''}</div>`;
     return;
   }
-  const attive = _campagne.filter(c => c.attiva !== false);
-  const inattive = _campagne.filter(c => c.attiva === false);
+  const attive = visibili.filter(c => c.attiva !== false);
+  const inattive = visibili.filter(c => c.attiva === false);
   let html = '';
   if (attive.length > 0) {
-    html += '<div class="sec-t" style="margin-bottom:12px">Campagne attive</div>';
+    html += '<div class="sec-t" style="margin-bottom:12px">Prenotazioni attive</div>';
     html += '<div class="camp-grid">' + attive.map(campCard).join('') + '</div>';
   }
   if (inattive.length > 0 && _canAdmin) {
-    html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Campagne chiuse</div>';
+    html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Prenotazioni chiuse</div>';
     html += '<div class="camp-grid">' + inattive.map(campCard).join('') + '</div>';
   }
   if (!html) el.innerHTML = '<div class="empty-state">Nessuna campagna disponibile.</div>';
@@ -440,6 +449,7 @@ function campCard(c) {
       <div class="camp-meta">
         <span><i class="fas fa-calendar" style="margin-right:4px"></i>${fmt(c.data_apertura)} → ${fmt(c.data_chiusura)}</span>
         <span><i class="fas fa-box" style="margin-right:4px"></i>${prod.length} prodott${prod.length === 1 ? 'o' : 'i'}</span>
+        ${c.empori && c.empori.length > 0 ? `<span><i class="fas fa-store" style="margin-right:4px"></i>${c.empori.join(', ')}</span>` : ''}
       </div>
       <div class="camp-footer">
         <button class="btn-primary btn-sm" onclick="event.stopPropagation();apriCampagna('${c.id}')"><i class="fas fa-list"></i> Apri</button>
@@ -693,6 +703,12 @@ function openModalCampagna(id) {
   document.getElementById('fc-apertura').value = c?.data_apertura || '';
   document.getElementById('fc-chiusura').value = c?.data_chiusura || '';
   document.getElementById('fc-attiva').checked = c ? c.attiva !== false : true;
+  const campEmpori = c?.empori || [];
+  document.getElementById('fc-empori').innerHTML = EMPORI_LIST.map(e => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;cursor:pointer;background:#f1f5f9;border-radius:8px;padding:6px 10px;border:1.5px solid ${campEmpori.length===0||campEmpori.includes(e.nome)?'#B5453A':'#e2e8f0'}">
+      <input type="checkbox" value="${e.nome}" ${campEmpori.length===0||campEmpori.includes(e.nome)?'checked':''} onchange="this.closest('label').style.borderColor=this.checked?'#B5453A':'#e2e8f0'">
+      ${e.nome}
+    </label>`).join('');
   _campProdotti = c?.prodotti ? JSON.parse(JSON.stringify(c.prodotti)) : [];
   renderCampProdotti();
   document.getElementById('modal-camp').style.display = 'flex';
@@ -745,6 +761,10 @@ async function saveCampagna() {
     });
   });
 
+  // Leggi empori selezionati
+  const emporiChecked = [...document.querySelectorAll('#fc-empori input[type=checkbox]:checked')].map(cb => cb.value);
+  const empori = emporiChecked.length === EMPORI_LIST.length ? [] : emporiChecked;
+
   const payload = {
     titolo,
     descrizione: document.getElementById('fc-desc').value.trim() || null,
@@ -752,6 +772,7 @@ async function saveCampagna() {
     data_chiusura: document.getElementById('fc-chiusura').value || null,
     attiva: document.getElementById('fc-attiva').checked,
     prodotti,
+    empori,
   };
 
   const btn = document.getElementById('btn-save-camp');
