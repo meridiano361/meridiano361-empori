@@ -141,6 +141,17 @@
     /* Product rows in modal-camp */
     .camp-prod-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 
+    /* Allegati */
+    .allegati-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+    .allegato-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--s200);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--s700);text-decoration:none;transition:all .15s;cursor:pointer}
+    .allegato-chip:hover{border-color:var(--red);color:var(--red)}
+    .allegato-chip .chip-icon{font-size:13px}
+    .allegato-item{display:flex;align-items:center;gap:8px;background:var(--s50);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+    .allegato-item-icon{font-size:16px;flex-shrink:0;width:24px;text-align:center}
+    .allegato-item-name{flex:1;font-size:12px;font-weight:700;color:var(--s700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .allegato-item-name a{color:inherit;text-decoration:none}
+    .allegato-item-name a:hover{color:var(--red)}
+
     .empty-state{text-align:center;padding:48px 16px;color:var(--s400);font-size:14px;font-weight:600}
   </style>
 </head>
@@ -180,6 +191,8 @@
       <a id="btn-stampa" href="#" target="_blank" class="btn-secondary btn-sm" style="text-decoration:none"><i class="fas fa-print"></i> Stampa</a>
       <button onclick="openModalPrenotazione(null)" class="btn-primary btn-sm"><i class="fas fa-plus"></i> Nuova</button>
     </div>
+
+    <div id="allegati-bar" class="allegati-bar" style="display:none"></div>
 
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="pren-tab-pren" onclick="switchTab(this)">Prenotazioni</button>
@@ -293,6 +306,19 @@
         <div id="fc-prodotti"></div>
       </div>
       <div class="form-group">
+        <label>Allegati e link</label>
+        <div id="fc-allegati-list"></div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center">
+          <label class="btn-secondary btn-sm" style="cursor:pointer;margin:0">
+            <i class="fas fa-paperclip"></i> Carica file
+            <input type="file" id="fc-file-input" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" style="display:none" onchange="uploadFiles(this.files)">
+          </label>
+          <input type="url" id="fc-link-url" class="form-input-sm" style="flex:2;min-width:140px" placeholder="https://...">
+          <input type="text" id="fc-link-nome" class="form-input-sm" style="flex:1;min-width:90px" placeholder="Nome link">
+          <button onclick="addLink()" class="btn-secondary btn-sm"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+      <div class="form-group">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;font-weight:700;letter-spacing:0">
           <input type="checkbox" id="fc-attiva" checked> Campagna attiva
         </label>
@@ -329,7 +355,7 @@ let _emporio = null;
 let _campagna = null, _campagne = [];
 let _prenotazioni = [], _allPren = [];
 let _editingPrenId = null, _editingCampId = null;
-let _campProdotti = [];
+let _campProdotti = [], _campAllegati = [];
 
 // ─── INIT ───
 function init() {
@@ -435,8 +461,9 @@ function campCard(c) {
     : c.attiva !== false;
 
   const adminBtns = _canAdmin ? `
-    <button onclick="event.stopPropagation();editCampagna('${c.id}')" class="btn-secondary btn-sm"><i class="fas fa-pen"></i></button>
-    <button onclick="event.stopPropagation();deleteCampagna('${c.id}')" class="btn-danger btn-sm"><i class="fas fa-trash"></i></button>
+    <button onclick="event.stopPropagation();duplicaCampagna('${c.id}')" class="btn-secondary btn-sm" title="Duplica"><i class="fas fa-copy"></i></button>
+    <button onclick="event.stopPropagation();editCampagna('${c.id}')" class="btn-secondary btn-sm" title="Modifica"><i class="fas fa-pen"></i></button>
+    <button onclick="event.stopPropagation();deleteCampagna('${c.id}')" class="btn-danger btn-sm" title="Elimina"><i class="fas fa-trash"></i></button>
   ` : '';
 
   return `
@@ -466,6 +493,19 @@ function apriCampagna(id) {
   document.getElementById('camp-dates-display').textContent = `${fmt(_campagna.data_apertura)} — ${fmt(_campagna.data_chiusura)}`;
   document.getElementById('tab-riepilogo').style.display = _canRiepilogo ? '' : 'none';
   document.getElementById('btn-stampa').href = `stampa.html?campagna=${_campagna.id}&emporio=${encodeURIComponent(_emporio)}`;
+  // Mostra allegati campagna
+  const alleg = _campagna.allegati || [];
+  const bar = document.getElementById('allegati-bar');
+  if (alleg.length > 0) {
+    bar.style.display = 'flex';
+    bar.innerHTML = alleg.map(a => `
+      <a href="${escHtml(a.url)}" target="_blank" class="allegato-chip">
+        <span class="chip-icon">${allegatoIconHtml(a)}</span>${escHtml(a.nome || a.url)}
+      </a>`).join('');
+  } else {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+  }
   switchTabById('pren-tab-pren');
   showScreen('prenotazioni');
   loadPrenotazioni();
@@ -721,6 +761,8 @@ function openModalCampagna(id) {
     </label>`).join('');
   _campProdotti = c?.prodotti ? JSON.parse(JSON.stringify(c.prodotti)) : [];
   renderCampProdotti();
+  _campAllegati = c?.allegati ? JSON.parse(JSON.stringify(c.allegati)) : [];
+  renderAllegatiModal();
   document.getElementById('modal-camp').style.display = 'flex';
   setTimeout(() => document.getElementById('fc-titolo').focus(), 80);
 }
@@ -783,6 +825,7 @@ async function saveCampagna() {
     attiva: document.getElementById('fc-attiva').checked,
     prodotti,
     empori,
+    allegati: _campAllegati,
   };
 
   const btn = document.getElementById('btn-save-camp');
@@ -809,6 +852,71 @@ async function saveCampagna() {
 }
 
 function editCampagna(id) { openModalCampagna(id); }
+
+function duplicaCampagna(id) {
+  openModalCampagna(id);
+  _editingCampId = null;
+  document.getElementById('modal-camp-title').textContent = 'Duplica prenotazione';
+  document.getElementById('fc-titolo').value = 'Copia di ' + document.getElementById('fc-titolo').value;
+  document.getElementById('fc-apertura').value = '';
+  document.getElementById('fc-chiusura').value = '';
+}
+
+// ─── ALLEGATI ───
+function allegatoIconHtml(a) {
+  if (a.tipo === 'link') return '<i class="fas fa-link" style="color:#6366f1"></i>';
+  const ext = (a.nome || '').split('.').pop().toLowerCase();
+  if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) return '<i class="fas fa-image" style="color:#3b82f6"></i>';
+  if (ext === 'pdf') return '<i class="fas fa-file-pdf" style="color:#ef4444"></i>';
+  if (['doc','docx'].includes(ext)) return '<i class="fas fa-file-word" style="color:#2563eb"></i>';
+  if (['xls','xlsx'].includes(ext)) return '<i class="fas fa-file-excel" style="color:#16a34a"></i>';
+  if (['ppt','pptx'].includes(ext)) return '<i class="fas fa-file-powerpoint" style="color:#ea580c"></i>';
+  return '<i class="fas fa-file" style="color:#64748b"></i>';
+}
+
+function renderAllegatiModal() {
+  const el = document.getElementById('fc-allegati-list');
+  if (_campAllegati.length === 0) {
+    el.innerHTML = '<p style="color:#94a3b8;font-size:12px;margin:0 0 6px">Nessun allegato.</p>';
+    return;
+  }
+  el.innerHTML = _campAllegati.map((a, i) => `
+    <div class="allegato-item">
+      <span class="allegato-item-icon">${allegatoIconHtml(a)}</span>
+      <span class="allegato-item-name"><a href="${escHtml(a.url)}" target="_blank">${escHtml(a.nome || a.url)}</a></span>
+      <button onclick="removeAllegato(${i})" class="icon-btn icon-btn-danger" title="Rimuovi"><i class="fas fa-times" style="font-size:11px"></i></button>
+    </div>`).join('');
+}
+
+function removeAllegato(i) {
+  _campAllegati.splice(i, 1);
+  renderAllegatiModal();
+}
+
+function addLink() {
+  const url = document.getElementById('fc-link-url').value.trim();
+  const nome = document.getElementById('fc-link-nome').value.trim();
+  if (!url) { showToastM361('Inserisci un URL', 'warning'); return; }
+  _campAllegati.push({tipo: 'link', nome: nome || url, url});
+  document.getElementById('fc-link-url').value = '';
+  document.getElementById('fc-link-nome').value = '';
+  renderAllegatiModal();
+}
+
+async function uploadFiles(fileList) {
+  if (!fileList || fileList.length === 0) return;
+  const label = document.querySelector('label[for="fc-file-input"], label:has(#fc-file-input)');
+  const files = [...fileList];
+  for (const file of files) {
+    const path = `allegati/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const {error} = await _db.storage.from('prenotazioni').upload(path, file, {upsert: true});
+    if (error) { showToastM361('Errore upload ' + file.name + ': ' + error.message, 'error'); continue; }
+    const {data} = _db.storage.from('prenotazioni').getPublicUrl(path);
+    _campAllegati.push({tipo: 'file', nome: file.name, url: data.publicUrl});
+  }
+  document.getElementById('fc-file-input').value = '';
+  renderAllegatiModal();
+}
 
 async function deleteCampagna(id) {
   if (!confirm('Eliminare questa campagna?\nLe prenotazioni associate NON verranno eliminate.')) return;
