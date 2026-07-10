@@ -320,7 +320,7 @@
       </div>
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;font-weight:700;letter-spacing:0">
-          <input type="checkbox" id="fc-attiva" checked> Campagna attiva
+          <input type="checkbox" id="fc-attiva" checked> Prenotazione attiva
         </label>
       </div>
     </div>
@@ -434,7 +434,7 @@ function renderCampagne() {
     return !emp || emp.length === 0 || emp.includes(_emporio);
   });
   if (visibili.length === 0) {
-    el.innerHTML = `<div class="empty-state">Nessuna campagna disponibile per ${_emporio}.${_canAdmin ? '<br><br>Clicca "+ Nuova prenotazione" per iniziare.' : ''}</div>`;
+    el.innerHTML = `<div class="empty-state">Nessuna prenotazione disponibile per ${_emporio}.${_canAdmin ? '<br><br>Clicca "+ Nuova prenotazione" per iniziare.' : ''}</div>`;
     return;
   }
   const attive = visibili.filter(c => c.attiva !== false);
@@ -448,7 +448,7 @@ function renderCampagne() {
     html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Prenotazioni chiuse</div>';
     html += '<div class="camp-grid">' + inattive.map(campCard).join('') + '</div>';
   }
-  if (!html) el.innerHTML = '<div class="empty-state">Nessuna campagna disponibile.</div>';
+  if (!html) el.innerHTML = '<div class="empty-state">Nessuna prenotazione disponibile.</div>';
   else el.innerHTML = html;
 }
 
@@ -747,7 +747,7 @@ async function deletePrenotazione(id) {
 function openModalCampagna(id) {
   _editingCampId = id || null;
   const c = id ? _campagne.find(c => c.id === id) : null;
-  document.getElementById('modal-camp-title').textContent = c ? 'Modifica campagna' : 'Nuova campagna';
+  document.getElementById('modal-camp-title').textContent = c ? 'Modifica prenotazione' : 'Nuova prenotazione';
   document.getElementById('fc-titolo').value = c?.titolo || '';
   document.getElementById('fc-desc').value = c?.descrizione || '';
   document.getElementById('fc-apertura').value = c?.data_apertura || '';
@@ -763,6 +763,8 @@ function openModalCampagna(id) {
   renderCampProdotti();
   _campAllegati = c?.allegati ? JSON.parse(JSON.stringify(c.allegati)) : [];
   renderAllegatiModal();
+  document.getElementById('fc-link-url').value = '';
+  document.getElementById('fc-link-nome').value = '';
   document.getElementById('modal-camp').style.display = 'flex';
   setTimeout(() => document.getElementById('fc-titolo').focus(), 80);
 }
@@ -800,7 +802,7 @@ function renderCampProdotti() {
 
 async function saveCampagna() {
   const titolo = document.getElementById('fc-titolo').value.trim();
-  if (!titolo) { showToastM361('Inserisci un titolo per la campagna', 'warning'); return; }
+  if (!titolo) { showToastM361('Inserisci un titolo per la prenotazione', 'warning'); return; }
 
   // Leggi prodotti direttamente dal DOM
   const prodotti = [];
@@ -843,6 +845,7 @@ async function saveCampagna() {
     return;
   }
   btn.innerHTML = '<i class="fas fa-check"></i> Salvato!';
+  showToastM361(_editingCampId ? 'Prenotazione aggiornata' : 'Prenotazione salvata', 'success');
   setTimeout(() => {
     btn.disabled = false;
     btn.innerHTML = 'Salva prenotazione';
@@ -924,9 +927,15 @@ async function uploadFiles(fileList) {
   let ok = 0;
   for (const r of results) {
     if (!r.ok) {
+      console.error('Upload error:', r.error);
       const msg = r.error?.message || 'Errore sconosciuto';
-      const extra = msg.toLowerCase().includes('not found') ? ' (verifica che il bucket "prenotazioni" esista su Supabase Storage)' : '';
-      showToastM361('Errore upload ' + r.file.name + ': ' + msg + extra, 'error');
+      const isBucketMissing = msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('bucket');
+      const errText = isBucketMissing
+        ? 'Bucket "prenotazioni" non trovato su Supabase Storage — crealo come bucket pubblico prima di caricare file.'
+        : 'Errore upload ' + r.file.name + ': ' + msg;
+      const errEl = document.getElementById('fc-allegati-list');
+      if (errEl) errEl.insertAdjacentHTML('beforeend', `<div style="color:#ef4444;font-size:12px;margin-top:6px"><i class="fas fa-circle-exclamation"></i> ${errText}</div>`);
+      showToastM361(errText, 'error');
     } else {
       _campAllegati.push({tipo: 'file', nome: r.file.name, url: r.url});
       ok++;
@@ -937,10 +946,10 @@ async function uploadFiles(fileList) {
 }
 
 async function deleteCampagna(id) {
-  if (!confirm('Eliminare questa campagna?\nLe prenotazioni associate NON verranno eliminate.')) return;
+  if (!confirm('Eliminare questa prenotazione?\nLe prenotazioni dei clienti associate NON verranno eliminate.')) return;
   const {error} = await _db.from('campagne_prenotazione').delete().eq('id', id);
   if (error) { showToastM361('Errore eliminazione', 'error'); return; }
-  showToastM361('Campagna eliminata', 'success');
+  showToastM361('Prenotazione eliminata', 'success');
   loadCampagne();
 }
 
