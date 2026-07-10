@@ -1,501 +1,792 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-    <link rel="icon" href="/faviconm361.png" type="image/png">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="../../assets/style/nav-style.css">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prenotazioni</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --red: #B5453A; --red-dark: #8c362d; --red-light: #fdf1f0;
-            --green: #6b8d53; --green-light: #ecfdf5;
-            --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
-            --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
-            --slate-600: #475569; --slate-700: #334155; --slate-800: #1e293b;
-        }
-        body { font-family: 'Nunito', sans-serif; background: #f0f2f5; }
-        .font-mono { font-family: 'Nunito', sans-serif; }
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prenotazioni</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--red:#B5453A;--red-dark:#8c362d;--red-light:#fdf1f0;--green:#6b8d53;--green-light:#ecfdf5;
+      --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;
+      --s500:#64748b;--s600:#475569;--s700:#334155;--s800:#1e293b}
+    *{box-sizing:border-box}
+    body{font-family:'Nunito',sans-serif;background:#f0f2f5;padding-bottom:80px}
 
-        /* Tabs */
-        .tab-bar { display: flex; gap: 4px; background: #fff; padding: 6px; border-radius: 16px; border: 1px solid var(--slate-200); flex-wrap: wrap; }
-        .tab-btn { padding: 10px 18px; border-radius: 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; border: none; background: transparent; color: var(--slate-400); transition: all .15s; white-space: nowrap; }
-        .tab-btn:hover { color: var(--slate-700); background: var(--slate-50); }
-        .tab-btn.active { background: var(--red); color: #fff; }
-        .tab-btn.tab-sintesi.active { background: var(--slate-800); }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+    /* Empori selector */
+    .sel-wrap{padding:24px 16px 32px;max-width:1100px;margin:0 auto}
+    .emp-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+    @media(max-width:600px){.emp-grid{grid-template-columns:repeat(3,1fr)}}
+    .emp-btn{padding:20px 12px;border-radius:16px;border:2px solid var(--s200);background:#fff;cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .emp-btn:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:0 4px 12px rgba(181,69,58,.12)}
+    .emp-btn img{width:48px;height:48px;object-fit:contain;border-radius:12px}
+    .emp-btn span{font-size:12px;font-weight:800;color:var(--s700)}
 
-        /* Table */
-        .pren-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
-        .pren-table thead th { background: var(--slate-50); padding: 8px 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--slate-400); border-bottom: 2px solid var(--slate-200); position: sticky; top: 0; z-index: 2; white-space: nowrap; }
-        .pren-table thead th.prod-header { background: var(--red-light); color: var(--red); min-width: 70px; text-align: center; }
-        .pren-table tbody td { padding: 6px; border-bottom: 1px solid var(--slate-100); vertical-align: middle; }
-        .pren-table tbody tr:hover { background: #fefce8; }
-        .pren-table .cb { width: 18px; height: 18px; cursor: pointer; accent-color: var(--green); }
-        .pren-table .cb-red { accent-color: var(--red); }
-        .pren-table input[type="text"], .pren-table input[type="tel"] { width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 5px 6px; font-size: 12px; font-family: 'Nunito', sans-serif; background: transparent; transition: all .15s; }
-        .pren-table input:focus { border-color: var(--red); background: #fff; outline: none; }
-        .pren-table input[type="number"] { width: 50px; text-align: center; border: 1px solid var(--slate-200); border-radius: 6px; padding: 4px 2px; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; }
-        .pren-table input[type="number"]:focus { border-color: var(--red); outline: none; }
-        .pren-table .row-total { font-family: 'Nunito', sans-serif; font-weight: 700; text-align: right; padding-right: 10px; color: var(--slate-700); }
-        .pren-table tfoot td { background: var(--slate-50); padding: 8px 6px; font-weight: 800; border-top: 2px solid var(--slate-200); }
-        .pren-table tfoot .col-total { font-family: 'Nunito', sans-serif; font-size: 14px; text-align: center; color: var(--red); }
+    /* Page layout */
+    .page-wrap{max-width:1100px;margin:0 auto;padding:16px}
+    .page-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+    .page-title{font-size:18px;font-weight:900;color:var(--s800);flex:1}
+    .page-subtitle{font-size:12px;font-weight:600;color:var(--s400);margin-top:2px}
+    .back-btn{width:36px;height:36px;border:2px solid var(--s200);border-radius:10px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--s500);flex-shrink:0;transition:all .15s}
+    .back-btn:hover{border-color:var(--red);color:var(--red)}
 
-        /* Product header */
-        .prod-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .prod-desc { font-size: 10px; font-weight: 800; color: var(--red); }
-        .prod-code { font-size: 8px; font-weight: 600; color: var(--slate-400); font-family: 'Nunito', sans-serif; }
-        .prod-price { font-size: 9px; font-weight: 700; color: var(--slate-500); font-family: 'Nunito', sans-serif; }
+    /* Campaign cards */
+    .camp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:8px}
+    .camp-card{background:#fff;border:2px solid var(--s200);border-radius:16px;padding:16px;cursor:pointer;transition:all .15s}
+    .camp-card:hover{border-color:var(--red);box-shadow:0 4px 12px rgba(181,69,58,.1)}
+    .camp-card.camp-open{border-left:4px solid var(--green)}
+    .camp-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+    .camp-title{font-size:15px;font-weight:900;color:var(--s800)}
+    .camp-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:6px;flex-shrink:0}
+    .badge-open{background:#dcfce7;color:#166534}
+    .badge-closed{background:var(--s100);color:var(--s400)}
+    .camp-desc{font-size:12px;color:var(--s500);margin-bottom:10px}
+    .camp-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;font-weight:600;color:var(--s500);margin-bottom:12px}
+    .camp-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
-        /* Badges */
-        .badge-pronto { background: var(--green-light); color: var(--green); padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; }
-        .badge-avvisato { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; }
+    /* Tabs */
+    .tab-bar{display:flex;gap:4px;background:#fff;padding:6px;border-radius:16px;border:1px solid var(--s200);flex-wrap:wrap;margin-bottom:16px}
+    .tab-btn{padding:10px 18px;border-radius:12px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border:none;background:transparent;color:var(--s400);transition:all .15s;white-space:nowrap;font-family:'Nunito',sans-serif}
+    .tab-btn:hover{color:var(--s700);background:var(--s50)}
+    .tab-btn.active{background:var(--red);color:#fff}
+    .tab-panel{display:none}
+    .tab-panel.active{display:block}
 
-        /* Delivery */
-        .del-radio { display: flex; gap: 4px; }
-        .del-radio label { font-size: 9px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; border: 1px solid var(--slate-200); color: var(--slate-400); transition: all .12s; }
-        .del-radio input:checked + label { background: var(--slate-800); color: #fff; border-color: var(--slate-800); }
-        .del-radio input { display: none; }
+    /* Filter */
+    .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .filter-input{border:2px solid var(--s200);border-radius:12px;padding:10px 14px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:600;color:var(--s700);background:#fff;outline:none;transition:all .15s;flex:1;min-width:200px}
+    .filter-input:focus{border-color:var(--red)}
 
-        /* Sintesi */
-        .sint-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        .sint-table th, .sint-table td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--slate-100); }
-        .sint-table thead th { background: var(--slate-800); color: #fff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
-        .sint-table thead th:first-child { border-radius: 12px 0 0 0; }
-        .sint-table thead th:last-child { border-radius: 0 12px 0 0; }
-        .sint-table tbody td { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 15px; }
-        .sint-table tbody td:first-child { font-family: 'Nunito', sans-serif; font-weight: 800; text-align: left; color: var(--slate-700); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
-        .sint-table tbody tr.sint-selected { background: var(--red-light); }
-        .sint-table tfoot td { background: var(--red); color: #fff; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 16px; }
-        .sint-table tfoot td:first-child { font-family: 'Nunito', sans-serif; border-radius: 0 0 0 12px; }
-        .sint-table tfoot td:last-child { border-radius: 0 0 12px 0; }
-        .sint-check { width: 20px; height: 20px; accent-color: var(--red); cursor: pointer; }
+    /* Card / table */
+    .card-r{background:#fff;border-radius:20px;border:1px solid var(--s200);box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden}
+    .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .pren-table{width:100%;border-collapse:collapse;font-size:12px}
+    .pren-table th{background:var(--s50);padding:8px 10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--s400);border-bottom:2px solid var(--s200);white-space:nowrap;text-align:left}
+    .pren-table th.prod-header{background:var(--red-light);color:var(--red);min-width:70px;text-align:center}
+    .pren-table td{padding:8px 10px;border-bottom:1px solid var(--s100);vertical-align:middle}
+    .pren-table tbody tr:hover{background:#fffbf5}
+    .pren-table tfoot td{background:var(--s50);padding:8px 10px;font-weight:800;border-top:2px solid var(--s200)}
+    .col-total{font-size:14px;text-align:center;color:var(--red);font-weight:800}
+    .prod-info{display:flex;flex-direction:column;align-items:center;gap:2px}
+    .prod-desc{font-size:10px;font-weight:800;color:var(--red)}
+    .prod-code{font-size:8px;font-weight:600;color:var(--s400)}
+    .prod-price{font-size:9px;font-weight:700;color:var(--s500)}
+    .stato-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 
-        /* Section title */
-        .sec-title-r { font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--slate-400); display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-        .sec-title-r::before { content: ''; display: block; width: 3px; height: 16px; background: var(--red); border-radius: 2px; flex-shrink: 0; }
+    /* Riepilogo */
+    .sint-table{width:100%;border-collapse:collapse}
+    .sint-table th,.sint-table td{padding:10px 12px;text-align:center;border-bottom:1px solid var(--s100)}
+    .sint-table thead th{background:var(--s800);color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+    .sint-table thead th:first-child{text-align:left}
+    .sint-table tfoot td{background:var(--red);color:#fff;font-weight:900;font-size:15px}
+    .sint-table tfoot td:first-child{text-align:left}
+    .rie-emp-name{font-weight:800;text-align:left;color:var(--s700);font-size:13px}
+    .rie-cell{font-weight:700;font-size:14px}
+    .rie-current{background:var(--red-light)}
 
-        /* Card */
-        .card-r { background: #fff; border-radius: 20px; border: 1px solid var(--slate-200); box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+    /* Buttons */
+    .btn-primary{background:var(--red);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+    .btn-primary:hover{background:var(--red-dark)}
+    .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+    .btn-secondary{background:var(--s100);color:var(--s600);border:none;border-radius:10px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+    .btn-secondary:hover{background:var(--s200)}
+    .btn-danger{background:#fee2e2;color:#dc2626;border:none;border-radius:10px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+    .btn-danger:hover{background:#fecaca}
+    .btn-green{background:var(--green-light);color:var(--green);border:none;border-radius:10px;padding:10px 16px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+    .btn-green:hover{background:#bbf7d0}
+    .btn-sm{padding:6px 10px;font-size:11px;border-radius:8px}
+    .icon-btn{background:none;border:none;cursor:pointer;color:var(--s300);padding:4px;transition:color .15s}
+    .icon-btn:hover{color:var(--red)}
+    .icon-btn-danger:hover{color:#ef4444}
 
-        /* Scroll wrapper */
-        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    /* Modal */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:9999}
+    @media(min-width:640px){.modal-overlay{align-items:center;padding:16px}}
+    .modal-box{background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 -4px 24px rgba(0,0,0,.15)}
+    @media(min-width:640px){.modal-box{border-radius:20px;max-height:88vh}}
+    .modal-box-lg{max-width:620px}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid var(--s100)}
+    .modal-title{font-size:16px;font-weight:900;color:var(--s800)}
+    .modal-close{background:var(--s100);border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;color:var(--s500);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+    .modal-close:hover{background:var(--s200)}
+    .modal-body{padding:16px 20px}
+    .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 20px;border-top:1px solid var(--s100)}
 
-        /* Action bar */
-        .action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    /* Forms */
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:480px){.form-row{grid-template-columns:1fr}}
+    .form-group{margin-bottom:12px}
+    .form-group label{display:block;font-size:11px;font-weight:800;color:var(--s500);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+    .form-input{width:100%;border:2px solid var(--s200);border-radius:10px;padding:10px 12px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:600;color:var(--s800);background:#fff;outline:none;transition:all .15s}
+    .form-input:focus{border-color:var(--red)}
+    textarea.form-input{resize:vertical}
+    .form-input-sm{border:1.5px solid var(--s200);border-radius:8px;padding:6px 10px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;color:var(--s800);background:#fff;outline:none;transition:all .15s}
+    .form-input-sm:focus{border-color:var(--red)}
 
-        @media (max-width: 768px) {
-            .tab-btn { padding: 8px 12px; font-size: 10px; }
-            .pren-table { font-size: 11px; }
-            .pren-table input[type="number"] { width: 42px; }
-        }
-    </style>
+    /* Product rows in modal-pren */
+    .pren-prods-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+    .pren-prod-row{display:flex;align-items:center;gap:10px;background:var(--s50);border-radius:10px;padding:10px 12px}
+    .pren-prod-info{flex:1;min-width:0}
+    .pren-prod-desc{display:block;font-size:13px;font-weight:800;color:var(--s800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pren-prod-sub{display:block;font-size:10px;font-weight:600;color:var(--s400);margin-top:1px}
+    .pren-qty-input{width:64px;border:2px solid var(--s200);border-radius:8px;padding:6px 4px;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;text-align:center;outline:none;flex-shrink:0;transition:all .15s}
+    .pren-qty-input:focus{border-color:var(--red)}
+    .pren-total-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:13px;font-weight:700;color:var(--s600);padding:6px 0;border-top:1px solid var(--s100)}
+    .pren-total-row strong{font-size:16px;font-weight:900;color:var(--red)}
+
+    /* Product rows in modal-camp */
+    .camp-prod-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+
+    .empty-state{text-align:center;padding:48px 16px;color:var(--s400);font-size:14px;font-weight:600}
+  </style>
 </head>
-<body class="pb-20">
-    <script src="../../scripts/auth.js"></script>
-    <script src="../../scripts/nav-script.js"></script>
+<body>
+<script src="../../scripts/auth.js"></script>
+<script src="../../scripts/nav-script.js"></script>
 
-    <main class="max-w-7xl mx-auto p-4 md:p-8">
+<!-- Screen 1: Empori -->
+<div id="screen-empori" style="display:none">
+  <div class="sel-wrap">
+    <div class="sec-t">Seleziona emporio</div>
+    <div class="emp-grid" id="emp-grid"></div>
+  </div>
+</div>
 
-        <!-- IN COSTRUZIONE -->
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;font-family:'Nunito',sans-serif;text-align:center;padding:24px">
-          <div style="font-size:56px;margin-bottom:20px;line-height:1">🚧</div>
-          <div style="font-size:22px;font-weight:900;color:#1e293b;margin-bottom:8px">Sezione in costruzione</div>
-          <div style="font-size:14px;color:#64748b;font-weight:600">Questa funzione sarà disponibile a breve.</div>
+<!-- Screen 2: Campagne -->
+<div id="screen-campagne" style="display:none">
+  <div class="page-wrap">
+    <div class="page-header">
+      <button onclick="goBack('empori')" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+      <div class="page-title" id="page-title-campagne"></div>
+      <button id="btn-nuova-campagna" onclick="openModalCampagna(null)" style="display:none" class="btn-primary btn-sm"><i class="fas fa-plus"></i> Nuova campagna</button>
+    </div>
+    <div id="campagne-list"></div>
+  </div>
+</div>
+
+<!-- Screen 3: Prenotazioni -->
+<div id="screen-prenotazioni" style="display:none">
+  <div class="page-wrap">
+    <div class="page-header">
+      <button onclick="goBack('campagne')" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+      <div style="flex:1;min-width:0">
+        <div class="page-title" id="camp-title-display"></div>
+        <div class="page-subtitle" id="camp-dates-display"></div>
+      </div>
+      <button onclick="openModalPrenotazione(null)" class="btn-primary btn-sm"><i class="fas fa-plus"></i> Nuova</button>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="pren-tab-pren" onclick="switchTab(this)">Prenotazioni</button>
+      <button class="tab-btn" id="tab-riepilogo" data-tab="pren-tab-riepilogo" onclick="switchTab(this)" style="display:none">Riepilogo</button>
+    </div>
+
+    <!-- Tab: Prenotazioni -->
+    <div id="pren-tab-pren" class="tab-panel active">
+      <div class="filter-row">
+        <input type="text" id="filtro-cliente" placeholder="Cerca cliente o telefono..." oninput="renderPrenTable()" class="filter-input">
+      </div>
+      <div class="card-r">
+        <div class="table-scroll">
+          <table class="pren-table">
+            <thead id="pren-thead"></thead>
+            <tbody id="pren-tbody"></tbody>
+            <tfoot id="pren-tfoot"></tfoot>
+          </table>
         </div>
+      </div>
+    </div>
 
-        <!-- TAB BAR (nascosto) -->
-        <div style="display:none">
-        <div class="tab-bar mb-6" id="tab-bar">
-            <button class="tab-btn active" data-tab="cremona">Cremona</button>
-            <button class="tab-btn" data-tab="casalmaggiore">Casalmaggiore</button>
-            <button class="tab-btn" data-tab="reggioemilia">Reggio Emilia</button>
-            <button class="tab-btn" data-tab="mantova">Mantova</button>
-            <button class="tab-btn" data-tab="viadana">Viadana</button>
-            <button class="tab-btn tab-sintesi" data-tab="sintesi">Sintesi</button>
+    <!-- Tab: Riepilogo -->
+    <div id="pren-tab-riepilogo" class="tab-panel">
+      <div class="card-r">
+        <div class="table-scroll" id="riepilogo-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Prenotazione -->
+<div id="modal-pren" class="modal-overlay" style="display:none" onclick="if(event.target.id==='modal-pren')closeModalPren()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-pren-title">Nuova prenotazione</div>
+      <button onclick="closeModalPren()" class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome</label>
+          <input type="text" id="f-nome" class="form-input" placeholder="Nome cliente" autocomplete="given-name">
         </div>
-
-        <!-- ═══════════════════════════════════════
-             PRODOTTI (definizione globale)
-        ═══════════════════════════════════════ -->
-        <div class="card-r p-4 md:p-6 mb-6">
-            <div class="flex items-center justify-between mb-4">
-                <div class="sec-title-r" style="margin-bottom:0">Prodotti della Prenotazione</div>
-                <button onclick="addProduct()" class="text-xs font-bold text-white bg-[#6b8d53] hover:bg-[#556f42] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                    <i class="fas fa-plus"></i> Aggiungi
-                </button>
-            </div>
-            <div class="table-scroll">
-                <table class="w-full text-sm" id="products-table">
-                    <thead>
-                        <tr class="border-b-2 border-slate-200">
-                            <th class="text-left p-2 text-xs font-bold text-slate-400 uppercase" style="width:30px">#</th>
-                            <th class="text-left p-2 text-xs font-bold text-slate-400 uppercase">Descrizione</th>
-                            <th class="text-left p-2 text-xs font-bold text-slate-400 uppercase">Codice</th>
-                            <th class="text-right p-2 text-xs font-bold text-slate-400 uppercase">Prezzo</th>
-                            <th class="p-2" style="width:40px"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="products-body"></tbody>
-                </table>
-            </div>
+        <div class="form-group">
+          <label>Cognome</label>
+          <input type="text" id="f-cognome" class="form-input" placeholder="Cognome cliente" autocomplete="family-name">
         </div>
+      </div>
+      <div class="form-group">
+        <label>Telefono</label>
+        <input type="tel" id="f-telefono" class="form-input" placeholder="Es: 338 1234567" autocomplete="tel">
+      </div>
+      <div id="f-prodotti-list"></div>
+      <div class="form-group">
+        <label>Note</label>
+        <textarea id="f-note" class="form-input" rows="2" placeholder="Note aggiuntive..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Stato</label>
+        <select id="f-stato" class="form-input">
+          <option value="attesa">In attesa</option>
+          <option value="pronto">Pronto</option>
+          <option value="avvisato">Avvisato</option>
+          <option value="consegnato">Consegnato</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModalPren()" class="btn-secondary">Annulla</button>
+      <button onclick="savePrenotazione()" class="btn-primary" id="btn-save-pren">Salva</button>
+    </div>
+  </div>
+</div>
 
-        <!-- ═══════════════════════════════════════
-             EMPORIO TABS
-        ═══════════════════════════════════════ -->
-        <div class="tab-content active" data-tab="cremona">
-            <div class="card-r p-4 md:p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Cremona</div>
-                    <div class="action-bar">
-                        <button onclick="addRow('cremona')" class="text-xs font-bold text-white bg-[#B5453A] hover:bg-[#8c362d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Aggiungi cliente
-                        </button>
-                    </div>
-                </div>
-                <div class="table-scroll" id="table-cremona"></div>
-            </div>
+<!-- Modal: Campagna (admin) -->
+<div id="modal-camp" class="modal-overlay" style="display:none" onclick="if(event.target.id==='modal-camp')closeModalCamp()">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-camp-title">Nuova campagna</div>
+      <button onclick="closeModalCamp()" class="modal-close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Titolo *</label>
+        <input type="text" id="fc-titolo" class="form-input" placeholder="Es: Natale 2025">
+      </div>
+      <div class="form-group">
+        <label>Descrizione</label>
+        <textarea id="fc-desc" class="form-input" rows="2" placeholder="Descrizione opzionale..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Data apertura</label>
+          <input type="date" id="fc-apertura" class="form-input">
         </div>
-
-        <div class="tab-content" data-tab="casalmaggiore">
-            <div class="card-r p-4 md:p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Casalmaggiore</div>
-                    <div class="action-bar">
-                        <button onclick="addRow('casalmaggiore')" class="text-xs font-bold text-white bg-[#B5453A] hover:bg-[#8c362d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Aggiungi cliente
-                        </button>
-                    </div>
-                </div>
-                <div class="table-scroll" id="table-casalmaggiore"></div>
-            </div>
+        <div class="form-group">
+          <label>Data chiusura</label>
+          <input type="date" id="fc-chiusura" class="form-input">
         </div>
-
-        <div class="tab-content" data-tab="reggioemilia">
-            <div class="card-r p-4 md:p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Reggio Emilia</div>
-                    <div class="action-bar">
-                        <button onclick="addRow('reggioemilia')" class="text-xs font-bold text-white bg-[#B5453A] hover:bg-[#8c362d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Aggiungi cliente
-                        </button>
-                    </div>
-                </div>
-                <div class="table-scroll" id="table-reggioemilia"></div>
-            </div>
+      </div>
+      <div class="form-group">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <label style="margin:0">Prodotti</label>
+          <button onclick="addProdottoCampagna()" class="btn-green btn-sm"><i class="fas fa-plus"></i> Aggiungi prodotto</button>
         </div>
+        <div id="fc-prodotti"></div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;font-weight:700;letter-spacing:0">
+          <input type="checkbox" id="fc-attiva" checked> Campagna attiva
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModalCamp()" class="btn-secondary">Annulla</button>
+      <button onclick="saveCampagna()" class="btn-primary" id="btn-save-camp">Salva campagna</button>
+    </div>
+  </div>
+</div>
 
-        <div class="tab-content" data-tab="mantova">
-            <div class="card-r p-4 md:p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Mantova</div>
-                    <div class="action-bar">
-                        <button onclick="addRow('mantova')" class="text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6d28d9] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Aggiungi cliente
-                        </button>
-                    </div>
-                </div>
-                <div class="table-scroll" id="table-mantova"></div>
-            </div>
-        </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const {createClient} = supabase;
+const _db = createClient(
+  'https://hsalynvxazxqtmsvjrzc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+);
 
-        <div class="tab-content" data-tab="viadana">
-            <div class="card-r p-4 md:p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="sec-title-r" style="margin-bottom:0">Prenotazioni Viadana</div>
-                    <div class="action-bar">
-                        <button onclick="addRow('viadana')" class="text-xs font-bold text-white bg-[#B5453A] hover:bg-[#8c362d] px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Aggiungi cliente
-                        </button>
-                    </div>
-                </div>
-                <div class="table-scroll" id="table-viadana"></div>
-            </div>
-        </div>
+const EMPORI_LIST = [
+  {nome:'Casalmaggiore', img:'../../assets/images/logo_casalmaggiore.png'},
+  {nome:'Cremona',       img:'../../assets/images/logo_cremona.png'},
+  {nome:'Mantova',       img:'../../assets/images/logo_mantova.png'},
+  {nome:'Reggio Emilia', img:'../../assets/images/logo_reggio_emilia.png'},
+  {nome:'Viadana',       img:'../../assets/images/logo_viadana.png'},
+];
 
-        <!-- ═══════════════════════════════════════
-             SINTESI
-        ═══════════════════════════════════════ -->
-        <div class="tab-content" data-tab="sintesi">
-            <div class="card-r p-4 md:p-6">
-                <div class="sec-title-r">Sintesi Prenotazioni</div>
-                <p class="text-xs text-slate-400 font-medium mb-4">Seleziona gli empori da sommare cliccando sulle checkbox. Il totale si aggiorna automaticamente.</p>
-                <div class="table-scroll" id="sintesi-container"></div>
-            </div>
-        </div>
+const STATI = {attesa:'In attesa', pronto:'Pronto', avvisato:'Avvisato', consegnato:'Consegnato'};
+const STATI_COLORS = {attesa:'#f59e0b', pronto:'#3b82f6', avvisato:'#6366f1', consegnato:'#22c55e'};
 
-        </div><!-- /nascosto -->
-    </main>
+let _u = null, _canAdmin = false, _canRiepilogo = false;
+let _emporio = null;
+let _campagna = null, _campagne = [];
+let _prenotazioni = [], _allPren = [];
+let _editingPrenId = null, _editingCampId = null;
+let _campProdotti = [];
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-    const { createClient } = supabase;
-    const db = createClient('https://hsalynvxazxqtmsvjrzc.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8');
+// ─── INIT ───
+function init() {
+  _u = JSON.parse(localStorage.getItem('m361_user') || 'null');
+  if (!_u) { window.location.href = '/login.html'; return; }
+  _canAdmin = _u.ruolo === 'admin' || _u.ruolo === 'dipendente' || !!_u.is_resp_acquisti;
+  _canRiepilogo = _canAdmin || !!_u.is_resp_negozio;
 
-    const EMPORI = ['cremona', 'casalmaggiore', 'reggioemilia', 'mantova', 'viadana'];
-    const EMPORI_LABELS = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', mantova: 'Mantova', viadana: 'Viadana' };
+  const empori = [_u.emporio, ...(_u.empori_aggiuntivi || [])].filter(Boolean);
+  const uniq = [...new Set(empori)];
 
-    // ─── STATE ───
-    let products = []; // [{id, descrizione, codice, prezzo}]
-    let bookings = {}; // { emporio: [{id, nome, cognome, cellulare, pronto, avvisato, consegna, qtys: {prodIdx: n}}] }
+  if (_u.ruolo === 'admin') {
+    buildEmpiGrid(null);
+    showScreen('empori');
+  } else if (uniq.length === 1) {
+    buildEmpiGrid(null);
+    selezionaEmporio(uniq[0]);
+  } else {
+    buildEmpiGrid(uniq.length > 0 ? uniq : null);
+    showScreen('empori');
+  }
+}
 
-    EMPORI.forEach(e => bookings[e] = []);
+function buildEmpiGrid(filtro) {
+  const g = document.getElementById('emp-grid');
+  g.innerHTML = '';
+  const lista = filtro
+    ? EMPORI_LIST.filter(e => filtro.some(f => f.toLowerCase() === e.nome.toLowerCase()))
+    : EMPORI_LIST;
+  lista.forEach(e => {
+    const c = document.createElement('div');
+    c.className = 'emp-btn';
+    c.innerHTML = `<img src="${e.img}" alt="${e.nome}"><span>${e.nome}</span>`;
+    c.onclick = () => selezionaEmporio(e.nome);
+    g.appendChild(c);
+  });
+}
 
-    // ─── TABS ───
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
-            if (btn.dataset.tab === 'sintesi') renderSintesi();
-        });
+// ─── SCREENS ───
+function showScreen(s) {
+  ['empori','campagne','prenotazioni'].forEach(id =>
+    document.getElementById('screen-' + id).style.display = id === s ? 'block' : 'none'
+  );
+}
+
+function goBack(screen) {
+  showScreen(screen);
+  if (screen === 'empori') { _emporio = null; _campagna = null; }
+}
+
+// ─── EMPORIO ───
+async function selezionaEmporio(nome) {
+  _emporio = nome;
+  document.getElementById('page-title-campagne').textContent = nome;
+  document.getElementById('btn-nuova-campagna').style.display = _canAdmin ? '' : 'none';
+  showScreen('campagne');
+  await loadCampagne();
+}
+
+// ─── CAMPAGNE ───
+async function loadCampagne() {
+  document.getElementById('campagne-list').innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i></div>';
+  const {data, error} = await _db.from('campagne_prenotazione').select('*').order('created_at', {ascending: false});
+  if (error) { showToastM361('Errore caricamento campagne', 'error'); return; }
+  _campagne = data || [];
+  renderCampagne();
+}
+
+function renderCampagne() {
+  const el = document.getElementById('campagne-list');
+  if (_campagne.length === 0) {
+    el.innerHTML = `<div class="empty-state">Nessuna campagna disponibile.${_canAdmin ? '<br><br>Clicca "+ Nuova campagna" per iniziare.' : ''}</div>`;
+    return;
+  }
+  const attive = _campagne.filter(c => c.attiva !== false);
+  const inattive = _campagne.filter(c => c.attiva === false);
+  let html = '';
+  if (attive.length > 0) {
+    html += '<div class="sec-t" style="margin-bottom:12px">Campagne attive</div>';
+    html += '<div class="camp-grid">' + attive.map(campCard).join('') + '</div>';
+  }
+  if (inattive.length > 0 && _canAdmin) {
+    html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Campagne chiuse</div>';
+    html += '<div class="camp-grid">' + inattive.map(campCard).join('') + '</div>';
+  }
+  if (!html) el.innerHTML = '<div class="empty-state">Nessuna campagna disponibile.</div>';
+  else el.innerHTML = html;
+}
+
+function campCard(c) {
+  const prod = c.prodotti || [];
+  const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('it', {day:'2-digit', month:'short'}) : '—';
+  const now = new Date();
+  const isOpen = (c.data_apertura && c.data_chiusura)
+    ? now >= new Date(c.data_apertura + 'T00:00:00') && now <= new Date(c.data_chiusura + 'T23:59:59')
+    : c.attiva !== false;
+
+  const adminBtns = _canAdmin ? `
+    <button onclick="event.stopPropagation();editCampagna('${c.id}')" class="btn-secondary btn-sm"><i class="fas fa-pen"></i></button>
+    <button onclick="event.stopPropagation();deleteCampagna('${c.id}')" class="btn-danger btn-sm"><i class="fas fa-trash"></i></button>
+  ` : '';
+
+  return `
+    <div class="camp-card${isOpen ? ' camp-open' : ''}" onclick="apriCampagna('${c.id}')">
+      <div class="camp-header">
+        <div class="camp-title">${escHtml(c.titolo || 'Campagna')}</div>
+        <span class="camp-badge ${isOpen ? 'badge-open' : 'badge-closed'}">${isOpen ? 'Aperta' : 'Chiusa'}</span>
+      </div>
+      ${c.descrizione ? `<div class="camp-desc">${escHtml(c.descrizione)}</div>` : ''}
+      <div class="camp-meta">
+        <span><i class="fas fa-calendar" style="margin-right:4px"></i>${fmt(c.data_apertura)} → ${fmt(c.data_chiusura)}</span>
+        <span><i class="fas fa-box" style="margin-right:4px"></i>${prod.length} prodott${prod.length === 1 ? 'o' : 'i'}</span>
+      </div>
+      <div class="camp-footer">
+        <button class="btn-primary btn-sm" onclick="event.stopPropagation();apriCampagna('${c.id}')"><i class="fas fa-list"></i> Apri</button>
+        ${adminBtns}
+      </div>
+    </div>`;
+}
+
+function apriCampagna(id) {
+  _campagna = _campagne.find(c => c.id === id);
+  if (!_campagna) return;
+  document.getElementById('camp-title-display').textContent = _campagna.titolo || 'Campagna';
+  const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('it', {day:'2-digit', month:'long', year:'numeric'}) : '—';
+  document.getElementById('camp-dates-display').textContent = `${fmt(_campagna.data_apertura)} — ${fmt(_campagna.data_chiusura)}`;
+  document.getElementById('tab-riepilogo').style.display = _canRiepilogo ? '' : 'none';
+  switchTabById('pren-tab-pren');
+  showScreen('prenotazioni');
+  loadPrenotazioni();
+}
+
+// ─── PRENOTAZIONI ───
+async function loadPrenotazioni() {
+  document.getElementById('pren-tbody').innerHTML =
+    `<tr><td colspan="99" style="text-align:center;padding:32px;color:#94a3b8"><i class="fas fa-spinner fa-spin"></i></td></tr>`;
+
+  const [r1, r2] = await Promise.all([
+    _db.from('prenotazioni').select('*').eq('campagna_id', _campagna.id).eq('emporio', _emporio).order('created_at', {ascending: true}),
+    _canRiepilogo
+      ? _db.from('prenotazioni').select('*').eq('campagna_id', _campagna.id)
+      : Promise.resolve({data: [], error: null})
+  ]);
+
+  if (r1.error) { showToastM361('Errore caricamento prenotazioni', 'error'); return; }
+  _prenotazioni = r1.data || [];
+  _allPren = r2.data || [];
+  renderPrenTable();
+}
+
+function renderPrenTable() {
+  const filtro = (document.getElementById('filtro-cliente')?.value || '').toLowerCase().trim();
+  let rows = _prenotazioni;
+  if (filtro) {
+    rows = rows.filter(r => {
+      const n = ((r.cliente_nome || '') + ' ' + (r.cliente_cognome || '')).toLowerCase();
+      return n.includes(filtro) || (r.cliente_telefono || '').includes(filtro);
     });
+  }
 
-    // ─── PRODUCTS MANAGEMENT ───
-    function addProduct() {
-        products.push({ id: Date.now(), descrizione: '', codice: '', prezzo: 0 });
-        renderProducts();
-        renderAllTables();
-    }
+  const prod = _campagna.prodotti || [];
 
-    function removeProduct(idx) {
-        if (!confirm('Rimuovere questo prodotto?')) return;
-        products.splice(idx, 1);
-        renderProducts();
-        renderAllTables();
-    }
+  document.getElementById('pren-thead').innerHTML = `<tr>
+    <th style="min-width:120px">Cliente</th>
+    <th style="min-width:90px">Telefono</th>
+    ${prod.map(p => `<th class="prod-header"><div class="prod-info">
+      <span class="prod-desc">${escHtml(p.descrizione || '')}</span>
+      <span class="prod-code">${escHtml(p.codice || '')}</span>
+      <span class="prod-price">${p.prezzo ? '€' + Number(p.prezzo).toFixed(2) : ''}</span>
+    </div></th>`).join('')}
+    <th style="min-width:70px;text-align:right">Totale</th>
+    <th style="min-width:80px">Stato</th>
+    <th style="min-width:80px">Operatore</th>
+    <th style="width:64px"></th>
+  </tr>`;
 
-    function renderProducts() {
-        const body = document.getElementById('products-body');
-        body.innerHTML = products.map((p, i) => `
-            <tr class="border-b border-slate-100">
-                <td class="p-2 text-slate-400 font-mono text-xs font-bold">${i + 1}</td>
-                <td class="p-2"><input type="text" value="${p.descrizione}" onchange="products[${i}].descrizione=this.value; renderAllTables()" placeholder="Es: Colomba 750g" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-[#B5453A] outline-none"></td>
-                <td class="p-2"><input type="text" value="${p.codice}" onchange="products[${i}].codice=this.value; renderAllTables()" placeholder="COD001" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:border-[#B5453A] outline-none"></td>
-                <td class="p-2 text-right"><input type="number" step="0.01" value="${p.prezzo}" onchange="products[${i}].prezzo=parseFloat(this.value)||0; renderAllTables()" class="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono text-right focus:border-[#B5453A] outline-none"></td>
-                <td class="p-2 text-center"><button onclick="removeProduct(${i})" class="text-slate-300 hover:text-red-500 transition-colors"><i class="fas fa-trash"></i></button></td>
-            </tr>
-        `).join('');
-    }
+  const colSums = prod.map(() => 0);
+  let grandTotal = 0;
 
-    // ─── BOOKING TABLE PER EMPORIO ───
-    function addRow(emporio) {
-        bookings[emporio].push({
-            id: Date.now(), nome: '', cognome: '', cellulare: '',
-            pronto: false, avvisato: false, consegna: 'ritiro', qtys: {}
-        });
-        renderTable(emporio);
-    }
+  const tbody = rows.map(r => {
+    const art = r.articoli || {};
+    const cells = prod.map((p, pi) => {
+      const qty = art[String(pi)] || 0;
+      colSums[pi] += qty;
+      return `<td style="text-align:center;font-weight:700;color:${qty > 0 ? '#334155' : '#cbd5e1'}">${qty || '—'}</td>`;
+    }).join('');
+    const total = prod.reduce((s, p, pi) => s + (art[String(pi)] || 0) * (Number(p.prezzo) || 0), 0);
+    grandTotal += total;
+    const sc = STATI_COLORS[r.stato] || '#94a3b8';
+    const sl = STATI[r.stato] || r.stato || '—';
+    return `<tr>
+      <td style="font-weight:700;color:#1e293b">${escHtml(((r.cliente_cognome || '') + ' ' + (r.cliente_nome || '')).trim())}</td>
+      <td style="color:#64748b;font-size:12px">${escHtml(r.cliente_telefono || '—')}</td>
+      ${cells}
+      <td style="text-align:right;font-weight:700">€ ${total.toFixed(2)}</td>
+      <td><span class="stato-badge" style="background:${sc}20;color:${sc}">${sl}</span></td>
+      <td style="font-size:11px;color:#94a3b8">${escHtml(r.operatore_nome || '—')}</td>
+      <td style="text-align:center;white-space:nowrap">
+        <button onclick="openModalPrenotazione('${r.id}')" class="icon-btn" title="Modifica"><i class="fas fa-pen" style="font-size:11px"></i></button>
+        <button onclick="deletePrenotazione('${r.id}')" class="icon-btn icon-btn-danger" title="Elimina"><i class="fas fa-trash" style="font-size:11px"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
 
-    function removeRow(emporio, idx) {
-        bookings[emporio].splice(idx, 1);
-        renderTable(emporio);
-    }
+  document.getElementById('pren-tbody').innerHTML = tbody ||
+    `<tr><td colspan="99" style="text-align:center;color:#94a3b8;padding:40px;font-size:13px">
+      Nessuna prenotazione.<br>Clicca "+ Nuova" per aggiungere.
+    </td></tr>`;
 
-    function renderTable(emporio) {
-        const container = document.getElementById('table-' + emporio);
-        const rows = bookings[emporio];
+  document.getElementById('pren-tfoot').innerHTML = `<tr>
+    <td colspan="2" style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#64748b">Totali</td>
+    ${colSums.map(s => `<td class="col-total">${s}</td>`).join('')}
+    <td class="col-total" style="text-align:right">€ ${grandTotal.toFixed(2)}</td>
+    <td colspan="3"></td>
+  </tr>`;
+}
 
-        const prodHeaders = products.map((p, i) => `
-            <th class="prod-header">
-                <div class="prod-info">
-                    <span class="prod-desc">${p.descrizione || 'Prod ' + (i+1)}</span>
-                    <span class="prod-code">${p.codice || ''}</span>
-                    <span class="prod-price">${p.prezzo ? '€' + p.prezzo.toFixed(2) : ''}</span>
-                </div>
-            </th>
-        `).join('');
+function renderRiepilogo() {
+  const prod = _campagna.prodotti || [];
+  if (prod.length === 0) {
+    document.getElementById('riepilogo-container').innerHTML =
+      '<p style="text-align:center;color:#94a3b8;padding:32px">Nessun prodotto in questa campagna.</p>';
+    return;
+  }
+  const empRows = EMPORI_LIST.map(e => {
+    const prenEmp = _allPren.filter(r => r.emporio === e.nome);
+    if (prenEmp.length === 0) return null;
+    const cells = prod.map((p, pi) => {
+      const sum = prenEmp.reduce((s, r) => s + ((r.articoli || {})[String(pi)] || 0), 0);
+      return `<td class="rie-cell" style="${sum > 0 ? 'color:#1e293b;font-weight:800' : 'color:#e2e8f0'}">${sum || '—'}</td>`;
+    }).join('');
+    const rt = prod.reduce((s, p, pi) => s + prenEmp.reduce((rs, r) => rs + ((r.articoli || {})[String(pi)] || 0), 0), 0);
+    return `<tr class="${e.nome === _emporio ? 'rie-current' : ''}">
+      <td class="rie-emp-name">${escHtml(e.nome)}</td>
+      ${cells}
+      <td class="rie-cell" style="font-weight:900;color:#1e293b">${rt}</td>
+    </tr>`;
+  }).filter(Boolean).join('');
 
-        const dataRows = rows.map((r, ri) => {
-            const prodCells = products.map((p, pi) => {
-                const qty = r.qtys[pi] || 0;
-                return `<td class="text-center"><input type="number" min="0" value="${qty}" onchange="bookings['${emporio}'][${ri}].qtys[${pi}]=parseInt(this.value)||0; updateRowTotal('${emporio}',${ri})"></td>`;
-            }).join('');
+  const totCells = prod.map((p, pi) => {
+    const s = _allPren.reduce((acc, r) => acc + ((r.articoli || {})[String(pi)] || 0), 0);
+    return `<td>${s}</td>`;
+  }).join('');
+  const gt = prod.reduce((s, p, pi) => s + _allPren.reduce((rs, r) => rs + ((r.articoli || {})[String(pi)] || 0), 0), 0);
 
-            const total = products.reduce((sum, p, pi) => sum + (r.qtys[pi] || 0) * (p.prezzo || 0), 0);
-            const uid = emporio + '-' + ri;
+  document.getElementById('riepilogo-container').innerHTML = `
+    <table class="sint-table">
+      <thead><tr>
+        <th style="text-align:left">Emporio</th>
+        ${prod.map(p => `<th>${escHtml(p.descrizione || p.codice || '—')}</th>`).join('')}
+        <th>Totale</th>
+      </tr></thead>
+      <tbody>${empRows || `<tr><td colspan="99" style="text-align:center;color:#94a3b8;padding:24px">Nessuna prenotazione ancora.</td></tr>`}</tbody>
+      <tfoot><tr>
+        <td>TOTALE GENERALE</td>
+        ${totCells}
+        <td>${gt}</td>
+      </tr></tfoot>
+    </table>`;
+}
 
-            return `<tr>
-                <td class="text-center"><input type="checkbox" class="cb" ${r.pronto ? 'checked' : ''} onchange="bookings['${emporio}'][${ri}].pronto=this.checked" title="Pronto"></td>
-                <td class="text-center"><input type="checkbox" class="cb cb-red" ${r.avvisato ? 'checked' : ''} onchange="bookings['${emporio}'][${ri}].avvisato=this.checked" title="Avvisato"></td>
-                <td><input type="text" value="${r.nome}" onchange="bookings['${emporio}'][${ri}].nome=this.value" placeholder="Nome"></td>
-                <td><input type="text" value="${r.cognome}" onchange="bookings['${emporio}'][${ri}].cognome=this.value" placeholder="Cognome"></td>
-                <td><input type="tel" value="${r.cellulare}" onchange="bookings['${emporio}'][${ri}].cellulare=this.value" placeholder="Cell."></td>
-                ${prodCells}
-                <td class="row-total" id="total-${uid}">€ ${total.toFixed(2)}</td>
-                <td class="text-center">
-                    <div class="del-radio">
-                        <input type="radio" name="del-${uid}" id="rit-${uid}" value="ritiro" ${r.consegna==='ritiro'?'checked':''} onchange="bookings['${emporio}'][${ri}].consegna='ritiro'">
-                        <label for="rit-${uid}" title="Ritiro"><i class="fas fa-store" style="font-size:10px"></i></label>
-                        <input type="radio" name="del-${uid}" id="dom-${uid}" value="domicilio" ${r.consegna==='domicilio'?'checked':''} onchange="bookings['${emporio}'][${ri}].consegna='domicilio'">
-                        <label for="dom-${uid}" title="Domicilio"><i class="fas fa-truck" style="font-size:10px"></i></label>
-                    </div>
-                </td>
-                <td class="text-center"><button onclick="removeRow('${emporio}',${ri})" class="text-slate-300 hover:text-red-500 transition-colors text-xs"><i class="fas fa-trash"></i></button></td>
-            </tr>`;
-        }).join('');
+// ─── MODAL PRENOTAZIONE ───
+function openModalPrenotazione(id) {
+  _editingPrenId = id || null;
+  const r = id ? _prenotazioni.find(p => p.id === id) : null;
+  document.getElementById('modal-pren-title').textContent = r ? 'Modifica prenotazione' : 'Nuova prenotazione';
+  document.getElementById('f-nome').value = r?.cliente_nome || '';
+  document.getElementById('f-cognome').value = r?.cliente_cognome || '';
+  document.getElementById('f-telefono').value = r?.cliente_telefono || '';
+  document.getElementById('f-note').value = r?.note || '';
+  document.getElementById('f-stato').value = r?.stato || 'attesa';
 
-        // Column totals
-        const colTotals = products.map((p, pi) => {
-            const sum = rows.reduce((s, r) => s + (r.qtys[pi] || 0), 0);
-            return `<td class="col-total">${sum}</td>`;
-        }).join('');
-        const grandTotal = rows.reduce((s, r) => s + products.reduce((ps, p, pi) => ps + (r.qtys[pi] || 0) * (p.prezzo || 0), 0), 0);
+  const prod = _campagna.prodotti || [];
+  const art = r?.articoli || {};
+  document.getElementById('f-prodotti-list').innerHTML = prod.length === 0
+    ? '<p style="color:#94a3b8;font-size:13px;margin-bottom:12px">Nessun prodotto in questa campagna.</p>'
+    : `<div class="form-group">
+        <label>Quantità prodotti</label>
+        <div class="pren-prods-grid">
+          ${prod.map((p, i) => `
+            <div class="pren-prod-row">
+              <div class="pren-prod-info">
+                <span class="pren-prod-desc">${escHtml(p.descrizione || 'Prodotto ' + (i + 1))}</span>
+                <span class="pren-prod-sub">${p.codice ? escHtml(p.codice) : ''}${p.codice && p.prezzo ? ' · ' : ''}${p.prezzo ? '€' + Number(p.prezzo).toFixed(2) : ''}</span>
+              </div>
+              <input type="number" min="0" value="${art[String(i)] || 0}" id="pf-qty-${i}" class="pren-qty-input" oninput="updatePrenTotal()">
+            </div>`).join('')}
+        </div>
+        <div class="pren-total-row"><span>Totale:</span><strong id="pren-modal-total">€ 0.00</strong></div>
+      </div>`;
 
-        container.innerHTML = `
-            <table class="pren-table">
-                <thead><tr>
-                    <th style="width:36px">✓</th>
-                    <th style="width:36px"><i class="fas fa-bell" style="font-size:10px"></i></th>
-                    <th style="min-width:90px">Nome</th>
-                    <th style="min-width:90px">Cognome</th>
-                    <th style="min-width:90px">Cell.</th>
-                    ${prodHeaders}
-                    <th style="min-width:80px;text-align:right">Totale</th>
-                    <th style="width:70px">Cons.</th>
-                    <th style="width:36px"></th>
-                </tr></thead>
-                <tbody>${dataRows || '<tr><td colspan="99" class="text-center text-slate-400 py-8">Nessuna prenotazione. Clicca "Aggiungi cliente".</td></tr>'}</tbody>
-                <tfoot><tr>
-                    <td colspan="5" style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--slate-500)">Totali</td>
-                    ${colTotals}
-                    <td class="col-total" style="text-align:right;padding-right:10px">€ ${grandTotal.toFixed(2)}</td>
-                    <td></td><td></td>
-                </tr></tfoot>
-            </table>
-        `;
-    }
+  updatePrenTotal();
+  document.getElementById('modal-pren').style.display = 'flex';
+  setTimeout(() => document.getElementById('f-nome').focus(), 80);
+}
 
-    function updateRowTotal(emporio, ri) {
-        const r = bookings[emporio][ri];
-        const total = products.reduce((sum, p, pi) => sum + (r.qtys[pi] || 0) * (p.prezzo || 0), 0);
-        const el = document.getElementById('total-' + emporio + '-' + ri);
-        if (el) el.textContent = '€ ' + total.toFixed(2);
-    }
+function updatePrenTotal() {
+  const prod = _campagna?.prodotti || [];
+  const t = prod.reduce((s, p, i) => {
+    const qty = parseInt(document.getElementById('pf-qty-' + i)?.value || '0') || 0;
+    return s + qty * (Number(p.prezzo) || 0);
+  }, 0);
+  const el = document.getElementById('pren-modal-total');
+  if (el) el.textContent = '€ ' + t.toFixed(2);
+}
 
-    function renderAllTables() {
-        EMPORI.forEach(e => renderTable(e));
-    }
+function closeModalPren() { document.getElementById('modal-pren').style.display = 'none'; }
 
-    // ─── SINTESI ───
-    let sintesiSelection = {};
-    EMPORI.forEach(e => sintesiSelection[e] = true);
+async function savePrenotazione() {
+  const nome = document.getElementById('f-nome').value.trim();
+  const cognome = document.getElementById('f-cognome').value.trim();
+  if (!nome && !cognome) { showToastM361('Inserisci nome o cognome del cliente', 'warning'); return; }
 
-    function renderSintesi() {
-        if (products.length === 0) {
-            document.getElementById('sintesi-container').innerHTML = '<p class="text-slate-400 text-sm py-8 text-center">Definisci almeno un prodotto per vedere la sintesi.</p>';
-            return;
-        }
+  const prod = _campagna.prodotti || [];
+  const art = {};
+  prod.forEach((_, i) => {
+    const qty = parseInt(document.getElementById('pf-qty-' + i)?.value || '0') || 0;
+    if (qty > 0) art[String(i)] = qty;
+  });
 
-        const prodHeaders = products.map(p => `<th>${p.descrizione || '—'}</th>`).join('');
+  const payload = {
+    campagna_id: _campagna.id,
+    emporio: _emporio,
+    cliente_nome: nome,
+    cliente_cognome: cognome,
+    cliente_telefono: document.getElementById('f-telefono').value.trim(),
+    articoli: art,
+    note: document.getElementById('f-note').value.trim() || null,
+    stato: document.getElementById('f-stato').value,
+    operatore_nome: [_u.nome, _u.cognome].filter(Boolean).join(' '),
+  };
 
-        const emporiRows = EMPORI.map(emp => {
-            const selected = sintesiSelection[emp];
-            const cells = products.map((p, pi) => {
-                const sum = bookings[emp].reduce((s, r) => s + (r.qtys[pi] || 0), 0);
-                return `<td style="${sum > 0 ? 'color:var(--slate-800)' : 'color:var(--slate-300)'}">${sum}</td>`;
-            }).join('');
-            const rowTotal = products.reduce((s, p, pi) => s + bookings[emp].reduce((rs, r) => rs + (r.qtys[pi] || 0), 0), 0);
-            return `<tr class="${selected ? 'sint-selected' : ''}">
-                <td style="text-align:left">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                        <input type="checkbox" class="sint-check" data-emp="${emp}" ${selected ? 'checked' : ''} onchange="sintesiSelection['${emp}']=this.checked; renderSintesi()">
-                        ${EMPORI_LABELS[emp]}
-                    </label>
-                </td>
-                ${cells}
-                <td style="font-weight:900;color:var(--slate-800)">${rowTotal}</td>
-            </tr>`;
-        }).join('');
+  const btn = document.getElementById('btn-save-pren');
+  btn.disabled = true; btn.textContent = 'Salvataggio...';
 
-        // Selected totals
-        const selectedEmpori = EMPORI.filter(e => sintesiSelection[e]);
-        const totalCells = products.map((p, pi) => {
-            const sum = selectedEmpori.reduce((s, emp) => s + bookings[emp].reduce((rs, r) => rs + (r.qtys[pi] || 0), 0), 0);
-            return `<td>${sum}</td>`;
-        }).join('');
-        const grandTotal = products.reduce((s, p, pi) => s + selectedEmpori.reduce((es, emp) => es + bookings[emp].reduce((rs, r) => rs + (r.qtys[pi] || 0), 0), 0), 0);
+  const {error} = _editingPrenId
+    ? await _db.from('prenotazioni').update(payload).eq('id', _editingPrenId)
+    : await _db.from('prenotazioni').insert(payload);
 
-        document.getElementById('sintesi-container').innerHTML = `
-            <table class="sint-table">
-                <thead><tr>
-                    <th style="text-align:left">Emporio</th>
-                    ${prodHeaders}
-                    <th>Totale</th>
-                </tr></thead>
-                <tbody>${emporiRows}</tbody>
-                <tfoot><tr>
-                    <td style="text-align:left">SOMMA SELEZIONATI</td>
-                    ${totalCells}
-                    <td>${grandTotal}</td>
-                </tr></tfoot>
-            </table>
-        `;
-    }
+  btn.disabled = false; btn.textContent = 'Salva';
+  if (error) { showToastM361('Errore: ' + error.message, 'error'); return; }
+  showToastM361(_editingPrenId ? 'Prenotazione aggiornata' : 'Prenotazione salvata', 'success');
+  closeModalPren();
+  loadPrenotazioni();
+}
 
-    // ─── SUPABASE PERSISTENCE ───
-    async function saveAll() {
-        const payload = { id: 'prenotazioni_current', products, bookings, updated_at: new Date().toISOString() };
-        const { error } = await db.from('prenotazioni_data').upsert(payload, { onConflict: 'id' });
-        if (error) { console.error('Save error:', error); alert('Errore nel salvataggio: ' + error.message); }
-        else { showSaveToast(); }
-    }
+async function deletePrenotazione(id) {
+  if (!confirm('Eliminare questa prenotazione?')) return;
+  const {error} = await _db.from('prenotazioni').delete().eq('id', id);
+  if (error) { showToastM361('Errore eliminazione', 'error'); return; }
+  showToastM361('Prenotazione eliminata', 'success');
+  loadPrenotazioni();
+}
 
-    async function loadAll() {
-        const { data, error } = await db.from('prenotazioni_data').select('*').eq('id', 'prenotazioni_current').maybeSingle();
-        if (data) {
-            products = data.products || [];
-            bookings = data.bookings || {};
-            EMPORI.forEach(e => { if (!bookings[e]) bookings[e] = []; });
-        }
-        renderProducts();
-        renderAllTables();
-    }
+// ─── MODAL CAMPAGNA ───
+function openModalCampagna(id) {
+  _editingCampId = id || null;
+  const c = id ? _campagne.find(c => c.id === id) : null;
+  document.getElementById('modal-camp-title').textContent = c ? 'Modifica campagna' : 'Nuova campagna';
+  document.getElementById('fc-titolo').value = c?.titolo || '';
+  document.getElementById('fc-desc').value = c?.descrizione || '';
+  document.getElementById('fc-apertura').value = c?.data_apertura || '';
+  document.getElementById('fc-chiusura').value = c?.data_chiusura || '';
+  document.getElementById('fc-attiva').checked = c ? c.attiva !== false : true;
+  _campProdotti = c?.prodotti ? JSON.parse(JSON.stringify(c.prodotti)) : [];
+  renderCampProdotti();
+  document.getElementById('modal-camp').style.display = 'flex';
+  setTimeout(() => document.getElementById('fc-titolo').focus(), 80);
+}
 
-    function showSaveToast() {
-        if (window.M361?.toast) window.M361.toast('✓ Salvato', 'ok');
-    }
+function closeModalCamp() { document.getElementById('modal-camp').style.display = 'none'; }
 
-    // Auto-save every 30 seconds
-    setInterval(saveAll, 30000);
+function addProdottoCampagna() {
+  _campProdotti.push({descrizione: '', codice: '', prezzo: ''});
+  renderCampProdotti();
+  setTimeout(() => {
+    const rows = document.querySelectorAll('#fc-prodotti .form-input-sm');
+    if (rows.length >= 3) rows[rows.length - 3].focus();
+  }, 50);
+}
 
-    // ─── SAVE BUTTON (floating) ───
-    const saveBtn = document.createElement('button');
-    saveBtn.innerHTML = '<i class="fas fa-save"></i> Salva';
-    saveBtn.style.cssText = 'position:fixed;bottom:72px;right:16px;background:#1e293b;color:#fff;border:none;padding:12px 20px;border-radius:12px;font-family:Nunito, sans-serif;font-size:11px;font-weight:800;cursor:pointer;z-index:8999;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.08em;transition:all .15s';
-    saveBtn.onmouseover = () => saveBtn.style.background = '#334155';
-    saveBtn.onmouseout = () => saveBtn.style.background = '#1e293b';
-    saveBtn.onclick = saveAll;
-    document.body.appendChild(saveBtn);
+function removeProdottoCampagna(i) {
+  _campProdotti.splice(i, 1);
+  renderCampProdotti();
+}
 
-    // ─── INIT ───
-    loadAll();
+function renderCampProdotti() {
+  document.getElementById('fc-prodotti').innerHTML = _campProdotti.length === 0
+    ? '<p style="color:#94a3b8;font-size:12px;margin:4px 0 8px">Nessun prodotto. Clicca "Aggiungi prodotto".</p>'
+    : _campProdotti.map((p, i) => `
+      <div class="camp-prod-row">
+        <input type="text" placeholder="Descrizione" value="${escAttr(p.descrizione || '')}"
+          oninput="_campProdotti[${i}].descrizione=this.value" class="form-input-sm" style="flex:2">
+        <input type="text" placeholder="Codice" value="${escAttr(p.codice || '')}"
+          oninput="_campProdotti[${i}].codice=this.value" class="form-input-sm" style="flex:1">
+        <input type="number" placeholder="€" step="0.01" min="0" value="${escAttr(String(p.prezzo || ''))}"
+          oninput="_campProdotti[${i}].prezzo=this.value" class="form-input-sm" style="width:72px;text-align:right">
+        <button onclick="removeProdottoCampagna(${i})" class="btn-danger btn-sm" title="Rimuovi"><i class="fas fa-times"></i></button>
+      </div>`).join('');
+}
 
-    if (typeof isAdmin === 'function' && !isAdmin()) {
-        const _mioEmp = typeof emporioToId === 'function' ? emporioToId(getEmporioLoggato()) : null;
-        if (_mioEmp && EMPORI.includes(_mioEmp)) {
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                if (b.dataset.tab !== _mioEmp) b.style.display = 'none';
-            });
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            const activeBtn = document.querySelector(`.tab-btn[data-tab="${_mioEmp}"]`);
-            if (activeBtn) activeBtn.classList.add('active');
-            const activeContent = document.querySelector(`.tab-content[data-tab="${_mioEmp}"]`);
-            if (activeContent) activeContent.classList.add('active');
-        }
-    }
-    </script>
+async function saveCampagna() {
+  const titolo = document.getElementById('fc-titolo').value.trim();
+  if (!titolo) { showToastM361('Inserisci un titolo per la campagna', 'warning'); return; }
 
-    <style>@keyframes fadeout { 0%,70% { opacity: 1; } 100% { opacity: 0; } }</style>
-    <script src="../../scripts/nav-script.js"></script>
+  const payload = {
+    titolo,
+    descrizione: document.getElementById('fc-desc').value.trim() || null,
+    data_apertura: document.getElementById('fc-apertura').value || null,
+    data_chiusura: document.getElementById('fc-chiusura').value || null,
+    attiva: document.getElementById('fc-attiva').checked,
+    prodotti: _campProdotti.map(p => ({...p, prezzo: parseFloat(p.prezzo) || 0})),
+  };
+
+  const btn = document.getElementById('btn-save-camp');
+  btn.disabled = true; btn.textContent = 'Salvataggio...';
+
+  const {error} = _editingCampId
+    ? await _db.from('campagne_prenotazione').update(payload).eq('id', _editingCampId)
+    : await _db.from('campagne_prenotazione').insert(payload);
+
+  btn.disabled = false; btn.textContent = 'Salva campagna';
+  if (error) { showToastM361('Errore: ' + error.message, 'error'); return; }
+  showToastM361(_editingCampId ? 'Campagna aggiornata' : 'Campagna creata', 'success');
+  closeModalCamp();
+  loadCampagne();
+}
+
+function editCampagna(id) { openModalCampagna(id); }
+
+async function deleteCampagna(id) {
+  if (!confirm('Eliminare questa campagna?\nLe prenotazioni associate NON verranno eliminate.')) return;
+  const {error} = await _db.from('campagne_prenotazione').delete().eq('id', id);
+  if (error) { showToastM361('Errore eliminazione', 'error'); return; }
+  showToastM361('Campagna eliminata', 'success');
+  loadCampagne();
+}
+
+// ─── TABS ───
+function switchTab(btn) {
+  const tabId = btn.dataset.tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+  if (tabId === 'pren-tab-riepilogo') renderRiepilogo();
+}
+
+function switchTabById(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
+}
+
+// ─── UTIL ───
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ─── START ───
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+</script>
 </body>
 </html>
