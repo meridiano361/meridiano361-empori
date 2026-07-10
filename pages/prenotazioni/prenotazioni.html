@@ -725,14 +725,14 @@ async function savePrenotazione() {
     showToastM361('Errore: ' + error.message, 'error');
     return;
   }
+  showToastM361(_editingPrenId ? 'Prenotazione aggiornata' : 'Prenotazione salvata', 'success');
   btn.innerHTML = '<i class="fas fa-check"></i> Salvato!';
   setTimeout(() => {
     btn.disabled = false;
     btn.innerHTML = 'Salva';
     closeModalPren();
     loadPrenotazioni();
-  }, 700);
-  loadPrenotazioni();
+  }, 800);
 }
 
 async function deletePrenotazione(id) {
@@ -905,17 +905,30 @@ function addLink() {
 
 async function uploadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
-  const label = document.querySelector('label[for="fc-file-input"], label:has(#fc-file-input)');
   const files = [...fileList];
+  const uploadLabel = document.querySelector('label:has(#fc-file-input)');
+  const origHtml = uploadLabel?.innerHTML;
+  if (uploadLabel) uploadLabel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
+
+  let ok = 0;
   for (const file of files) {
     const path = `allegati/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const {error} = await _db.storage.from('prenotazioni').upload(path, file, {upsert: true});
-    if (error) { showToastM361('Errore upload ' + file.name + ': ' + error.message, 'error'); continue; }
+    if (error) {
+      const msg = error.message?.includes('Bucket') || error.statusCode === 404
+        ? 'Bucket Storage non trovato. Crea il bucket "prenotazioni" su Supabase → Storage.'
+        : 'Errore upload ' + file.name + ': ' + error.message;
+      showToastM361(msg, 'error');
+      continue;
+    }
     const {data} = _db.storage.from('prenotazioni').getPublicUrl(path);
     _campAllegati.push({tipo: 'file', nome: file.name, url: data.publicUrl});
+    ok++;
   }
   document.getElementById('fc-file-input').value = '';
+  if (uploadLabel && origHtml) uploadLabel.innerHTML = origHtml;
   renderAllegatiModal();
+  if (ok > 0) showToastM361(ok === 1 ? 'File caricato' : `${ok} file caricati`, 'success');
 }
 
 async function deleteCampagna(id) {
