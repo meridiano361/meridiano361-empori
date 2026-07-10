@@ -300,7 +300,7 @@
     </div>
     <div class="modal-footer">
       <button onclick="closeModalCamp()" class="btn-secondary">Annulla</button>
-      <button onclick="saveCampagna()" class="btn-primary" id="btn-save-camp">Salva campagna</button>
+      <button onclick="saveCampagna()" class="btn-primary" id="btn-save-camp">Salva prenotazione</button>
     </div>
   </div>
 </div>
@@ -672,16 +672,26 @@ async function savePrenotazione() {
   };
 
   const btn = document.getElementById('btn-save-pren');
-  btn.disabled = true; btn.textContent = 'Salvataggio...';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio...';
 
   const {error} = _editingPrenId
     ? await _db.from('prenotazioni').update(payload).eq('id', _editingPrenId)
     : await _db.from('prenotazioni').insert(payload);
 
-  btn.disabled = false; btn.textContent = 'Salva';
-  if (error) { showToastM361('Errore: ' + error.message, 'error'); return; }
-  showToastM361(_editingPrenId ? 'Prenotazione aggiornata' : 'Prenotazione salvata', 'success');
-  closeModalPren();
+  if (error) {
+    btn.disabled = false;
+    btn.innerHTML = 'Salva';
+    showToastM361('Errore: ' + error.message, 'error');
+    return;
+  }
+  btn.innerHTML = '<i class="fas fa-check"></i> Salvato!';
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = 'Salva';
+    closeModalPren();
+    loadPrenotazioni();
+  }, 700);
   loadPrenotazioni();
 }
 
@@ -776,17 +786,26 @@ async function saveCampagna() {
   };
 
   const btn = document.getElementById('btn-save-camp');
-  btn.disabled = true; btn.textContent = 'Salvataggio...';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio...';
 
   const {error} = _editingCampId
     ? await _db.from('campagne_prenotazione').update(payload).eq('id', _editingCampId)
     : await _db.from('campagne_prenotazione').insert(payload);
 
-  btn.disabled = false; btn.textContent = 'Salva campagna';
-  if (error) { showToastM361('Errore: ' + error.message, 'error'); return; }
-  showToastM361(_editingCampId ? 'Campagna aggiornata' : 'Campagna creata', 'success');
-  closeModalCamp();
-  loadCampagne();
+  if (error) {
+    btn.disabled = false;
+    btn.innerHTML = 'Salva prenotazione';
+    showToastM361('Errore: ' + error.message, 'error');
+    return;
+  }
+  btn.innerHTML = '<i class="fas fa-check"></i> Salvato!';
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = 'Salva prenotazione';
+    closeModalCamp();
+    loadCampagne();
+  }, 700);
 }
 
 function editCampagna(id) { openModalCampagna(id); }
