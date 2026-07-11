@@ -324,6 +324,7 @@
         </label>
       </div>
     </div>
+    <div id="modal-camp-err" style="display:none;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;margin:0 20px 12px;font-size:13px;color:#991b1b;font-weight:600;word-break:break-word"></div>
     <div class="modal-footer">
       <button onclick="closeModalCamp()" class="btn-secondary">Annulla</button>
       <button onclick="saveCampagna()" class="btn-primary" id="btn-save-camp">Salva prenotazione</button>
@@ -831,6 +832,10 @@ async function saveCampagna() {
   };
 
   const btn = document.getElementById('btn-save-camp');
+  const errBanner = document.getElementById('modal-camp-err');
+  const showErr = (msg) => { errBanner.textContent = '⚠ ' + msg; errBanner.style.display = 'block'; };
+  errBanner.style.display = 'none';
+
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio...';
 
@@ -847,14 +852,14 @@ async function saveCampagna() {
     btn.disabled = false;
     btn.innerHTML = 'Salva prenotazione';
     console.error('[saveCampagna] ERRORE:', error);
-    showToastM361('Errore salvataggio: ' + error.message, 'error');
+    showErr('Errore DB: ' + error.message);
     return;
   }
   if (!savedData || savedData.length === 0) {
     btn.disabled = false;
     btn.innerHTML = 'Salva prenotazione';
-    console.warn('[saveCampagna] nessuna riga aggiornata — RLS o id non trovato?');
-    showToastM361('Salvataggio fallito: nessuna riga modificata. Controlla la console.', 'error');
+    console.warn('[saveCampagna] nessuna riga aggiornata');
+    showErr('Salvataggio fallito: nessuna riga modificata (controlla RLS o colonne mancanti su Supabase).');
     return;
   }
   btn.innerHTML = '<i class="fas fa-check"></i> Salvato!';
@@ -955,8 +960,8 @@ async function uploadFiles(fileList) {
       const errText = isBucketMissing
         ? 'Bucket "prenotazioni" non trovato su Supabase Storage — crealo come bucket pubblico prima di caricare file.'
         : 'Errore upload ' + r.file.name + ': ' + msg;
-      const errEl = document.getElementById('fc-allegati-list');
-      if (errEl) errEl.insertAdjacentHTML('beforeend', `<div style="color:#ef4444;font-size:12px;margin-top:6px"><i class="fas fa-circle-exclamation"></i> ${errText}</div>`);
+      const errBanner2 = document.getElementById('modal-camp-err');
+      if (errBanner2) { errBanner2.textContent = '⚠ ' + errText; errBanner2.style.display = 'block'; }
       showToastM361(errText, 'error');
     } else {
       _campAllegati.push({tipo: 'file', nome: r.file.name, url: r.url});
