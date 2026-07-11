@@ -287,12 +287,22 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Data apertura</label>
+          <label>Apertura prenotazioni</label>
           <input type="date" id="fc-apertura" class="form-input">
         </div>
         <div class="form-group">
-          <label>Data chiusura</label>
+          <label>Chiusura prenotazioni</label>
           <input type="date" id="fc-chiusura" class="form-input">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Arrivo merce dal</label>
+          <input type="date" id="fc-arrivo-da" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Arrivo merce al</label>
+          <input type="date" id="fc-arrivo-a" class="form-input">
         </div>
       </div>
       <div class="form-group">
@@ -476,7 +486,8 @@ function campCard(c) {
       </div>
       ${c.descrizione ? `<div class="camp-desc">${escHtml(c.descrizione)}</div>` : ''}
       <div class="camp-meta">
-        <span><i class="fas fa-calendar" style="margin-right:4px"></i>${fmt(c.data_apertura)} → ${fmt(c.data_chiusura)}</span>
+        <span><i class="fas fa-calendar-check" style="margin-right:4px"></i>${fmt(c.data_apertura)} → ${fmt(c.data_chiusura)}</span>
+        ${c.data_arrivo_da ? `<span><i class="fas fa-truck" style="margin-right:4px"></i>${fmt(c.data_arrivo_da)}${c.data_arrivo_a ? ' → ' + fmt(c.data_arrivo_a) : ''}</span>` : ''}
         <span><i class="fas fa-box" style="margin-right:4px"></i>${prod.length} prodott${prod.length === 1 ? 'o' : 'i'}</span>
         ${c.empori && c.empori.length > 0 ? `<span><i class="fas fa-store" style="margin-right:4px"></i>${c.empori.join(', ')}</span>` : ''}
       </div>
@@ -492,7 +503,11 @@ function apriCampagna(id) {
   if (!_campagna) return;
   document.getElementById('camp-title-display').textContent = _campagna.titolo || 'Campagna';
   const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('it', {day:'2-digit', month:'long', year:'numeric'}) : '—';
-  document.getElementById('camp-dates-display').textContent = `${fmt(_campagna.data_apertura)} — ${fmt(_campagna.data_chiusura)}`;
+  const prenPeriod = `Prenotazioni: ${fmt(_campagna.data_apertura)} — ${fmt(_campagna.data_chiusura)}`;
+  const arrivoPeriod = _campagna.data_arrivo_da
+    ? `  ·  Arrivo merce: ${fmt(_campagna.data_arrivo_da)}${_campagna.data_arrivo_a ? ' — ' + fmt(_campagna.data_arrivo_a) : ''}`
+    : '';
+  document.getElementById('camp-dates-display').textContent = prenPeriod + arrivoPeriod;
   document.getElementById('tab-riepilogo').style.display = _canRiepilogo ? '' : 'none';
   document.getElementById('btn-stampa').href = `stampa.html?campagna=${_campagna.id}&emporio=${encodeURIComponent(_emporio)}`;
   // Mostra allegati campagna
@@ -754,6 +769,8 @@ function openModalCampagna(id) {
   document.getElementById('fc-desc').value = c?.descrizione || '';
   document.getElementById('fc-apertura').value = c?.data_apertura || '';
   document.getElementById('fc-chiusura').value = c?.data_chiusura || '';
+  document.getElementById('fc-arrivo-da').value = c?.data_arrivo_da || '';
+  document.getElementById('fc-arrivo-a').value = c?.data_arrivo_a || '';
   document.getElementById('fc-attiva').checked = c ? c.attiva !== false : true;
   const campEmpori = c?.empori || [];
   document.getElementById('fc-empori').innerHTML = EMPORI_LIST.map(e => `
@@ -826,6 +843,8 @@ async function saveCampagna() {
     descrizione: document.getElementById('fc-desc').value.trim() || null,
     data_apertura: document.getElementById('fc-apertura').value || null,
     data_chiusura: document.getElementById('fc-chiusura').value || null,
+    data_arrivo_da: document.getElementById('fc-arrivo-da').value || null,
+    data_arrivo_a: document.getElementById('fc-arrivo-a').value || null,
     attiva: document.getElementById('fc-attiva').checked,
     prodotti,
     empori,
@@ -882,6 +901,8 @@ function duplicaCampagna(id) {
   document.getElementById('fc-titolo').value = 'Copia di ' + document.getElementById('fc-titolo').value;
   document.getElementById('fc-apertura').value = '';
   document.getElementById('fc-chiusura').value = '';
+  document.getElementById('fc-arrivo-da').value = '';
+  document.getElementById('fc-arrivo-a').value = '';
 }
 
 // ─── ALLEGATI ───
