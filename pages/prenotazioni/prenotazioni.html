@@ -43,7 +43,9 @@
     .camp-title{font-size:15px;font-weight:900;color:var(--s800)}
     .camp-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:6px;flex-shrink:0}
     .badge-open{background:#dcfce7;color:#166534}
+    .badge-future{background:#fef9c3;color:#854d0e}
     .badge-closed{background:var(--s100);color:var(--s400)}
+    .camp-card.camp-future{border-left:4px solid #facc15}
     .camp-desc{font-size:12px;color:var(--s500);margin-bottom:10px}
     .camp-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;font-weight:600;color:var(--s500);margin-bottom:12px}
     .camp-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -438,9 +440,18 @@ async function loadCampagne() {
   renderCampagne();
 }
 
+function statoPrenotazione(c) {
+  const now = new Date();
+  if (c.attiva === false) return 'chiusa';
+  const da = c.data_apertura ? new Date(c.data_apertura + 'T00:00:00') : null;
+  const a  = c.data_chiusura ? new Date(c.data_chiusura + 'T23:59:59') : null;
+  if (da && now < da) return 'futura';
+  if (a  && now > a)  return 'chiusa';
+  return 'aperta';
+}
+
 function renderCampagne() {
   const el = document.getElementById('campagne-list');
-  // Filtra per emporio corrente (empori vuoto = valida per tutti)
   const visibili = _campagne.filter(c => {
     const emp = c.empori;
     return !emp || emp.length === 0 || emp.includes(_emporio);
@@ -449,16 +460,21 @@ function renderCampagne() {
     el.innerHTML = `<div class="empty-state">Nessuna prenotazione disponibile per ${_emporio}.${_canAdmin ? '<br><br>Clicca "+ Nuova prenotazione" per iniziare.' : ''}</div>`;
     return;
   }
-  const attive = visibili.filter(c => c.attiva !== false);
-  const inattive = visibili.filter(c => c.attiva === false);
+  const aperte  = visibili.filter(c => statoPrenotazione(c) === 'aperta');
+  const future  = visibili.filter(c => statoPrenotazione(c) === 'futura');
+  const chiuse  = visibili.filter(c => statoPrenotazione(c) === 'chiusa');
   let html = '';
-  if (attive.length > 0) {
-    html += '<div class="sec-t" style="margin-bottom:12px">Prenotazioni attive</div>';
-    html += '<div class="camp-grid">' + attive.map(campCard).join('') + '</div>';
+  if (aperte.length > 0) {
+    html += '<div class="sec-t" style="margin-bottom:12px">Aperte</div>';
+    html += '<div class="camp-grid">' + aperte.map(campCard).join('') + '</div>';
   }
-  if (inattive.length > 0 && _canAdmin) {
-    html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Prenotazioni chiuse</div>';
-    html += '<div class="camp-grid">' + inattive.map(campCard).join('') + '</div>';
+  if (future.length > 0) {
+    html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Non ancora aperte</div>';
+    html += '<div class="camp-grid">' + future.map(campCard).join('') + '</div>';
+  }
+  if (chiuse.length > 0 && _canAdmin) {
+    html += '<div class="sec-t" style="margin-top:28px;margin-bottom:12px">Chiuse</div>';
+    html += '<div class="camp-grid">' + chiuse.map(campCard).join('') + '</div>';
   }
   if (!html) el.innerHTML = '<div class="empty-state">Nessuna prenotazione disponibile.</div>';
   else el.innerHTML = html;
@@ -467,10 +483,10 @@ function renderCampagne() {
 function campCard(c) {
   const prod = c.prodotti || [];
   const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('it', {day:'2-digit', month:'short'}) : '—';
-  const now = new Date();
-  const isOpen = (c.data_apertura && c.data_chiusura)
-    ? now >= new Date(c.data_apertura + 'T00:00:00') && now <= new Date(c.data_chiusura + 'T23:59:59')
-    : c.attiva !== false;
+  const stato = statoPrenotazione(c);
+  const cardClass = stato === 'aperta' ? ' camp-open' : stato === 'futura' ? ' camp-future' : '';
+  const badgeClass = stato === 'aperta' ? 'badge-open' : stato === 'futura' ? 'badge-future' : 'badge-closed';
+  const badgeLabel = stato === 'aperta' ? 'Aperta' : stato === 'futura' ? 'Non aperta' : 'Chiusa';
 
   const adminBtns = _canAdmin ? `
     <button onclick="event.stopPropagation();duplicaCampagna('${c.id}')" class="btn-secondary btn-sm" title="Duplica"><i class="fas fa-copy"></i></button>
@@ -479,10 +495,10 @@ function campCard(c) {
   ` : '';
 
   return `
-    <div class="camp-card${isOpen ? ' camp-open' : ''}" onclick="apriCampagna('${c.id}')">
+    <div class="camp-card${cardClass}" onclick="apriCampagna('${c.id}')">
       <div class="camp-header">
         <div class="camp-title">${escHtml(c.titolo || 'Campagna')}</div>
-        <span class="camp-badge ${isOpen ? 'badge-open' : 'badge-closed'}">${isOpen ? 'Aperta' : 'Chiusa'}</span>
+        <span class="camp-badge ${badgeClass}">${badgeLabel}</span>
       </div>
       ${c.descrizione ? `<div class="camp-desc">${escHtml(c.descrizione)}</div>` : ''}
       <div class="camp-meta">
