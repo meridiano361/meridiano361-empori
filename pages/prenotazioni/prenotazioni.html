@@ -834,14 +834,27 @@ async function saveCampagna() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio...';
 
-  const {error} = _editingCampId
-    ? await _db.from('campagne_prenotazione').update(payload).eq('id', _editingCampId)
-    : await _db.from('campagne_prenotazione').insert(payload);
+  console.log('[saveCampagna] payload:', JSON.stringify(payload));
+  console.log('[saveCampagna] editingId:', _editingCampId);
+
+  const {data: savedData, error} = _editingCampId
+    ? await _db.from('campagne_prenotazione').update(payload).eq('id', _editingCampId).select()
+    : await _db.from('campagne_prenotazione').insert(payload).select();
+
+  console.log('[saveCampagna] risposta:', {savedData, error});
 
   if (error) {
     btn.disabled = false;
     btn.innerHTML = 'Salva prenotazione';
-    showToastM361('Errore: ' + error.message, 'error');
+    console.error('[saveCampagna] ERRORE:', error);
+    showToastM361('Errore salvataggio: ' + error.message, 'error');
+    return;
+  }
+  if (!savedData || savedData.length === 0) {
+    btn.disabled = false;
+    btn.innerHTML = 'Salva prenotazione';
+    console.warn('[saveCampagna] nessuna riga aggiornata — RLS o id non trovato?');
+    showToastM361('Salvataggio fallito: nessuna riga modificata. Controlla la console.', 'error');
     return;
   }
   btn.innerHTML = '<i class="fas fa-check"></i> Salvato!';
@@ -913,13 +926,22 @@ async function uploadFiles(fileList) {
   const origHtml = uploadLabel?.innerHTML;
   if (uploadLabel) uploadLabel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Caricamento...';
 
-  const results = await Promise.all(files.map(async file => {
+  const TIMEOUT_MS = 20000;
+  const uploadOne = async (file) => {
     const path = `allegati/${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const {error} = await _db.storage.from('prenotazioni').upload(path, file);
-    if (error) return {ok: false, file, error};
-    const {data} = _db.storage.from('prenotazioni').getPublicUrl(path);
-    return {ok: true, file, url: data.publicUrl};
-  }));
+    const uploadPromise = _db.storage.from('prenotazioni').upload(path, file);
+    const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout upload (>20s) — verifica che il bucket "prenotazioni" esista su Supabase Storage e sia pubblico.')), TIMEOUT_MS));
+    try {
+      const {error} = await Promise.race([uploadPromise, timeoutPromise]);
+      if (error) return {ok: false, file, error};
+      const {data} = _db.storage.from('prenotazioni').getPublicUrl(path);
+      return {ok: true, file, url: data.publicUrl};
+    } catch(e) {
+      return {ok: false, file, error: {message: e.message}};
+    }
+  };
+
+  const results = await Promise.all(files.map(uploadOne));
 
   document.getElementById('fc-file-input').value = '';
   if (uploadLabel && origHtml) uploadLabel.innerHTML = origHtml;
