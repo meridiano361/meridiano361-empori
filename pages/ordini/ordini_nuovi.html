@@ -1001,9 +1001,10 @@ function calcSubtotal(groupId) {
         container.querySelectorAll('.row-total').forEach(el => {
             sub += parseFloat(el.textContent.replace(',', '.')) || 0;
         });
-        // Confezionamento del gruppo
+        // Confezionamento del gruppo (solo se checkbox CB è flaggata)
         const confezTot = document.getElementById(`confez-total-${groupId}`);
-        if (confezTot) sub += parseFloat(confezTot.textContent.replace(',', '.')) || 0;
+        const confezOn = document.getElementById(`check-conf-${groupId}`)?.checked;
+        if (confezTot && confezOn) sub += parseFloat(confezTot.textContent.replace(',', '.')) || 0;
 
         const subtotalEl = document.getElementById(`subtotal-${groupId}`);
         if (subtotalEl) subtotalEl.textContent = '€ ' + sub.toFixed(2).replace('.', ',');
@@ -1016,7 +1017,9 @@ function calcSubtotal(groupId) {
                 grand += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
             document.querySelectorAll('.confez-total-cell').forEach(el => {
-                grand += parseFloat(el.textContent.replace(',', '.')) || 0;
+                const gid = el.id.replace('confez-total-', '');
+                if (document.getElementById(`check-conf-${gid}`)?.checked)
+                    grand += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
 
             document.getElementById('grand-total').textContent = '€ ' + grand.toFixed(2).replace('.', ',');
@@ -1855,7 +1858,9 @@ function toggleGusto(groupId) {
                 subtotBomb += qty * price;
             });
             document.querySelectorAll('[id^="confez-total-"]').forEach(el => {
-                subtotConfez += parseFloat(el.textContent.replace(',', '.')) || 0;
+                const gid = el.id.replace('confez-total-', '');
+                if (document.getElementById(`check-conf-${gid}`)?.checked)
+                    subtotConfez += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
             const fmt = n => '€ ' + n.toFixed(2).replace('.', ',');
             const bEl = document.getElementById('breakdown-bomb');
@@ -1887,11 +1892,13 @@ function toggleGusto(groupId) {
                 const rowTotal = qty * price;
                 subtotBomb += rowTotal;
 
-                // Confez: count once per group
+                // Confez: count once per group, solo se CB flaggata
                 if (!groupsSeen.has(gruppoId)) {
                     groupsSeen.add(gruppoId);
-                    const confezTotEl = document.getElementById(`confez-total-${gruppoId}`);
-                    subtotConfez += parseFloat(confezTotEl?.textContent.replace(',', '.')) || 0;
+                    if (document.getElementById(`check-conf-${gruppoId}`)?.checked) {
+                        const confezTotEl = document.getElementById(`confez-total-${gruppoId}`);
+                        subtotConfez += parseFloat(confezTotEl?.textContent.replace(',', '.')) || 0;
+                    }
                 }
 
                 const costInp = document.getElementById(`confez-cost-inp-${gruppoId}`);
