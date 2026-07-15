@@ -912,7 +912,9 @@
                 grand += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
             document.querySelectorAll('.confez-total-cell').forEach(el => {
-                grand += parseFloat(el.textContent.replace(',', '.')) || 0;
+                const gid = el.id.replace('confez-total-', '');
+                if (document.getElementById(`check-conf-${gid}`)?.checked)
+                    grand += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
 
             document.getElementById('grand-total').textContent = '€ ' + grand.toFixed(2).replace('.', ',');
@@ -934,7 +936,8 @@
                     sub += parseFloat(el.textContent.replace(',', '.')) || 0;
                 });
                 const confezTot = document.getElementById(`confez-total-${groupId}`);
-                if (confezTot) sub += parseFloat(confezTot.textContent.replace(',', '.')) || 0;
+                const confezOn = document.getElementById(`check-conf-${groupId}`)?.checked;
+                if (confezTot && confezOn) sub += parseFloat(confezTot.textContent.replace(',', '.')) || 0;
                 const subtotalEl = document.getElementById(`subtotal-${groupId}`);
                 if (subtotalEl) subtotalEl.textContent = '€ ' + sub.toFixed(2).replace('.', ',');
             }
@@ -948,7 +951,9 @@
                 subtotBomb += qty * price;
             });
             document.querySelectorAll('[id^="confez-total-"]').forEach(el => {
-                subtotConfez += parseFloat(el.textContent.replace(',', '.')) || 0;
+                const gid = el.id.replace('confez-total-', '');
+                if (document.getElementById(`check-conf-${gid}`)?.checked)
+                    subtotConfez += parseFloat(el.textContent.replace(',', '.')) || 0;
             });
             const fmt = n => '€ ' + n.toFixed(2).replace('.', ',');
             const bEl = document.getElementById('breakdown-bomb');
@@ -1137,9 +1142,17 @@
         }
 
         function calcConfezOmaggio(groupId) {
+            const checked = document.getElementById(`check-conf-${groupId}`)?.checked;
+            const totalEl = document.getElementById(`confez-total-${groupId}`);
+            if (!checked) {
+                if (totalEl) totalEl.textContent = '0,00';
+                calcOmaggioDisp(groupId);
+                calcSubtotal(groupId);
+                calcGrandTotal();
+                return;
+            }
             const qty = parseInt(document.getElementById(`confez-qty-${groupId}`)?.value) || 0;
             const cost = parseFloat(document.getElementById(`confez-cost-inp-${groupId}`)?.value.replace('€','').replace(',','.').trim()) || 0;
-            const totalEl = document.getElementById(`confez-total-${groupId}`);
             if (totalEl) totalEl.textContent = (qty * cost).toFixed(2).replace('.', ',');
             calcOmaggioDisp(groupId);
             calcSubtotal(groupId);
@@ -1164,6 +1177,7 @@
             if (optsRow) optsRow.style.display = checked ? 'table-row' : 'none';
             if (!checked && cartRow) cartRow.style.display = 'none';
             if (checked) toggleConfezTipo(groupId);
+            else calcConfezOmaggio(groupId);
         }
 
         function toggleConfezTipo(groupId) {
