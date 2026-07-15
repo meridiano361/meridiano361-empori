@@ -1747,9 +1747,17 @@ function syncConfezOmaggio(groupId) {
 
 // Ricalcola totale confezionamento
 function calcConfezOmaggio(groupId) {
+    const checked = document.getElementById(`check-conf-${groupId}`)?.checked;
+    const totalEl = document.getElementById(`confez-total-${groupId}`);
+    if (!checked) {
+        if (totalEl) totalEl.textContent = '0,00';
+        calcOmaggioDisp(groupId);
+        calcSubtotal(groupId);
+        calcGrandTotal();
+        return;
+    }
     const qty = parseInt(document.getElementById(`confez-qty-${groupId}`)?.value) || 0;
     const cost = parseFloat(document.getElementById(`confez-cost-inp-${groupId}`)?.value.replace('€','').replace(',','.').trim()) || 0;
-    const totalEl = document.getElementById(`confez-total-${groupId}`);
     if (totalEl) totalEl.textContent = (qty * cost).toFixed(2).replace('.', ',');
     calcOmaggioDisp(groupId);
     calcSubtotal(groupId);
@@ -1774,6 +1782,7 @@ function toggleConfezOptions(groupId) {
     if (optsRow) optsRow.style.display = checked ? 'table-row' : 'none';
     if (!checked && cartRow) cartRow.style.display = 'none';
     if (checked) toggleConfezTipo(groupId);
+    else calcConfezOmaggio(groupId);
 }
 
 function toggleConfezTipo(groupId) {
