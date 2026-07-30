@@ -9,7 +9,7 @@ const CORS = {
 type OpEntry  = { nome?: string; rimosso?: boolean };
 type TurnoRec = { emporio: string; turno: string; operatori: OpEntry[] | null };
 type Shift    = { turno: string; emporio: string };
-type Sub      = { operatore_nome: string; operatore_id: string | null; endpoint: string; subscription: object };
+type Sub      = { operatore_nome: string; operatore_id: string | null; endpoint: string; subscription: object; last_push_at: string | null };
 type LogEntry = {
   nome: string;
   motivo_skip?: string;
@@ -47,6 +47,10 @@ Deno.serve(async (req) => {
     now.toLocaleString("en-US", { timeZone: "Europe/Rome", hour: "numeric", hour12: false }),
     10,
   );
+  // Soglia per deduplicazione: mezzanotte UTC del giorno corrente.
+  // Il cron gira alle 06:00, 06:15, 06:30 UTC: tutte le run dello stesso giorno
+  // hanno lo stesso todayMidnightUtc, quindi non reinviamo a chi ha già ricevuto.
+  const todayMidnightUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
   const urlObj    = new URL(req.url);
   const dryrun    = urlObj.searchParams.get("dryrun") === "1";
@@ -93,7 +97,7 @@ Deno.serve(async (req) => {
       .eq("anno", year).eq("mese", month).eq("giorno", day).eq("aperto", true),
     db.from("operatore_notif_prefs").select("operatore_id").eq("tipo", "turni").eq("abilitato", false),
     db.from("operatori").select("id, nome"),
-    db.from("push_subscriptions").select("operatore_nome, operatore_id, endpoint, subscription"),
+    db.from("push_subscriptions").select("operatore_nome, operatore_id, endpoint, subscription, last_push_at"),
   ]);
 
   if (turniErr) {
@@ -273,6 +277,13 @@ Deno.serve(async (req) => {
     });
 
     for (const sub of operatoreSubs) {
+      // Dedup: salta se già inviato oggi a questo endpoint (catch-up run successivi)
+      if (sub.last_push_at && new Date(sub.last_push_at) >= todayMidnightUtc) {
+        const logEntry = results.log.find(l => l.nome === nome);
+        if (logEntry) logEntry.motivo_skip = (logEntry.motivo_skip ?? "") + "[già inviato oggi] ";
+        results.skipped++;
+        continue;
+      }
       sendTasks.push({ sub, payload, nome });
     }
   }
