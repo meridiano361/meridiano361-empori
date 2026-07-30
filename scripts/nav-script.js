@@ -1271,12 +1271,10 @@ function buildNav() {
         if (sub) {
           await _upsertSubscription(user, sub);
         } else {
-          // Subscription persa ma permesso granted: riattiva automaticamente (una volta per sessione)
-          if (!sessionStorage.getItem('m361_push_autotried')) {
-            sessionStorage.setItem('m361_push_autotried', '1');
-            const err = await _pushSubscribe(user);
-            if (err) _showPushBanner(user, err);
-          }
+          // Subscription persa ma permesso già granted: nessuna dialog → riprova SEMPRE
+          // (non limitare a una volta per sessione: il resubscribe è silenzioso)
+          const err = await _pushSubscribe(user);
+          if (err) _showPushBanner(user, err);
         }
       } catch (_) {}
     } else if (Notification.permission === 'default') {
