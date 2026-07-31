@@ -1477,6 +1477,7 @@
                         ${op.is_resp_acquisti  ? '<span style="font-size:10px;background:#ecfdf5;color:#065f46;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile acquisti">🛒 Resp. Acquisti</span>' : ''}
                         ${op.is_resp_emporio   ? '<span style="font-size:10px;background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile emporio">🏪 Resp. Emporio</span>' : ''}
                         ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
+                        ${op.attivo === false ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Operatore non attivo — non compare nel controllo cassa">⏸ Non attivo</span>' : ''}
                     </div>
                 </td>
                 <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
@@ -1488,11 +1489,20 @@
                         <button onclick="apriModalPermessi('${safeId}','${safeName}')" title="Gestisci accessi">🔒</button>
                         <button onclick="inviaInvitoRiga(this)" title="Crea accesso app (non resetta la password se già esiste)" class="btn-invita-op" style="background:#dbeafe;border-color:#93c5fd;color:#1d4ed8;font-size:10px;font-weight:700;width:auto;padding:0 6px">INVITA</button>
                         <button onclick="reimpostaPasswordRiga(this)" title="Reimposta password" class="btn-invita-op" style="background:#fef9c3;border-color:#fbbf24;color:#92400e;font-size:10px;font-weight:700;width:auto;padding:0 6px">PW</button>
+                        <button onclick="toggleAttivo('${safeId}',${op.attivo !== false})" title="${op.attivo !== false ? 'Disattiva operatore' : 'Riattiva operatore'}" class="btn-invita-op" style="background:${op.attivo !== false ? '#dcfce7' : '#fef2f2'};border-color:${op.attivo !== false ? '#86efac' : '#fca5a5'};color:${op.attivo !== false ? '#166534' : '#dc2626'};font-size:10px;font-weight:700;width:auto;padding:0 6px">${op.attivo !== false ? 'ATT' : 'INATT'}</button>
                         <button onclick="confermaEliminaOperatore('${safeId}','${safeName}')" title="Elimina operatore" class="btn-elimina-op">🗑</button>
                     </div>
                 </td>
             </tr>
         `;
+    }
+
+    async function toggleAttivo(id, attivo) {
+        const nuovoStato = !attivo;
+        const { error } = await db.from('operatori').update({ attivo: nuovoStato }).eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        showToast(nuovoStato ? 'Operatore riattivato' : 'Operatore disattivato', 'ok');
+        loadUsers();
     }
 
     async function _creaAccountAuth(email) {
