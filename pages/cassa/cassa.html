@@ -707,6 +707,7 @@ input[type=month].btn-export{min-width:160px;}
     <button class="sub-tab active" onclick="showSubTab('admin','iva',this)"><i class="fas fa-percent"></i> IVA</button>
     <button class="sub-tab" onclick="showSubTab('admin','pagamenti',this)"><i class="fas fa-credit-card"></i> Forme di Pagamento</button>
     <button class="sub-tab" onclick="showSubTab('admin','cassaforte',this)"><i class="fas fa-vault"></i> Cassaforte &amp; Versamenti</button>
+    <button class="sub-tab" onclick="showSubTab('admin','mensile',this)"><i class="fas fa-calendar-alt"></i> Vista Mensile</button>
   </div>
 
   <!-- IVA -->
@@ -789,6 +790,105 @@ input[type=month].btn-export{min-width:160px;}
           <th>Data Versamento</th><th>Operatore</th><th>Note</th>
         </tr></thead>
         <tbody id="cf-body"><tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VISTA MENSILE -->
+  <div id="admin-sub-mensile" class="sub-content">
+    <div class="export-bar">
+      <select id="vm-filter-emporio" onchange="loadVistaMensileData()" class="btn-export">
+        <option value="">Seleziona emporio</option>
+        <option>Cremona</option><option>Casalmaggiore</option>
+        <option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
+      </select>
+      <input type="month" id="vm-filter-mese" onchange="loadVistaMensileData()" class="btn-export" style="min-width:160px">
+      <button class="btn-export" onclick="exportTableCSV('vm-t1','controllo_cassa')"><i class="fas fa-file-csv"></i> CSV Cassa</button>
+      <button class="btn-export" onclick="exportTableCSV('vm-t2','ver_iva')"><i class="fas fa-file-csv"></i> CSV VER</button>
+      <button class="btn-export" onclick="exportTableCSV('vm-t3','confronto')"><i class="fas fa-file-csv"></i> CSV Cfr.</button>
+      <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
+    </div>
+
+    <div class="kpi-grid" id="vm-kpi"></div>
+
+    <!-- ─ Tabella 1: Controllo Cassa ─ -->
+    <div style="margin:20px 0 6px;font-weight:700;color:#374151;font-size:13px;letter-spacing:.4px;border-left:3px solid #B5453A;padding-left:8px">
+      <i class="fas fa-cash-register" style="color:#B5453A;margin-right:5px"></i>Controllo Cassa
+    </div>
+    <div style="overflow-x:auto">
+      <table class="admin-table" id="vm-t1">
+        <thead><tr>
+          <th>Data</th>
+          <th class="number">Corrispettivi</th>
+          <th class="number">Incassi</th>
+          <th class="number">Contanti</th>
+          <th class="number">Bancomat</th>
+          <th class="number">Carte</th>
+          <th class="number">Satispay</th>
+          <th class="number">Sat. Online</th>
+          <th class="number">C. Online</th>
+          <th class="number">PayPal</th>
+          <th class="number">Bonifico</th>
+          <th class="number">Gift Card</th>
+          <th class="number">Buoni</th>
+          <th class="number">Cassaforte</th>
+          <th class="number">Fondo Cassa</th>
+          <th class="number">Diff.</th>
+          <th class="number">Saldo</th>
+        </tr></thead>
+        <tbody id="vm-t1-body">
+          <tr><td colspan="17" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─ Tabella 2: VER Registri Corrispettivi ─ -->
+    <div style="margin:28px 0 6px;font-weight:700;color:#374151;font-size:13px;letter-spacing:.4px;border-left:3px solid #B5453A;padding-left:8px">
+      <i class="fas fa-percent" style="color:#B5453A;margin-right:5px"></i>VER — Registri Corrispettivi
+    </div>
+    <div style="overflow-x:auto">
+      <table class="admin-table" id="vm-t2">
+        <thead><tr>
+          <th>Data</th>
+          <th class="number">Totale</th>
+          <th class="number">IVA 22%</th>
+          <th class="number">IVA 10%</th>
+          <th class="number">IVA 4%</th>
+          <th class="number">Esente</th>
+          <th class="number">Net Es.</th>
+          <th class="number">Somma</th>
+          <th style="text-align:center">Check</th>
+          <th>Meteo / Note</th>
+          <th>Note Amm.</th>
+        </tr></thead>
+        <tbody id="vm-t2-body">
+          <tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─ Tabella 3: Confronto Anno ─ -->
+    <div style="margin:28px 0 6px;font-weight:700;color:#374151;font-size:13px;letter-spacing:.4px;border-left:3px solid #B5453A;padding-left:8px">
+      <i class="fas fa-chart-line" style="color:#B5453A;margin-right:5px"></i>Confronto Anno <span id="vm-cfr-label"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="admin-table" id="vm-t3">
+        <thead><tr>
+          <th>Data</th>
+          <th class="number">2026</th>
+          <th class="number">2025</th>
+          <th class="number">Δ</th>
+          <th style="text-align:center">Trend</th>
+          <th class="number">Progr. 26</th>
+          <th class="number">Progr. 25</th>
+          <th class="number">Δ Progr.</th>
+          <th style="text-align:center">Trend</th>
+          <th class="number">N° Scontrini</th>
+          <th class="number">Sc. Medio</th>
+        </tr></thead>
+        <tbody id="vm-t3-body">
+          <tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
@@ -1554,6 +1654,8 @@ function showMacroSection(name, btn) {
     const cm = document.getElementById('cf-filter-mese');
     if (pm && !pm.value) pm.value = meseCorrente;
     if (cm && !cm.value) cm.value = meseCorrente;
+    const vm = document.getElementById('vm-filter-mese');
+    if (vm && !vm.value) vm.value = meseCorrente;
     document.getElementById('iva-filter-anno').value = annoCorrente;
     loadIvaData();
   }
@@ -1574,6 +1676,7 @@ function showSubTab(section, name, btn) {
   if (name === 'iva') loadIvaData();
   if (name === 'pagamenti') loadPagamentiData();
   if (name === 'cassaforte') loadCassaforteData();
+  if (name === 'mensile') loadVistaMensileData();
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1805,6 +1908,267 @@ async function loadCassaforteData() {
     `;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   VISTA MENSILE (Controllo Cassa + VER + Confronto)
+══════════════════════════════════════════════════════ */
+async function loadVistaMensileData() {
+  const emporio = document.getElementById('vm-filter-emporio').value;
+  const mese    = document.getElementById('vm-filter-mese').value;
+  const t1b = document.getElementById('vm-t1-body');
+  const t2b = document.getElementById('vm-t2-body');
+  const t3b = document.getElementById('vm-t3-body');
+
+  const placeholderMsg = (cols, msg) =>
+    `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">${msg}</td></tr>`;
+
+  if (!emporio || !mese) {
+    t1b.innerHTML = placeholderMsg(17, 'Seleziona emporio e mese');
+    t2b.innerHTML = placeholderMsg(11, 'Seleziona emporio e mese');
+    t3b.innerHTML = placeholderMsg(11, 'Seleziona emporio e mese');
+    document.getElementById('vm-kpi').innerHTML = '';
+    return;
+  }
+
+  t1b.innerHTML = placeholderMsg(17, 'Caricamento...');
+  t2b.innerHTML = placeholderMsg(11, 'Caricamento...');
+  t3b.innerHTML = placeholderMsg(11, 'Caricamento...');
+
+  try {
+    const { data, error } = await db.from('cassa_giorni')
+      .select('data,totale_corrispettivi,contanti,bancomat,carte_credito,satispay,satispay_online,carte_credito_online,paypal,bonifico,gift_card,gift_card_online,buoni_altromercato,rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25')
+      .eq('emporio', emporio)
+      .gte('data', mese + '-01')
+      .lte('data', mese + '-31')
+      .order('data');
+    if (error) throw error;
+
+    // Riporto = fondo_residuo ultimo giorno mese precedente
+    const [anno, mm] = mese.split('-');
+    const prevMese = mm === '01'
+      ? (parseInt(anno) - 1) + '-12'
+      : anno + '-' + String(parseInt(mm) - 1).padStart(2, '0');
+    const { data: prevData } = await db.from('cassa_giorni')
+      .select('fondo_residuo')
+      .eq('emporio', emporio)
+      .gte('data', prevMese + '-01')
+      .lte('data', prevMese + '-31')
+      .order('data', { ascending: false })
+      .limit(1);
+    const riporto = parseFloat(prevData?.[0]?.fondo_residuo || 0);
+
+    if (!data?.length) {
+      t1b.innerHTML = placeholderMsg(17, 'Nessun dato per questo mese');
+      t2b.innerHTML = placeholderMsg(11, 'Nessun dato per questo mese');
+      t3b.innerHTML = placeholderMsg(11, 'Nessun dato per questo mese');
+      document.getElementById('vm-kpi').innerHTML = '';
+      return;
+    }
+
+    const n = v => parseFloat(v || 0);
+
+    // ── Tabella 1: Controllo Cassa ──────────────────────────────────────
+    let saldo = riporto;
+    let tCorr = 0, tInc = 0, tCassa = 0, tDiff = 0;
+    const rows1 = [];
+
+    if (riporto !== 0) {
+      rows1.push(`<tr style="background:#f8fafc;font-style:italic;color:#64748b">
+        <td colspan="13" style="padding:6px 10px">Riporto mese precedente</td>
+        <td class="number">–</td><td class="number">–</td><td class="number">–</td>
+        <td class="number"><strong>${fmt(riporto)}</strong></td>
+      </tr>`);
+    }
+
+    data.forEach(r => {
+      const corr    = n(r.totale_corrispettivi);
+      const cont    = n(r.contanti);
+      const banc    = n(r.bancomat);
+      const carte   = n(r.carte_credito);
+      const sati    = n(r.satispay);
+      const satOnl  = n(r.satispay_online);
+      const cOnl    = n(r.carte_credito_online);
+      const pp      = n(r.paypal);
+      const bon     = n(r.bonifico);
+      const gift    = n(r.gift_card) + n(r.gift_card_online);
+      const buoni   = n(r.buoni_altromercato);
+      const rimb    = n(r.rimborsi_online);
+      const incassi = cont + banc + carte + sati + satOnl + cOnl + pp + bon + gift + buoni - rimb;
+      const cf      = n(r.cassaforte);
+      const fc      = n(r.fondo_cassa);
+      const diff    = corr - incassi;
+      saldo += cf;
+      tCorr += corr; tInc += incassi; tCassa += cf; tDiff += diff;
+
+      const diffStyle = Math.abs(diff) > 0.02 ? 'color:#dc2626;font-weight:700' : 'color:#16a34a';
+      const diffCell  = Math.abs(diff) > 0.01 ? fmt(diff) : '<span style="color:#16a34a">✓</span>';
+      const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
+
+      rows1.push(`<tr>
+        <td><strong>${dl}</strong></td>
+        <td class="number">${corr > 0 ? fmt(corr) : '–'}</td>
+        <td class="number">${incassi > 0 ? fmt(incassi) : '–'}</td>
+        <td class="number">${cont > 0 ? fmt(cont) : '–'}</td>
+        <td class="number">${banc > 0 ? fmt(banc) : '–'}</td>
+        <td class="number">${carte > 0 ? fmt(carte) : '–'}</td>
+        <td class="number">${sati > 0 ? fmt(sati) : '–'}</td>
+        <td class="number">${satOnl > 0 ? fmt(satOnl) : '–'}</td>
+        <td class="number">${cOnl > 0 ? fmt(cOnl) : '–'}</td>
+        <td class="number">${pp > 0 ? fmt(pp) : '–'}</td>
+        <td class="number">${bon > 0 ? fmt(bon) : '–'}</td>
+        <td class="number">${gift > 0 ? fmt(gift) : '–'}</td>
+        <td class="number">${buoni > 0 ? fmt(buoni) : '–'}</td>
+        <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
+        <td class="number">${fc > 0 ? fmt(fc) : '–'}</td>
+        <td class="number" style="${diffStyle}">${diffCell}</td>
+        <td class="number"><strong>${fmt(saldo)}</strong></td>
+      </tr>`);
+    });
+
+    const tDiffStyle = Math.abs(tDiff) > 0.02 ? 'color:#dc2626' : 'color:#16a34a';
+    rows1.push(`<tr class="total-row">
+      <td><strong>TOTALI</strong></td>
+      <td class="number"><strong>${fmt(tCorr)}</strong></td>
+      <td class="number"><strong>${fmt(tInc)}</strong></td>
+      <td colspan="10" style="color:#94a3b8">–</td>
+      <td class="number"><strong>${fmt(tCassa)}</strong></td>
+      <td style="color:#94a3b8">–</td>
+      <td class="number" style="${tDiffStyle}"><strong>${Math.abs(tDiff) > 0.01 ? fmt(tDiff) : '✓'}</strong></td>
+      <td class="number"><strong>${fmt(saldo)}</strong></td>
+    </tr>`);
+    t1b.innerHTML = rows1.join('');
+
+    // ── Tabella 2: VER ──────────────────────────────────────────────────
+    let tTot = 0, t22 = 0, t10 = 0, t4 = 0, tEs = 0;
+    const rows2 = [];
+
+    data.forEach(r => {
+      const tot = n(r.totale_corrispettivi);
+      const v22 = n(r.iva_22);
+      const v10 = n(r.iva_10);
+      const v4  = n(r.iva_4);
+      const ves = n(r.iva_esente);
+      if (tot === 0 && v22 === 0 && v10 === 0 && v4 === 0 && ves === 0) return;
+      const somma = v22 + v10 + v4 + ves;
+      const diff  = Math.abs(tot - somma);
+      const check = diff < 0.02
+        ? '<span style="color:#16a34a;font-weight:700;font-size:12px">OK</span>'
+        : `<span style="color:#dc2626;font-weight:700;font-size:12px" title="Diff: ${diff.toFixed(2)}">ERR</span>`;
+      tTot += tot; t22 += v22; t10 += v10; t4 += v4; tEs += ves;
+      const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
+
+      rows2.push(`<tr>
+        <td><strong>${dl}</strong></td>
+        <td class="number">${tot > 0 ? fmt(tot) : '–'}</td>
+        <td class="number">${v22 > 0 ? fmt(v22) : '–'}</td>
+        <td class="number">${v10 > 0 ? fmt(v10) : '–'}</td>
+        <td class="number">${v4  > 0 ? fmt(v4)  : '–'}</td>
+        <td class="number">${ves > 0 ? fmt(ves) : '–'}</td>
+        <td class="number">${ves > 0 ? fmt(ves) : '–'}</td>
+        <td class="number">${somma > 0 ? fmt(somma) : '–'}</td>
+        <td style="text-align:center">${tot > 0 ? check : '–'}</td>
+        <td style="font-size:11px;color:#475569;max-width:140px">${r.meteo_note || '–'}</td>
+        <td style="font-size:11px;color:#475569;max-width:160px">${r.note_amm   || '–'}</td>
+      </tr>`);
+    });
+
+    if (!rows2.length) {
+      t2b.innerHTML = placeholderMsg(11, 'Nessun dato IVA per questo mese');
+    } else {
+      const tSomma = t22 + t10 + t4 + tEs;
+      rows2.push(`<tr class="total-row">
+        <td><strong>TOTALI</strong></td>
+        <td class="number"><strong>${fmt(tTot)}</strong></td>
+        <td class="number">${fmt(t22)}</td>
+        <td class="number">${fmt(t10)}</td>
+        <td class="number">${fmt(t4)}</td>
+        <td class="number">${fmt(tEs)}</td>
+        <td class="number">${fmt(tEs)}</td>
+        <td class="number"><strong>${fmt(tSomma)}</strong></td>
+        <td style="text-align:center;color:${Math.abs(tTot-tSomma) < 0.05 ? '#16a34a' : '#dc2626'};font-weight:700">
+          ${Math.abs(tTot - tSomma) < 0.05 ? 'OK' : 'ERR'}
+        </td>
+        <td colspan="2" style="color:#94a3b8">–</td>
+      </tr>`);
+      t2b.innerHTML = rows2.join('');
+    }
+
+    // ── Tabella 3: Confronto Anno ────────────────────────────────────────
+    let progr26 = 0, progr25 = 0;
+    let tC26 = 0, tC25 = 0, tNsf = 0;
+    const rows3 = [];
+
+    data.forEach(r => {
+      const c26  = n(r.totale_corrispettivi);
+      const c25  = n(r.corrispettivi_25);
+      const nsf  = r.num_scontrini != null ? parseInt(r.num_scontrini) : null;
+      const delta = c25 > 0 ? c26 - c25 : null;
+      const deltaPct = (c25 > 0 && c26 > 0) ? (c26 - c25) / c25 * 100 : null;
+      progr26 += c26;
+      progr25 += c25;
+      const dProg = progr26 - progr25;
+      const scMedio = (nsf && nsf > 0 && c26 > 0) ? c26 / nsf : null;
+      tC26 += c26; tC25 += c25; if (nsf) tNsf += nsf;
+
+      const trendDay  = deltaPct == null ? '–' : deltaPct > 0 ? '<span class="trend-pos">▲</span>' : deltaPct < 0 ? '<span class="trend-neg">▼</span>' : '<span class="trend-zero">—</span>';
+      const trendProg = dProg > 0 ? '<span class="trend-pos">▲</span>' : dProg < 0 ? '<span class="trend-neg">▼</span>' : '<span class="trend-zero">—</span>';
+      const deltaStyle = delta != null ? (delta >= 0 ? 'color:#16a34a' : 'color:#dc2626') : '';
+      const dProgStyle = dProg >= 0 ? 'color:#16a34a' : 'color:#dc2626';
+      const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
+
+      rows3.push(`<tr>
+        <td><strong>${dl}</strong></td>
+        <td class="number">${c26 > 0 ? fmt(c26) : '–'}</td>
+        <td class="number">${c25 > 0 ? fmt(c25) : '–'}</td>
+        <td class="number" style="${deltaStyle}">${delta != null ? fmt(delta) : '–'}</td>
+        <td style="text-align:center">${trendDay}</td>
+        <td class="number">${progr26 > 0 ? fmt(progr26) : '–'}</td>
+        <td class="number">${progr25 > 0 ? fmt(progr25) : '–'}</td>
+        <td class="number" style="${dProgStyle}">${fmt(dProg)}</td>
+        <td style="text-align:center">${trendProg}</td>
+        <td class="number">${nsf != null ? nsf : '–'}</td>
+        <td class="number">${scMedio != null ? fmt(scMedio) : '–'}</td>
+      </tr>`);
+    });
+
+    if (!rows3.length) {
+      t3b.innerHTML = placeholderMsg(11, 'Nessun dato');
+    } else {
+      const dTot = tC26 - tC25;
+      const dTotStyle = dTot >= 0 ? 'color:#16a34a' : 'color:#dc2626';
+      rows3.push(`<tr class="total-row">
+        <td><strong>TOTALI</strong></td>
+        <td class="number"><strong>${fmt(tC26)}</strong></td>
+        <td class="number">${fmt(tC25)}</td>
+        <td class="number" style="${dTotStyle}"><strong>${fmt(dTot)}</strong></td>
+        <td style="text-align:center">${dTot >= 0 ? '<span class="trend-pos">▲</span>' : '<span class="trend-neg">▼</span>'}</td>
+        <td colspan="4" style="color:#94a3b8">–</td>
+        <td class="number"><strong>${tNsf > 0 ? tNsf : '–'}</strong></td>
+        <td class="number">${(tNsf > 0 && tC26 > 0) ? fmt(tC26 / tNsf) : '–'}</td>
+      </tr>`);
+      t3b.innerHTML = rows3.join('');
+    }
+
+    // KPI riassuntivi
+    const deltaTotPct = tC25 > 0 ? (tC26 - tC25) / tC25 * 100 : null;
+    const kpiDeltaColor = deltaTotPct == null ? '#64748b' : deltaTotPct >= 0 ? '#16a34a' : '#dc2626';
+    document.getElementById('vm-kpi').innerHTML = `
+      <div class="kpi-card"><div class="kpi-label">Corrispettivi mese</div><div class="kpi-value">${fmt(tCorr)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">vs 2025</div><div class="kpi-value" style="color:${kpiDeltaColor}">${deltaTotPct != null ? (deltaTotPct > 0 ? '+' : '') + deltaTotPct.toFixed(1) + '%' : '–'}</div></div>
+      <div class="kpi-card"><div class="kpi-label">N° Scontrini</div><div class="kpi-value">${tNsf > 0 ? tNsf : '–'}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Scontrino Medio</div><div class="kpi-value">${(tNsf > 0 && tCorr > 0) ? fmt(tCorr / tNsf) : '–'}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Saldo Cassaforte</div><div class="kpi-value">${fmt(saldo)}</div></div>
+    `;
+
+    document.getElementById('vm-cfr-label').textContent = anno + ' vs 2025';
+
+  } catch (e) {
+    const err = `<tr><td colspan="17" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    t1b.innerHTML = err;
+    t2b.innerHTML = err.replace('17', '11');
+    t3b.innerHTML = err.replace('17', '11');
   }
 }
 
