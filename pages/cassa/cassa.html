@@ -830,14 +830,16 @@ input[type=month].btn-export{min-width:160px;}
           <th class="number">PayPal</th>
           <th class="number">Bonifico</th>
           <th class="number">Gift Card</th>
+          <th class="number">G.C. Online</th>
           <th class="number">Buoni</th>
+          <th class="number">Versamenti</th>
           <th class="number">Cassaforte</th>
           <th class="number">Fondo Cassa</th>
           <th class="number">Diff.</th>
           <th class="number">Saldo</th>
         </tr></thead>
         <tbody id="vm-t1-body">
-          <tr><td colspan="17" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
+          <tr><td colspan="19" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
         </tbody>
       </table>
     </div>
@@ -877,17 +879,19 @@ input[type=month].btn-export{min-width:160px;}
           <th>Data</th>
           <th class="number">2026</th>
           <th class="number">2025</th>
-          <th class="number">Δ</th>
+          <th class="number">Δ%</th>
           <th style="text-align:center">Trend</th>
           <th class="number">Progr. 26</th>
           <th class="number">Progr. 25</th>
-          <th class="number">Δ Progr.</th>
+          <th class="number">Δ% Progr.</th>
           <th style="text-align:center">Trend</th>
-          <th class="number">N° Scontrini</th>
-          <th class="number">Sc. Medio</th>
+          <th class="number">N° SF 26</th>
+          <th class="number">Sc. Medio 26</th>
+          <th class="number">N° SF 25</th>
+          <th class="number">Sc. Medio 25</th>
         </tr></thead>
         <tbody id="vm-t3-body">
-          <tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
+          <tr><td colspan="13" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
         </tbody>
       </table>
     </div>
@@ -1925,20 +1929,20 @@ async function loadVistaMensileData() {
     `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">${msg}</td></tr>`;
 
   if (!emporio || !mese) {
-    t1b.innerHTML = placeholderMsg(17, 'Seleziona emporio e mese');
+    t1b.innerHTML = placeholderMsg(19, 'Seleziona emporio e mese');
     t2b.innerHTML = placeholderMsg(11, 'Seleziona emporio e mese');
-    t3b.innerHTML = placeholderMsg(11, 'Seleziona emporio e mese');
+    t3b.innerHTML = placeholderMsg(13, 'Seleziona emporio e mese');
     document.getElementById('vm-kpi').innerHTML = '';
     return;
   }
 
-  t1b.innerHTML = placeholderMsg(17, 'Caricamento...');
+  t1b.innerHTML = placeholderMsg(19, 'Caricamento...');
   t2b.innerHTML = placeholderMsg(11, 'Caricamento...');
-  t3b.innerHTML = placeholderMsg(11, 'Caricamento...');
+  t3b.innerHTML = placeholderMsg(13, 'Caricamento...');
 
   try {
     const { data, error } = await db.from('cassa_giorni')
-      .select('data,totale_corrispettivi,contanti,bancomat,carte_credito,satispay,satispay_online,carte_credito_online,paypal,bonifico,gift_card,gift_card_online,buoni_altromercato,rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25')
+      .select('data,totale_corrispettivi,contanti,bancomat,carte_credito,satispay,satispay_online,carte_credito_online,paypal,bonifico,gift_card,gift_card_online,buoni_altromercato,rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,versamento_banca,iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25')
       .eq('emporio', emporio)
       .gte('data', mese + '-01')
       .lte('data', mese + '-31')
@@ -1960,9 +1964,9 @@ async function loadVistaMensileData() {
     const riporto = parseFloat(prevData?.[0]?.fondo_residuo || 0);
 
     if (!data?.length) {
-      t1b.innerHTML = placeholderMsg(17, 'Nessun dato per questo mese');
+      t1b.innerHTML = placeholderMsg(19, 'Nessun dato per questo mese');
       t2b.innerHTML = placeholderMsg(11, 'Nessun dato per questo mese');
-      t3b.innerHTML = placeholderMsg(11, 'Nessun dato per questo mese');
+      t3b.innerHTML = placeholderMsg(13, 'Nessun dato per questo mese');
       document.getElementById('vm-kpi').innerHTML = '';
       return;
     }
@@ -1976,7 +1980,7 @@ async function loadVistaMensileData() {
 
     if (riporto !== 0) {
       rows1.push(`<tr style="background:#f8fafc;font-style:italic;color:#64748b">
-        <td colspan="13" style="padding:6px 10px">Riporto mese precedente</td>
+        <td colspan="15" style="padding:6px 10px">Riporto mese precedente</td>
         <td class="number">–</td><td class="number">–</td><td class="number">–</td>
         <td class="number"><strong>${fmt(riporto)}</strong></td>
       </tr>`);
@@ -1992,14 +1996,16 @@ async function loadVistaMensileData() {
       const cOnl    = n(r.carte_credito_online);
       const pp      = n(r.paypal);
       const bon     = n(r.bonifico);
-      const gift    = n(r.gift_card) + n(r.gift_card_online);
+      const gc      = n(r.gift_card);
+      const gcOnl   = n(r.gift_card_online);
       const buoni   = n(r.buoni_altromercato);
       const rimb    = n(r.rimborsi_online);
-      const incassi = cont + banc + carte + sati + satOnl + cOnl + pp + bon + gift + buoni - rimb;
+      const vers    = n(r.versamento_banca);
+      const incassi = cont + banc + carte + sati + satOnl + cOnl + pp + bon + gc + gcOnl + buoni - rimb;
       const cf      = n(r.cassaforte);
       const fc      = n(r.fondo_cassa);
       const diff    = corr - incassi;
-      saldo += cf;
+      saldo += cf - vers;
       tCorr += corr; tInc += incassi; tCassa += cf; tDiff += diff;
 
       const diffStyle = Math.abs(diff) > 0.02 ? 'color:#dc2626;font-weight:700' : 'color:#16a34a';
@@ -2018,8 +2024,10 @@ async function loadVistaMensileData() {
         <td class="number">${cOnl > 0 ? fmt(cOnl) : '–'}</td>
         <td class="number">${pp > 0 ? fmt(pp) : '–'}</td>
         <td class="number">${bon > 0 ? fmt(bon) : '–'}</td>
-        <td class="number">${gift > 0 ? fmt(gift) : '–'}</td>
+        <td class="number">${gc > 0 ? fmt(gc) : '–'}</td>
+        <td class="number">${gcOnl > 0 ? fmt(gcOnl) : '–'}</td>
         <td class="number">${buoni > 0 ? fmt(buoni) : '–'}</td>
+        <td class="number" style="color:#7c3aed">${vers > 0 ? fmt(vers) : '–'}</td>
         <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
         <td class="number">${fc > 0 ? fmt(fc) : '–'}</td>
         <td class="number" style="${diffStyle}">${diffCell}</td>
@@ -2032,7 +2040,7 @@ async function loadVistaMensileData() {
       <td><strong>TOTALI</strong></td>
       <td class="number"><strong>${fmt(tCorr)}</strong></td>
       <td class="number"><strong>${fmt(tInc)}</strong></td>
-      <td colspan="10" style="color:#94a3b8">–</td>
+      <td colspan="12" style="color:#94a3b8">–</td>
       <td class="number"><strong>${fmt(tCassa)}</strong></td>
       <td style="color:#94a3b8">–</td>
       <td class="number" style="${tDiffStyle}"><strong>${Math.abs(tDiff) > 0.01 ? fmt(tDiff) : '✓'}</strong></td>
@@ -2066,7 +2074,7 @@ async function loadVistaMensileData() {
         <td class="number">${v10 > 0 ? fmt(v10) : '–'}</td>
         <td class="number">${v4  > 0 ? fmt(v4)  : '–'}</td>
         <td class="number">${ves > 0 ? fmt(ves) : '–'}</td>
-        <td class="number">${ves > 0 ? fmt(ves) : '–'}</td>
+        <td class="number">${(v22+v10+v4) > 0 ? fmt(v22+v10+v4) : '–'}</td>
         <td class="number">${somma > 0 ? fmt(somma) : '–'}</td>
         <td style="text-align:center">${tot > 0 ? check : '–'}</td>
         <td style="font-size:11px;color:#475569;max-width:140px">${r.meteo_note || '–'}</td>
@@ -2075,7 +2083,7 @@ async function loadVistaMensileData() {
     });
 
     if (!rows2.length) {
-      t2b.innerHTML = placeholderMsg(11, 'Nessun dato IVA per questo mese');
+      t2b.innerHTML = placeholderMsg(11, 'Nessun dato VER per questo mese');
     } else {
       const tSomma = t22 + t10 + t4 + tEs;
       rows2.push(`<tr class="total-row">
@@ -2085,7 +2093,7 @@ async function loadVistaMensileData() {
         <td class="number">${fmt(t10)}</td>
         <td class="number">${fmt(t4)}</td>
         <td class="number">${fmt(tEs)}</td>
-        <td class="number">${fmt(tEs)}</td>
+        <td class="number">${fmt(t22 + t10 + t4)}</td>
         <td class="number"><strong>${fmt(tSomma)}</strong></td>
         <td style="text-align:center;color:${Math.abs(tTot-tSomma) < 0.05 ? '#16a34a' : '#dc2626'};font-weight:700">
           ${Math.abs(tTot - tSomma) < 0.05 ? 'OK' : 'ERR'}
@@ -2097,56 +2105,60 @@ async function loadVistaMensileData() {
 
     // ── Tabella 3: Confronto Anno ────────────────────────────────────────
     let progr26 = 0, progr25 = 0;
-    let tC26 = 0, tC25 = 0, tNsf = 0;
+    let tC26 = 0, tC25 = 0, tNsf = 0, tNsf25 = 0;
     const rows3 = [];
 
     data.forEach(r => {
-      const c26  = n(r.totale_corrispettivi);
-      const c25  = n(r.corrispettivi_25);
-      const nsf  = r.num_scontrini != null ? parseInt(r.num_scontrini) : null;
-      const delta = c25 > 0 ? c26 - c25 : null;
-      const deltaPct = (c25 > 0 && c26 > 0) ? (c26 - c25) / c25 * 100 : null;
+      const c26   = n(r.totale_corrispettivi);
+      const c25   = n(r.corrispettivi_25);
+      const nsf   = r.num_scontrini    != null ? parseInt(r.num_scontrini)    : null;
+      const nsf25 = r.num_scontrini_25 != null ? parseInt(r.num_scontrini_25) : null;
+      const deltaPct = c25 > 0 ? (c26 / c25 - 1) * 100 : null;
       progr26 += c26;
       progr25 += c25;
-      const dProg = progr26 - progr25;
-      const scMedio = (nsf && nsf > 0 && c26 > 0) ? c26 / nsf : null;
-      tC26 += c26; tC25 += c25; if (nsf) tNsf += nsf;
+      const dProgPct = progr25 > 0 ? (progr26 / progr25 - 1) * 100 : null;
+      const scMedio   = (nsf   > 0 && c26 > 0) ? c26 / nsf   : null;
+      const scMedio25 = (nsf25 > 0 && c25 > 0) ? c25 / nsf25 : null;
+      tC26 += c26; tC25 += c25;
+      if (nsf)   tNsf   += nsf;
+      if (nsf25) tNsf25 += nsf25;
 
       const trendDay  = deltaPct == null ? '–' : deltaPct > 0 ? '<span class="trend-pos">▲</span>' : deltaPct < 0 ? '<span class="trend-neg">▼</span>' : '<span class="trend-zero">—</span>';
-      const trendProg = dProg > 0 ? '<span class="trend-pos">▲</span>' : dProg < 0 ? '<span class="trend-neg">▼</span>' : '<span class="trend-zero">—</span>';
-      const deltaStyle = delta != null ? (delta >= 0 ? 'color:#16a34a' : 'color:#dc2626') : '';
-      const dProgStyle = dProg >= 0 ? 'color:#16a34a' : 'color:#dc2626';
+      const trendProg = dProgPct == null ? '–' : dProgPct > 0 ? '<span class="trend-pos">▲</span>' : dProgPct < 0 ? '<span class="trend-neg">▼</span>' : '<span class="trend-zero">—</span>';
       const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
 
       rows3.push(`<tr>
         <td><strong>${dl}</strong></td>
         <td class="number">${c26 > 0 ? fmt(c26) : '–'}</td>
         <td class="number">${c25 > 0 ? fmt(c25) : '–'}</td>
-        <td class="number" style="${deltaStyle}">${delta != null ? fmt(delta) : '–'}</td>
+        <td class="number">${fmtPct(deltaPct)}</td>
         <td style="text-align:center">${trendDay}</td>
         <td class="number">${progr26 > 0 ? fmt(progr26) : '–'}</td>
         <td class="number">${progr25 > 0 ? fmt(progr25) : '–'}</td>
-        <td class="number" style="${dProgStyle}">${fmt(dProg)}</td>
+        <td class="number">${fmtPct(dProgPct)}</td>
         <td style="text-align:center">${trendProg}</td>
-        <td class="number">${nsf != null ? nsf : '–'}</td>
-        <td class="number">${scMedio != null ? fmt(scMedio) : '–'}</td>
+        <td class="number">${nsf   != null ? nsf   : '–'}</td>
+        <td class="number">${scMedio   != null ? fmt(scMedio)   : '–'}</td>
+        <td class="number">${nsf25 != null ? nsf25 : '–'}</td>
+        <td class="number">${scMedio25 != null ? fmt(scMedio25) : '–'}</td>
       </tr>`);
     });
 
     if (!rows3.length) {
-      t3b.innerHTML = placeholderMsg(11, 'Nessun dato');
+      t3b.innerHTML = placeholderMsg(13, 'Nessun dato');
     } else {
-      const dTot = tC26 - tC25;
-      const dTotStyle = dTot >= 0 ? 'color:#16a34a' : 'color:#dc2626';
+      const dTotPct = tC25 > 0 ? (tC26 / tC25 - 1) * 100 : null;
       rows3.push(`<tr class="total-row">
         <td><strong>TOTALI</strong></td>
         <td class="number"><strong>${fmt(tC26)}</strong></td>
         <td class="number">${fmt(tC25)}</td>
-        <td class="number" style="${dTotStyle}"><strong>${fmt(dTot)}</strong></td>
-        <td style="text-align:center">${dTot >= 0 ? '<span class="trend-pos">▲</span>' : '<span class="trend-neg">▼</span>'}</td>
+        <td class="number"><strong>${fmtPct(dTotPct)}</strong></td>
+        <td style="text-align:center">${dTotPct == null ? '–' : dTotPct >= 0 ? '<span class="trend-pos">▲</span>' : '<span class="trend-neg">▼</span>'}</td>
         <td colspan="4" style="color:#94a3b8">–</td>
-        <td class="number"><strong>${tNsf > 0 ? tNsf : '–'}</strong></td>
-        <td class="number">${(tNsf > 0 && tC26 > 0) ? fmt(tC26 / tNsf) : '–'}</td>
+        <td class="number"><strong>${tNsf   > 0 ? tNsf   : '–'}</strong></td>
+        <td class="number">${(tNsf   > 0 && tC26 > 0) ? fmt(tC26 / tNsf)   : '–'}</td>
+        <td class="number"><strong>${tNsf25 > 0 ? tNsf25 : '–'}</strong></td>
+        <td class="number">${(tNsf25 > 0 && tC25 > 0) ? fmt(tC25 / tNsf25) : '–'}</td>
       </tr>`);
       t3b.innerHTML = rows3.join('');
     }
@@ -2165,10 +2177,9 @@ async function loadVistaMensileData() {
     document.getElementById('vm-cfr-label').textContent = anno + ' vs 2025';
 
   } catch (e) {
-    const err = `<tr><td colspan="17" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
-    t1b.innerHTML = err;
-    t2b.innerHTML = err.replace('17', '11');
-    t3b.innerHTML = err.replace('17', '11');
+    t1b.innerHTML = `<tr><td colspan="19" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    t2b.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    t3b.innerHTML = `<tr><td colspan="13" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
 
