@@ -254,6 +254,9 @@ input[type=month].btn-export{min-width:160px;}
 .admin-table tr:hover td{background:#fafbfc;}
 .admin-table .total-row td{font-weight:800;background:#fdf1f0;color:#B5453A;}
 .admin-table .number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+#macro-amministrazione .main{max-width:1500px;}
+#vm-t1 th,#vm-t2 th,#vm-t3 th{padding:6px 5px;font-size:9px;}
+#vm-t1 td,#vm-t2 td,#vm-t3 td{padding:6px 5px;font-size:11px;}
 /* ══ TREND ══ */
 .trend-pos{color:#16a34a;font-weight:700;}
 .trend-neg{color:#dc2626;font-weight:700;}
@@ -735,8 +738,8 @@ input[type=month].btn-export{min-width:160px;}
       <table class="admin-table" id="iva-table">
         <thead><tr>
           <th>Periodo</th><th>Emporio</th>
-          <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 5%</th>
-          <th class="number">IVA 10%</th><th class="number">IVA 22%</th>
+          <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 10%</th>
+          <th class="number">IVA 22%</th><th class="number">Esente</th>
           <th class="number">Tot. IVA €</th><th class="number">Netto €</th>
         </tr></thead>
         <tbody id="iva-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona i filtri per caricare i dati</td></tr></tbody>
@@ -786,10 +789,9 @@ input[type=month].btn-export{min-width:160px;}
       <table class="admin-table" id="cf-table">
         <thead><tr>
           <th>Data</th><th>Emporio</th>
-          <th class="number">Saldo Cassaforte</th><th class="number">Versamento Banca M361</th>
-          <th>Data Versamento</th><th>Operatore</th><th>Note</th>
+          <th class="number">Cassaforte (giornaliera)</th><th class="number">Fondo Residuo</th>
         </tr></thead>
-        <tbody id="cf-body"><tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
+        <tbody id="cf-body"><tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -832,14 +834,13 @@ input[type=month].btn-export{min-width:160px;}
           <th class="number">Gift Card</th>
           <th class="number">G.C. Online</th>
           <th class="number">Buoni</th>
-          <th class="number">Versamenti</th>
           <th class="number">Cassaforte</th>
           <th class="number">Fondo Cassa</th>
           <th class="number">Diff.</th>
           <th class="number">Saldo</th>
         </tr></thead>
         <tbody id="vm-t1-body">
-          <tr><td colspan="19" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
+          <tr><td colspan="18" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
         </tbody>
       </table>
     </div>
@@ -1253,11 +1254,16 @@ function deleteNote(turno, id, area, btn) {
 }
 
 /* ── OPERATORI ── */
-async function loadOperatoriAttivi(emp) {
+async function loadOperatoriAttivi(emp, recordDate) {
   try {
-    const { data } = await db.from('operatori')
-      .select('nome, emporio, empori_aggiuntivi')
-      .eq('attivo', true);
+    let q = db.from('operatori').select('nome, emporio, empori_aggiuntivi');
+    if (recordDate) {
+      // Includi anche operatori non più attivi ma che erano in forza alla data del foglio
+      q = q.or(`attivo.eq.true,data_fine.gte.${recordDate}`);
+    } else {
+      q = q.eq('attivo', true);
+    }
+    const { data } = await q;
     if (data) {
       OPERATORI[emp] = data
         .filter(op => op.emporio === emp || (op.empori_aggiuntivi || []).includes(emp))
@@ -1526,7 +1532,8 @@ async function openDay() {
   selectedOps.mat = []; selectedOps.pom = [];
   buildCoins('mat'); buildCoins('pom');
   buildPayments('mat'); buildPayments('pom');
-  await loadOperatoriAttivi(currentEmp);
+  const recordDate = `${y}-${String(m1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  await loadOperatoriAttivi(currentEmp, recordDate);
   syncOperators();
 
   const dateObj = new Date(y, m, d);
@@ -1718,6 +1725,51 @@ function exportTableCSV(tableId, filename) {
 }
 
 /* ══════════════════════════════════════════════════════
+   HELPERS CASSA_GIORNI (chiave-based, no colonna data)
+══════════════════════════════════════════════════════ */
+const EMPORIOS_NOTI = ['Casalmaggiore','Cremona','Reggio Emilia','Viadana'];
+
+function chiaveMonth(emp, anno, mm) {
+  const days = new Date(+anno, +mm, 0).getDate();
+  return Array.from({length: days}, (_, i) => `${emp}_${anno}_${+mm}_${i+1}`);
+}
+function chiaveYear(emp, anno) {
+  const out = [];
+  for (let m = 1; m <= 12; m++) out.push(...chiaveMonth(emp, anno, m));
+  return out;
+}
+function normCassa(rows) {
+  const n2 = (a, b) => (parseFloat(a)||0) + (parseFloat(b)||0);
+  return rows.map(r => {
+    const p = r.chiave.split('_');
+    const day = +p[p.length-1], mon = +p[p.length-2], yr = +p[p.length-3];
+    return { ...r,
+      _day: day,
+      data: `${yr}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`,
+      totale_corrispettivi: n2(r.mat_corrispettivi,      r.pom_corrispettivi),
+      contanti:             n2(r.mat_contanti_netti,      r.pom_contanti_netti),
+      bancomat:             n2(r.mat_pay_bancomat,        r.pom_pay_bancomat),
+      carte_credito:        n2(r.mat_pay_carte,           r.pom_pay_carte),
+      satispay:             n2(r.mat_pay_satispay,        r.pom_pay_satispay),
+      satispay_online:      n2(r.mat_pay_satispay_online, r.pom_pay_satispay_online),
+      carte_credito_online: n2(r.mat_pay_carte_online,    r.pom_pay_carte_online),
+      paypal:               n2(r.mat_pay_paypal,          r.pom_pay_paypal),
+      bonifico:             n2(r.mat_pay_bonifico,        r.pom_pay_bonifico),
+      gift_card:            n2(r.mat_pay_gift_card,       r.pom_pay_gift_card),
+      gift_card_online:     n2(r.mat_pay_gift_card_online,r.pom_pay_gift_card_online),
+      buoni_altromercato:   n2(r.mat_pay_buoni,           r.pom_pay_buoni),
+      rimborsi_online:      n2(r.mat_pay_rimborsi_online, r.pom_pay_rimborsi_online),
+      saldo_cassaforte:     parseFloat(r.cassaforte)||0,
+      note:                 r.note_giornata || null,
+    };
+  }).sort((a, b) => (a.emporio||'').localeCompare(b.emporio||'') || a._day - b._day);
+}
+const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,note_giornata';
+const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente';
+const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
+const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo,arrivo_merci,note_giornata';
+
+/* ══════════════════════════════════════════════════════
    IVA
 ══════════════════════════════════════════════════════ */
 async function loadIvaData() {
@@ -1727,75 +1779,69 @@ async function loadIvaData() {
   const tbody   = document.getElementById('iva-body');
   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
-    let dateFrom = anno + '-01-01';
-    let dateTo   = anno + '-12-31';
-    if (mese) { dateFrom = anno + '-' + mese + '-01'; dateTo = anno + '-' + mese + '-31'; }
-
-    let q = db.from('cassa_giorni')
-      .select('data,emporio,totale_corrispettivi,lordo_4,lordo_5,lordo_10,lordo_22,esente')
-      .gte('data', dateFrom).lte('data', dateTo).order('data');
+    const emps = emporio ? [emporio] : EMPORIOS_NOTI;
+    const chiavi = mese ? emps.flatMap(e => chiaveMonth(e, anno, mese))
+                        : emps.flatMap(e => chiaveYear(e, anno));
+    let q = db.from('cassa_giorni').select(SEL_IVA).in('chiave', chiavi);
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
     if (error) throw error;
 
-    // raggruppa per mese+emporio (o giorno+emporio se mese specifico)
+    const rows = normCassa(data || []);
     const map = {};
-    (data||[]).forEach(r => {
+    rows.forEach(r => {
       const key = (mese ? r.data : r.data.slice(0,7)) + '||' + r.emporio;
-      if (!map[key]) map[key] = {periodo: mese ? r.data : r.data.slice(0,7), emporio: r.emporio,
-        lordo:0, iva4:0, iva5:0, iva10:0, iva22:0};
+      if (!map[key]) map[key] = {periodo: mese ? r.data : r.data.slice(0,7), emporio: r.emporio, lordo:0, iva4:0, iva10:0, iva22:0, esente:0};
       const g = map[key];
-      g.lordo  += parseFloat(r.totale_corrispettivi||0);
-      g.iva4   += parseFloat(r.lordo_4 ||0) * 4  / 104;
-      g.iva5   += parseFloat(r.lordo_5 ||0) * 5  / 105;
-      g.iva10  += parseFloat(r.lordo_10||0) * 10 / 110;
-      g.iva22  += parseFloat(r.lordo_22||0) * 22 / 122;
+      g.lordo  += r.totale_corrispettivi;
+      g.iva4   += parseFloat(r.iva_4  ||0) * 4  / 104;
+      g.iva10  += parseFloat(r.iva_10 ||0) * 10 / 110;
+      g.iva22  += parseFloat(r.iva_22 ||0) * 22 / 122;
+      g.esente += parseFloat(r.iva_esente||0);
     });
 
-    const rows = Object.values(map);
-    if (!rows.length) {
+    const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
+    if (!aggRows.length) {
       tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato per il periodo selezionato</td></tr>';
       document.getElementById('iva-kpi').innerHTML = '';
       return;
     }
 
-    let tL=0,t4=0,t5=0,t10=0,t22=0;
-    tbody.innerHTML = rows.map(r => {
-      const totIva = r.iva4+r.iva5+r.iva10+r.iva22;
-      const netto  = r.lordo - totIva;
-      tL+=r.lordo; t4+=r.iva4; t5+=r.iva5; t10+=r.iva10; t22+=r.iva22;
-      const label = mese
-        ? fmtData(r.periodo)
-        : fmtData(r.periodo+'-01',{month:'long',year:'numeric'});
+    let tL=0,t4=0,t10=0,t22=0,tEs=0;
+    tbody.innerHTML = aggRows.map(r => {
+      const totIva = r.iva4+r.iva10+r.iva22;
+      const netto  = r.lordo - totIva - r.esente;
+      tL+=r.lordo; t4+=r.iva4; t10+=r.iva10; t22+=r.iva22; tEs+=r.esente;
+      const label = mese ? fmtData(r.periodo) : fmtData(r.periodo+'-01',{month:'long',year:'numeric'});
       return `<tr>
         <td>${label}</td><td>${r.emporio}</td>
         <td class="number">${fmt(r.lordo)}</td>
         <td class="number">${fmt(r.iva4)}</td>
-        <td class="number">${fmt(r.iva5)}</td>
         <td class="number">${fmt(r.iva10)}</td>
         <td class="number">${fmt(r.iva22)}</td>
+        <td class="number">${fmt(r.esente)}</td>
         <td class="number"><strong>${fmt(totIva)}</strong></td>
         <td class="number">${fmt(netto)}</td>
       </tr>`;
     }).join('');
 
-    const tIvaTot = t4+t5+t10+t22;
+    const tIvaTot = t4+t10+t22;
     tbody.innerHTML += `<tr class="total-row">
       <td colspan="2"><strong>TOTALE</strong></td>
       <td class="number">${fmt(tL)}</td>
-      <td class="number">${fmt(t4)}</td><td class="number">${fmt(t5)}</td>
-      <td class="number">${fmt(t10)}</td><td class="number">${fmt(t22)}</td>
+      <td class="number">${fmt(t4)}</td><td class="number">${fmt(t10)}</td>
+      <td class="number">${fmt(t22)}</td><td class="number">${fmt(tEs)}</td>
       <td class="number"><strong>${fmt(tIvaTot)}</strong></td>
-      <td class="number"><strong>${fmt(tL-tIvaTot)}</strong></td>
+      <td class="number"><strong>${fmt(tL-tIvaTot-tEs)}</strong></td>
     </tr>`;
 
     document.getElementById('iva-kpi').innerHTML = `
       <div class="kpi-card"><div class="kpi-label">Totale Lordo</div><div class="kpi-value">${fmt(tL)}</div></div>
       <div class="kpi-card"><div class="kpi-label">Totale IVA</div><div class="kpi-value" style="color:#B5453A">${fmt(tIvaTot)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Totale Netto</div><div class="kpi-value">${fmt(tL-tIvaTot)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Totale Netto</div><div class="kpi-value">${fmt(tL-tIvaTot-tEs)}</div></div>
       <div class="kpi-card"><div class="kpi-label">IVA 22%</div><div class="kpi-value">${fmt(t22)}</div></div>
       <div class="kpi-card"><div class="kpi-label">IVA 10%</div><div class="kpi-value">${fmt(t10)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">IVA 4% + 5%</div><div class="kpi-value">${fmt(t4+t5)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">IVA 4%</div><div class="kpi-value">${fmt(t4)}</div></div>
     `;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
@@ -1811,26 +1857,27 @@ async function loadPagamentiData() {
   const tbody   = document.getElementById('pag-body');
   tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
-    let q = db.from('cassa_giorni')
-      .select('data,emporio,contanti,bancomat,carte_credito,satispay,satispay_online,carte_credito_online,paypal,bonifico,gift_card,gift_card_online,buoni_altromercato,rimborsi_online,totale_corrispettivi,note_pagamenti')
-      .order('data');
+    if (!mese) {
+      tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">Seleziona un mese</td></tr>';
+      return;
+    }
+    const emps = emporio ? [emporio] : EMPORIOS_NOTI;
+    let q = db.from('cassa_giorni').select(SEL_FULL).in('chiave', emps.flatMap(e => chiaveMonth(e, mese.slice(0,4), mese.slice(5,7))));
     if (emporio) q = q.eq('emporio', emporio);
-    if (mese) q = q.gte('data', mese+'-01').lte('data', mese+'-31');
     const { data, error } = await q;
     if (error) throw error;
-    if (!data?.length) {
+    const rows = normCassa(data || []).filter(r => r.totale_corrispettivi > 0 || r.contanti > 0);
+    if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
       return;
     }
     const T = {cont:0,banc:0,carte:0,sati:0,satOnl:0,carteOnl:0,pp:0,bon:0,gift:0,buoni:0,rimb:0,tot:0};
-    tbody.innerHTML = data.map(r => {
-      const n = k => parseFloat(r[k]||0);
-      const gift = n('gift_card')+n('gift_card_online');
-      const tot  = n('totale_corrispettivi');
-      T.cont+=n('contanti'); T.banc+=n('bancomat'); T.carte+=n('carte_credito');
-      T.sati+=n('satispay'); T.satOnl+=n('satispay_online'); T.carteOnl+=n('carte_credito_online');
-      T.pp+=n('paypal'); T.bon+=n('bonifico'); T.gift+=gift;
-      T.buoni+=n('buoni_altromercato'); T.rimb+=n('rimborsi_online'); T.tot+=tot;
+    tbody.innerHTML = rows.map(r => {
+      const gift = r.gift_card + r.gift_card_online;
+      T.cont+=r.contanti; T.banc+=r.bancomat; T.carte+=r.carte_credito;
+      T.sati+=r.satispay; T.satOnl+=r.satispay_online; T.carteOnl+=r.carte_credito_online;
+      T.pp+=r.paypal; T.bon+=r.bonifico; T.gift+=gift;
+      T.buoni+=r.buoni_altromercato; T.rimb+=r.rimborsi_online; T.tot+=r.totale_corrispettivi;
       return `<tr>
         <td>${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
         <td class="number">${fmt(r.contanti)}</td>
@@ -1844,8 +1891,8 @@ async function loadPagamentiData() {
         <td class="number">${fmt(gift||null)}</td>
         <td class="number">${fmt(r.buoni_altromercato)}</td>
         <td class="number">${fmt(r.rimborsi_online)}</td>
-        <td class="number"><strong>${fmt(tot)}</strong></td>
-        <td style="font-size:11px;color:#64748b;max-width:200px">${r.note_pagamenti||'–'}</td>
+        <td class="number"><strong>${fmt(r.totale_corrispettivi)}</strong></td>
+        <td style="font-size:11px;color:#64748b;max-width:200px">–</td>
       </tr>`;
     }).join('');
     tbody.innerHTML += `<tr class="total-row">
@@ -1870,48 +1917,45 @@ async function loadCassaforteData() {
   const emporio = document.getElementById('cf-filter-emporio').value;
   const mese    = document.getElementById('cf-filter-mese').value;
   const tbody   = document.getElementById('cf-body');
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
-    let q = db.from('cassa_giorni')
-      .select('data,emporio,saldo_cassaforte,versamento_banca,data_versamento,operatore_versamento,note_versamento')
-      .order('data');
+    if (!mese) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px">Seleziona un mese</td></tr>';
+      return;
+    }
+    const emps = emporio ? [emporio] : EMPORIOS_NOTI;
+    let q = db.from('cassa_giorni').select('chiave,emporio,cassaforte,fondo_residuo')
+      .in('chiave', emps.flatMap(e => chiaveMonth(e, mese.slice(0,4), mese.slice(5,7))));
     if (emporio) q = q.eq('emporio', emporio);
-    if (mese) q = q.gte('data', mese+'-01').lte('data', mese+'-31');
     const { data, error } = await q;
     if (error) throw error;
-    if (!data?.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
+    const rows = normCassa(data || []).filter(r => r.saldo_cassaforte > 0 || parseFloat(r.fondo_residuo||0) > 0);
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
       document.getElementById('cf-kpi').innerHTML = '';
       return;
     }
-    let tSaldo=0, tVers=0;
-    tbody.innerHTML = data.map(r => {
-      const saldo = parseFloat(r.saldo_cassaforte||0);
-      const vers  = parseFloat(r.versamento_banca||0);
-      tSaldo += saldo; tVers += vers;
-      const versStyle = vers > 0 ? 'color:#16a34a;font-weight:700' : 'color:#94a3b8';
+    let tCf = 0;
+    tbody.innerHTML = rows.map(r => {
+      const cf   = r.saldo_cassaforte;
+      const fr   = parseFloat(r.fondo_residuo||0);
+      tCf += cf;
       return `<tr>
         <td>${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
-        <td class="number">${fmt(saldo)}</td>
-        <td class="number" style="${versStyle}">${vers > 0 ? fmt(vers) : '–'}</td>
-        <td>${r.data_versamento ? fmtData(r.data_versamento,{day:'2-digit',month:'short',year:'numeric'}) : '–'}</td>
-        <td>${r.operatore_versamento||'–'}</td>
-        <td style="font-size:11px;color:#64748b">${r.note_versamento||'–'}</td>
+        <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
+        <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
       </tr>`;
     }).join('');
     tbody.innerHTML += `<tr class="total-row">
       <td colspan="2"><strong>TOTALE</strong></td>
-      <td class="number">${fmt(tSaldo)}</td>
-      <td class="number">${fmt(tVers)}</td>
-      <td colspan="3">–</td>
+      <td class="number"><strong>${fmt(tCf)}</strong></td>
+      <td style="color:#94a3b8">–</td>
     </tr>`;
     document.getElementById('cf-kpi').innerHTML = `
-      <div class="kpi-card"><div class="kpi-label">Saldo Cassaforte (cumulativo)</div><div class="kpi-value">${fmt(tSaldo)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Versamenti a Banca M361</div><div class="kpi-value" style="color:#16a34a">${fmt(tVers)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Residuo da versare</div><div class="kpi-value" style="color:#B5453A">${fmt(tSaldo-tVers)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Cassaforte mese (tot.)</div><div class="kpi-value">${fmt(tCf)}</div></div>
     `;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
 
@@ -1929,42 +1973,42 @@ async function loadVistaMensileData() {
     `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">${msg}</td></tr>`;
 
   if (!emporio || !mese) {
-    t1b.innerHTML = placeholderMsg(19, 'Seleziona emporio e mese');
+    t1b.innerHTML = placeholderMsg(18, 'Seleziona emporio e mese');
     t2b.innerHTML = placeholderMsg(11, 'Seleziona emporio e mese');
     t3b.innerHTML = placeholderMsg(13, 'Seleziona emporio e mese');
     document.getElementById('vm-kpi').innerHTML = '';
     return;
   }
 
-  t1b.innerHTML = placeholderMsg(19, 'Caricamento...');
+  t1b.innerHTML = placeholderMsg(18, 'Caricamento...');
   t2b.innerHTML = placeholderMsg(11, 'Caricamento...');
   t3b.innerHTML = placeholderMsg(13, 'Caricamento...');
 
   try {
-    const { data, error } = await db.from('cassa_giorni')
-      .select('data,totale_corrispettivi,contanti,bancomat,carte_credito,satispay,satispay_online,carte_credito_online,paypal,bonifico,gift_card,gift_card_online,buoni_altromercato,rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,versamento_banca,iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25')
-      .eq('emporio', emporio)
-      .gte('data', mese + '-01')
-      .lte('data', mese + '-31')
-      .order('data');
+    const [anno, mm] = mese.split('-');
+    const chiavi = chiaveMonth(emporio, anno, mm);
+
+    const { data: rawData, error } = await db.from('cassa_giorni')
+      .select(SEL_VM)
+      .in('chiave', chiavi)
+      .eq('emporio', emporio);
     if (error) throw error;
+    const data = normCassa(rawData || []);
 
     // Riporto = fondo_residuo ultimo giorno mese precedente
-    const [anno, mm] = mese.split('-');
-    const prevMese = mm === '01'
-      ? (parseInt(anno) - 1) + '-12'
-      : anno + '-' + String(parseInt(mm) - 1).padStart(2, '0');
-    const { data: prevData } = await db.from('cassa_giorni')
-      .select('fondo_residuo')
+    const prevM  = parseInt(mm) === 1 ? 12 : parseInt(mm) - 1;
+    const prevY  = parseInt(mm) === 1 ? parseInt(anno) - 1 : parseInt(anno);
+    const prevChiavi = chiaveMonth(emporio, prevY, prevM);
+    const { data: prevRaw } = await db.from('cassa_giorni')
+      .select('chiave,fondo_residuo')
+      .in('chiave', prevChiavi)
       .eq('emporio', emporio)
-      .gte('data', prevMese + '-01')
-      .lte('data', prevMese + '-31')
-      .order('data', { ascending: false })
-      .limit(1);
-    const riporto = parseFloat(prevData?.[0]?.fondo_residuo || 0);
+      .not('fondo_residuo', 'is', null);
+    const prevRows = normCassa(prevRaw || []).sort((a,b) => b._day - a._day);
+    const riporto = parseFloat(prevRows[0]?.fondo_residuo || 0);
 
-    if (!data?.length) {
-      t1b.innerHTML = placeholderMsg(19, 'Nessun dato per questo mese');
+    if (!data.length) {
+      t1b.innerHTML = placeholderMsg(18, 'Nessun dato per questo mese');
       t2b.innerHTML = placeholderMsg(11, 'Nessun dato per questo mese');
       t3b.innerHTML = placeholderMsg(13, 'Nessun dato per questo mese');
       document.getElementById('vm-kpi').innerHTML = '';
@@ -1980,32 +2024,31 @@ async function loadVistaMensileData() {
 
     if (riporto !== 0) {
       rows1.push(`<tr style="background:#f8fafc;font-style:italic;color:#64748b">
-        <td colspan="15" style="padding:6px 10px">Riporto mese precedente</td>
+        <td colspan="14" style="padding:6px 10px">Riporto mese precedente</td>
         <td class="number">–</td><td class="number">–</td><td class="number">–</td>
         <td class="number"><strong>${fmt(riporto)}</strong></td>
       </tr>`);
     }
 
     data.forEach(r => {
-      const corr    = n(r.totale_corrispettivi);
-      const cont    = n(r.contanti);
-      const banc    = n(r.bancomat);
-      const carte   = n(r.carte_credito);
-      const sati    = n(r.satispay);
-      const satOnl  = n(r.satispay_online);
-      const cOnl    = n(r.carte_credito_online);
-      const pp      = n(r.paypal);
-      const bon     = n(r.bonifico);
-      const gc      = n(r.gift_card);
-      const gcOnl   = n(r.gift_card_online);
-      const buoni   = n(r.buoni_altromercato);
-      const rimb    = n(r.rimborsi_online);
-      const vers    = n(r.versamento_banca);
+      const corr    = r.totale_corrispettivi;
+      const cont    = r.contanti;
+      const banc    = r.bancomat;
+      const carte   = r.carte_credito;
+      const sati    = r.satispay;
+      const satOnl  = r.satispay_online;
+      const cOnl    = r.carte_credito_online;
+      const pp      = r.paypal;
+      const bon     = r.bonifico;
+      const gc      = r.gift_card;
+      const gcOnl   = r.gift_card_online;
+      const buoni   = r.buoni_altromercato;
+      const rimb    = r.rimborsi_online;
       const incassi = cont + banc + carte + sati + satOnl + cOnl + pp + bon + gc + gcOnl + buoni - rimb;
-      const cf      = n(r.cassaforte);
+      const cf      = r.saldo_cassaforte;
       const fc      = n(r.fondo_cassa);
       const diff    = corr - incassi;
-      saldo += cf - vers;
+      saldo += cf;
       tCorr += corr; tInc += incassi; tCassa += cf; tDiff += diff;
 
       const diffStyle = Math.abs(diff) > 0.02 ? 'color:#dc2626;font-weight:700' : 'color:#16a34a';
@@ -2027,7 +2070,6 @@ async function loadVistaMensileData() {
         <td class="number">${gc > 0 ? fmt(gc) : '–'}</td>
         <td class="number">${gcOnl > 0 ? fmt(gcOnl) : '–'}</td>
         <td class="number">${buoni > 0 ? fmt(buoni) : '–'}</td>
-        <td class="number" style="color:#7c3aed">${vers > 0 ? fmt(vers) : '–'}</td>
         <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
         <td class="number">${fc > 0 ? fmt(fc) : '–'}</td>
         <td class="number" style="${diffStyle}">${diffCell}</td>
@@ -2040,7 +2082,7 @@ async function loadVistaMensileData() {
       <td><strong>TOTALI</strong></td>
       <td class="number"><strong>${fmt(tCorr)}</strong></td>
       <td class="number"><strong>${fmt(tInc)}</strong></td>
-      <td colspan="12" style="color:#94a3b8">–</td>
+      <td colspan="11" style="color:#94a3b8">–</td>
       <td class="number"><strong>${fmt(tCassa)}</strong></td>
       <td style="color:#94a3b8">–</td>
       <td class="number" style="${tDiffStyle}"><strong>${Math.abs(tDiff) > 0.01 ? fmt(tDiff) : '✓'}</strong></td>
@@ -2177,7 +2219,7 @@ async function loadVistaMensileData() {
     document.getElementById('vm-cfr-label').textContent = anno + ' vs 2025';
 
   } catch (e) {
-    t1b.innerHTML = `<tr><td colspan="19" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    t1b.innerHTML = `<tr><td colspan="18" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
     t2b.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
     t3b.innerHTML = `<tr><td colspan="13" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
@@ -2193,80 +2235,86 @@ const METEO_EMOJI = {
 };
 
 async function loadCommercialeData() {
-  const emporio      = document.getElementById('com-filter-emporio').value;
-  const mese         = document.getElementById('com-filter-mese').value;
+  const emporio       = document.getElementById('com-filter-emporio').value;
+  const mese          = document.getElementById('com-filter-mese').value;
   const annoConfronto = document.getElementById('com-confronto-anno').value;
-  const tbody        = document.getElementById('com-body');
+  const tbody         = document.getElementById('com-body');
   tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
-    let q = db.from('cassa_giorni')
-      .select('data,emporio,totale_corrispettivi,global_scontrini,meteo,arrivo_merci,note')
-      .order('data');
+    if (!mese) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px">Seleziona un mese</td></tr>';
+      return;
+    }
+    const [anno, mm] = mese.split('-');
+    const emps   = emporio ? [emporio] : EMPORIOS_NOTI;
+    const chiavi = emps.flatMap(e => chiaveMonth(e, anno, mm));
+
+    let q = db.from('cassa_giorni').select(SEL_COM).in('chiave', chiavi);
     if (emporio) q = q.eq('emporio', emporio);
-    if (mese) q = q.gte('data', mese+'-01').lte('data', mese+'-31');
-    const { data, error } = await q;
+    const { data: rawData, error } = await q;
     if (error) throw error;
+    const data = normCassa(rawData || []);
 
     // Dati anno precedente
     let dPrec = {};
-    if (mese && annoConfronto) {
-      const mesePrec = annoConfronto + '-' + mese.slice(5);
+    if (annoConfronto) {
+      const prevChiavi = emps.flatMap(e => chiaveMonth(e, annoConfronto, mm));
       let qp = db.from('cassa_giorni')
-        .select('data,emporio,totale_corrispettivi,global_scontrini');
+        .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini')
+        .in('chiave', prevChiavi);
       if (emporio) qp = qp.eq('emporio', emporio);
-      qp = qp.gte('data', mesePrec+'-01').lte('data', mesePrec+'-31');
       const { data: dp } = await qp;
-      (dp||[]).forEach(r => {
-        dPrec[r.data.slice(8,10)+'||'+(r.emporio||'')] = r;
+      normCassa(dp || []).forEach(r => {
+        dPrec[r._day + '||' + (r.emporio || '')] = r;
       });
     }
 
-    if (!data?.length) {
+    if (!data.length) {
       tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
       return;
     }
 
     document.getElementById('com-anno-prec-label').textContent = annoConfronto;
-    let tInc=0, tSc=0, bestVal=0, bestDay='';
+    let tInc = 0, tSc = 0, bestVal = 0, bestDay = '';
 
     tbody.innerHTML = data.map(r => {
-      const inc  = parseFloat(r.totale_corrispettivi||0);
-      const nSc  = parseInt(r.global_scontrini||0);
-      const media = nSc > 0 ? inc/nSc : null;
-      const key  = r.data.slice(8,10)+'||'+(r.emporio||'');
-      const rP   = dPrec[key];
-      const incP = rP ? parseFloat(rP.totale_corrispettivi||0) : null;
-      const delta = (incP != null && incP > 0) ? (inc-incP)/incP*100 : null;
+      const inc   = r.totale_corrispettivi;
+      const nSc   = parseInt(r.global_scontrini || 0);
+      const media = nSc > 0 ? inc / nSc : null;
+      const key   = r._day + '||' + (r.emporio || '');
+      const rP    = dPrec[key];
+      const incP  = rP ? rP.totale_corrispettivi : null;
+      const delta = (incP != null && incP > 0) ? (inc - incP) / incP * 100 : null;
       tInc += inc; tSc += nSc;
       if (inc > bestVal) { bestVal = inc; bestDay = r.data; }
-      const emoji = METEO_EMOJI[(r.meteo||'').toLowerCase()] || '';
+      const emoji = METEO_EMOJI[(r.meteo || '').toLowerCase()] || '';
       return `<tr>
-        <td><strong>${fmtData(r.data,{weekday:'short',day:'2-digit',month:'short'})}</strong></td>
-        <td>${r.emporio||'–'}</td>
-        <td style="text-align:center">${emoji} <span style="font-size:11px;color:#64748b">${r.meteo||'–'}</span></td>
+        <td><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
+        <td>${r.emporio || '–'}</td>
+        <td style="text-align:center">${emoji} <span style="font-size:11px;color:#64748b">${r.meteo || '–'}</span></td>
         <td class="number"><strong>${fmt(inc)}</strong></td>
         <td class="number">${nSc > 0 ? nSc : '–'}</td>
         <td class="number">${media ? fmt(media) : '–'}</td>
         <td class="number">${incP != null ? fmt(incP) : '–'}</td>
         <td class="number">${fmtPct(delta)}</td>
-        <td style="font-size:11px">${r.arrivo_merci||'–'}</td>
-        <td style="font-size:11px;color:#64748b;max-width:180px">${r.note||'–'}</td>
+        <td style="font-size:11px">${r.arrivo_merci || '–'}</td>
+        <td style="font-size:11px;color:#64748b;max-width:180px">${r.note || '–'}</td>
       </tr>`;
     }).join('');
 
-    const mediaGen = tSc > 0 ? tInc/tSc : null;
+    const mediaGen = tSc > 0 ? tInc / tSc : null;
     tbody.innerHTML += `<tr class="total-row">
       <td colspan="3"><strong>TOTALE MESE</strong></td>
       <td class="number"><strong>${fmt(tInc)}</strong></td>
-      <td class="number"><strong>${tSc||'–'}</strong></td>
+      <td class="number"><strong>${tSc || '–'}</strong></td>
       <td class="number"><strong>${mediaGen ? fmt(mediaGen) : '–'}</strong></td>
       <td colspan="4">–</td>
     </tr>`;
 
-    document.getElementById('kpi-incasso-mese').textContent   = fmt(tInc);
+    document.getElementById('kpi-incasso-mese').textContent    = fmt(tInc);
     document.getElementById('kpi-scontrino-medio').textContent = mediaGen ? fmt(mediaGen) : '–';
-    document.getElementById('kpi-giorni-aperti').textContent   = data.filter(r=>parseFloat(r.totale_corrispettivi||0)>0).length;
-    document.getElementById('kpi-best-day').textContent        = bestDay ? fmtData(bestDay,{day:'2-digit',month:'short'}) : '–';
+    document.getElementById('kpi-giorni-aperti').textContent   = data.filter(r => r.totale_corrispettivi > 0).length;
+    document.getElementById('kpi-best-day').textContent        = bestDay ? fmtData(bestDay, {day:'2-digit', month:'short'}) : '–';
     document.getElementById('kpi-best-day-val').textContent    = fmt(bestVal);
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
