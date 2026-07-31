@@ -217,6 +217,16 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .op-note-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px;}
 #turno-mat,#turno-pom{display:flex;flex-direction:column;}
 .op-footer{margin-top:auto;}
+.foto-scontrini{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;}
+.foto-group{}
+.foto-lbl{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+.foto-wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;min-height:56px;}
+.foto-thumb{position:relative;flex-shrink:0;}
+.foto-img{width:56px;height:72px;object-fit:cover;border-radius:8px;border:1.5px solid #e2e8f0;cursor:pointer;display:block;transition:opacity .15s;}
+.foto-img:hover{opacity:.8;}
+.foto-del-btn{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:#B5453A;border:none;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;}
+.foto-add-label{width:44px;height:56px;border-radius:10px;border:1.5px dashed #B5453A;color:#B5453A;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;}
+.foto-add-label:hover{background:#fef2f2;}
 
 /* ══ IVA GIORNALIERA ══ */
 .iva-err-banner{background:#fef2f2;border:1px solid#fca5a5;border-radius:12px;padding:10px 14px;font-size:12px;font-weight:700;color:#e11d48;margin-bottom:14px;display:none;}
@@ -584,6 +594,17 @@ input[type=month].btn-export{min-width:160px;}
                 <textarea id="nota-mattino" class="textarea-note" rows="2"></textarea>
               </div>
             </div>
+
+            <div class="foto-scontrini">
+              <div class="foto-group">
+                <div class="foto-lbl"><i class="fas fa-receipt"></i> Scontrino RF</div>
+                <div id="mat-foto-rf" class="foto-wrap"></div>
+              </div>
+              <div class="foto-group">
+                <div class="foto-lbl"><i class="fas fa-credit-card"></i> Scontrino POS</div>
+                <div id="mat-foto-pos" class="foto-wrap"></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -688,6 +709,17 @@ input[type=month].btn-export{min-width:160px;}
               <div>
                 <label class="field-label">Note pomeriggio</label>
                 <textarea id="nota-pomeriggio" class="textarea-note" rows="2"></textarea>
+              </div>
+            </div>
+
+            <div class="foto-scontrini">
+              <div class="foto-group">
+                <div class="foto-lbl"><i class="fas fa-receipt"></i> Scontrino RF</div>
+                <div id="pom-foto-rf" class="foto-wrap"></div>
+              </div>
+              <div class="foto-group">
+                <div class="foto-lbl"><i class="fas fa-credit-card"></i> Scontrino POS</div>
+                <div id="pom-foto-pos" class="foto-wrap"></div>
               </div>
             </div>
           </div>
@@ -1078,6 +1110,8 @@ let fondoCassa = 0;
 let calYear, calMonth, selectedDate;
 const noteMap = {};
 const selectedOps = { mat: [], pom: [] };
+const photosMap = { mat_rf: [], mat_pos: [], pom_rf: [], pom_pos: [] };
+const FOTO_BUCKET = 'cassa-foto';
 let _dirty = false;
 const markDirty  = () => { _dirty = true; };
 const clearDirty = () => { _dirty = false; };
@@ -1635,6 +1669,66 @@ function commitSpeseNote(turno, id, data, area, btn) {
   }
 }
 
+/* ── FOTO SCONTRINI ── */
+function getFotoUrl(path) {
+  const { data } = db.storage.from(FOTO_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function renderFotoWrap(turno, tipo) {
+  const wrap = document.getElementById(turno+'-foto-'+tipo);
+  if (!wrap) return;
+  const key = turno+'_'+tipo;
+  const photos = photosMap[key] || [];
+  wrap.innerHTML = '';
+
+  photos.forEach(path => {
+    const url = getFotoUrl(path);
+    const thumb = document.createElement('div');
+    thumb.className = 'foto-thumb';
+    const img = document.createElement('img');
+    img.src = url; img.className = 'foto-img'; img.alt = 'Scontrino';
+    img.addEventListener('click', () => window.open(url, '_blank'));
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'foto-del-btn'; del.textContent = '×';
+    del.title = 'Rimuovi foto';
+    del.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!confirm('Eliminare questa foto?')) return;
+      await db.storage.from(FOTO_BUCKET).remove([path]);
+      photosMap[key] = photosMap[key].filter(p => p !== path);
+      renderFotoWrap(turno, tipo);
+      markDirty();
+    });
+    thumb.append(img, del);
+    wrap.appendChild(thumb);
+  });
+
+  const label = document.createElement('label');
+  label.className = 'foto-add-label'; label.title = 'Aggiungi foto';
+  label.innerHTML = '<i class="fas fa-camera"></i>';
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.style.display = 'none';
+  inp.addEventListener('change', async e => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    label.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    const results = await Promise.all(files.map(async file => {
+      const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+      const path = `${currentKey}/${turno}_${tipo}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await db.storage.from(FOTO_BUCKET).upload(path, file, { upsert: false });
+      if (error) { alert('Errore upload: ' + error.message); return null; }
+      return path;
+    }));
+    results.forEach(p => { if(p) photosMap[key].push(p); });
+    renderFotoWrap(turno, tipo);
+    markDirty();
+    e.target.value = '';
+  });
+  label.appendChild(inp);
+  wrap.appendChild(label);
+}
+
 /* ── OPERATORI ── */
 async function loadOperatoriAttivi(emp, recordDate) {
   try {
@@ -1905,6 +1999,14 @@ function fillForm(data) {
     const radio = document.querySelector(`input[name="turno_type"][value="${data.turno_type}"]`);
     if(radio) { radio.checked = true; updateTurnoVisibility(); }
   }
+  // Carica foto scontrini
+  ['mat','pom'].forEach(t => {
+    ['rf','pos'].forEach(tp => {
+      const col = data[t+'_foto_'+tp];
+      if (col) try { photosMap[t+'_'+tp] = JSON.parse(col); } catch(e) {}
+      renderFotoWrap(t, tp);
+    });
+  });
   toggleIvaAltro(); syncWeatherIcon(); calcIva();
 }
 
@@ -1946,6 +2048,9 @@ function resetDayForm() {
   document.getElementById('meteo-mattino').value = 'sereno';
   document.getElementById('meteo-pomeriggio').value = 'sereno';
   syncWeatherIcon();
+  // Reset foto
+  Object.keys(photosMap).forEach(k => photosMap[k] = []);
+  ['mat','pom'].forEach(t => ['rf','pos'].forEach(tp => renderFotoWrap(t, tp)));
 }
 
 /* ── OPEN DAY ── */
@@ -2044,6 +2149,10 @@ async function saveDay() {
     arrivo_merci:     document.getElementById('arrivo-merci').checked,
     note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci')||null) : null,
     global_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
+    mat_foto_rf:  photosMap.mat_rf.length  ? JSON.stringify(photosMap.mat_rf)  : null,
+    mat_foto_pos: photosMap.mat_pos.length ? JSON.stringify(photosMap.mat_pos) : null,
+    pom_foto_rf:  photosMap.pom_rf.length  ? JSON.stringify(photosMap.pom_rf)  : null,
+    pom_foto_pos: photosMap.pom_pos.length ? JSON.stringify(photosMap.pom_pos) : null,
     turno_type:      tipo,
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
     iva_esente: getNum('iva-esente'),
