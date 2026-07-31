@@ -1274,11 +1274,18 @@ function parseOnlineNote(val) {
   return { voci: [], libera: '' };
 }
 
+function parseSpeseNote(val) {
+  if (!val) return { voci: [], libera: '', legacy: '' };
+  try { const p = JSON.parse(val); if (p && Array.isArray(p.voci)) return { ...p, legacy: '' }; } catch(e) {}
+  return { voci: [], libera: '', legacy: val }; // backward compat: testo libero
+}
+
 function hasNoteVal(turno, id) {
   const val = noteMap[turno+'_'+id] || '';
   if (!val) return false;
   const p = PAGAMENTI.find(x => x.id === id);
   if (p?.online) { const d = parseOnlineNote(val); return d.voci.length > 0 || !!d.libera?.trim(); }
+  if (p?.spese)  { const d = parseSpeseNote(val);  return d.voci.length > 0 || !!d.libera?.trim() || !!d.legacy; }
   return val.trim().length > 0;
 }
 
@@ -1288,14 +1295,18 @@ function toggleNoteRow(turno, id, label, rowWrap) {
   const p    = PAGAMENTI.find(x => x.id === id);
 
   if (hasNoteVal(turno, id)) {
-    // Nota esistente → mostra sempre la vista "ferma" (pinned); la "-" la chiude
+    // Se area già visibile → collassa (toggle)
+    if (!area.classList.contains('hidden')) { area.classList.add('hidden'); return; }
+    // Mostra vista "ferma"
     if (p?.online) renderOnlineSavedView(turno, id, area, btn);
+    else if (p?.spese) renderSpeseSavedView(turno, id, area, btn);
     else renderTextSavedView(turno, id, area, btn);
     area.classList.remove('hidden');
   } else {
     // Nessuna nota → toggle editor
     if (!area.classList.contains('hidden')) { area.classList.add('hidden'); return; }
     if (p?.online) renderOnlineEditor(turno, id, label, area, btn);
+    else if (p?.spese) renderSpeseEditor(turno, id, label, area, btn);
     else renderNoteEditor(turno, id, label, area, btn);
     area.classList.remove('hidden');
   }
@@ -1337,7 +1348,9 @@ function autoCopyNoteToPom(id, val, isOnline) {
   const pomArea = document.getElementById('pom_notearea_'+id);
   const pomBtn  = document.getElementById('pom_notebtn_'+id);
   if (!pomArea) return;
+  const p = PAGAMENTI.find(x => x.id === id);
   if (isOnline) renderOnlineSavedView('pom', id, pomArea, pomBtn);
+  else if (p?.spese) renderSpeseSavedView('pom', id, pomArea, pomBtn);
   else renderTextSavedView('pom', id, pomArea, pomBtn);
   pomArea.classList.remove('hidden');
   if (pomBtn) { pomBtn.classList.add('has-note'); pomBtn.title='Nota presente'; }
@@ -1493,6 +1506,133 @@ function renderOnlineSavedView(turno, id, area, btn) {
   colBtn.addEventListener('click',()=>area.classList.add('hidden'));
   footer.append(editBtn,colBtn); wrap.appendChild(footer);
   area.appendChild(wrap);
+}
+
+/* ── NOTE SPESE STRUTTURATE ── */
+function renderSpeseEditor(turno, id, label, area, btn) {
+  const fieldEl = document.getElementById(turno+'_pay_'+id);
+  const fieldAmt = parseEuro(fieldEl?.value||'') || 0;
+  const saved = parseSpeseNote(noteMap[turno+'_'+id]);
+  const voci = saved.voci.length > 0 ? saved.voci.map(v=>({...v}))
+               : saved.legacy ? [{importo:'',descrizione:saved.legacy}]
+               : [{importo:'',descrizione:''}];
+  let libera = saved.libera || '';
+
+  function render() {
+    area.innerHTML='';
+    const ed = document.createElement('div'); ed.className='online-note-editor';
+
+    voci.forEach((v, i) => {
+      const vr = document.createElement('div'); vr.className='online-note-voce';
+
+      const impInp = document.createElement('input');
+      impInp.type='number'; impInp.step='0.01'; impInp.min='0';
+      impInp.className='online-note-importo'; impInp.placeholder='€ importo';
+      impInp.value = v.importo !== '' ? v.importo : '';
+      impInp.addEventListener('input',()=>{ voci[i].importo = parseFloat(impInp.value)||''; updateSum(); });
+
+      const descInp = document.createElement('input');
+      descInp.type='text'; descInp.className='online-note-nome';
+      descInp.placeholder='Descrizione'; descInp.value = v.descrizione||'';
+      descInp.addEventListener('input',()=>{ voci[i].descrizione=descInp.value; });
+
+      const delBtn = document.createElement('button');
+      delBtn.type='button'; delBtn.className='note-delete-btn'; delBtn.title='Rimuovi';
+      delBtn.innerHTML='<i class="fas fa-times"></i>';
+      delBtn.addEventListener('click',()=>{ voci.splice(i,1); if(!voci.length) voci.push({importo:'',descrizione:''}); render(); });
+
+      vr.append(impInp,descInp,delBtn); ed.appendChild(vr);
+    });
+
+    const sumRow = document.createElement('div'); sumRow.className='online-note-sum-row'; ed.appendChild(sumRow);
+
+    const addBtn = document.createElement('button');
+    addBtn.type='button'; addBtn.className='online-note-add-btn';
+    addBtn.innerHTML='<i class="fas fa-plus"></i> Aggiungi';
+    addBtn.addEventListener('click',()=>{ voci.push({importo:'',descrizione:''}); render(); });
+    ed.appendChild(addBtn);
+
+    const liberaLbl = document.createElement('div'); liberaLbl.className='online-note-libera-lbl'; liberaLbl.textContent='NOTE LIBERE';
+    const liberaTa = document.createElement('textarea');
+    liberaTa.className='online-note-libera'; liberaTa.rows=1;
+    liberaTa.placeholder='Note aggiuntive…'; liberaTa.value=libera;
+    liberaTa.addEventListener('input',()=>{ libera=liberaTa.value; });
+    ed.append(liberaLbl, liberaTa);
+
+    const actRow = document.createElement('div'); actRow.className='online-note-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.type='button'; saveBtn.className='online-save-btn';
+    saveBtn.innerHTML='<i class="fas fa-check"></i> Salva';
+    saveBtn.addEventListener('click',()=>{
+      const payload = { voci: voci.filter(v=>v.importo||v.descrizione), libera };
+      commitSpeseNote(turno,id,payload,area,btn);
+    });
+    const colBtn = document.createElement('button');
+    colBtn.type='button'; colBtn.className='note-collapse-btn'; colBtn.textContent='−';
+    colBtn.addEventListener('click',()=>area.classList.add('hidden'));
+    actRow.append(saveBtn,colBtn); ed.appendChild(actRow);
+    area.appendChild(ed);
+    updateSum();
+  }
+
+  function updateSum() {
+    const sumRow = area.querySelector('.online-note-sum-row');
+    if (!sumRow) return;
+    const tot = voci.reduce((s,v)=>s+(parseFloat(v.importo)||0),0);
+    const ok  = fieldAmt === 0 || Math.abs(tot-fieldAmt)<0.015;
+    const fmtN = n=>n.toFixed(2).replace('.',',');
+    sumRow.innerHTML = `<span class="${ok?'online-sum-ok':'online-sum-err'}">Totale voci: € ${fmtN(tot)} / Campo: € ${fmtN(fieldAmt)}</span>`;
+  }
+
+  render();
+}
+
+function renderSpeseSavedView(turno, id, area, btn) {
+  const data = parseSpeseNote(noteMap[turno+'_'+id]);
+  area.innerHTML='';
+  const wrap = document.createElement('div'); wrap.className='note-saved-wrap note-saved-online';
+
+  if (data.legacy) {
+    // Backward compat: testo libero
+    const txt=document.createElement('span'); txt.className='note-saved-text';
+    txt.innerHTML='<i class="fas fa-sticky-note" style="margin-right:5px;font-size:11px;"></i>'+data.legacy;
+    wrap.appendChild(txt);
+  } else {
+    data.voci.forEach(v=>{
+      const line=document.createElement('div'); line.className='note-saved-voce';
+      const imp = parseFloat(v.importo||0).toFixed(2).replace('.',',');
+      line.innerHTML=`<i class="fas fa-sticky-note" style="margin-right:4px;font-size:10px"></i>€ ${imp} — ${v.descrizione||'?'}`;
+      wrap.appendChild(line);
+    });
+    if (data.libera?.trim()) {
+      const freeDiv=document.createElement('div'); freeDiv.className='note-saved-libera';
+      freeDiv.textContent=data.libera; wrap.appendChild(freeDiv);
+    }
+  }
+
+  const footer=document.createElement('div'); footer.className='note-saved-footer';
+  const editBtn=document.createElement('button'); editBtn.className='note-edit-btn'; editBtn.textContent='modifica';
+  editBtn.addEventListener('click',()=>{ renderSpeseEditor(turno,id,PAGAMENTI.find(p=>p.id===id)?.label||id,area,btn); area.classList.remove('hidden'); });
+  const colBtn=document.createElement('button'); colBtn.className='note-collapse-btn'; colBtn.textContent='−';
+  colBtn.addEventListener('click',()=>area.classList.add('hidden'));
+  footer.append(editBtn,colBtn); wrap.appendChild(footer);
+  area.appendChild(wrap);
+}
+
+function commitSpeseNote(turno, id, data, area, btn) {
+  const hasN = data.voci.length>0 || !!data.libera?.trim();
+  const serialized = hasN ? JSON.stringify(data) : '';
+  noteMap[turno+'_'+id] = serialized;
+  markDirty();
+  if (hasN) {
+    renderSpeseSavedView(turno,id,area,btn);
+    area.classList.remove('hidden');
+    if(btn){ btn.classList.add('has-note'); btn.title='Nota presente'; }
+    if (turno === 'mat' && !noteMap['pom_'+id]) autoCopyNoteToPom(id, serialized, false);
+  } else {
+    area.innerHTML=''; area.classList.add('hidden');
+    if(btn){ btn.classList.remove('has-note'); btn.title='Aggiungi nota'; }
+  }
 }
 
 /* ── OPERATORI ── */
@@ -1711,12 +1851,27 @@ function fillForm(data) {
         const btn=document.getElementById(t+'_notebtn_'+p.id);
         if(area){
           if(p.online) renderOnlineSavedView(t,p.id,area,btn);
+          else if(p.spese) renderSpeseSavedView(t,p.id,area,btn);
           else renderTextSavedView(t,p.id,area,btn);
           area.classList.remove('hidden');
         }
         if(btn) btn.classList.add('has-note');
       }
     });
+    // Auto-copy mat→pom al caricamento se mat ha nota e pom è vuoto
+    if (noteMap['mat_'+p.id] && !noteMap['pom_'+p.id]) {
+      const matVal = noteMap['mat_'+p.id];
+      noteMap['pom_'+p.id] = matVal;
+      const pomArea = document.getElementById('pom_notearea_'+p.id);
+      const pomBtn  = document.getElementById('pom_notebtn_'+p.id);
+      if (pomArea) {
+        if(p.online) renderOnlineSavedView('pom',p.id,pomArea,pomBtn);
+        else if(p.spese) renderSpeseSavedView('pom',p.id,pomArea,pomBtn);
+        else renderTextSavedView('pom',p.id,pomArea,pomBtn);
+        pomArea.classList.remove('hidden');
+        if(pomBtn){ pomBtn.classList.add('has-note'); pomBtn.title='Nota presente'; }
+      }
+    }
   });
   if(data.mat_corrispettivi!=null) document.getElementById('mat-corrispettivi').value=euro(data.mat_corrispettivi);
   if(data.pom_corrispettivi!=null) document.getElementById('pom-corrispettivi').value=euro(data.pom_corrispettivi);
