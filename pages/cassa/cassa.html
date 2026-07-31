@@ -1318,6 +1318,17 @@ function renderTextSavedView(turno, id, area, btn) {
   wrap.append(txt,editBtn,colBtn); area.appendChild(wrap);
 }
 
+function autoCopyNoteToPom(id, val, isOnline) {
+  noteMap['pom_'+id] = val;
+  const pomArea = document.getElementById('pom_notearea_'+id);
+  const pomBtn  = document.getElementById('pom_notebtn_'+id);
+  if (!pomArea) return;
+  if (isOnline) renderOnlineSavedView('pom', id, pomArea, pomBtn);
+  else renderTextSavedView('pom', id, pomArea, pomBtn);
+  pomArea.classList.remove('hidden');
+  if (pomBtn) { pomBtn.classList.add('has-note'); pomBtn.title='Nota presente'; }
+}
+
 function commitNote(turno, id, val, area, btn) {
   noteMap[turno+'_'+id] = val;
   markDirty();
@@ -1326,6 +1337,8 @@ function commitNote(turno, id, val, area, btn) {
     renderTextSavedView(turno, id, area, btn);
     area.classList.remove('hidden');
     if(btn){ btn.classList.add('has-note'); btn.title='Nota presente'; }
+    // Auto-copia al pomeriggio se mattino e pom ancora vuoto
+    if (turno === 'mat' && !noteMap['pom_'+id]) autoCopyNoteToPom(id, val, false);
   } else {
     area.classList.add('hidden');
     if(btn){ btn.classList.remove('has-note'); btn.title='Aggiungi nota'; }
@@ -1426,12 +1439,15 @@ function renderOnlineEditor(turno, id, label, area, btn) {
 
 function commitOnlineNote(turno, id, data, area, btn) {
   const hasN = data.voci.length>0 || !!data.libera?.trim();
-  noteMap[turno+'_'+id] = hasN ? JSON.stringify(data) : '';
+  const serialized = hasN ? JSON.stringify(data) : '';
+  noteMap[turno+'_'+id] = serialized;
   markDirty();
   if (hasN) {
     renderOnlineSavedView(turno,id,area,btn);
     area.classList.remove('hidden');
     if(btn){ btn.classList.add('has-note'); btn.title='Nota presente'; }
+    // Auto-copia al pomeriggio se mattino e pom ancora vuoto
+    if (turno === 'mat' && !noteMap['pom_'+id]) autoCopyNoteToPom(id, serialized, true);
   } else {
     area.innerHTML=''; area.classList.add('hidden');
     if(btn){ btn.classList.remove('has-note'); btn.title='Aggiungi nota'; }
