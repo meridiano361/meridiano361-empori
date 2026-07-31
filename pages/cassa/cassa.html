@@ -499,13 +499,14 @@ input[type=month].btn-export{min-width:160px;}
 
             <div class="op-note-grid">
               <div>
-                <label class="field-label">Chiusura effettuata da *</label>
+                <label class="field-label">Chiusura effettuata da</label>
                 <div class="op-wrap">
-                  <select id="chiuso-da-mat" class="select-input" required></select>
-                  <button class="op-add-btn" onclick="toggleOpModal('mat')">
+                  <select id="chiuso-da-mat" class="select-input"></select>
+                  <button class="op-add-btn" onclick="addOpToShift('mat')">
                     <i class="fas fa-plus"></i> Aggiungi
                   </button>
                 </div>
+                <div id="op-list-mat" class="op-chips-wrap" style="margin-top:6px"></div>
                 <div id="op-mini-mat" class="op-mini-modal">
                   <p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">Nuovo operatore</p>
                   <div class="op-mini-row">
@@ -514,7 +515,7 @@ input[type=month].btn-export{min-width:160px;}
                     <button class="op-mini-cancel" onclick="toggleOpModal('mat')">✕</button>
                   </div>
                 </div>
-                <div id="op-list-mat" class="op-chips-wrap"></div>
+                <button class="back-link" style="margin-top:4px;padding:0;font-size:10px" onclick="toggleOpModal('mat')"><i class="fas fa-user-plus" style="font-size:9px"></i> Nuovo operatore</button>
               </div>
 
               <div>
@@ -605,13 +606,14 @@ input[type=month].btn-export{min-width:160px;}
 
             <div class="op-note-grid">
               <div>
-                <label class="field-label">Chiusura effettuata da *</label>
+                <label class="field-label">Chiusura effettuata da</label>
                 <div class="op-wrap">
-                  <select id="chiuso-da-pom" class="select-input" required></select>
-                  <button class="op-add-btn" onclick="toggleOpModal('pom')">
+                  <select id="chiuso-da-pom" class="select-input"></select>
+                  <button class="op-add-btn" onclick="addOpToShift('pom')">
                     <i class="fas fa-plus"></i> Aggiungi
                   </button>
                 </div>
+                <div id="op-list-pom" class="op-chips-wrap" style="margin-top:6px"></div>
                 <div id="op-mini-pom" class="op-mini-modal">
                   <p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">Nuovo operatore</p>
                   <div class="op-mini-row">
@@ -620,7 +622,7 @@ input[type=month].btn-export{min-width:160px;}
                     <button class="op-mini-cancel" onclick="toggleOpModal('pom')">✕</button>
                   </div>
                 </div>
-                <div id="op-list-pom" class="op-chips-wrap"></div>
+                <button class="back-link" style="margin-top:4px;padding:0;font-size:10px" onclick="toggleOpModal('pom')"><i class="fas fa-user-plus" style="font-size:9px"></i> Nuovo operatore</button>
               </div>
 
               <div>
@@ -913,6 +915,7 @@ let currentKey = '';
 let fondoCassa = 0;
 let calYear, calMonth, selectedDate;
 const noteMap = {};
+const selectedOps = { mat: [], pom: [] };
 
 /* ── FORMATTERS ── */
 const euro = n => '€ ' + Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1160,33 +1163,44 @@ function addOperatore(turno) {
   if(!OPERATORI[currentEmp]) OPERATORI[currentEmp]=[];
   if(!OPERATORI[currentEmp].includes(nome)) OPERATORI[currentEmp].push(nome);
   syncOperators();
-  document.getElementById('chiuso-da-'+turno).value=nome;
+  if(!selectedOps[turno].includes(nome)) selectedOps[turno].push(nome);
+  renderShiftOps(turno);
   inp.value='';
   toggleOpModal(turno);
+}
+
+function addOpToShift(turno) {
+  const sel=document.getElementById('chiuso-da-'+turno);
+  const nome=sel?.value?.trim();
+  if(!nome) return;
+  if(!selectedOps[turno].includes(nome)) selectedOps[turno].push(nome);
+  renderShiftOps(turno);
+  sel.value='';
+}
+
+function removeOpFromShift(turno, nome) {
+  selectedOps[turno]=selectedOps[turno].filter(op=>op!==nome);
+  renderShiftOps(turno);
+}
+
+function renderShiftOps(turno) {
+  const list=document.getElementById('op-list-'+turno); if(!list) return;
+  list.innerHTML=selectedOps[turno].map(op=>{
+    const safe=op.replace(/'/g,'\\x27');
+    return `<span class="op-chip">${op}<button class="op-chip-x" onclick="removeOpFromShift('${turno}','${safe}')" title="Rimuovi dal turno">×</button></span>`;
+  }).join('');
 }
 
 function syncOperators() {
   const ops=(OPERATORI[currentEmp]||[]).slice().sort();
   ['mat','pom'].forEach(turno=>{
     const sel=document.getElementById('chiuso-da-'+turno); if(!sel) return;
-    const prev=sel.value;
     sel.innerHTML='<option value="">Seleziona operatore...</option>';
     ops.forEach(op=>{
       const o=document.createElement('option'); o.value=op; o.textContent=op; sel.appendChild(o);
     });
-    if(prev) sel.value=prev;
-    const list=document.getElementById('op-list-'+turno); if(!list) return;
-    list.innerHTML=ops.map(op=>{
-      const safe=op.replace(/'/g,'\\x27');
-      return `<span class="op-chip">${op}<button class="op-chip-x" onclick="removeOperatore('${safe}')" title="Rimuovi dalla lista">×</button></span>`;
-    }).join('');
+    renderShiftOps(turno);
   });
-}
-
-function removeOperatore(nome) {
-  if(!OPERATORI[currentEmp]) return;
-  OPERATORI[currentEmp]=OPERATORI[currentEmp].filter(op=>op!==nome);
-  syncOperators();
 }
 
 /* ── FONDO CASSA PRECEDENTE ── */
@@ -1345,8 +1359,8 @@ function fillForm(data) {
   if(data.mat_contanti_netti!=null) document.getElementById('mat-netti').textContent=euro(data.mat_contanti_netti);
   if(data.pom_contanti_lordi!=null) document.getElementById('pom-lordi').textContent=euro(data.pom_contanti_lordi);
   if(data.pom_contanti_netti!=null) document.getElementById('pom-netti').textContent=euro(data.pom_contanti_netti);
-  if(data.chiuso_da_mat)  document.getElementById('chiuso-da-mat').value=data.chiuso_da_mat;
-  if(data.chiuso_da_pom)  document.getElementById('chiuso-da-pom').value=data.chiuso_da_pom;
+  if(data.chiuso_da_mat) { selectedOps.mat=data.chiuso_da_mat.split(' e ').map(s=>s.trim()).filter(Boolean); renderShiftOps('mat'); }
+  if(data.chiuso_da_pom) { selectedOps.pom=data.chiuso_da_pom.split(' e ').map(s=>s.trim()).filter(Boolean); renderShiftOps('pom'); }
   if(data.note_mattino)   document.getElementById('nota-mattino').value=data.note_mattino;
   if(data.note_pomeriggio)document.getElementById('nota-pomeriggio').value=data.note_pomeriggio;
   if(data.meteo)          document.getElementById('meteo-label').value=data.meteo;
@@ -1393,6 +1407,7 @@ async function openDay() {
   const m1 = m + 1;
   currentKey  = currentEmp+'_'+y+'_'+m1+'_'+d;
 
+  selectedOps.mat = []; selectedOps.pom = [];
   buildCoins('mat'); buildCoins('pom');
   buildPayments('mat'); buildPayments('pom');
   syncOperators();
@@ -1444,8 +1459,8 @@ async function saveDay() {
     chiave:          currentKey,
     fondo_cassa:     fondoCassa,
     emporio:         currentEmp,
-    chiuso_da_mat:   getVal('chiuso-da-mat')||null,
-    chiuso_da_pom:   getVal('chiuso-da-pom')||null,
+    chiuso_da_mat:   selectedOps.mat.length ? selectedOps.mat.join(' e ') : null,
+    chiuso_da_pom:   selectedOps.pom.length ? selectedOps.pom.join(' e ') : null,
     note_mattino:    getVal('nota-mattino')||null,
     note_pomeriggio: getVal('nota-pomeriggio')||null,
     meteo:           getVal('meteo-label')||null,
