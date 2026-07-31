@@ -365,8 +365,24 @@ input[type=month].btn-export{min-width:160px;}
         </div>
         <div class="meta-chips">
           <div class="meta-chip">
-            <div class="meta-chip-lbl"><i id="meteo-icon" class="fas fa-cloud-sun"></i> Meteo</div>
-            <select id="meteo-label" onchange="syncWeatherIcon()">
+            <div class="meta-chip-lbl"><i id="meteo-mat-icon" class="fas fa-sun"></i> Meteo mattino</div>
+            <select id="meteo-mattino" onchange="syncWeatherIcon()">
+              <option value="sereno">sereno</option>
+              <option value="prevalentemente sereno">prevalentemente sereno</option>
+              <option value="parzialmente nuvoloso">parzialmente nuvoloso</option>
+              <option value="coperto">coperto</option>
+              <option value="nebbia">nebbia</option>
+              <option value="pioggia">pioggia</option>
+              <option value="pioviggine">pioviggine</option>
+              <option value="temporale">temporale</option>
+              <option value="neve">neve</option>
+              <option value="grandine">grandine</option>
+              <option value="variabile">variabile</option>
+            </select>
+          </div>
+          <div class="meta-chip">
+            <div class="meta-chip-lbl"><i id="meteo-pom-icon" class="fas fa-cloud-sun"></i> Meteo pomeriggio</div>
+            <select id="meteo-pomeriggio" onchange="syncWeatherIcon()">
               <option value="sereno">sereno</option>
               <option value="prevalentemente sereno">prevalentemente sereno</option>
               <option value="parzialmente nuvoloso">parzialmente nuvoloso</option>
@@ -387,10 +403,13 @@ input[type=month].btn-export{min-width:160px;}
           <div class="meta-chip">
             <div class="meta-chip-lbl">Arrivo merci</div>
             <label>
-              <input id="arrivo-merci" type="checkbox">
+              <input id="arrivo-merci" type="checkbox" onchange="toggleArrivoMerci()">
               <span class="meta-chip-val">Sì</span>
             </label>
           </div>
+        </div>
+        <div id="note-arrivo-merci-wrap" style="display:none;margin-top:10px">
+          <textarea id="note-arrivo-merci" class="textarea-note" rows="2" placeholder="Note sull'arrivo merci..."></textarea>
         </div>
       </div>
     </div>
@@ -1037,20 +1056,32 @@ function roundTo5(n) {
 
 /* ── WEATHER ── */
 function syncWeatherIcon() {
-  const v = document.getElementById('meteo-label').value;
-  document.getElementById('meteo-icon').className = 'fas '+(WX[v]||'fa-cloud-sun');
+  const vm = document.getElementById('meteo-mattino').value;
+  const vp = document.getElementById('meteo-pomeriggio').value;
+  document.getElementById('meteo-mat-icon').className = 'fas '+(WX[vm]||'fa-sun');
+  document.getElementById('meteo-pom-icon').className = 'fas '+(WX[vp]||'fa-cloud-sun');
+}
+function toggleArrivoMerci() {
+  const checked = document.getElementById('arrivo-merci').checked;
+  document.getElementById('note-arrivo-merci-wrap').style.display = checked ? '' : 'none';
+  if (!checked) document.getElementById('note-arrivo-merci').value = '';
 }
 function wxCode(c) {
   const m={0:'sereno',1:'prevalentemente sereno',2:'parzialmente nuvoloso',3:'coperto',45:'nebbia',48:'nebbia',51:'pioviggine',53:'pioviggine',55:'pioviggine',61:'pioggia',63:'pioggia',65:'pioggia',71:'neve',73:'neve',75:'neve',77:'neve',80:'pioggia',81:'pioggia',82:'pioggia',85:'neve',86:'grandine',95:'temporale',96:'temporale',99:'temporale'};
   return m[c]||'variabile';
 }
 async function autoWeather(emp) {
-  const c=CITY[emp], el=document.getElementById('meteo-label');
-  if(!c){el.value='variabile';syncWeatherIcon();return;}
+  const c = CITY[emp];
+  const elMat = document.getElementById('meteo-mattino');
+  const elPom = document.getElementById('meteo-pomeriggio');
+  if (!c) { elMat.value = 'variabile'; elPom.value = 'variabile'; syncWeatherIcon(); return; }
   try {
-    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+c.lat+'&longitude='+c.lon+'&current=weather_code&timezone=Europe%2FRome');
-    const j=await r.json(); el.value=wxCode(j.current&&j.current.weather_code);
-  } catch(e){el.value='variabile';}
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+c.lat+'&longitude='+c.lon+'&current=weather_code&timezone=Europe%2FRome');
+    const j = await r.json();
+    const wx = wxCode(j.current && j.current.weather_code);
+    elMat.value = wx;
+    elPom.value = wx;
+  } catch(e) { elMat.value = 'variabile'; elPom.value = 'variabile'; }
   syncWeatherIcon();
 }
 
@@ -1485,8 +1516,15 @@ function fillForm(data) {
   if(data.chiuso_da_pom) { selectedOps.pom=data.chiuso_da_pom.split(' e ').map(s=>s.trim()).filter(Boolean); renderShiftOps('pom'); }
   if(data.note_mattino)   document.getElementById('nota-mattino').value=data.note_mattino;
   if(data.note_pomeriggio)document.getElementById('nota-pomeriggio').value=data.note_pomeriggio;
-  if(data.meteo)          document.getElementById('meteo-label').value=data.meteo;
-  if(data.arrivo_merci)   document.getElementById('arrivo-merci').checked=true;
+  if(data.meteo_mattino)  document.getElementById('meteo-mattino').value=data.meteo_mattino;
+  else if(data.meteo)     document.getElementById('meteo-mattino').value=data.meteo;
+  if(data.meteo_pomeriggio) document.getElementById('meteo-pomeriggio').value=data.meteo_pomeriggio;
+  else if(data.meteo)     document.getElementById('meteo-pomeriggio').value=data.meteo;
+  if(data.arrivo_merci) {
+    document.getElementById('arrivo-merci').checked=true;
+    document.getElementById('note-arrivo-merci-wrap').style.display='';
+    if(data.note_arrivo_merci) document.getElementById('note-arrivo-merci').value=data.note_arrivo_merci;
+  }
   if(data.iva_22!=null)   document.getElementById('iva-22').value=euro(data.iva_22);
   if(data.iva_10!=null)   document.getElementById('iva-10').value=euro(data.iva_10);
   if(data.iva_4!=null)    document.getElementById('iva-4').value=euro(data.iva_4);
@@ -1522,6 +1560,21 @@ function giornoSucc() {
   openDay();
 }
 
+function resetDayForm() {
+  ['nota-mattino','nota-pomeriggio','note-arrivo-merci'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  ['iva-22','iva-10','iva-4','iva-esente','iva-esente-altro-text','cassaforte','mat-corrispettivi','pom-corrispettivi','global-scontrini'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  const selEsente = document.getElementById('iva-esente-altro'); if(selEsente) selEsente.value='';
+  document.getElementById('arrivo-merci').checked = false;
+  document.getElementById('note-arrivo-merci-wrap').style.display = 'none';
+  document.getElementById('meteo-mattino').value = 'sereno';
+  document.getElementById('meteo-pomeriggio').value = 'sereno';
+  syncWeatherIcon();
+}
+
 /* ── OPEN DAY ── */
 async function openDay() {
   if(!selectedDate) return alert('Seleziona una data dal calendario');
@@ -1529,6 +1582,7 @@ async function openDay() {
   const m1 = m + 1;
   currentKey  = currentEmp+'_'+y+'_'+m1+'_'+d;
 
+  resetDayForm();
   selectedOps.mat = []; selectedOps.pom = [];
   buildCoins('mat'); buildCoins('pom');
   buildPayments('mat'); buildPayments('pom');
@@ -1587,8 +1641,10 @@ async function saveDay() {
     chiuso_da_pom:   selectedOps.pom.length ? selectedOps.pom.join(' e ') : null,
     note_mattino:    getVal('nota-mattino')||null,
     note_pomeriggio: getVal('nota-pomeriggio')||null,
-    meteo:           getVal('meteo-label')||null,
-    arrivo_merci:    document.getElementById('arrivo-merci').checked,
+    meteo_mattino:    getVal('meteo-mattino')||null,
+    meteo_pomeriggio: getVal('meteo-pomeriggio')||null,
+    arrivo_merci:     document.getElementById('arrivo-merci').checked,
+    note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci')||null) : null,
     global_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
     turno_type:      tipo,
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
@@ -1778,7 +1834,7 @@ function normCassa(rows) {
 const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,note_giornata';
 const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
-const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo,arrivo_merci,note_giornata';
+const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata';
 
 /* ══════════════════════════════════════════════════════
    IVA
@@ -2298,17 +2354,27 @@ async function loadCommercialeData() {
       const delta = (incP != null && incP > 0) ? (inc - incP) / incP * 100 : null;
       tInc += inc; tSc += nSc;
       if (inc > bestVal) { bestVal = inc; bestDay = r.data; }
-      const emoji = METEO_EMOJI[(r.meteo || '').toLowerCase()] || '';
+      const meteoMat = (r.meteo_mattino || '').toLowerCase();
+      const meteoPom = (r.meteo_pomeriggio || '').toLowerCase();
+      const emojiMat = METEO_EMOJI[meteoMat] || '';
+      const emojiPom = METEO_EMOJI[meteoPom] || '';
+      const meteoCell = [
+        r.meteo_mattino ? `${emojiMat} <span style="font-size:10px">${r.meteo_mattino}</span>` : '',
+        r.meteo_pomeriggio && r.meteo_pomeriggio !== r.meteo_mattino ? `${emojiPom} <span style="font-size:10px">${r.meteo_pomeriggio}</span>` : ''
+      ].filter(Boolean).join(' / ') || '–';
+      const arrivoMerciCell = r.arrivo_merci
+        ? '✓' + (r.note_arrivo_merci ? ` <span style="font-size:10px;color:#64748b">${r.note_arrivo_merci}</span>` : '')
+        : '–';
       return `<tr>
         <td><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
         <td>${r.emporio || '–'}</td>
-        <td style="text-align:center">${emoji} <span style="font-size:11px;color:#64748b">${r.meteo || '–'}</span></td>
+        <td style="text-align:center">${meteoCell}</td>
         <td class="number"><strong>${fmt(inc)}</strong></td>
         <td class="number">${nSc > 0 ? nSc : '–'}</td>
         <td class="number">${media ? fmt(media) : '–'}</td>
         <td class="number">${incP != null ? fmt(incP) : '–'}</td>
         <td class="number">${fmtPct(delta)}</td>
-        <td style="font-size:11px">${r.arrivo_merci || '–'}</td>
+        <td style="font-size:11px">${arrivoMerciCell}</td>
         <td style="font-size:11px;color:#64748b;max-width:180px">${r.note || '–'}</td>
       </tr>`;
     }).join('');
