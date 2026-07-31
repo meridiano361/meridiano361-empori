@@ -1818,6 +1818,27 @@ async function saveDay() {
   
   if(Math.abs(ivaSomma-corToCheck)>=0.015) return alert('I dati IVA non tornano. Correggi prima di salvare.');
 
+  // Controllo somma note pagamenti online vs importo campo
+  const mismatchOnline = [];
+  PAGAMENTI.filter(p => p.online).forEach(p => {
+    ['mat','pom'].forEach(t => {
+      const noteVal = noteMap[t+'_'+p.id];
+      if (!noteVal) return;
+      const nota = parseOnlineNote(noteVal);
+      if (!nota.voci.length) return;
+      const fieldAmt = parseEuro(document.getElementById(t+'_pay_'+p.id)?.value || '');
+      const sumVoci  = nota.voci.reduce((s, v) => s + (parseFloat(v.importo) || 0), 0);
+      if (Math.abs(sumVoci - fieldAmt) >= 0.015) {
+        const turnoLabel = t === 'mat' ? 'Mattino' : 'Pomeriggio';
+        mismatchOnline.push(`• ${p.label} (${turnoLabel}): somma note € ${sumVoci.toFixed(2).replace('.',',')} ≠ campo € ${fieldAmt.toFixed(2).replace('.',',')}`);
+      }
+    });
+  });
+  if (mismatchOnline.length) {
+    alert('Le note dei seguenti pagamenti online non corrispondono all\'importo del campo. Rivedi i conteggi prima di salvare:\n\n' + mismatchOnline.join('\n'));
+    return;
+  }
+
   const payload = {
     chiave:          currentKey,
     fondo_cassa:     fondoCassa,
