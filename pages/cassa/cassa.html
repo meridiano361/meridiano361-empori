@@ -1063,6 +1063,13 @@ let fondoCassa = 0;
 let calYear, calMonth, selectedDate;
 const noteMap = {};
 const selectedOps = { mat: [], pom: [] };
+let _dirty = false;
+const markDirty  = () => { _dirty = true; };
+const clearDirty = () => { _dirty = false; };
+function confirmLeave() {
+  if (!_dirty) return true;
+  return confirm('Hai modifiche non salvate nel foglio di giornata.\nVuoi uscire senza salvare?');
+}
 
 /* ── FORMATTERS ── */
 const euro = n => '€ ' + Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1137,7 +1144,7 @@ function renderCalendar() {
     const isSel   = selectedDate&&day===selectedDate.d&&calMonth===selectedDate.m&&calYear===selectedDate.y;
     if(isToday&&!isSel) d.classList.add('today');
     if(isSel) d.classList.add('selected');
-    d.addEventListener('click',()=>{ selectedDate={y:calYear,m:calMonth,d:day}; openDay(); });
+    d.addEventListener('click',()=>{ if(!confirmLeave()) return; selectedDate={y:calYear,m:calMonth,d:day}; openDay(); });
     grid.appendChild(d);
   }
   const rem=(offset+dim)%7===0?0:7-((offset+dim)%7);
@@ -1311,6 +1318,7 @@ function renderTextSavedView(turno, id, area, btn) {
 
 function commitNote(turno, id, val, area, btn) {
   noteMap[turno+'_'+id] = val;
+  markDirty();
   area.innerHTML='';
   if (val) {
     renderTextSavedView(turno, id, area, btn);
@@ -1417,6 +1425,7 @@ function renderOnlineEditor(turno, id, label, area, btn) {
 function commitOnlineNote(turno, id, data, area, btn) {
   const hasN = data.voci.length>0 || !!data.libera?.trim();
   noteMap[turno+'_'+id] = hasN ? JSON.stringify(data) : '';
+  markDirty();
   if (hasN) {
     renderOnlineSavedView(turno,id,area,btn);
     area.classList.remove('hidden');
@@ -1499,11 +1508,13 @@ function addOpToShift(turno) {
   if(!selectedOps[turno].includes(nome)) selectedOps[turno].push(nome);
   renderShiftOps(turno);
   sel.value='';
+  markDirty();
 }
 
 function removeOpFromShift(turno, nome) {
   selectedOps[turno]=selectedOps[turno].filter(op=>op!==nome);
   renderShiftOps(turno);
+  markDirty();
 }
 
 function renderShiftOps(turno) {
@@ -1709,6 +1720,7 @@ function fillForm(data) {
 /* ── NAVIGAZIONE GIORNO (frecce) ── */
 function giornoPrec() {
   if (!selectedDate) return;
+  if (!confirmLeave()) return;
   const curr = new Date(selectedDate.y, selectedDate.m, selectedDate.d);
   curr.setDate(curr.getDate() - 1);
   selectedDate = {y: curr.getFullYear(), m: curr.getMonth(), d: curr.getDate()};
@@ -1718,6 +1730,7 @@ function giornoPrec() {
 }
 function giornoSucc() {
   if (!selectedDate) return;
+  if (!confirmLeave()) return;
   const curr = new Date(selectedDate.y, selectedDate.m, selectedDate.d);
   curr.setDate(curr.getDate() + 1);
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1785,6 +1798,7 @@ async function openDay() {
     dbGet(currentKey).then(data => { if(data) fillForm(data); })
   ]).then(() => {
     calcAll();
+    clearDirty();
   });
 }
 
@@ -1846,6 +1860,7 @@ async function saveDay() {
 
   const error=await dbUpsert(payload);
   if(error) return alert('Errore salvataggio: '+error.message);
+  clearDirty();
   alert('Foglio di giornata salvato ✓');
 }
 
@@ -1864,9 +1879,19 @@ function init() {
     document.getElementById('step-emp').classList.remove('hidden');
   });
   document.getElementById('btn-back-date').addEventListener('click',()=>{
+    if (!confirmLeave()) return;
     document.getElementById('screen-day').classList.add('hidden');
     document.getElementById('save-bar').classList.add('hidden');
     document.getElementById('step-date').classList.remove('hidden');
+  });
+
+  // Rileva modifiche nel foglio di giornata
+  document.getElementById('screen-day').addEventListener('input',  markDirty);
+  document.getElementById('screen-day').addEventListener('change', markDirty);
+
+  // Alert su chiusura/navigazione esterna con modifiche non salvate
+  window.addEventListener('beforeunload', e => {
+    if (_dirty) { e.preventDefault(); e.returnValue = ''; }
   });
 }
 
