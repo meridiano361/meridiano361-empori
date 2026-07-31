@@ -1333,6 +1333,7 @@ function renderTextSavedView(turno, id, area, btn) {
 
 function autoCopyNoteToPom(id, val, isOnline) {
   noteMap['pom_'+id] = val;
+  markDirty();
   const pomArea = document.getElementById('pom_notearea_'+id);
   const pomBtn  = document.getElementById('pom_notebtn_'+id);
   if (!pomArea) return;
@@ -1833,6 +1834,8 @@ async function openDay() {
     dbGet(currentKey).then(data => { if(data) fillForm(data); })
   ]).then(() => {
     calcAll();
+    renderShiftOps('mat');
+    renderShiftOps('pom');
     clearDirty();
   });
 }
@@ -1860,6 +1863,7 @@ async function saveDay() {
       const nota = parseOnlineNote(noteVal);
       if (!nota.voci.length) return;
       const fieldAmt = parseEuro(document.getElementById(t+'_pay_'+p.id)?.value || '');
+      if (fieldAmt === 0) return; // campo a zero: nota auto-copiata, non bloccare il salvataggio
       const sumVoci  = nota.voci.reduce((s, v) => s + (parseFloat(v.importo) || 0), 0);
       if (Math.abs(sumVoci - fieldAmt) >= 0.015) {
         const turnoLabel = t === 'mat' ? 'Mattino' : 'Pomeriggio';
@@ -1936,6 +1940,7 @@ function init() {
   });
   document.getElementById('btn-back-date').addEventListener('click',()=>{
     if (!confirmLeave()) return;
+    clearDirty();
     document.getElementById('screen-day').classList.add('hidden');
     document.getElementById('save-bar').classList.add('hidden');
     document.getElementById('step-date').classList.remove('hidden');
@@ -1966,6 +1971,11 @@ function presetEmporioFiltri(ids) {
 }
 
 function showMacroSection(name, btn) {
+  // Blocca la navigazione via tab se il foglio di giornata ha modifiche non salvate
+  if (name !== 'empori' && !document.getElementById('screen-day').classList.contains('hidden')) {
+    if (!confirmLeave()) return;
+    clearDirty();
+  }
   document.querySelectorAll('.macro-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('macro-' + name);
