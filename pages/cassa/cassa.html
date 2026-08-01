@@ -168,8 +168,20 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .note-saved-libera{font-size:11px;color:#64748b;font-style:italic;margin-top:2px;}
 .note-saved-footer{display:flex;gap:6px;align-items:center;margin-top:4px;width:100%;}
 
-.spese-row-wrap{background:rgba(122,79,43,.05);border-radius:12px;padding:4px 6px;}
-.rimborsi-row-wrap{background:rgba(122,79,43,.05);border-radius:12px;padding:4px 6px;}
+.spese-row-wrap{background:rgba(122,79,43,.05);border-radius:12px;padding:4px 0;}
+.rimborsi-row-wrap{background:rgba(122,79,43,.05);border-radius:12px;padding:4px 0;}
+/* scontrini turno */
+.turno-scontrini-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;}
+.turno-scontrini-inp{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Nunito',sans-serif;color:#1e293b;width:110px;text-align:right;transition:border-color .15s;}
+.turno-scontrini-inp:focus{outline:none;border-color:#B5453A;}
+/* save mattino */
+.save-mat-section{margin-top:14px;border-top:1.5px solid #f1f5f9;padding-top:12px;}
+.btn-save-mat{width:100%;height:44px;background:#fff;border:1.5px solid #1e293b;border-radius:12px;font-size:13px;font-weight:800;color:#1e293b;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;}
+.btn-save-mat:hover{background:#1e293b;color:#fff;}
+/* chiusura badge */
+.chiusura-badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;background:#dcfce7;border:1px solid #86efac;border-radius:20px;font-size:11px;font-weight:800;color:#16a34a;}
+/* required error highlight */
+.req-err{border-color:#dc2626 !important;}
 .corrispettivi-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;}
 .corrispettivi-input{border:1.5px solid #B5453A;border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Nunito', sans-serif;color:#1e293b;width:160px;text-align:right;transition:border-color .15s;}
 .corrispettivi-input:focus{outline:none;border-color:#8c362d;}
@@ -433,9 +445,9 @@ input[type=month].btn-export{min-width:160px;}
               <option value="variabile">variabile</option>
             </select>
           </div>
-          <div class="meta-chip scontrini-chip">
-            <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Scontrini emessi *</div>
-            <input id="global-scontrini" type="number" min="0" step="1" placeholder="0" required>
+          <div class="meta-chip scontrini-chip" id="global-scontrini-chip">
+            <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Scontrini totali *</div>
+            <input id="global-scontrini" type="number" min="0" step="1" placeholder="0" oninput="calcPomScontrini()">
           </div>
           <div class="meta-chip">
             <div class="meta-chip-lbl">Arrivo merci</div>
@@ -534,6 +546,10 @@ input[type=month].btn-export{min-width:160px;}
             <span class="sum-label lbl-gray">Differenza</span>
             <span class="sum-val" id="mat-diff">€ 0,00</span>
           </div>
+          <div class="turno-scontrini-row" id="mat-scontrini-row">
+            <span class="sum-label lbl-red">Scontrini mattino *</span>
+            <input id="mat-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0" oninput="calcPomScontrini()">
+          </div>
 
           <!-- cassaforte solo se "solo_mattino" -->
           <div id="mat-cassaforte-box" class="cassaforte-box hidden">
@@ -602,6 +618,15 @@ input[type=month].btn-export{min-width:160px;}
                 <div id="mat-foto-pos" class="foto-wrap"></div>
               </div>
             </div>
+
+            <div class="save-mat-section" id="mat-save-section">
+              <button class="btn-save-mat" id="btn-save-mat" onclick="saveMat()">
+                <i class="fas fa-check-circle"></i> Salva chiusura mattino
+              </button>
+              <div id="mat-chiusura-badge" class="chiusura-badge hidden">
+                <i class="fas fa-check"></i> <span id="mat-chiusura-time"></span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -662,6 +687,10 @@ input[type=month].btn-export{min-width:160px;}
             <span class="sum-label lbl-gray">Differenza</span>
             <span class="sum-val" id="pom-diff">€ 0,00</span>
           </div>
+          <div class="turno-scontrini-row" id="pom-scontrini-row" style="display:none">
+            <span class="sum-label lbl-gray">Scontrini pomeriggio</span>
+            <span id="pom-scontrini-disp" style="font-size:13px;font-weight:800;color:#1e293b">—</span>
+          </div>
 
           <div class="cassaforte-box">
             <div class="cassaforte-heading">
@@ -715,6 +744,10 @@ input[type=month].btn-export{min-width:160px;}
                 <div class="foto-lbl"><i class="fas fa-credit-card"></i> Scontrino POS</div>
                 <div id="pom-foto-pos" class="foto-wrap"></div>
               </div>
+            </div>
+
+            <div id="pom-chiusura-badge" class="chiusura-badge hidden" style="margin-top:14px">
+              <i class="fas fa-check"></i> <span id="pom-chiusura-time"></span>
             </div>
           </div>
         </div>
@@ -1816,21 +1849,37 @@ function updateTurnoVisibility() {
   const pomDiv = document.getElementById('turno-pom');
   
   const spacer = document.getElementById('mat-cf-spacer');
+  const matScRow = document.getElementById('mat-scontrini-row');
+  const pomScRow = document.getElementById('pom-scontrini-row');
+  const globalChip = document.getElementById('global-scontrini-chip');
+  const matSaveSec = document.getElementById('mat-save-section');
   if (tipo === 'solo_mattino') {
     matDiv.style.display = 'block';
     pomDiv.style.display = 'none';
     document.getElementById('mat-cassaforte-box').classList.remove('hidden');
     if (spacer) spacer.style.display = 'none';
+    if (matScRow) matScRow.style.display = '';
+    if (pomScRow) pomScRow.style.display = 'none';
+    if (globalChip) globalChip.style.display = 'none';
+    if (matSaveSec) matSaveSec.style.display = 'none';
   } else if (tipo === 'solo_pomeriggio') {
     matDiv.style.display = 'none';
     pomDiv.style.display = 'block';
     document.getElementById('mat-cassaforte-box').classList.add('hidden');
     if (spacer) spacer.style.display = '';
-  } else {
+    if (matScRow) matScRow.style.display = 'none';
+    if (pomScRow) pomScRow.style.display = 'none';
+    if (globalChip) globalChip.style.display = '';
+    if (matSaveSec) matSaveSec.style.display = 'none';
+  } else { // entrambi
     matDiv.style.display = 'block';
     pomDiv.style.display = 'block';
     document.getElementById('mat-cassaforte-box').classList.add('hidden');
     if (spacer) spacer.style.display = '';
+    if (matScRow) matScRow.style.display = '';
+    if (pomScRow) pomScRow.style.display = '';
+    if (globalChip) globalChip.style.display = '';
+    if (matSaveSec) matSaveSec.style.display = '';
   }
   
   const grid = document.querySelector('.turno-grid');
@@ -1994,6 +2043,20 @@ function fillForm(data) {
       renderFotoWrap(t, tp);
     });
   });
+  // mat_scontrini
+  if (data.mat_scontrini != null) {
+    const el = document.getElementById('mat-scontrini');
+    if (el) el.value = data.mat_scontrini;
+  }
+  calcPomScontrini();
+  // badge orari chiusura
+  matOraChiusura = data.mat_ora_chiusura || null;
+  if (matOraChiusura) {
+    showChiusuraBadge('mat', matOraChiusura);
+    const btn = document.getElementById('btn-save-mat');
+    if (btn) btn.innerHTML = '<i class="fas fa-check-circle"></i> Aggiorna chiusura mattino';
+  }
+  if (data.pom_ora_chiusura) showChiusuraBadge('pom', data.pom_ora_chiusura);
   toggleIvaAltro(); syncWeatherIcon(); calcIva();
 }
 
@@ -2038,6 +2101,14 @@ function resetDayForm() {
   // Reset foto
   Object.keys(photosMap).forEach(k => photosMap[k] = []);
   ['mat','pom'].forEach(t => ['rf','pos'].forEach(tp => renderFotoWrap(t, tp)));
+  // Reset nuovi campi
+  const ms = document.getElementById('mat-scontrini'); if (ms) ms.value = '';
+  matOraChiusura = null;
+  ['mat','pom'].forEach(t => {
+    const b = document.getElementById(t+'-chiusura-badge'); if (b) b.classList.add('hidden');
+  });
+  const btn = document.getElementById('btn-save-mat');
+  if (btn) btn.innerHTML = '<i class="fas fa-check-circle"></i> Salva chiusura mattino';
 }
 
 /* ── OPEN DAY ── */
@@ -2087,19 +2158,118 @@ async function openDay() {
   });
 }
 
+/* ── SCONTRINI POM CALCOLATI ── */
+function calcPomScontrini() {
+  const matN = parseInt(document.getElementById('mat-scontrini')?.value||'0')||0;
+  const totN = parseInt(document.getElementById('global-scontrini')?.value||'0')||0;
+  const disp = document.getElementById('pom-scontrini-disp');
+  if (disp) disp.textContent = (matN > 0 || totN > 0) ? String(Math.max(0, totN - matN)) : '—';
+}
+
+/* ── ORARI CHIUSURA ── */
+let matOraChiusura = null;
+
+function fmtOra(isoStr) {
+  if (!isoStr) return '';
+  try { return new Date(isoStr).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); } catch(e) { return isoStr; }
+}
+
+function showChiusuraBadge(turno, isoStr) {
+  const badge = document.getElementById(turno+'-chiusura-badge');
+  const time  = document.getElementById(turno+'-chiusura-time');
+  if (!badge) return;
+  badge.classList.remove('hidden');
+  const label = turno === 'mat' ? 'Mattino chiuso alle ' : 'Giornata chiusa alle ';
+  if (time) time.textContent = label + fmtOra(isoStr);
+}
+
+/* ── VALIDAZIONE CAMPI OBBLIGATORI ── */
+function checkField(id, label, errors) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const empty = el.type === 'number'
+    ? (!(parseInt(el.value)||0))
+    : (parseEuro(el.value) <= 0);
+  if (empty) { el.classList.add('req-err'); errors.push(label); }
+  else el.classList.remove('req-err');
+}
+function checkOps(turno, label, errors) {
+  if (!selectedOps[turno].length) errors.push(label);
+}
+function checkIva(corId, errors) {
+  calcIva();
+  const iva = parseFloat(document.getElementById('iva-somma').value)||0;
+  const cor = getNum(corId);
+  if (Math.abs(iva - cor) >= 0.015) errors.push('IVA giornaliera (non corrisponde ai corrispettivi)');
+}
+
+/* ── SALVA CHIUSURA MATTINO (solo modalità "entrambi") ── */
+async function saveMat() {
+  const errors = [];
+  checkOps('mat', 'Operatore/i mattino', errors);
+  checkField('mat-scontrini',    'Numero scontrini mattino', errors);
+  checkField('mat-corrispettivi','Corrispettivi mattino', errors);
+  if (errors.length) {
+    alert('Campi obbligatori mancanti per la chiusura mattino:\n\n• ' + errors.join('\n• '));
+    return;
+  }
+  matOraChiusura = new Date().toISOString();
+  const partial = {
+    chiave: currentKey, emporio: currentEmp,
+    chiuso_da_mat:    selectedOps.mat.join(' e '),
+    mat_scontrini:    parseInt(document.getElementById('mat-scontrini').value)||0,
+    mat_corrispettivi: getNum('mat-corrispettivi'),
+    mat_ora_chiusura: matOraChiusura,
+  };
+  const err = await dbUpsert(partial);
+  if (err) { alert('Errore salvataggio mattino: ' + err.message); matOraChiusura = null; return; }
+  showChiusuraBadge('mat', matOraChiusura);
+  const btn = document.getElementById('btn-save-mat');
+  if (btn) btn.innerHTML = '<i class="fas fa-check-circle"></i> Aggiorna chiusura mattino';
+  clearDirty();
+}
+
 /* ── SAVE ── */
 async function saveDay() {
   const tipo = document.querySelector('input[name="turno_type"]:checked').value;
+  const errors = [];
+
+  // ── Validazione obbligatori per turno ──
+  if (tipo === 'entrambi') {
+    if (!matOraChiusura) {
+      alert('Devi prima salvare la chiusura del mattino.\nUsa il pulsante "Salva chiusura mattino".');
+      return;
+    }
+    checkOps('pom', 'Operatore/i pomeriggio', errors);
+    checkField('global-scontrini',  'Scontrini totali giornata', errors);
+    checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
+    checkField('cassaforte',        'Contanti in cassaforte', errors);
+    checkIva('pom-corrispettivi', errors);
+  } else if (tipo === 'solo_mattino') {
+    checkOps('mat', 'Operatore/i mattino', errors);
+    checkField('mat-scontrini',    'Scontrini mattino', errors);
+    checkField('mat-corrispettivi','Corrispettivi mattino', errors);
+    checkField('mat-cassaforte',   'Contanti in cassaforte', errors);
+    checkIva('mat-corrispettivi', errors);
+  } else { // solo_pomeriggio
+    checkOps('pom', 'Operatore/i pomeriggio', errors);
+    checkField('global-scontrini',  'Scontrini totali giornata', errors);
+    checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
+    checkField('cassaforte',        'Contanti in cassaforte', errors);
+    checkIva('pom-corrispettivi', errors);
+  }
+  if (errors.length) {
+    alert('Campi obbligatori mancanti o errati:\n\n• ' + errors.join('\n• '));
+    return;
+  }
+
   calcIva();
-  
   let corToCheck, ivaSomma = parseFloat(document.getElementById('iva-somma').value)||0;
   if (tipo === 'solo_mattino') {
     corToCheck = getNum('mat-corrispettivi');
   } else {
     corToCheck = getNum('pom-corrispettivi');
   }
-  
-  if(Math.abs(ivaSomma-corToCheck)>=0.015) return alert('I dati IVA non tornano. Correggi prima di salvare.');
 
   // Controllo somma note pagamenti online vs importo campo
   const mismatchOnline = [];
@@ -2136,6 +2306,11 @@ async function saveDay() {
     arrivo_merci:     document.getElementById('arrivo-merci').checked,
     note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci')||null) : null,
     global_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
+    mat_scontrini:    tipo === 'solo_mattino'
+      ? (parseInt(document.getElementById('mat-scontrini')?.value)||null)
+      : (matOraChiusura ? (parseInt(document.getElementById('mat-scontrini')?.value)||null) : null),
+    mat_ora_chiusura: tipo === 'solo_mattino' ? new Date().toISOString() : (matOraChiusura||null),
+    pom_ora_chiusura: new Date().toISOString(),
     mat_foto_rf:  photosMap.mat_rf.length  ? JSON.stringify(photosMap.mat_rf)  : null,
     mat_foto_pos: photosMap.mat_pos.length ? JSON.stringify(photosMap.mat_pos) : null,
     pom_foto_rf:  photosMap.pom_rf.length  ? JSON.stringify(photosMap.pom_rf)  : null,
@@ -2172,6 +2347,8 @@ async function saveDay() {
   const error=await dbUpsert(payload);
   if(error) return alert('Errore salvataggio: '+error.message);
   clearDirty();
+  showChiusuraBadge('pom', payload.pom_ora_chiusura);
+  if (tipo === 'solo_mattino') showChiusuraBadge('mat', payload.mat_ora_chiusura);
   alert('Foglio di giornata salvato ✓');
 }
 
