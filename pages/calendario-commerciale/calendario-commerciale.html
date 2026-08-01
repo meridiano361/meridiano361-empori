@@ -151,8 +151,9 @@ const PDV_ORDER = ['CR','CA','VI','RE','WEB'];
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
               'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
-let currentYear = '2026';
+let currentYear = String(new Date().getFullYear());
 let filterSettore = null;
+let availableYears = [];
 
 async function loadEventi() {
   if (!_sb) { render(); return; }
@@ -168,9 +169,18 @@ async function loadEventi() {
   render();
 }
 
+async function loadAvailableYears() {
+  if (!_sb) { availableYears = [currentYear]; return; }
+  const { data } = await _sb.from('campagne_commerciali').select('anno');
+  const set = new Set([String(new Date().getFullYear())]);
+  (data || []).forEach(r => { if (r.anno) set.add(String(r.anno)); });
+  availableYears = [...set].sort((a, b) => b - a);
+}
+
 async function init() {
   const u = JSON.parse(localStorage.getItem('m361_user') || 'null');
   if (!u) { window.location.href = '/login.html'; return; }
+  await loadAvailableYears();
   buildYearTabs();
   buildSettoreFilters();
   await loadEventi();
@@ -178,7 +188,8 @@ async function init() {
 
 function buildYearTabs() {
   const container = document.getElementById('year-tabs');
-  ['2026','2025','2024','2023'].forEach(y => {
+  container.innerHTML = '';
+  availableYears.forEach(y => {
     const btn = document.createElement('button');
     btn.className = 'year-tab' + (y === currentYear ? ' active' : '');
     btn.textContent = y;
