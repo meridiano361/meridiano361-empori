@@ -465,8 +465,8 @@ input[type=month].btn-export{min-width:160px;}
             </div>
           </div>
           <div class="meta-chip scontrini-chip" id="global-scontrini-chip">
-            <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Scontrini totali *</div>
-            <input id="global-scontrini" type="number" min="0" step="1" placeholder="0" oninput="calcPomScontrini()">
+            <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Scontrini totali</div>
+            <input id="global-scontrini" type="number" min="0" step="1" placeholder="0" oninput="calcScontrini('tot')">
           </div>
           <div class="meta-chip">
             <div class="meta-chip-lbl">Arrivo merci</div>
@@ -567,7 +567,7 @@ input[type=month].btn-export{min-width:160px;}
           </div>
           <div class="turno-scontrini-row" id="mat-scontrini-row">
             <span class="sum-label lbl-red">Numero scontrini mattino *</span>
-            <input id="mat-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0">
+            <input id="mat-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0" oninput="calcScontrini('mat')">
           </div>
 
           <!-- cassaforte solo se "solo_mattino" -->
@@ -708,7 +708,7 @@ input[type=month].btn-export{min-width:160px;}
           </div>
           <div class="turno-scontrini-row" id="pom-scontrini-row" style="display:none">
             <span class="sum-label lbl-red">Numero scontrini pomeriggio *</span>
-            <input id="pom-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0">
+            <input id="pom-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0" oninput="calcScontrini('pom')">
           </div>
 
           <div class="cassaforte-box">
@@ -1991,7 +1991,7 @@ function updateTurnoVisibility() {
     if (spacer) spacer.style.display = '';
     if (matScRow) matScRow.style.display = '';
     if (pomScRow) pomScRow.style.display = '';
-    if (globalChip) globalChip.style.display = 'none';
+    if (globalChip) globalChip.style.display = '';
     if (matSaveSec) matSaveSec.style.display = '';
     if (pomSaveSec) pomSaveSec.style.display = '';
     if (btnSaveMat && !btnSaveMat.dataset.manualLabel) {
@@ -2162,8 +2162,9 @@ function fillForm(data) {
       renderFotoWrap(t, tp);
     });
   });
-  if (data.mat_scontrini != null) { const el = document.getElementById('mat-scontrini'); if (el) el.value = data.mat_scontrini; }
-  if (data.pom_scontrini != null) { const el = document.getElementById('pom-scontrini'); if (el) el.value = data.pom_scontrini; }
+  if (data.mat_scontrini != null)   { const el = document.getElementById('mat-scontrini');   if (el) el.value = data.mat_scontrini; }
+  if (data.pom_scontrini != null)   { const el = document.getElementById('pom-scontrini');   if (el) el.value = data.pom_scontrini; }
+  if (data.global_scontrini != null){ const el = document.getElementById('global-scontrini'); if (el) el.value = data.global_scontrini; }
   // badge orari chiusura
   matOraChiusura = data.mat_ora_chiusura || null;
   if (matOraChiusura) {
@@ -2279,7 +2280,29 @@ async function openDay() {
 }
 
 /* ── SCONTRINI POM CALCOLATI ── */
-function calcPomScontrini() { /* no-op: pom-scontrini è ora un campo editabile indipendente */ }
+function calcPomScontrini() { calcScontrini('mat'); }
+function calcScontrini(changed) {
+  const matEl = document.getElementById('mat-scontrini');
+  const pomEl = document.getElementById('pom-scontrini');
+  const totEl = document.getElementById('global-scontrini');
+  if (!matEl || !pomEl || !totEl) return;
+  const matFull = matEl.value.trim() !== '';
+  const pomFull = pomEl.value.trim() !== '';
+  const totFull = totEl.value.trim() !== '';
+  const mat = parseInt(matEl.value) || 0;
+  const pom = parseInt(pomEl.value) || 0;
+  const tot = parseInt(totEl.value) || 0;
+  if (changed === 'mat') {
+    if (matFull && totFull && !pomFull) { pomEl.value = Math.max(0, tot - mat); }
+    else if (matFull && pomFull)        { totEl.value = mat + pom; }
+  } else if (changed === 'pom') {
+    if (pomFull && totFull && !matFull) { matEl.value = Math.max(0, tot - pom); }
+    else if (pomFull && matFull)        { totEl.value = mat + pom; }
+  } else if (changed === 'tot') {
+    if (totFull && matFull && !pomFull) { pomEl.value = Math.max(0, tot - mat); }
+    else if (totFull && pomFull && !matFull) { matEl.value = Math.max(0, tot - pom); }
+  }
+}
 
 /* ── ORARI CHIUSURA ── */
 let matOraChiusura = null;
