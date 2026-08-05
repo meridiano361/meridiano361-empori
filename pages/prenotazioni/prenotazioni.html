@@ -696,9 +696,11 @@ async function toggleFornitatorePrenotato(empNome) {
   const checked = !!fp[empNome];
   if (cb) cb.checked = checked;
   if (cell) cell.style.background = checked ? '#dcfce7' : '';
-  const {error} = await _db.from('campagne_prenotazione').update({fornitori_prenotati: fp}).eq('id', _campagna.id);
-  if (error) {
-    showToastM361('Errore salvataggio flag fornitore', 'error');
+  const {error, data: updData} = await _db.from('campagne_prenotazione').update({fornitori_prenotati: fp}).eq('id', _campagna.id).select();
+  const noRows = !error && (!updData || updData.length === 0);
+  if (error || noRows) {
+    console.error('toggleFornitatorePrenotato error:', error, 'id:', _campagna.id, 'noRows:', noRows);
+    showToastM361('Errore: ' + (error?.message || 'nessuna riga aggiornata — verifica DB'), 'error');
     fp[empNome] = !fp[empNome];
     _campagna.fornitori_prenotati = fp;
     if (cb) cb.checked = !checked;
