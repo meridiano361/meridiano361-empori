@@ -1184,7 +1184,19 @@ function confirmLeave() {
 
 /* ── FORMATTERS ── */
 const euro = n => '€ ' + Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
-const parseEuro = v => parseFloat(String(v||'').replace(/\s/g,'').replace('€','').replace(/\./g,'').replace(',','.'))||0;
+const parseEuro = v => {
+  let s = String(v||'').replace(/\s/g,'').replace('€','').trim();
+  if (!s) return 0;
+  const hasComma = s.includes(','), hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    // l'ultimo simbolo è il separatore decimale (es. 1.234,56 oppure 1,234.56)
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) { s = s.replace(/\./g,'').replace(',','.'); }
+    else { s = s.replace(/,/g,''); }
+  } else if (hasComma) {
+    s = s.replace(',','.');   // virgola come decimale: 12,50 → 12.50
+  }
+  return parseFloat(s)||0;
+};
 const formatMoney    = el => { el.value = euro(parseEuro(el.value)); };
 const clearMoney     = el => { if(parseEuro(el.value)===0) el.value=''; };
 const formatMiniMoney= el => { el.value = euro(parseEuro(el.value)); };
