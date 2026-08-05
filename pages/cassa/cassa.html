@@ -768,6 +768,12 @@ input[type=month].btn-export{min-width:160px;}
             <div id="pom-chiusura-badge" class="chiusura-badge hidden" style="margin-top:14px">
               <i class="fas fa-check"></i> <span id="pom-chiusura-time"></span>
             </div>
+
+            <div class="save-mat-section" id="pom-save-section" style="margin-top:14px">
+              <button class="btn-save-mat" id="btn-save-pom" onclick="saveDay()">
+                <i class="fas fa-save"></i> Salva chiusura pomeriggio (e giornata)
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1083,12 +1089,8 @@ input[type=month].btn-export{min-width:160px;}
 </div><!-- /macro-commerciale -->
 
 
-<!-- ── SAVE BAR ── -->
-<div class="save-bar hidden" id="save-bar">
-  <button class="btn-save" onclick="saveDay()">
-    <i class="fas fa-save"></i> Salva giornata
-  </button>
-</div>
+<!-- save-bar rimossa: i pulsanti sono ora nelle colonne mattino/pomeriggio -->
+<div class="save-bar hidden" id="save-bar" style="display:none!important"></div>
 
 <!-- ════════════════════════════ SCRIPT ════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -1944,6 +1946,8 @@ function updateTurnoVisibility() {
   const pomScRow = document.getElementById('pom-scontrini-row');
   const globalChip = document.getElementById('global-scontrini-chip');
   const matSaveSec = document.getElementById('mat-save-section');
+  const pomSaveSec = document.getElementById('pom-save-section');
+  const btnSaveMat = document.getElementById('btn-save-mat');
   if (tipo === 'solo_mattino') {
     matDiv.style.display = 'block';
     pomDiv.style.display = 'none';
@@ -1952,7 +1956,12 @@ function updateTurnoVisibility() {
     if (matScRow) matScRow.style.display = '';
     if (pomScRow) pomScRow.style.display = 'none';
     if (globalChip) globalChip.style.display = 'none';
-    if (matSaveSec) matSaveSec.style.display = 'none';
+    if (matSaveSec) matSaveSec.style.display = '';
+    if (pomSaveSec) pomSaveSec.style.display = 'none';
+    if (btnSaveMat && !btnSaveMat.dataset.manualLabel) {
+      btnSaveMat.innerHTML = '<i class="fas fa-save"></i> Salva chiusura mattino (e giornata)';
+      btnSaveMat.onclick = saveDay;
+    }
   } else if (tipo === 'solo_pomeriggio') {
     matDiv.style.display = 'none';
     pomDiv.style.display = 'block';
@@ -1962,6 +1971,7 @@ function updateTurnoVisibility() {
     if (pomScRow) pomScRow.style.display = 'none';
     if (globalChip) globalChip.style.display = '';
     if (matSaveSec) matSaveSec.style.display = 'none';
+    if (pomSaveSec) pomSaveSec.style.display = '';
   } else { // entrambi
     matDiv.style.display = 'block';
     pomDiv.style.display = 'block';
@@ -1971,6 +1981,11 @@ function updateTurnoVisibility() {
     if (pomScRow) pomScRow.style.display = '';
     if (globalChip) globalChip.style.display = '';
     if (matSaveSec) matSaveSec.style.display = '';
+    if (pomSaveSec) pomSaveSec.style.display = '';
+    if (btnSaveMat && !btnSaveMat.dataset.manualLabel) {
+      btnSaveMat.innerHTML = '<i class="fas fa-check-circle"></i> Salva chiusura mattino';
+      btnSaveMat.onclick = saveMat;
+    }
   }
   
   const grid = document.querySelector('.turno-grid');
@@ -2235,7 +2250,6 @@ async function openDay() {
 
   document.getElementById('step-date').classList.add('hidden');
   document.getElementById('screen-day').classList.remove('hidden');
-  document.getElementById('save-bar').classList.remove('hidden');
 
   Promise.all([
     loadPreviousFondo(currentEmp, y, m1, d).then(fondo => {
@@ -2251,6 +2265,7 @@ async function openDay() {
     calcAll();
     renderShiftOps('mat');
     renderShiftOps('pom');
+    updateTurnoVisibility();
     clearDirty();
   });
 }
