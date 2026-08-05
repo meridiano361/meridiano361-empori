@@ -1417,6 +1417,16 @@ function buildPayments(turno) {
     
     input.addEventListener('blur',  function(){formatMoney(this);});
     input.addEventListener('focus', function(){clearMoney(this);});
+    // Auto-copia importo al pomeriggio per pagamenti online (se pom ancora vuoto)
+    if (turno === 'mat' && p.online) {
+      input.addEventListener('blur', function() {
+        const pomInput = document.getElementById('pom_pay_' + p.id);
+        if (pomInput && parseEuro(pomInput.value) === 0 && parseEuro(this.value) !== 0) {
+          pomInput.value = this.value;
+          calcAll();
+        }
+      });
+    }
 
     const noteBtn=document.createElement('button');
     noteBtn.type='button'; noteBtn.id=turno+'_notebtn_'+p.id; noteBtn.className='note-btn';
