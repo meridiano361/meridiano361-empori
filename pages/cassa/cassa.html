@@ -566,8 +566,8 @@ input[type=month].btn-export{min-width:160px;}
             <span class="sum-val" id="mat-diff">€ 0,00</span>
           </div>
           <div class="turno-scontrini-row" id="mat-scontrini-row">
-            <span class="sum-label lbl-red">Scontrini mattino *</span>
-            <input id="mat-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0" oninput="calcPomScontrini()">
+            <span class="sum-label lbl-red">Numero scontrini mattino *</span>
+            <input id="mat-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0">
           </div>
 
           <!-- cassaforte solo se "solo_mattino" -->
@@ -707,8 +707,8 @@ input[type=month].btn-export{min-width:160px;}
             <span class="sum-val" id="pom-diff">€ 0,00</span>
           </div>
           <div class="turno-scontrini-row" id="pom-scontrini-row" style="display:none">
-            <span class="sum-label lbl-gray">Scontrini pomeriggio</span>
-            <span id="pom-scontrini-disp" style="font-size:13px;font-weight:800;color:#1e293b">—</span>
+            <span class="sum-label lbl-red">Numero scontrini pomeriggio *</span>
+            <input id="pom-scontrini" class="turno-scontrini-inp" type="number" min="0" step="1" placeholder="0">
           </div>
 
           <div class="cassaforte-box">
@@ -1955,7 +1955,7 @@ function updateTurnoVisibility() {
     if (spacer) spacer.style.display = 'none';
     if (matScRow) matScRow.style.display = '';
     if (pomScRow) pomScRow.style.display = 'none';
-    if (globalChip) globalChip.style.display = 'none';
+    if (globalChip) globalChip.style.display = 'none'; // sostituito da campi separati
     if (matSaveSec) matSaveSec.style.display = '';
     if (pomSaveSec) pomSaveSec.style.display = 'none';
     if (btnSaveMat && !btnSaveMat.dataset.manualLabel) {
@@ -1968,8 +1968,8 @@ function updateTurnoVisibility() {
     document.getElementById('mat-cassaforte-box').classList.add('hidden');
     if (spacer) spacer.style.display = '';
     if (matScRow) matScRow.style.display = 'none';
-    if (pomScRow) pomScRow.style.display = 'none';
-    if (globalChip) globalChip.style.display = '';
+    if (pomScRow) pomScRow.style.display = '';
+    if (globalChip) globalChip.style.display = 'none';
     if (matSaveSec) matSaveSec.style.display = 'none';
     if (pomSaveSec) pomSaveSec.style.display = '';
   } else { // entrambi
@@ -1979,7 +1979,7 @@ function updateTurnoVisibility() {
     if (spacer) spacer.style.display = '';
     if (matScRow) matScRow.style.display = '';
     if (pomScRow) pomScRow.style.display = '';
-    if (globalChip) globalChip.style.display = '';
+    if (globalChip) globalChip.style.display = 'none';
     if (matSaveSec) matSaveSec.style.display = '';
     if (pomSaveSec) pomSaveSec.style.display = '';
     if (btnSaveMat && !btnSaveMat.dataset.manualLabel) {
@@ -2150,12 +2150,8 @@ function fillForm(data) {
       renderFotoWrap(t, tp);
     });
   });
-  // mat_scontrini
-  if (data.mat_scontrini != null) {
-    const el = document.getElementById('mat-scontrini');
-    if (el) el.value = data.mat_scontrini;
-  }
-  calcPomScontrini();
+  if (data.mat_scontrini != null) { const el = document.getElementById('mat-scontrini'); if (el) el.value = data.mat_scontrini; }
+  if (data.pom_scontrini != null) { const el = document.getElementById('pom-scontrini'); if (el) el.value = data.pom_scontrini; }
   // badge orari chiusura
   matOraChiusura = data.mat_ora_chiusura || null;
   if (matOraChiusura) {
@@ -2271,12 +2267,7 @@ async function openDay() {
 }
 
 /* ── SCONTRINI POM CALCOLATI ── */
-function calcPomScontrini() {
-  const matN = parseInt(document.getElementById('mat-scontrini')?.value||'0')||0;
-  const totN = parseInt(document.getElementById('global-scontrini')?.value||'0')||0;
-  const disp = document.getElementById('pom-scontrini-disp');
-  if (disp) disp.textContent = (matN > 0 || totN > 0) ? String(Math.max(0, totN - matN)) : '—';
-}
+function calcPomScontrini() { /* no-op: pom-scontrini è ora un campo editabile indipendente */ }
 
 /* ── ORARI CHIUSURA ── */
 let matOraChiusura = null;
@@ -2353,7 +2344,7 @@ async function saveDay() {
       return;
     }
     checkOps('pom', 'Operatore/i pomeriggio', errors);
-    checkField('global-scontrini',  'Scontrini totali giornata', errors);
+    checkField('pom-scontrini',     'Numero scontrini pomeriggio', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
@@ -2361,14 +2352,14 @@ async function saveDay() {
     if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
   } else if (tipo === 'solo_mattino') {
     checkOps('mat', 'Operatore/i mattino', errors);
-    checkField('mat-scontrini',    'Scontrini mattino', errors);
+    checkField('mat-scontrini',    'Numero scontrini mattino', errors);
     checkField('mat-corrispettivi','Corrispettivi mattino', errors);
     checkField('mat-cassaforte',   'Contanti in cassaforte', errors);
     checkIva('mat-corrispettivi', errors);
     if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
   } else { // solo_pomeriggio
     checkOps('pom', 'Operatore/i pomeriggio', errors);
-    checkField('global-scontrini',  'Scontrini totali giornata', errors);
+    checkField('pom-scontrini',     'Numero scontrini pomeriggio', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
@@ -2423,10 +2414,17 @@ async function saveDay() {
     temp_pomeriggio:  _tempPom,
     arrivo_merci:     document.getElementById('arrivo-merci').checked,
     note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci')||null) : null,
-    global_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
-    mat_scontrini:    tipo === 'solo_mattino'
+    mat_scontrini:    (tipo === 'solo_mattino' || tipo === 'entrambi')
       ? (parseInt(document.getElementById('mat-scontrini')?.value)||null)
-      : (matOraChiusura ? (parseInt(document.getElementById('mat-scontrini')?.value)||null) : null),
+      : null,
+    pom_scontrini:    (tipo === 'solo_pomeriggio' || tipo === 'entrambi')
+      ? (parseInt(document.getElementById('pom-scontrini')?.value)||null)
+      : null,
+    global_scontrini: (() => {
+      const m = parseInt(document.getElementById('mat-scontrini')?.value)||0;
+      const p = parseInt(document.getElementById('pom-scontrini')?.value)||0;
+      return (m + p) || null;
+    })(),
     mat_ora_chiusura: tipo === 'solo_mattino' ? new Date().toISOString() : (matOraChiusura||null),
     pom_ora_chiusura: new Date().toISOString(),
     mat_foto_rf:  photosMap.mat_rf.length  ? JSON.stringify(photosMap.mat_rf)  : null,

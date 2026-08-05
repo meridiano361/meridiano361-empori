@@ -1,0 +1,1 @@
+ALTER TABLE cassa_giorni ADD COLUMN IF NOT EXISTS pom_scontrini INTEGER;
