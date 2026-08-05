@@ -74,6 +74,11 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .meta-chip label{display:flex;align-items:center;gap:8px;cursor:pointer;}
 .meta-chip input[type=checkbox]{accent-color:#B5453A;width:16px;height:16px;}
 .meta-chip-val{font-size:13px;font-weight:700;color:#475569;}
+.meteo-chip-footer{display:flex;align-items:center;justify-content:space-between;margin-top:5px;}
+.meteo-temp{font-size:11px;font-weight:800;color:#64748b;}
+.meteo-confirm-wrap{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#f59e0b;white-space:nowrap;}
+.meteo-confirm-wrap.ok{color:#22c55e;}
+.meteo-confirm-wrap input[type=checkbox]{accent-color:#22c55e;width:12px;height:12px;margin:0;}
 
 /* scontrini chip */
 .scontrini-chip{background:#fff;border:1px solid #e2e8f0;}
@@ -413,9 +418,9 @@ input[type=month].btn-export{min-width:160px;}
           <div class="day-emp-lbl" id="emporio-label"></div>
         </div>
         <div class="meta-chips">
-          <div class="meta-chip">
+          <div class="meta-chip" id="meteo-mat-chip">
             <div class="meta-chip-lbl"><i id="meteo-mat-icon" class="fas fa-sun"></i> Meteo mattino</div>
-            <select id="meteo-mattino" onchange="syncWeatherIcon()">
+            <select id="meteo-mattino" onchange="syncWeatherIcon(); setMeteoConfirmed('mat', true)">
               <option value="sereno">sereno</option>
               <option value="prevalentemente sereno">prevalentemente sereno</option>
               <option value="parzialmente nuvoloso">parzialmente nuvoloso</option>
@@ -428,10 +433,17 @@ input[type=month].btn-export{min-width:160px;}
               <option value="grandine">grandine</option>
               <option value="variabile">variabile</option>
             </select>
+            <div class="meteo-chip-footer">
+              <span class="meteo-temp" id="temp-mat"></span>
+              <span class="meteo-confirm-wrap" id="meteo-mat-confirm">
+                <input type="checkbox" id="meteo-mat-ok" onchange="setMeteoConfirmed('mat', this.checked)">
+                <label for="meteo-mat-ok">confermato</label>
+              </span>
+            </div>
           </div>
-          <div class="meta-chip">
+          <div class="meta-chip" id="meteo-pom-chip">
             <div class="meta-chip-lbl"><i id="meteo-pom-icon" class="fas fa-cloud-sun"></i> Meteo pomeriggio</div>
-            <select id="meteo-pomeriggio" onchange="syncWeatherIcon()">
+            <select id="meteo-pomeriggio" onchange="syncWeatherIcon(); setMeteoConfirmed('pom', true)">
               <option value="sereno">sereno</option>
               <option value="prevalentemente sereno">prevalentemente sereno</option>
               <option value="parzialmente nuvoloso">parzialmente nuvoloso</option>
@@ -444,6 +456,13 @@ input[type=month].btn-export{min-width:160px;}
               <option value="grandine">grandine</option>
               <option value="variabile">variabile</option>
             </select>
+            <div class="meteo-chip-footer">
+              <span class="meteo-temp" id="temp-pom"></span>
+              <span class="meteo-confirm-wrap" id="meteo-pom-confirm">
+                <input type="checkbox" id="meteo-pom-ok" onchange="setMeteoConfirmed('pom', this.checked)">
+                <label for="meteo-pom-ok">confermato</label>
+              </span>
+            </div>
           </div>
           <div class="meta-chip scontrini-chip" id="global-scontrini-chip">
             <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Scontrini totali *</div>
@@ -1142,6 +1161,20 @@ const FOTO_BUCKET = 'cassa-foto';
 let _dirty = false;
 const markDirty  = () => { if (!document.getElementById('screen-day').classList.contains('hidden')) _dirty = true; };
 const clearDirty = () => { _dirty = false; };
+
+let _meteoMatConfirmed = false;
+let _meteoPomConfirmed = false;
+let _tempMat = null;
+let _tempPom = null;
+function setMeteoConfirmed(fascia, ok) {
+  if (fascia === 'mat') { _meteoMatConfirmed = ok; }
+  else { _meteoPomConfirmed = ok; }
+  const cb = document.getElementById('meteo-'+fascia+'-ok');
+  if (cb) cb.checked = ok;
+  const wrap = document.getElementById('meteo-'+fascia+'-confirm');
+  if (wrap) wrap.classList.toggle('ok', ok);
+}
+
 function confirmLeave() {
   if (!_dirty) return true;
   return confirm('Hai modifiche non salvate nel foglio di giornata.\nVuoi uscire senza salvare?');
@@ -1182,13 +1215,71 @@ async function autoWeather(emp) {
   const c = CITY[emp];
   const elMat = document.getElementById('meteo-mattino');
   const elPom = document.getElementById('meteo-pomeriggio');
+  const elTempMat = document.getElementById('temp-mat');
+  const elTempPom = document.getElementById('temp-pom');
+
+  setMeteoConfirmed('mat', false);
+  setMeteoConfirmed('pom', false);
+  _tempMat = null; _tempPom = null;
+  if (elTempMat) elTempMat.textContent = '';
+  if (elTempPom) elTempPom.textContent = '';
+
   if (!c) { elMat.value = 'variabile'; elPom.value = 'variabile'; syncWeatherIcon(); return; }
+
+  // Carica orari turno da turni_orari (fallback sui default)
+  let matOpen = '09:15', matClose = '13:00', pomOpen = '15:00', pomClose = '19:00';
+  if (db) {
+    try {
+      const { data: orRow } = await db.from('turni_orari').select('orari').eq('emporio', emp).maybeSingle();
+      if (orRow?.orari) {
+        matOpen  = orRow.orari.mat_open  ?? matOpen;
+        matClose = orRow.orari.mat_close ?? matClose;
+        pomOpen  = orRow.orari.pom_open  ?? pomOpen;
+        pomClose = orRow.orari.pom_close ?? pomClose;
+      }
+    } catch(e) {}
+  }
+
   try {
-    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+c.lat+'&longitude='+c.lon+'&current=weather_code&timezone=Europe%2FRome');
+    const {y, m, d} = selectedDate || {};
+    const dateStr = y ? `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}` : null;
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude='+c.lat+'&longitude='+c.lon
+      +'&hourly=temperature_2m,weather_code'
+      +(dateStr ? '&start_date='+dateStr+'&end_date='+dateStr : '')
+      +'&timezone=Europe%2FRome';
+    const r = await fetch(url);
     const j = await r.json();
-    const wx = wxCode(j.current && j.current.weather_code);
-    elMat.value = wx;
-    elPom.value = wx;
+
+    if (j.hourly && j.hourly.time && j.hourly.weather_code) {
+      const times  = j.hourly.time;
+      const codes  = j.hourly.weather_code;
+      const temps  = j.hourly.temperature_2m;
+      // Codice meteo a mezzogiorno
+      const noonIdx = times.findIndex(t => t.includes('T12:00'));
+      const wxVal = codes[noonIdx >= 0 ? noonIdx : Math.floor(codes.length / 2)];
+      const wx = wxCode(wxVal);
+      elMat.value = wx;
+      elPom.value = wx;
+
+      // Media temperatura per fascia oraria
+      const avgTemp = (startHHMM, endHHMM) => {
+        const sh = parseInt(startHHMM, 10);
+        const eh = parseInt(endHHMM, 10);
+        const vals = [];
+        times.forEach((t, i) => {
+          const h = parseInt((t.split('T')[1] || '').split(':')[0], 10);
+          if (h >= sh && h < eh && temps[i] != null) vals.push(temps[i]);
+        });
+        return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+      };
+
+      _tempMat = avgTemp(matOpen, matClose);
+      _tempPom = avgTemp(pomOpen, pomClose);
+      if (_tempMat != null && elTempMat) elTempMat.textContent = _tempMat + '°C';
+      if (_tempPom != null && elTempPom) elTempPom.textContent = _tempPom + '°C';
+    } else {
+      elMat.value = 'variabile'; elPom.value = 'variabile';
+    }
   } catch(e) { elMat.value = 'variabile'; elPom.value = 'variabile'; }
   syncWeatherIcon();
 }
@@ -2015,10 +2106,12 @@ function fillForm(data) {
   if(data.chiuso_da_pom) { selectedOps.pom=data.chiuso_da_pom.split(' e ').map(s=>s.trim()).filter(Boolean); renderShiftOps('pom'); }
   if(data.note_mattino)   document.getElementById('nota-mattino').value=data.note_mattino;
   if(data.note_pomeriggio)document.getElementById('nota-pomeriggio').value=data.note_pomeriggio;
-  if(data.meteo_mattino)  document.getElementById('meteo-mattino').value=data.meteo_mattino;
-  else if(data.meteo)     document.getElementById('meteo-mattino').value=data.meteo;
-  if(data.meteo_pomeriggio) document.getElementById('meteo-pomeriggio').value=data.meteo_pomeriggio;
-  else if(data.meteo)     document.getElementById('meteo-pomeriggio').value=data.meteo;
+  if(data.meteo_mattino)  { document.getElementById('meteo-mattino').value=data.meteo_mattino; setMeteoConfirmed('mat', true); }
+  else if(data.meteo)     { document.getElementById('meteo-mattino').value=data.meteo; setMeteoConfirmed('mat', true); }
+  if(data.meteo_pomeriggio) { document.getElementById('meteo-pomeriggio').value=data.meteo_pomeriggio; setMeteoConfirmed('pom', true); }
+  else if(data.meteo)     { document.getElementById('meteo-pomeriggio').value=data.meteo; setMeteoConfirmed('pom', true); }
+  if(data.temp_mattino != null) { _tempMat = data.temp_mattino; const el=document.getElementById('temp-mat'); if(el) el.textContent = data.temp_mattino+'°C'; }
+  if(data.temp_pomeriggio != null) { _tempPom = data.temp_pomeriggio; const el=document.getElementById('temp-pom'); if(el) el.textContent = data.temp_pomeriggio+'°C'; }
   if(data.arrivo_merci) {
     document.getElementById('arrivo-merci').checked=true;
     document.getElementById('note-arrivo-merci-wrap').style.display='';
@@ -2096,6 +2189,11 @@ function resetDayForm() {
   document.getElementById('note-arrivo-merci-wrap').style.display = 'none';
   document.getElementById('meteo-mattino').value = 'sereno';
   document.getElementById('meteo-pomeriggio').value = 'sereno';
+  setMeteoConfirmed('mat', false);
+  setMeteoConfirmed('pom', false);
+  _tempMat = null; _tempPom = null;
+  const _tm = document.getElementById('temp-mat'); if (_tm) _tm.textContent = '';
+  const _tp = document.getElementById('temp-pom'); if (_tp) _tp.textContent = '';
   syncWeatherIcon();
   // Reset foto
   Object.keys(photosMap).forEach(k => photosMap[k] = []);
@@ -2244,18 +2342,22 @@ async function saveDay() {
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
+    if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
+    if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
   } else if (tipo === 'solo_mattino') {
     checkOps('mat', 'Operatore/i mattino', errors);
     checkField('mat-scontrini',    'Scontrini mattino', errors);
     checkField('mat-corrispettivi','Corrispettivi mattino', errors);
     checkField('mat-cassaforte',   'Contanti in cassaforte', errors);
     checkIva('mat-corrispettivi', errors);
+    if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
   } else { // solo_pomeriggio
     checkOps('pom', 'Operatore/i pomeriggio', errors);
     checkField('global-scontrini',  'Scontrini totali giornata', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
+    if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
   }
   if (errors.length) {
     alert('Campi obbligatori mancanti o errati:\n\n• ' + errors.join('\n• '));
@@ -2302,6 +2404,8 @@ async function saveDay() {
     note_pomeriggio: getVal('nota-pomeriggio')||null,
     meteo_mattino:    getVal('meteo-mattino')||null,
     meteo_pomeriggio: getVal('meteo-pomeriggio')||null,
+    temp_mattino:     _tempMat,
+    temp_pomeriggio:  _tempPom,
     arrivo_merci:     document.getElementById('arrivo-merci').checked,
     note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci')||null) : null,
     global_scontrini: parseInt(document.getElementById('global-scontrini').value)||null,
