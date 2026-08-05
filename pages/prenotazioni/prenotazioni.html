@@ -87,7 +87,7 @@
     .sint-table thead th:first-child{text-align:left;white-space:nowrap;min-width:90px}
     .sint-table tfoot tr:last-child td{background:var(--red);color:#fff;font-weight:900;font-size:15px}
     .sint-table tfoot tr:last-child td:first-child{text-align:left}
-    .rie-emp-name{font-weight:800;text-align:left;color:var(--s700);font-size:13px}
+    .sint-table .rie-emp-name{font-weight:800;text-align:left;color:var(--s700);font-size:13px}
     .rie-cell{font-weight:700;font-size:14px}
     .rie-current{background:var(--red-light)}
 
@@ -638,6 +638,8 @@ function renderRiepilogo() {
       '<p style="text-align:center;color:#94a3b8;padding:32px">Nessun prodotto in questa campagna.</p>';
     return;
   }
+  const fp = _campagna.fornitori_prenotati || {};
+
   const empRows = EMPORI_LIST.map(e => {
     const prenEmp = _allPren.filter(r => r.emporio === e.nome);
     if (prenEmp.length === 0) return null;
@@ -646,10 +648,15 @@ function renderRiepilogo() {
       return `<td class="rie-cell" style="${sum > 0 ? 'color:#1e293b;font-weight:800' : 'color:#e2e8f0'}">${sum || '—'}</td>`;
     }).join('');
     const rt = prod.reduce((s, p, pi) => s + prenEmp.reduce((rs, r) => rs + ((r.articoli || {})[String(pi)] || 0), 0), 0);
-    return `<tr class="${e.nome === _emporio ? 'rie-current' : ''}">
+    const checked = !!fp[e.nome];
+    const fpCell = _canRespAcquisti
+      ? `<input type="checkbox" id="fp-cb-${CSS.escape(e.nome)}" ${checked ? 'checked' : ''} onchange="toggleFornitatorePrenotato('${e.nome.replace(/'/g,'\\\'')}')" style="accent-color:#16a34a;width:16px;height:16px;cursor:pointer;vertical-align:middle">`
+      : `<i class="fas fa-${checked ? 'check-circle' : 'circle'}" style="font-size:14px;color:${checked ? '#16a34a' : '#e2e8f0'}"></i>`;
+    return `<tr class="${e.nome === _emporio ? 'rie-current' : ''}" id="fp-row-${CSS.escape(e.nome)}">
       <td class="rie-emp-name">${escHtml(e.nome)}</td>
       ${cells}
       <td class="rie-cell" style="font-weight:900;color:#1e293b">${rt}</td>
+      <td id="fp-cell-${CSS.escape(e.nome)}" style="text-align:center;${checked ? 'background:#dcfce7' : ''}">${fpCell}</td>
     </tr>`;
   }).filter(Boolean).join('');
 
@@ -659,56 +666,40 @@ function renderRiepilogo() {
   }).join('');
   const gt = prod.reduce((s, p, pi) => s + _allPren.reduce((rs, r) => rs + ((r.articoli || {})[String(pi)] || 0), 0), 0);
 
-  const fp = _campagna.fornitori_prenotati || {};
-  const fpCells = prod.map((p, pi) => {
-    const checked = !!fp[String(pi)];
-    const bg = checked ? 'background:#dcfce7' : '';
-    const inner = _canRespAcquisti
-      ? `<input type="checkbox" id="fp-cb-${pi}" ${checked ? 'checked' : ''} onchange="toggleFornitatorePrenotato(${pi})" style="accent-color:#16a34a;width:16px;height:16px;cursor:pointer;vertical-align:middle">`
-      : `<i class="fas fa-${checked ? 'check-circle' : 'circle'}" style="font-size:14px;color:${checked ? '#16a34a' : '#e2e8f0'}"></i>`;
-    return `<td id="fp-cell-${pi}" style="text-align:center;${bg}">${inner}</td>`;
-  }).join('');
-
   document.getElementById('riepilogo-container').innerHTML = `
     <table class="sint-table">
       <thead><tr>
         <th style="text-align:left">Emporio</th>
         ${prod.map(p => `<th>${escHtml(p.descrizione || p.codice || '—')}</th>`).join('')}
         <th>Totale</th>
+        <th style="white-space:nowrap;color:#166534"><i class="fas fa-truck" style="margin-right:4px"></i>Prenotato</th>
       </tr></thead>
       <tbody>${empRows || `<tr><td colspan="99" style="text-align:center;color:#94a3b8;padding:24px">Nessuna prenotazione ancora.</td></tr>`}</tbody>
-      <tfoot>
-        <tr style="background:#f0fdf4;border-top:2px solid #bbf7d0">
-          <td style="text-align:left;font-size:10px;font-weight:800;color:#166534;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">
-            <i class="fas fa-truck" style="margin-right:5px"></i>Prenotato
-          </td>
-          ${fpCells}
-          <td></td>
-        </tr>
-        <tr>
-          <td>TOTALE GENERALE</td>
-          ${totCells}
-          <td>${gt}</td>
-        </tr>
-      </tfoot>
+      <tfoot><tr>
+        <td>TOTALE GENERALE</td>
+        ${totCells}
+        <td>${gt}</td>
+        <td></td>
+      </tr></tfoot>
     </table>`;
 }
 
 // ─── PRENOTATO A FORNITORE ───
-async function toggleFornitatorePrenotato(pi) {
+async function toggleFornitatorePrenotato(empNome) {
   if (!_canRespAcquisti || !_campagna) return;
   const fp = {...(_campagna.fornitori_prenotati || {})};
-  fp[String(pi)] = !fp[String(pi)];
+  fp[empNome] = !fp[empNome];
   _campagna.fornitori_prenotati = fp;
-  const cb = document.getElementById('fp-cb-' + pi);
-  const cell = document.getElementById('fp-cell-' + pi);
-  const checked = !!fp[String(pi)];
+  const key = CSS.escape(empNome);
+  const cb = document.getElementById('fp-cb-' + key);
+  const cell = document.getElementById('fp-cell-' + key);
+  const checked = !!fp[empNome];
   if (cb) cb.checked = checked;
   if (cell) cell.style.background = checked ? '#dcfce7' : '';
   const {error} = await _db.from('campagne_prenotazione').update({fornitori_prenotati: fp}).eq('id', _campagna.id);
   if (error) {
     showToastM361('Errore salvataggio flag fornitore', 'error');
-    fp[String(pi)] = !fp[String(pi)];
+    fp[empNome] = !fp[empNome];
     _campagna.fornitori_prenotati = fp;
     if (cb) cb.checked = !checked;
     if (cell) cell.style.background = !checked ? '#dcfce7' : '';
