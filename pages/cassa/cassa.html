@@ -264,6 +264,28 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .iva-esente-sel:focus{outline:none;border-color:#B5453A;}
 .iva-esente-txt{border:1px solid #B5453A;border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Nunito', sans-serif;color:#64748b;background:#fdf1f0;}
 .iva-esente-txt:focus{outline:none;}
+/* esente voci multi-entry */
+.esente-voce{display:grid;grid-template-columns:1fr 80px 24px;gap:5px;align-items:start;margin-top:5px;}
+.esente-voce-sel{border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;font-family:'Nunito',sans-serif;color:#475569;background:#fff;width:100%;}
+.esente-voce-sel:focus{outline:none;border-color:#B5453A;}
+.esente-voce-inp{border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;font-family:'Nunito',sans-serif;color:#475569;text-align:right;width:100%;-moz-appearance:textfield;}
+.esente-voce-inp::-webkit-inner-spin-button,.esente-voce-inp::-webkit-outer-spin-button{-webkit-appearance:none;}
+.esente-voce-inp:focus{outline:none;border-color:#B5453A;}
+.esente-voce-txt{border:1px solid #e2e8f0;border-radius:8px;padding:5px 8px;font-size:11px;font-family:'Nunito',sans-serif;color:#475569;margin-top:3px;width:100%;grid-column:1/span 2;}
+.esente-voce-txt:focus{outline:none;border-color:#B5453A;}
+.esente-voce-rm{width:24px;height:24px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94a3b8;padding:0;flex-shrink:0;margin-top:1px;}
+.esente-voce-rm:hover{background:#fdf1f0;color:#B5453A;border-color:#B5453A;}
+.esente-add-btn{margin-top:8px;font-size:10px;font-weight:800;color:#B5453A;background:#fdf1f0;border:1px dashed #f0b8b5;border-radius:8px;padding:5px 10px;cursor:pointer;font-family:'Nunito',sans-serif;letter-spacing:.06em;text-transform:uppercase;width:100%;text-align:center;display:block;}
+.esente-add-btn:hover{background:#f5d8d6;}
+/* IVA admin table controls */
+.iva-note-icon{cursor:pointer;color:#3b82f6;margin-left:5px;font-size:11px;vertical-align:middle;}
+.iva-note-icon:hover{color:#1d4ed8;}
+.iva-admin-ok{width:15px;height:15px;accent-color:#22c55e;cursor:pointer;vertical-align:middle;}
+.iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
+.iva-amm-note-btn:hover{color:#B5453A;}
+.iva-amm-note-btn.has-note{color:#B5453A;}
+/* esente dettaglio floating tooltip */
+#esente-tooltip{position:fixed;background:#1e293b;color:#fff;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;z-index:9999;max-width:260px;line-height:1.7;box-shadow:0 4px 20px rgba(0,0,0,.25);display:none;}
 .iva-summary{background:#fdf1f0;border-radius:16px;padding:16px 20px;margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
 @media(max-width:500px){.iva-summary{grid-template-columns:1fr;gap:14px;}}
 .iva-sum-block{display:flex;flex-direction:column;gap:4px;border-right:1px solid #f0c0c0;padding:0 16px;}
@@ -806,18 +828,10 @@ input[type=month].btn-export{min-width:160px;}
         <div class="iva-block" style="border-right:none;">
           <div class="iva-aliq-tag">Aliquota</div>
           <div class="iva-aliq-num esente">Esente</div>
-          <input id="iva-esente" class="iva-amount-inp" placeholder="€ 0,00" value="€ 0,00"
-            oninput="calcIva()" onblur="formatMiniMoney(this)" onfocus="clearMiniMoney(this)">
-          <div class="iva-esente-row">
-            <span class="iva-esente-lbl">Tipo:</span>
-            <select id="iva-esente-altro" class="iva-esente-sel" onchange="toggleIvaAltro()">
-              <option value="">—</option>
-              <option value="editoriali">editoriali</option>
-              <option value="gift card">gift card</option>
-              <option value="altro">altro</option>
-            </select>
-            <input id="iva-esente-altro-text" class="iva-esente-txt hidden" placeholder="specifica...">
-          </div>
+          <input id="iva-esente" class="iva-amount-inp" placeholder="€ 0,00" value="€ 0,00" readonly
+            style="background:#f8fafc;cursor:default;color:#64748b;">
+          <div id="esente-voci" style="margin-top:4px;"></div>
+          <button type="button" class="esente-add-btn" onclick="addEsenteVoce()">+ Aggiungi voce</button>
         </div>
       </div>
 
@@ -880,7 +894,7 @@ input[type=month].btn-export{min-width:160px;}
     <div style="overflow-x:auto">
       <table class="admin-table" id="iva-table">
         <thead><tr>
-          <th>Periodo</th>
+          <th>Data</th>
           <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 10%</th>
           <th class="number">IVA 22%</th><th class="number">Esente</th>
           <th class="number">Tot. IVA €</th><th class="number">Netto €</th>
@@ -1183,7 +1197,12 @@ function confirmLeave() {
 }
 
 /* ── FORMATTERS ── */
-const euro = n => '€ ' + Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+function numIT(n) {
+  const v = Number(n||0);
+  const [int, dec] = Math.abs(v).toFixed(2).split('.');
+  return (v<0?'-':'')+int.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+dec;
+}
+const euro = n => '€ ' + numIT(n);
 const parseEuro = v => {
   let s = String(v||'').replace(/\s/g,'').replace('€','').trim();
   if (!s) return 0;
@@ -2092,8 +2111,97 @@ function calcIva() {
   document.getElementById('iva-error').style.display=ok?'none':'block';
 }
 
-function toggleIvaAltro() {
-  document.getElementById('iva-esente-altro-text').classList.toggle('hidden', document.getElementById('iva-esente-altro').value!=='altro');
+function toggleIvaAltro() {}  // legacy stub, kept for safety
+
+/* ── IVA ESENTE VOCI ── */
+function addEsenteVoce(tipo, importo, specifica) {
+  tipo = tipo || 'gift card';
+  const container = document.getElementById('esente-voci');
+  const div = document.createElement('div');
+  div.className = 'esente-voce';
+  div.innerHTML = `
+    <select class="esente-voce-sel" onchange="toggleEsenteSpec(this);calcEsenteTotal()">
+      <option value="gift card"${tipo==='gift card'?' selected':''}>Gift Card</option>
+      <option value="editoriali"${tipo==='editoriali'?' selected':''}>Editoriali</option>
+      <option value="altro"${tipo==='altro'?' selected':''}>Altro</option>
+    </select>
+    <input type="number" class="esente-voce-inp" placeholder="0,00" value="${importo||''}" min="0" step="0.01" oninput="calcEsenteTotal()">
+    <button type="button" class="esente-voce-rm" onclick="removeEsenteVoce(this)"><i class="fas fa-times"></i></button>
+    <input type="text" class="esente-voce-txt" placeholder="specifica..." value="${specifica||''}" style="display:${tipo==='altro'?'block':'none'}">
+  `;
+  container.appendChild(div);
+  calcEsenteTotal();
+}
+
+function toggleEsenteSpec(sel) {
+  const txt = sel.closest('.esente-voce').querySelector('.esente-voce-txt');
+  txt.style.display = sel.value === 'altro' ? 'block' : 'none';
+}
+
+function removeEsenteVoce(btn) {
+  btn.closest('.esente-voce').remove();
+  calcEsenteTotal();
+}
+
+function calcEsenteTotal() {
+  let tot = 0;
+  document.querySelectorAll('#esente-voci .esente-voce-inp').forEach(inp => {
+    tot += parseFloat(inp.value) || 0;
+  });
+  const el = document.getElementById('iva-esente');
+  if (el) el.value = euro(tot);
+  calcIva();
+}
+
+function getEsenteVoci() {
+  const voci = [];
+  document.querySelectorAll('#esente-voci .esente-voce').forEach(v => {
+    const tipo = v.querySelector('.esente-voce-sel').value;
+    const importo = parseFloat(v.querySelector('.esente-voce-inp').value) || 0;
+    const specifica = v.querySelector('.esente-voce-txt').value.trim();
+    if (importo > 0 || tipo) {
+      const entry = {tipo, importo};
+      if (specifica) entry.specifica = specifica;
+      voci.push(entry);
+    }
+  });
+  return voci;
+}
+
+function loadEsenteVoci(arr) {
+  document.getElementById('esente-voci').innerHTML = '';
+  (arr||[]).forEach(v => addEsenteVoce(v.tipo||'gift card', v.importo||'', v.specifica||''));
+}
+
+function showEsenteTooltip(json, evt) {
+  evt.stopPropagation();
+  let arr;
+  try { arr = typeof json === 'string' ? JSON.parse(json) : json; } catch(e) { return; }
+  const tip = document.getElementById('esente-tooltip');
+  tip.innerHTML = arr.map(v =>
+    `<div><strong>${v.tipo}${v.specifica?' ('+v.specifica+')':''}</strong>: ${fmt(v.importo)}</div>`
+  ).join('');
+  tip.style.display = 'block';
+  const x = Math.min(evt.clientX+10, window.innerWidth-280);
+  const y = Math.min(evt.clientY+10, window.innerHeight-120);
+  tip.style.left = x+'px';
+  tip.style.top  = y+'px';
+}
+
+async function saveAdminIvaOk(chiave, ok) {
+  await db.from('cassa_giorni').update({iva_admin_ok: ok}).eq('chiave', chiave);
+}
+
+async function editAdminIvaNota(chiave, btn) {
+  const current = btn.dataset.nota || '';
+  const nota = prompt('Nota amministrativa IVA:', current);
+  if (nota === null) return;
+  const { error } = await db.from('cassa_giorni').update({iva_admin_note: nota||null}).eq('chiave', chiave);
+  if (!error) {
+    btn.dataset.nota = nota;
+    btn.classList.toggle('has-note', !!nota);
+    btn.title = nota || 'Aggiungi nota';
+  }
 }
 
 /* ── FILL FORM ── */
@@ -2157,9 +2265,19 @@ function fillForm(data) {
   if(data.iva_22!=null)   document.getElementById('iva-22').value=euro(data.iva_22);
   if(data.iva_10!=null)   document.getElementById('iva-10').value=euro(data.iva_10);
   if(data.iva_4!=null)    document.getElementById('iva-4').value=euro(data.iva_4);
-  if(data.iva_esente!=null) document.getElementById('iva-esente').value=euro(data.iva_esente);
-  if(data.iva_esente_altro)      document.getElementById('iva-esente-altro').value=data.iva_esente_altro;
-  if(data.iva_esente_altro_text) document.getElementById('iva-esente-altro-text').value=data.iva_esente_altro_text;
+  // Carica voci IVA esente
+  document.getElementById('esente-voci').innerHTML = '';
+  if (data.iva_esente_dettaglio) {
+    try { loadEsenteVoci(JSON.parse(data.iva_esente_dettaglio)); } catch(e) {
+      if(data.iva_esente>0) loadEsenteVoci([{tipo:'altro',importo:data.iva_esente}]);
+    }
+  } else if (data.iva_esente_altro) {
+    loadEsenteVoci([{tipo:data.iva_esente_altro==='altro'?'altro':data.iva_esente_altro, importo:data.iva_esente||0, specifica:data.iva_esente_altro_text||''}]);
+  } else if (data.iva_esente > 0) {
+    loadEsenteVoci([{tipo:'gift card', importo:data.iva_esente}]);
+  } else if (data.iva_esente != null) {
+    document.getElementById('iva-esente').value = euro(data.iva_esente);
+  }
   if(data.turno_type) {
     const radio = document.querySelector(`input[name="turno_type"][value="${data.turno_type}"]`);
     if(radio) { radio.checked = true; updateTurnoVisibility(); }
@@ -2183,7 +2301,7 @@ function fillForm(data) {
     if (btn) btn.innerHTML = '<i class="fas fa-check-circle"></i> Aggiorna chiusura mattino';
   }
   if (data.pom_ora_chiusura) showChiusuraBadge('pom', data.pom_ora_chiusura);
-  toggleIvaAltro(); syncWeatherIcon(); calcIva();
+  syncWeatherIcon(); calcIva();
 }
 
 /* ── NAVIGAZIONE GIORNO (frecce) ── */
@@ -2215,10 +2333,11 @@ function resetDayForm() {
   ['nota-mattino','nota-pomeriggio','note-arrivo-merci'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
-  ['iva-22','iva-10','iva-4','iva-esente','iva-esente-altro-text','cassaforte','mat-corrispettivi','pom-corrispettivi','global-scontrini'].forEach(id => {
+  ['iva-22','iva-10','iva-4','cassaforte','mat-corrispettivi','pom-corrispettivi','global-scontrini'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
-  const selEsente = document.getElementById('iva-esente-altro'); if(selEsente) selEsente.value='';
+  document.getElementById('esente-voci').innerHTML = '';
+  document.getElementById('iva-esente').value = '€ 0,00';
   document.getElementById('arrivo-merci').checked = false;
   document.getElementById('note-arrivo-merci-wrap').style.display = 'none';
   document.getElementById('meteo-mattino').value = 'sereno';
@@ -2486,8 +2605,7 @@ async function saveDay() {
     turno_type:      tipo,
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
     iva_esente: getNum('iva-esente'),
-    iva_esente_altro:      getVal('iva-esente-altro')||null,
-    iva_esente_altro_text: getVal('iva-esente-altro-text')||null,
+    iva_esente_dettaglio: (() => { const v=getEsenteVoci(); return v.length?JSON.stringify(v):null; })(),
     iva_net_es:  parseFloat(document.getElementById('iva-net-es').value)||0,
     iva_somma:   ivaSomma,
     mat_corrispettivi: getNum('mat-corrispettivi'),
@@ -2625,9 +2743,7 @@ function showSubTab(section, name, btn) {
 /* ══════════════════════════════════════════════════════
    UTILS
 ══════════════════════════════════════════════════════ */
-const fmt = v => (v != null && v !== '' && !isNaN(v))
-  ? '€ ' + parseFloat(v).toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2})
-  : '–';
+const fmt = v => (v != null && v !== '' && !isNaN(v)) ? '€ ' + numIT(parseFloat(v)) : '–';
 
 const fmtPct = v => {
   if (v == null || isNaN(v)) return '<span class="trend-zero">–</span>';
@@ -2697,7 +2813,7 @@ function normCassa(rows) {
   }).sort((a, b) => (a.emporio||'').localeCompare(b.emporio||'') || a._day - b._day);
 }
 const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,note_giornata';
-const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente';
+const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
 const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata';
 
@@ -2709,7 +2825,19 @@ async function loadIvaData() {
   const anno    = document.getElementById('iva-filter-anno').value;
   const mese    = document.getElementById('iva-filter-mese').value;
   const tbody   = document.getElementById('iva-body');
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
+  const cols    = mese ? 10 : 8;  // 8 base + 2 admin quando c'è il mese
+  tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>`;
+
+  // Aggiorna header tabella
+  const thead = document.querySelector('#iva-table thead tr');
+  if (thead) {
+    const adminCols = mese ? '<th style="text-align:center;width:30px">✓</th><th style="width:30px"></th>' : '';
+    thead.innerHTML = `<th>Data</th>
+      <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 10%</th>
+      <th class="number">IVA 22%</th><th class="number">Esente</th>
+      <th class="number">Tot. IVA €</th><th class="number">Netto €</th>${adminCols}`;
+  }
+
   try {
     const emps = emporio ? [emporio] : EMPORIOS_NOTI;
     const chiavi = mese ? emps.flatMap(e => chiaveMonth(e, anno, mese))
@@ -2723,7 +2851,15 @@ async function loadIvaData() {
     const map = {};
     rows.forEach(r => {
       const key = (mese ? r.data : r.data.slice(0,7)) + '||' + r.emporio;
-      if (!map[key]) map[key] = {periodo: mese ? r.data : r.data.slice(0,7), emporio: r.emporio, lordo:0, iva4:0, iva10:0, iva22:0, esente:0};
+      if (!map[key]) map[key] = {
+        periodo: mese ? r.data : r.data.slice(0,7),
+        emporio: r.emporio,
+        chiave: r.chiave,
+        lordo:0, iva4:0, iva10:0, iva22:0, esente:0,
+        esente_dettaglio: r.iva_esente_dettaglio || null,
+        admin_ok:   r.iva_admin_ok   || false,
+        admin_note: r.iva_admin_note || ''
+      };
       const g = map[key];
       g.lordo  += r.totale_corrispettivi;
       g.iva4   += parseFloat(r.iva_4  ||0) * 4  / 104;
@@ -2734,7 +2870,7 @@ async function loadIvaData() {
 
     const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
     if (!aggRows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato per il periodo selezionato</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato per il periodo selezionato</td></tr>`;
       document.getElementById('iva-kpi').innerHTML = '';
       return;
     }
@@ -2745,19 +2881,28 @@ async function loadIvaData() {
       const netto  = r.lordo - totIva - r.esente;
       tL+=r.lordo; t4+=r.iva4; t10+=r.iva10; t22+=r.iva22; tEs+=r.esente;
       const label = mese ? fmtData(r.periodo) : fmtData(r.periodo+'-01',{month:'long',year:'numeric'});
+      const noteIcon = r.esente_dettaglio
+        ? ` <span class="iva-note-icon" onclick="showEsenteTooltip(${JSON.stringify(r.esente_dettaglio)},event)" title="Vedi dettaglio esente"><i class="fas fa-file-alt"></i></span>`
+        : '';
+      const adminCols = mese ? `
+        <td style="text-align:center"><input type="checkbox" class="iva-admin-ok" ${r.admin_ok?'checked':''} onchange="saveAdminIvaOk('${r.chiave}',this.checked)" title="Verifica ok"></td>
+        <td><button class="iva-amm-note-btn${r.admin_note?' has-note':''}" onclick="editAdminIvaNota('${r.chiave}',this)" data-nota="${(r.admin_note||'').replace(/"/g,'&quot;')}" title="${r.admin_note?r.admin_note.replace(/"/g,'&quot;'):'Aggiungi nota'}"><i class="fas fa-sticky-note"></i></button></td>
+      ` : '';
       return `<tr>
         <td>${label}</td>
         <td class="number">${fmt(r.lordo)}</td>
         <td class="number">${fmt(r.iva4)}</td>
         <td class="number">${fmt(r.iva10)}</td>
         <td class="number">${fmt(r.iva22)}</td>
-        <td class="number">${fmt(r.esente)}</td>
+        <td class="number">${fmt(r.esente)}${noteIcon}</td>
         <td class="number"><strong>${fmt(totIva)}</strong></td>
         <td class="number">${fmt(netto)}</td>
+        ${adminCols}
       </tr>`;
     }).join('');
 
     const tIvaTot = t4+t10+t22;
+    const adminTotCols = mese ? '<td></td><td></td>' : '';
     tbody.innerHTML += `<tr class="total-row">
       <td><strong>TOTALE</strong></td>
       <td class="number">${fmt(tL)}</td>
@@ -2765,9 +2910,10 @@ async function loadIvaData() {
       <td class="number">${fmt(t22)}</td><td class="number">${fmt(tEs)}</td>
       <td class="number"><strong>${fmt(tIvaTot)}</strong></td>
       <td class="number"><strong>${fmt(tL-tIvaTot-tEs)}</strong></td>
+      ${adminTotCols}
     </tr>`;
 
-    // Titolo "Cremona, gennaio 2026"
+    // Titolo
     const meseLabel = mese ? new Date(anno+'-'+mese+'-01').toLocaleDateString('it-IT',{month:'long',year:'numeric'}) : anno;
     const empLabel  = emporio || 'Tutti gli empori';
     document.getElementById('iva-section-title').textContent = empLabel + ', ' + meseLabel;
@@ -2776,12 +2922,13 @@ async function loadIvaData() {
       <div class="kpi-card"><div class="kpi-label">Totale Lordo</div><div class="kpi-value">${fmt(tL)}</div></div>
       <div class="kpi-card"><div class="kpi-label">Totale IVA</div><div class="kpi-value" style="color:#B5453A">${fmt(tIvaTot)}</div></div>
       <div class="kpi-card"><div class="kpi-label">Totale Netto</div><div class="kpi-value">${fmt(tL-tIvaTot-tEs)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">IVA Esente</div><div class="kpi-value">${fmt(tEs)}</div></div>
       <div class="kpi-card"><div class="kpi-label">IVA 22%</div><div class="kpi-value">${fmt(t22)}</div></div>
       <div class="kpi-card"><div class="kpi-label">IVA 10%</div><div class="kpi-value">${fmt(t10)}</div></div>
       <div class="kpi-card"><div class="kpi-label">IVA 4%</div><div class="kpi-value">${fmt(t4)}</div></div>
     `;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
 
@@ -3290,5 +3437,12 @@ async function loadCommercialeData() {
 })();
 </script>
 <script src="../../scripts/nav-script.js"></script>
+<div id="esente-tooltip"></div>
+<script>
+document.addEventListener('click', () => {
+  const tip = document.getElementById('esente-tooltip');
+  if (tip) tip.style.display = 'none';
+});
+</script>
 </body>
 </html>
