@@ -1143,9 +1143,21 @@ function buildNav() {
 
       if (sub) {
         const _supabase = getSupabase();
+        let inDb = false;
         if (_supabase) {
           const { data } = await _supabase.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).limit(1);
-          if (!data?.length) await _upsertSubscription(user, sub);
+          inDb = !!(data?.length);
+        }
+        if (!inDb) {
+          // Token non nel DB (scaduto e rimosso dal server): forza rinnovo
+          statusEl.textContent = '⚠️ Token scaduto — rinnovo in corso…';
+          const err = await _pushSubscribe(user);
+          if (err) {
+            statusEl.textContent = 'Errore rinnovo: ' + err;
+          } else {
+            _refreshPushStatus();
+          }
+          return;
         }
         statusEl.innerHTML = `✅ <span style="color:#16a34a">Push abilitati</span> <span style="color:#94a3b8;font-size:11px">(${_escHtml(user.nome)})</span>`;
         btnEl.textContent = 'Disabilita push';
@@ -1264,15 +1276,29 @@ function buildNav() {
     try { await navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' }); } catch (_) {}
 
     if (Notification.permission === 'granted') {
-      // Resync silenzioso: se la subscription esiste ma non è nel DB, la salva
+      // Resync silenzioso: controlla se la subscription è ancora valida nel DB.
+      // Se non lo è (410 lato server → rimossa dal DB), forza un re-subscribe fresh
+      // invece di reinserire un token già scaduto (che causerebbe un loop di 410).
       try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
         if (sub) {
-          await _upsertSubscription(user, sub);
+          const _supabase = getSupabase();
+          let inDb = false;
+          if (_supabase) {
+            const { data } = await _supabase.from('push_subscriptions')
+              .select('id').eq('endpoint', sub.endpoint).limit(1);
+            inDb = !!(data?.length);
+          }
+          if (inDb) {
+            await _upsertSubscription(user, sub);
+          } else {
+            // Token non nel DB: era scaduto (410) e rimosso. Forza rinnovo.
+            const err = await _pushSubscribe(user);
+            if (err) _showPushBanner(user, err);
+          }
         } else {
-          // Subscription persa ma permesso già granted: nessuna dialog → riprova SEMPRE
-          // (non limitare a una volta per sessione: il resubscribe è silenzioso)
+          // Subscription persa ma permesso già granted: re-subscribe silenzioso
           const err = await _pushSubscribe(user);
           if (err) _showPushBanner(user, err);
         }

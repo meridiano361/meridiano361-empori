@@ -372,12 +372,27 @@
       </div>
     </div>
     <div class="pr-notif-row">
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#1e293b">Timbratura</div><div style="font-size:11px;color:#94a3b8;font-weight:600">Promemoria entrata/uscita turno</div></div>
+      <div style="display:flex;gap:20px;flex-shrink:0">
+        <div style="width:38px;display:flex;justify-content:center"><label class="pr-tog" id="tog-timbrate-push"><input type="checkbox" onchange="salvaNotifPref('timbrate','push',this.checked)"><span class="pr-tog-slider"></span></label></div>
+        <div style="width:38px;display:flex;justify-content:center"><label class="pr-tog pr-tog-email" id="tog-timbrate-email" style="opacity:.4;pointer-events:none"><input type="checkbox" disabled><span class="pr-tog-slider"></span></label></div>
+      </div>
+    </div>
+    <div class="pr-notif-row">
       <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#1e293b">Generali</div><div style="font-size:11px;color:#94a3b8;font-weight:600">Avvisi e comunicazioni</div></div>
       <div style="display:flex;gap:20px;flex-shrink:0">
         <div style="width:38px;display:flex;justify-content:center"><label class="pr-tog" id="tog-generali-push"><input type="checkbox" onchange="salvaNotifPref('generali','push',this.checked)"><span class="pr-tog-slider"></span></label></div>
         <div style="width:38px;display:flex;justify-content:center"><label class="pr-tog pr-tog-email" id="tog-generali-email"><input type="checkbox" onchange="salvaNotifPref('generali','email',this.checked)"><span class="pr-tog-slider"></span></label></div>
       </div>
     </div>
+  </div>
+  <!-- stato push subscription -->
+  <div class="pr-card" style="margin-top:10px;padding:14px 16px">
+    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Dispositivo</div>
+    <div id="push-status-text" style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px">Verifica in corso…</div>
+    <button id="push-renew-btn" onclick="rinnovaPush()" style="display:none;width:100%;padding:9px;border:none;border-radius:10px;background:#B5453A;color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
+      <i class="fas fa-bell"></i> Riattiva notifiche push
+    </button>
   </div>
   </div>
 </div>
@@ -929,13 +944,83 @@ async function caricaNotifPrefs() {
     .select('tipo,abilitato,email_abilitato').eq('operatore_id', user.id);
   const map = {};
   (data || []).forEach(p => { map[p.tipo] = p; });
-  ['turni','ordini','generali'].forEach(tipo => {
+  ['turni','ordini','generali','timbrate'].forEach(tipo => {
     const p = map[tipo] ?? { abilitato: true, email_abilitato: false };
     const pushEl  = document.querySelector(`#tog-${tipo}-push input`);
     const emailEl = document.querySelector(`#tog-${tipo}-email input`);
     if (pushEl)  pushEl.checked  = !!p.abilitato;
     if (emailEl) emailEl.checked = !!p.email_abilitato;
   });
+  await aggiornaPushStatus();
+}
+
+async function aggiornaPushStatus() {
+  const txt = document.getElementById('push-status-text');
+  const btn = document.getElementById('push-renew-btn');
+  if (!txt) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    txt.textContent = 'Push non supportate da questo browser.'; return;
+  }
+  if (Notification.permission === 'denied') {
+    txt.innerHTML = '🚫 Notifiche bloccate — sblocca nelle impostazioni del browser.'; return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      txt.innerHTML = '⚠️ Notifiche push non attive su questo dispositivo.';
+      if (btn) btn.style.display = 'block';
+      return;
+    }
+    const { data } = await db.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).limit(1);
+    if (data?.length) {
+      txt.innerHTML = '✅ <span style="color:#16a34a;font-weight:700">Push attivi e funzionanti</span> su questo dispositivo.';
+      if (btn) btn.style.display = 'none';
+    } else {
+      txt.innerHTML = '⚠️ Token scaduto — le notifiche non arrivano. Riattiva.';
+      if (btn) btn.style.display = 'block';
+    }
+  } catch(e) {
+    txt.textContent = 'Errore verifica push: ' + e.message;
+  }
+}
+
+async function rinnovaPush() {
+  const txt = document.getElementById('push-status-text');
+  const btn = document.getElementById('push-renew-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Attivazione…'; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const old = await reg.pushManager.getSubscription();
+    if (old) await old.unsubscribe();
+    const VAPID = 'BDp6t_puD0DL_xwGbaZwMQ_zbfd6ZSzWFuJ8Br87NsxuLhLoeoN4SZin10Vg3YqpgIocZzRXwW-WKQ9sZoLC8aw';
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(VAPID),
+    });
+    const subJson = sub.toJSON ? sub.toJSON() : sub;
+    await db.from('push_subscriptions').upsert({
+      operatore_nome: user?.nome,
+      operatore_id:   user?.id || null,
+      emporio:        (user?.emporio || '').toLowerCase(),
+      endpoint:       subJson.endpoint,
+      subscription:   subJson,
+      last_seen_at:   new Date().toISOString(),
+      updated_at:     new Date().toISOString(),
+    }, { onConflict: 'endpoint' });
+    if (txt) txt.innerHTML = '✅ <span style="color:#16a34a;font-weight:700">Push riattivati!</span>';
+    if (btn) { btn.style.display = 'none'; btn.disabled = false; btn.innerHTML = '<i class="fas fa-bell"></i> Riattiva notifiche push'; }
+  } catch(e) {
+    if (txt) txt.textContent = 'Errore: ' + e.message;
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bell"></i> Riattiva notifiche push'; }
+  }
+}
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
 async function salvaNotifPref(tipo, canale, value) {

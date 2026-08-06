@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       .eq("anno", year).eq("mese", month).eq("giorno", day).eq("aperto", true),
     db.from("turni_orari").select("emporio, orari"),
     db.from("operatori").select("id, nome"),
-    db.from("operatore_notif_prefs").select("operatore_id").eq("tipo", "turni").eq("abilitato", false),
+    db.from("operatore_notif_prefs").select("operatore_id").eq("tipo", "timbrate").eq("abilitato", false),
     db.from("push_subscriptions").select("operatore_nome, operatore_id, endpoint, subscription"),
   ]);
 
