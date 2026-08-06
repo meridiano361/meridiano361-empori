@@ -636,9 +636,7 @@ function buildNav() {
           }
         }
       } catch (_) {
-        localStorage.removeItem('m361_user');
-        window.location.href = getBase() + 'login.html';
-        return;
+        // Errore di rete: non fare logout, continua con i dati utente già in cache
       }
     }
 

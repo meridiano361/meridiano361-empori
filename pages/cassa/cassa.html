@@ -1324,6 +1324,7 @@ async function autoWeather(emp) {
 /* ── EMPORIO ── */
 function selectEmp(emp) {
   currentEmp = emp;
+  sessionStorage.setItem('cassa_emp', emp);
   document.getElementById('landing-emp').style.display = 'none';
   document.getElementById('main-nav').style.display = '';
   document.getElementById('step-emp').classList.add('hidden');
@@ -2765,6 +2766,8 @@ function init() {
   document.getElementById('cal-next').addEventListener('click',()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); });
   document.getElementById('btn-open-day').addEventListener('click', openDay);
   document.getElementById('btn-back-emp').addEventListener('click',()=>{
+    sessionStorage.removeItem('cassa_emp');
+    sessionStorage.removeItem('cassa_tab');
     document.getElementById('step-date').classList.add('hidden');
     document.getElementById('main-nav').style.display = 'none';
     document.getElementById('landing-emp').style.display = '';
@@ -2785,6 +2788,17 @@ function init() {
   window.addEventListener('beforeunload', e => {
     if (_dirty) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  // Ripristina emporio e tab dopo un refresh
+  const _savedEmp = sessionStorage.getItem('cassa_emp');
+  if (_savedEmp) {
+    selectEmp(_savedEmp);
+    const _savedTab = sessionStorage.getItem('cassa_tab');
+    if (_savedTab && _savedTab !== 'empori') {
+      const _tabBtn = document.querySelector(`.nav-tab[onclick*="'${_savedTab}'"]`);
+      showMacroSection(_savedTab, _tabBtn || null);
+    }
+  }
 }
 
 window.addEventListener('load', init);
@@ -2807,6 +2821,7 @@ function showMacroSection(name, btn) {
     if (!confirmLeave()) return;
     clearDirty();
   }
+  sessionStorage.setItem('cassa_tab', name);
   document.querySelectorAll('.macro-section').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
   const el = document.getElementById('macro-' + name);
