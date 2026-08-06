@@ -597,6 +597,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        const itFmt  = n => Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+        const itParse = s => parseFloat(String(s||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.')) || 0;
         const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -979,7 +981,7 @@ function removeGroup(groupId) {
 
             // Update row total — product cost only; confez is tracked separately
             const rowTotal = qty * price;
-            row.querySelector('.row-total').textContent = rowTotal.toFixed(2).replace('.', ',');
+            row.querySelector('.row-total').textContent = itFmt(rowTotal);
 
             if (currentType === 'bomboniere') {
                 calcSubtotal(groupId);
@@ -999,35 +1001,34 @@ function calcSubtotal(groupId) {
     const container = document.getElementById(`rows-container-${groupId}`);
     if (container) {
         container.querySelectorAll('.row-total').forEach(el => {
-            sub += parseFloat(el.textContent.replace(',', '.')) || 0;
+            sub += itParse(el.textContent);
         });
         // Confezionamento del gruppo (solo se checkbox CB è flaggata)
         const confezTot = document.getElementById(`confez-total-${groupId}`);
         const confezOn = document.getElementById(`check-conf-${groupId}`)?.checked;
-        if (confezTot && confezOn) sub += parseFloat(confezTot.textContent.replace(',', '.')) || 0;
+        if (confezTot && confezOn) sub += itParse(confezTot.textContent);
 
         const subtotalEl = document.getElementById(`subtotal-${groupId}`);
-        if (subtotalEl) subtotalEl.textContent = '€ ' + sub.toFixed(2).replace('.', ',');
+        if (subtotalEl) subtotalEl.textContent = '€ ' + itFmt(sub);
     }
 }
             
         function calcGrandTotal() {
             let grand = 0;
             document.querySelectorAll('.row-total').forEach(el => {
-                grand += parseFloat(el.textContent.replace(',', '.')) || 0;
+                grand += itParse(el.textContent);
             });
             document.querySelectorAll('.confez-total-cell').forEach(el => {
                 const gid = el.id.replace('confez-total-', '');
                 if (document.getElementById(`check-conf-${gid}`)?.checked)
-                    grand += parseFloat(el.textContent.replace(',', '.')) || 0;
+                    grand += itParse(el.textContent);
             });
 
-            document.getElementById('grand-total').textContent = '€ ' + grand.toFixed(2).replace('.', ',');
+            document.getElementById('grand-total').textContent = '€ ' + itFmt(grand);
 
-            const accontoText = document.getElementById('acconto').value.replace('€', '').replace(',', '.').trim();
-            const acconto = parseFloat(accontoText) || 0;
+            const acconto = itParse(document.getElementById('acconto').value);
             const saldo = Math.max(0, grand - acconto);
-            document.getElementById('saldo-finale').textContent = '€ ' + saldo.toFixed(2).replace('.', ',');
+            document.getElementById('saldo-finale').textContent = '€ ' + itFmt(saldo);
 
             if (currentType === 'bomboniere') calcBomboniereBreakdown();
         }
@@ -1042,8 +1043,7 @@ function calcSubtotal(groupId) {
         }
 
         function formatCurrency(input) {
-            const val = parseFloat(input.value.replace('€', '').replace(',', '.').trim()) || 0;
-            input.value = '€ ' + val.toFixed(2).replace('.', ',');
+            input.value = '€ ' + itFmt(itParse(input.value));
         }
 
         function removeRow(rowId, groupId) {
@@ -1487,7 +1487,7 @@ function calcSubtotal(groupId) {
                         da_altri_qta:  daAltriQta,
                         da_altri_at:   daAltriQta > 0 ? _now : null,
                         da_altri_spec: row.querySelector('.altri-spec-input').value,
-                        totale: parseFloat(row.querySelector('.row-total').textContent.replace(',', '.')) || 0,
+                        totale: itParse(row.querySelector('.row-total').textContent),
                         confezionamento: isConfez,
                         confez_tipo: confezTipo,
                         confez_costo: confezCosto,
@@ -1535,9 +1535,9 @@ function calcSubtotal(groupId) {
                     cliente_email: getValueSafe('cust-email'),
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),
                     modalita_consegna: getCheckedValueSafe('mod_consegna'),
-                    totale_ordine: parseFloat((document.getElementById('grand-total')?.textContent || '0').replace('€', '').replace(',', '.').trim()) || 0,
-                    acconto: parseFloat((getValueSafe('acconto') || '0').replace('€', '').replace(',', '.').trim()) || 0,
-                    da_pagare: parseFloat((document.getElementById('saldo-finale')?.textContent || '0').replace('€', '').replace(',', '.').trim()) || 0,
+                    totale_ordine: itParse(document.getElementById('grand-total')?.textContent),
+                    acconto: itParse(getValueSafe('acconto')),
+                    da_pagare: itParse(document.getElementById('saldo-finale')?.textContent),
                     note: getValueSafe('order-notes'),
                     articoli: articoli,
                     stato: articoli.length > 0 && articoli.every(a => (parseInt(a.merce_pronta) || 0) >= (parseInt(a.qta) || 0)) ? 'merce_pronta' : 'in_corso',
@@ -1761,7 +1761,7 @@ function calcConfezOmaggio(groupId) {
     }
     const qty = parseInt(document.getElementById(`confez-qty-${groupId}`)?.value) || 0;
     const cost = parseFloat(document.getElementById(`confez-cost-inp-${groupId}`)?.value.replace('€','').replace(',','.').trim()) || 0;
-    if (totalEl) totalEl.textContent = (qty * cost).toFixed(2).replace('.', ',');
+    if (totalEl) totalEl.textContent = itFmt(qty * cost);
     calcOmaggioDisp(groupId);
     calcSubtotal(groupId);
     calcGrandTotal();
@@ -1808,7 +1808,7 @@ function toggleConfezTipo(groupId) {
         if (flagChecked && cartRow) cartRow.style.display = 'table-row';
         if (costInp) {
             const prev = parseFloat(costInp.dataset.prevPrice) || 3;
-            costInp.value = '€ ' + prev.toFixed(2).replace('.', ',');
+            costInp.value = '€ ' + itFmt(prev);
         }
     }
     calcConfezOmaggio(groupId);
@@ -1860,9 +1860,9 @@ function toggleGusto(groupId) {
             document.querySelectorAll('[id^="confez-total-"]').forEach(el => {
                 const gid = el.id.replace('confez-total-', '');
                 if (document.getElementById(`check-conf-${gid}`)?.checked)
-                    subtotConfez += parseFloat(el.textContent.replace(',', '.')) || 0;
+                    subtotConfez += itParse(el.textContent);
             });
-            const fmt = n => '€ ' + n.toFixed(2).replace('.', ',');
+            const fmt = n => '€ ' + itFmt(n);
             const bEl = document.getElementById('breakdown-bomb');
             const cEl = document.getElementById('breakdown-confez');
             const tEl = document.getElementById('breakdown-total');
@@ -1879,7 +1879,7 @@ function toggleGusto(groupId) {
             const clienteNome = getValueSafe('cust-nome');
             const clienteCognome = getValueSafe('cust-cognome');
             const emporio = getValueSafe('select-emporio');
-            const fmt = n => '€ ' + n.toFixed(2).replace('.', ',');
+            const fmt = n => '€ ' + itFmt(n);
             let tableRows = '', subtotBomb = 0, subtotConfez = 0;
             const groupsSeen = new Set();
 
@@ -1897,7 +1897,7 @@ function toggleGusto(groupId) {
                     groupsSeen.add(gruppoId);
                     if (document.getElementById(`check-conf-${gruppoId}`)?.checked) {
                         const confezTotEl = document.getElementById(`confez-total-${gruppoId}`);
-                        subtotConfez += parseFloat(confezTotEl?.textContent.replace(',', '.')) || 0;
+                        subtotConfez += itParse(confezTotEl?.textContent);
                     }
                 }
 
