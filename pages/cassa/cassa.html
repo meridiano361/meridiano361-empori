@@ -873,16 +873,7 @@ input[type=month].btn-export{min-width:160px;}
         <option value="">Tutti gli empori</option>
         <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
       </select>
-      <select id="iva-filter-anno" onchange="loadIvaData()" class="btn-export">
-        <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
-      </select>
-      <select id="iva-filter-mese" onchange="loadIvaData()" class="btn-export">
-        <option value="">Tutti i mesi</option>
-        <option value="01">Gennaio</option><option value="02">Febbraio</option><option value="03">Marzo</option>
-        <option value="04">Aprile</option><option value="05">Maggio</option><option value="06">Giugno</option>
-        <option value="07">Luglio</option><option value="08">Agosto</option><option value="09">Settembre</option>
-        <option value="10">Ottobre</option><option value="11">Novembre</option><option value="12">Dicembre</option>
-      </select>
+      <input type="month" id="iva-filter-mese" onchange="loadIvaData()" class="btn-export">
       <button class="btn-export" onclick="exportTableCSV('iva-table','riepilogo_iva')"><i class="fas fa-file-csv"></i> Esporta CSV</button>
       <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
     </div>
@@ -2847,9 +2838,8 @@ function showMacroSection(name, btn) {
     if (cm && !cm.value) cm.value = meseCorrente;
     const vm = document.getElementById('vm-filter-mese');
     if (vm && !vm.value) vm.value = meseCorrente;
-    document.getElementById('iva-filter-anno').value = annoCorrente;
     const im = document.getElementById('iva-filter-mese');
-    if (im && !im.value) im.value = String(oggi.getMonth()+1).padStart(2,'0');
+    if (im && !im.value) im.value = meseCorrente;
     loadIvaData();
   }
   if (name === 'commerciale') {
@@ -2871,9 +2861,7 @@ function showSubTab(section, name, btn) {
   if (name === 'iva') {
     const oggi2 = new Date();
     const im = document.getElementById('iva-filter-mese');
-    if (im && !im.value) im.value = String(oggi2.getMonth()+1).padStart(2,'0');
-    const ia = document.getElementById('iva-filter-anno');
-    if (ia && !ia.value) ia.value = String(oggi2.getFullYear());
+    if (im && !im.value) im.value = new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
     loadIvaData();
   }
   if (name === 'pagamenti') loadPagamentiData();
@@ -2963,8 +2951,9 @@ const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scon
 ══════════════════════════════════════════════════════ */
 async function loadIvaData() {
   const emporio = document.getElementById('iva-filter-emporio').value;
-  const anno    = document.getElementById('iva-filter-anno').value;
-  const mese    = document.getElementById('iva-filter-mese').value;
+  const _ivaMese = document.getElementById('iva-filter-mese').value; // "YYYY-MM" o ""
+  const anno    = _ivaMese ? _ivaMese.slice(0,4) : String(new Date().getFullYear());
+  const mese    = _ivaMese ? _ivaMese.slice(5,7) : '';
   const tbody   = document.getElementById('iva-body');
   const cols    = mese ? 18 : 16;
   tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>`;
