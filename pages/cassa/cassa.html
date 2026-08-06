@@ -875,16 +875,17 @@ input[type=month].btn-export{min-width:160px;}
       <button class="btn-export" onclick="exportTableCSV('iva-table','riepilogo_iva')"><i class="fas fa-file-csv"></i> Esporta CSV</button>
       <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
     </div>
+    <div id="iva-section-title" style="font-size:15px;font-weight:800;color:#1e293b;letter-spacing:.01em;margin-bottom:4px;min-height:22px"></div>
     <div class="kpi-grid" id="iva-kpi"></div>
     <div style="overflow-x:auto">
       <table class="admin-table" id="iva-table">
         <thead><tr>
-          <th>Periodo</th><th>Emporio</th>
+          <th>Periodo</th>
           <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 10%</th>
           <th class="number">IVA 22%</th><th class="number">Esente</th>
           <th class="number">Tot. IVA €</th><th class="number">Netto €</th>
         </tr></thead>
-        <tbody id="iva-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona i filtri per caricare i dati</td></tr></tbody>
+        <tbody id="iva-body"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:40px">Seleziona i filtri per caricare i dati</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -2699,7 +2700,7 @@ async function loadIvaData() {
   const anno    = document.getElementById('iva-filter-anno').value;
   const mese    = document.getElementById('iva-filter-mese').value;
   const tbody   = document.getElementById('iva-body');
-  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
     const emps = emporio ? [emporio] : EMPORIOS_NOTI;
     const chiavi = mese ? emps.flatMap(e => chiaveMonth(e, anno, mese))
@@ -2724,7 +2725,7 @@ async function loadIvaData() {
 
     const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
     if (!aggRows.length) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato per il periodo selezionato</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato per il periodo selezionato</td></tr>';
       document.getElementById('iva-kpi').innerHTML = '';
       return;
     }
@@ -2736,7 +2737,7 @@ async function loadIvaData() {
       tL+=r.lordo; t4+=r.iva4; t10+=r.iva10; t22+=r.iva22; tEs+=r.esente;
       const label = mese ? fmtData(r.periodo) : fmtData(r.periodo+'-01',{month:'long',year:'numeric'});
       return `<tr>
-        <td>${label}</td><td>${r.emporio}</td>
+        <td>${label}</td>
         <td class="number">${fmt(r.lordo)}</td>
         <td class="number">${fmt(r.iva4)}</td>
         <td class="number">${fmt(r.iva10)}</td>
@@ -2749,13 +2750,18 @@ async function loadIvaData() {
 
     const tIvaTot = t4+t10+t22;
     tbody.innerHTML += `<tr class="total-row">
-      <td colspan="2"><strong>TOTALE</strong></td>
+      <td><strong>TOTALE</strong></td>
       <td class="number">${fmt(tL)}</td>
       <td class="number">${fmt(t4)}</td><td class="number">${fmt(t10)}</td>
       <td class="number">${fmt(t22)}</td><td class="number">${fmt(tEs)}</td>
       <td class="number"><strong>${fmt(tIvaTot)}</strong></td>
       <td class="number"><strong>${fmt(tL-tIvaTot-tEs)}</strong></td>
     </tr>`;
+
+    // Titolo "Cremona, gennaio 2026"
+    const meseLabel = mese ? new Date(anno+'-'+mese+'-01').toLocaleDateString('it-IT',{month:'long',year:'numeric'}) : anno;
+    const empLabel  = emporio || 'Tutti gli empori';
+    document.getElementById('iva-section-title').textContent = empLabel + ', ' + meseLabel;
 
     document.getElementById('iva-kpi').innerHTML = `
       <div class="kpi-card"><div class="kpi-label">Totale Lordo</div><div class="kpi-value">${fmt(tL)}</div></div>
@@ -2766,7 +2772,7 @@ async function loadIvaData() {
       <div class="kpi-card"><div class="kpi-label">IVA 4%</div><div class="kpi-value">${fmt(t4)}</div></div>
     `;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
 
