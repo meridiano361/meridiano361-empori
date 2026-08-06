@@ -2290,14 +2290,19 @@ function loadEsenteVoci(arr) {
   (arr||[]).forEach(v => addEsenteVoce(v.tipo||'gift card', v.importo||'', v.specifica||''));
 }
 
-function showEsenteTooltip(json, evt) {
+function showEsenteTooltip(el, evt) {
   evt.stopPropagation();
-  let arr;
-  try { arr = typeof json === 'string' ? JSON.parse(json) : json; } catch(e) { return; }
   const tip = document.getElementById('esente-tooltip');
-  tip.innerHTML = arr.map(v =>
-    `<div><strong>${v.tipo}${v.specifica?' ('+v.specifica+')':''}</strong>: ${fmt(v.importo)}</div>`
-  ).join('');
+  const raw = el.dataset.det;
+  if (!raw) {
+    tip.innerHTML = '<em style="color:#94a3b8;font-weight:500">Nessun dettaglio inserito.<br>Usa la scheda Giornata → IVA giornaliera<br>per aggiungere le voci esenti.</em>';
+  } else {
+    let arr;
+    try { arr = JSON.parse(raw); } catch(e) { return; }
+    tip.innerHTML = arr.map(v =>
+      `<div><strong>${v.tipo}${v.specifica?' ('+v.specifica+')':''}</strong>: ${fmt(v.importo)}</div>`
+    ).join('');
+  }
   tip.style.display = 'block';
   const x = Math.min(evt.clientX+10, window.innerWidth-280);
   const y = Math.min(evt.clientY+10, window.innerHeight-120);
@@ -3037,8 +3042,11 @@ async function loadIvaData() {
       const label = mese
         ? (() => { const [,mm,dd] = r.periodo.split('-'); const dt = new Date(+r.periodo.slice(0,4), +mm-1, +dd); return dt.toLocaleDateString('it-IT',{weekday:'short'})+' '+dd+'.'+mm; })()
         : fmtData(r.periodo+'-01',{month:'long',year:'numeric'});
-      const esenteClick = r.esente_dettaglio
-        ? ` onclick="showEsenteTooltip(${JSON.stringify(r.esente_dettaglio)},event)" style="cursor:pointer;text-decoration:underline dotted #3b82f6" title="Vedi dettaglio esente"`
+      const esenteDet = r.esente_dettaglio
+        ? (typeof r.esente_dettaglio === 'string' ? r.esente_dettaglio : JSON.stringify(r.esente_dettaglio))
+        : '';
+      const esenteClick = r.esente > 0
+        ? ` onclick="showEsenteTooltip(this,event)" data-det="${esenteDet.replace(/"/g,'&quot;')}" style="cursor:pointer;text-decoration:underline dotted ${esenteDet?'#3b82f6':'#94a3b8'}" title="${esenteDet?'Vedi dettaglio esente':'Nessun dettaglio inserito'}"`
         : '';
       const adminCols = mese ? `
         <td style="text-align:center;${bc}"><input type="checkbox" class="iva-admin-ok" ${r.admin_ok?'checked':''} onchange="saveAdminIvaOk('${r.chiave}',this.checked)" title="Verifica ok"></td>
