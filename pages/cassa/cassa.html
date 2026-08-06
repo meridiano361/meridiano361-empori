@@ -2327,21 +2327,14 @@ function hasOnlineNoteContent(raw) {
 function showPagNote(el, evt) {
   evt.stopPropagation();
   const tip = document.getElementById('esente-tooltip');
-  let rawObj;
-  try { rawObj = JSON.parse(el.dataset.mn || '{}'); } catch(e) { return; }
+  const raw = el.dataset.mn || '';
+  const d = parseOnlineNote(raw);
   const lines = [];
-  const fmtPagNote = (label, rawNote) => {
-    const d = parseOnlineNote(rawNote);
-    if (!d.voci.length && !(d.libera||'').trim()) return;
-    lines.push('<div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.05em;margin-top:4px">'+label+'</div>');
-    d.voci.forEach(v => {
-      const sito = v.sito ? ' <span style="color:#94a3b8">('+v.sito+')</span>' : '';
-      lines.push('<div>'+(v.nome||'')+(sito)+' — <strong>'+fmt(v.importo)+'</strong></div>');
-    });
-    if ((d.libera||'').trim()) lines.push('<div style="color:#94a3b8;font-style:italic">'+d.libera+'</div>');
-  };
-  fmtPagNote('MATTINO', rawObj.mat || '');
-  fmtPagNote('POMERIGGIO', rawObj.pom || '');
+  d.voci.forEach(v => {
+    const sito = v.sito ? ' <span style="color:#94a3b8">('+v.sito+')</span>' : '';
+    lines.push('<div>'+(v.nome||'')+(sito)+' — <strong>'+fmt(v.importo)+'</strong></div>');
+  });
+  if ((d.libera||'').trim()) lines.push('<div style="color:#94a3b8;font-style:italic">'+d.libera+'</div>');
   tip.innerHTML = lines.join('') || '<em style="color:#94a3b8">Nota vuota</em>';
   tip.style.display = 'block';
   const x = Math.min(evt.clientX+10, window.innerWidth-280);
@@ -3182,11 +3175,12 @@ async function loadPagamentiData() {
       tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
       return;
     }
-    // Cella con indicatore nota (sottolineatura arancione se c'è nota)
+    // Cella con indicatore nota: usa solo il turno di chiusura della giornata
     const nc = (amount, mid, r) => {
-      const mn = r['note_mat_pay_'+mid]||'', pn = r['note_pom_pay_'+mid]||'';
-      if (!hasOnlineNoteContent(mn) && !hasOnlineNoteContent(pn)) return `<td class="number">${fmt(amount)}</td>`;
-      const enc = JSON.stringify({mat:mn,pom:pn}).replace(/"/g,'&quot;');
+      const hasPom = parseFloat(r.pom_corrispettivi || 0) > 0;
+      const noteRaw = hasPom ? (r['note_pom_pay_'+mid]||'') : (r['note_mat_pay_'+mid]||'');
+      if (!hasOnlineNoteContent(noteRaw)) return `<td class="number">${fmt(amount)}</td>`;
+      const enc = noteRaw.replace(/"/g,'&quot;');
       return `<td class="number"><span class="pag-has-note" onclick="showPagNote(this,event)" data-mn="${enc}" title="Vedi nota">${fmt(amount)}</span></td>`;
     };
     const T = {cont:0,banc:0,carte:0,sati:0,satOnl:0,carteOnl:0,pp:0,bon:0,gift:0,buoni:0,rimb:0,tot:0};
