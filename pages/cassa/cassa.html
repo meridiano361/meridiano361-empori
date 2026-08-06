@@ -218,9 +218,10 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .op-mini-save{padding:9px 16px;background:#B5453A;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:'Nunito', sans-serif;white-space:nowrap;}
 .op-mini-save:hover{background:#8c362d;}
 .op-mini-cancel{padding:9px 12px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:'Nunito', sans-serif;color:#64748b;}
-.op-chips-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
-.op-chip{display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:3px 8px 3px 11px;font-size:11px;font-family:'Nunito', sans-serif;color:#475569;line-height:1.4;}
-.op-chip-x{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;padding:0 1px;transition:color .1s;font-family:'Nunito', sans-serif;}
+.op-chips-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.op-chip{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #e2e8f0;border-radius:40px;padding:4px 12px 4px 4px;font-size:13px;font-family:'Nunito',sans-serif;color:#1e293b;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.op-chip-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;flex-shrink:0;letter-spacing:.02em;}
+.op-chip-x{background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:18px;line-height:1;padding:0 2px;transition:color .1s;font-family:'Nunito',sans-serif;margin-left:2px;}
 .op-chip-x:hover{color:#B5453A;}
 
 /* ── TIPO TURNO ── */
@@ -2059,11 +2060,20 @@ function removeOpFromShift(turno, nome) {
   markDirty();
 }
 
+const OP_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b'];
+function opColor(name) { return OP_COLORS[name.split('').reduce((a,c)=>a+c.charCodeAt(0),0) % OP_COLORS.length]; }
+function opInitials(name) { return name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase(); }
+
 function renderShiftOps(turno) {
   const list=document.getElementById('op-list-'+turno); if(!list) return;
   list.innerHTML=selectedOps[turno].map(op=>{
     const safe=op.replace(/'/g,'\\x27');
-    return `<span class="op-chip">${op}<button class="op-chip-x" onclick="removeOpFromShift('${turno}','${safe}')" title="Rimuovi dal turno">×</button></span>`;
+    const col=opColor(op), ini=opInitials(op);
+    return `<span class="op-chip">
+      <span class="op-chip-av" style="background:${col}">${ini}</span>
+      ${op}
+      <button class="op-chip-x" onclick="removeOpFromShift('${turno}','${safe}')" title="Rimuovi">×</button>
+    </span>`;
   }).join('');
 }
 
