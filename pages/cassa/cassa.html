@@ -285,6 +285,8 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
 .iva-amm-note-btn:hover{color:#B5453A;}
 .iva-amm-note-btn.has-note{color:#B5453A;}
+#iva-table .iva-gh{text-align:center;border-left:2px solid #e2e8f0;}
+#iva-table .iva-gb{border-left:2px solid #e2e8f0;}
 /* esente dettaglio floating tooltip */
 #esente-tooltip{position:fixed;background:#1e293b;color:#fff;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;z-index:9999;max-width:260px;line-height:1.7;box-shadow:0 4px 20px rgba(0,0,0,.25);display:none;}
 .iva-summary{background:#fdf1f0;border-radius:16px;padding:16px 20px;margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
@@ -884,13 +886,24 @@ input[type=month].btn-export{min-width:160px;}
     <div class="kpi-grid" id="iva-kpi"></div>
     <div style="overflow-x:auto">
       <table class="admin-table" id="iva-table">
-        <thead><tr>
-          <th>Data</th>
-          <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 10%</th>
-          <th class="number">IVA 22%</th><th class="number">Esente</th>
-          <th class="number">Tot. IVA €</th><th class="number">Netto €</th>
-        </tr></thead>
-        <tbody id="iva-body"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:40px">Seleziona i filtri per caricare i dati</td></tr></tbody>
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:bottom">Data</th>
+            <th colspan="3" class="iva-gh">Totale</th>
+            <th colspan="3" class="iva-gh">22%</th>
+            <th colspan="3" class="iva-gh">10%</th>
+            <th colspan="3" class="iva-gh">4%</th>
+            <th colspan="3" class="iva-gh">Esente</th>
+          </tr>
+          <tr>
+            <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+            <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+            <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+            <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+            <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+          </tr>
+        </thead>
+        <tbody id="iva-body"><tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:40px">Seleziona i filtri per caricare i dati</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -2929,17 +2942,32 @@ async function loadIvaData() {
   const anno    = document.getElementById('iva-filter-anno').value;
   const mese    = document.getElementById('iva-filter-mese').value;
   const tbody   = document.getElementById('iva-body');
-  const cols    = mese ? 10 : 8;  // 8 base + 2 admin quando c'è il mese
+  const cols    = mese ? 18 : 16;
   tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>`;
 
-  // Aggiorna header tabella
-  const thead = document.querySelector('#iva-table thead tr');
+  // Aggiorna header tabella (2 righe: gruppo + sotto-colonne)
+  const thead = document.querySelector('#iva-table thead');
   if (thead) {
-    const adminCols = mese ? '<th style="text-align:center;width:30px">✓</th><th style="width:30px"></th>' : '';
-    thead.innerHTML = `<th>Data</th>
-      <th class="number">Lordo €</th><th class="number">IVA 4%</th><th class="number">IVA 10%</th>
-      <th class="number">IVA 22%</th><th class="number">Esente</th>
-      <th class="number">Tot. IVA €</th><th class="number">Netto €</th>${adminCols}`;
+    const adminCols = mese
+      ? '<th rowspan="2" style="text-align:center;vertical-align:bottom;border-left:2px solid #e2e8f0;width:30px">✓</th><th rowspan="2" style="width:30px"></th>'
+      : '';
+    thead.innerHTML = `
+      <tr>
+        <th rowspan="2" style="vertical-align:bottom">Data</th>
+        <th colspan="3" class="iva-gh">Totale</th>
+        <th colspan="3" class="iva-gh">22%</th>
+        <th colspan="3" class="iva-gh">10%</th>
+        <th colspan="3" class="iva-gh">4%</th>
+        <th colspan="3" class="iva-gh">Esente</th>
+        ${adminCols}
+      </tr>
+      <tr>
+        <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+        <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+        <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+        <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+        <th class="number iva-gb">Lordo</th><th class="number">Netto</th><th class="number">IVA</th>
+      </tr>`;
   }
 
   try {
@@ -2959,17 +2987,17 @@ async function loadIvaData() {
         periodo: mese ? r.data : r.data.slice(0,7),
         emporio: r.emporio,
         chiave: r.chiave,
-        lordo:0, iva4:0, iva10:0, iva22:0, esente:0,
+        lordo: 0, lordo22: 0, lordo10: 0, lordo4: 0, esente: 0,
         esente_dettaglio: r.iva_esente_dettaglio || null,
-        admin_ok:   r.iva_admin_ok   || false,
+        admin_ok: r.iva_admin_ok || false,
         admin_note: r.iva_admin_note || ''
       };
       const g = map[key];
-      g.lordo  += r.totale_corrispettivi;
-      g.iva4   += parseFloat(r.iva_4  ||0) * 4  / 104;
-      g.iva10  += parseFloat(r.iva_10 ||0) * 10 / 110;
-      g.iva22  += parseFloat(r.iva_22 ||0) * 22 / 122;
-      g.esente += parseFloat(r.iva_esente||0);
+      g.lordo   += r.totale_corrispettivi;
+      g.lordo22 += parseFloat(r.iva_22 || 0);
+      g.lordo10 += parseFloat(r.iva_10 || 0);
+      g.lordo4  += parseFloat(r.iva_4  || 0);
+      g.esente  += parseFloat(r.iva_esente || 0);
     });
 
     const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
@@ -2979,45 +3007,76 @@ async function loadIvaData() {
       return;
     }
 
-    let tL=0,t4=0,t10=0,t22=0,tEs=0;
+    let tL=0, tL22=0, tL10=0, tL4=0, tEs=0;
+    const bc = 'border-left:2px solid #e2e8f0;';
     tbody.innerHTML = aggRows.map(r => {
-      const totIva = r.iva4+r.iva10+r.iva22;
-      const netto  = r.lordo - totIva - r.esente;
-      tL+=r.lordo; t4+=r.iva4; t10+=r.iva10; t22+=r.iva22; tEs+=r.esente;
+      const iva22  = r.lordo22 * 22/122;
+      const net22  = r.lordo22 * 100/122;
+      const iva10  = r.lordo10 * 10/110;
+      const net10  = r.lordo10 * 100/110;
+      const iva4   = r.lordo4  * 4/104;
+      const net4   = r.lordo4  * 100/104;
+      const totIva = iva22 + iva10 + iva4;
+      const totNet = r.lordo - totIva;
+      tL+=r.lordo; tL22+=r.lordo22; tL10+=r.lordo10; tL4+=r.lordo4; tEs+=r.esente;
       const label = mese ? fmtData(r.periodo) : fmtData(r.periodo+'-01',{month:'long',year:'numeric'});
       const noteIcon = r.esente_dettaglio
         ? ` <span class="iva-note-icon" onclick="showEsenteTooltip(${JSON.stringify(r.esente_dettaglio)},event)" title="Vedi dettaglio esente"><i class="fas fa-file-alt"></i></span>`
         : '';
       const adminCols = mese ? `
-        <td style="text-align:center"><input type="checkbox" class="iva-admin-ok" ${r.admin_ok?'checked':''} onchange="saveAdminIvaOk('${r.chiave}',this.checked)" title="Verifica ok"></td>
+        <td style="text-align:center;${bc}"><input type="checkbox" class="iva-admin-ok" ${r.admin_ok?'checked':''} onchange="saveAdminIvaOk('${r.chiave}',this.checked)" title="Verifica ok"></td>
         <td><button class="iva-amm-note-btn${r.admin_note?' has-note':''}" onclick="editAdminIvaNota('${r.chiave}',this)" data-nota="${(r.admin_note||'').replace(/"/g,'&quot;')}" title="${r.admin_note?r.admin_note.replace(/"/g,'&quot;'):'Aggiungi nota'}"><i class="fas fa-sticky-note"></i></button></td>
       ` : '';
       return `<tr>
         <td>${label}</td>
-        <td class="number">${fmt(r.lordo)}</td>
-        <td class="number">${fmt(r.iva4)}</td>
-        <td class="number">${fmt(r.iva10)}</td>
-        <td class="number">${fmt(r.iva22)}</td>
-        <td class="number">${fmt(r.esente)}${noteIcon}</td>
-        <td class="number"><strong>${fmt(totIva)}</strong></td>
-        <td class="number">${fmt(netto)}</td>
+        <td class="number" style="${bc}">${fmt(r.lordo)}</td>
+        <td class="number">${fmt(totNet)}</td>
+        <td class="number">${fmt(totIva)}</td>
+        <td class="number" style="${bc}">${fmt(r.lordo22)}</td>
+        <td class="number">${fmt(net22)}</td>
+        <td class="number">${fmt(iva22)}</td>
+        <td class="number" style="${bc}">${fmt(r.lordo10)}</td>
+        <td class="number">${fmt(net10)}</td>
+        <td class="number">${fmt(iva10)}</td>
+        <td class="number" style="${bc}">${fmt(r.lordo4)}</td>
+        <td class="number">${fmt(net4)}</td>
+        <td class="number">${fmt(iva4)}</td>
+        <td class="number" style="${bc}">${fmt(r.esente)}${noteIcon}</td>
+        <td class="number">${fmt(r.esente)}</td>
+        <td class="number">–</td>
         ${adminCols}
       </tr>`;
     }).join('');
 
-    const tIvaTot = t4+t10+t22;
-    const adminTotCols = mese ? '<td></td><td></td>' : '';
+    const tIva22  = tL22 * 22/122;
+    const tNet22  = tL22 * 100/122;
+    const tIva10  = tL10 * 10/110;
+    const tNet10  = tL10 * 100/110;
+    const tIva4   = tL4  * 4/104;
+    const tNet4   = tL4  * 100/104;
+    const tIvaTot = tIva22 + tIva10 + tIva4;
+    const tNetto  = tL - tIvaTot;
+    const adminTotCols = mese ? `<td style="${bc}"></td><td></td>` : '';
     tbody.innerHTML += `<tr class="total-row">
       <td><strong>TOTALE</strong></td>
-      <td class="number">${fmt(tL)}</td>
-      <td class="number">${fmt(t4)}</td><td class="number">${fmt(t10)}</td>
-      <td class="number">${fmt(t22)}</td><td class="number">${fmt(tEs)}</td>
+      <td class="number" style="${bc}"><strong>${fmt(tL)}</strong></td>
+      <td class="number"><strong>${fmt(tNetto)}</strong></td>
       <td class="number"><strong>${fmt(tIvaTot)}</strong></td>
-      <td class="number"><strong>${fmt(tL-tIvaTot-tEs)}</strong></td>
+      <td class="number" style="${bc}">${fmt(tL22)}</td>
+      <td class="number">${fmt(tNet22)}</td>
+      <td class="number">${fmt(tIva22)}</td>
+      <td class="number" style="${bc}">${fmt(tL10)}</td>
+      <td class="number">${fmt(tNet10)}</td>
+      <td class="number">${fmt(tIva10)}</td>
+      <td class="number" style="${bc}">${fmt(tL4)}</td>
+      <td class="number">${fmt(tNet4)}</td>
+      <td class="number">${fmt(tIva4)}</td>
+      <td class="number" style="${bc}">${fmt(tEs)}</td>
+      <td class="number">${fmt(tEs)}</td>
+      <td class="number">–</td>
       ${adminTotCols}
     </tr>`;
 
-    // Titolo
     const meseLabel = mese ? new Date(anno+'-'+mese+'-01').toLocaleDateString('it-IT',{month:'long',year:'numeric'}) : anno;
     const empLabel  = emporio || 'Tutti gli empori';
     document.getElementById('iva-section-title').textContent = empLabel + ', ' + meseLabel;
@@ -3025,11 +3084,11 @@ async function loadIvaData() {
     document.getElementById('iva-kpi').innerHTML = `
       <div class="kpi-card"><div class="kpi-label">Totale Lordo</div><div class="kpi-value">${fmt(tL)}</div></div>
       <div class="kpi-card"><div class="kpi-label">Totale IVA</div><div class="kpi-value" style="color:#B5453A">${fmt(tIvaTot)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">Totale Netto</div><div class="kpi-value">${fmt(tL-tIvaTot-tEs)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Totale Netto</div><div class="kpi-value">${fmt(tNetto)}</div></div>
       <div class="kpi-card"><div class="kpi-label">IVA Esente</div><div class="kpi-value">${fmt(tEs)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">IVA 22%</div><div class="kpi-value">${fmt(t22)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">IVA 10%</div><div class="kpi-value">${fmt(t10)}</div></div>
-      <div class="kpi-card"><div class="kpi-label">IVA 4%</div><div class="kpi-value">${fmt(t4)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">IVA 22%</div><div class="kpi-value">${fmt(tIva22)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">IVA 10%</div><div class="kpi-value">${fmt(tIva10)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">IVA 4%</div><div class="kpi-value">${fmt(tIva4)}</div></div>
     `;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
