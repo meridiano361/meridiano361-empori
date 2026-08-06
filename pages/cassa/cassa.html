@@ -282,6 +282,9 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .iva-note-icon{cursor:pointer;color:#3b82f6;margin-left:5px;font-size:11px;vertical-align:middle;}
 .iva-note-icon:hover{color:#1d4ed8;}
 .iva-admin-ok{width:15px;height:15px;accent-color:#22c55e;cursor:pointer;vertical-align:middle;}
+.pag-contab-ok{width:15px;height:15px;accent-color:#22c55e;cursor:pointer;vertical-align:middle;}
+.pag-has-note{cursor:pointer;text-decoration:underline dotted #f59e0b;color:inherit;}
+.pag-has-note:hover{color:#d97706;}
 .iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
 .iva-amm-note-btn:hover{color:#B5453A;}
 .iva-amm-note-btn.has-note{color:#B5453A;}
@@ -922,7 +925,7 @@ input[type=month].btn-export{min-width:160px;}
           <th class="number">Satispay</th><th class="number">Satis. Online</th><th class="number">Carte Online</th>
           <th class="number">PayPal</th><th class="number">Bonifico</th><th class="number">Gift Card</th>
           <th class="number">Buoni</th><th class="number">Rimborsi</th><th class="number">Totale</th>
-          <th>Note pagamenti</th>
+          <th style="text-align:center;width:30px">✓</th>
         </tr></thead>
         <tbody id="pag-body"><tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
       </table>
@@ -2305,6 +2308,42 @@ function showEsenteTooltip(el, evt) {
   tip.style.top  = y+'px';
 }
 
+function hasOnlineNoteContent(raw) {
+  if (!raw) return false;
+  const d = parseOnlineNote(raw);
+  return d.voci.length > 0 || !!(d.libera || '').trim();
+}
+
+function showPagNote(el, evt) {
+  evt.stopPropagation();
+  const tip = document.getElementById('esente-tooltip');
+  let rawObj;
+  try { rawObj = JSON.parse(el.dataset.mn || '{}'); } catch(e) { return; }
+  const lines = [];
+  const fmtPagNote = (label, rawNote) => {
+    const d = parseOnlineNote(rawNote);
+    if (!d.voci.length && !(d.libera||'').trim()) return;
+    lines.push('<div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.05em;margin-top:4px">'+label+'</div>');
+    d.voci.forEach(v => {
+      const sito = v.sito ? ' <span style="color:#94a3b8">('+v.sito+')</span>' : '';
+      lines.push('<div>'+(v.nome||'')+(sito)+' — <strong>'+fmt(v.importo)+'</strong></div>');
+    });
+    if ((d.libera||'').trim()) lines.push('<div style="color:#94a3b8;font-style:italic">'+d.libera+'</div>');
+  };
+  fmtPagNote('MATTINO', rawObj.mat || '');
+  fmtPagNote('POMERIGGIO', rawObj.pom || '');
+  tip.innerHTML = lines.join('') || '<em style="color:#94a3b8">Nota vuota</em>';
+  tip.style.display = 'block';
+  const x = Math.min(evt.clientX+10, window.innerWidth-280);
+  const y = Math.min(evt.clientY+10, window.innerHeight-120);
+  tip.style.left = x+'px';
+  tip.style.top  = y+'px';
+}
+
+async function savePagContabOk(chiave, ok) {
+  await db.from('cassa_giorni').update({pag_contab_ok: ok}).eq('chiave', chiave);
+}
+
 async function saveAdminIvaOk(chiave, ok) {
   await db.from('cassa_giorni').update({iva_admin_ok: ok}).eq('chiave', chiave);
 }
@@ -2942,6 +2981,7 @@ function normCassa(rows) {
   }).sort((a, b) => (a.emporio||'').localeCompare(b.emporio||'') || a._day - b._day);
 }
 const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,note_giornata';
+const SEL_PAG  = SEL_FULL + ',note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
 const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
 const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata';
@@ -3123,7 +3163,7 @@ async function loadPagamentiData() {
       return;
     }
     const emps = emporio ? [emporio] : EMPORIOS_NOTI;
-    let q = db.from('cassa_giorni').select(SEL_FULL).in('chiave', emps.flatMap(e => chiaveMonth(e, mese.slice(0,4), mese.slice(5,7))));
+    let q = db.from('cassa_giorni').select(SEL_PAG).in('chiave', emps.flatMap(e => chiaveMonth(e, mese.slice(0,4), mese.slice(5,7))));
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
     if (error) throw error;
@@ -3132,6 +3172,13 @@ async function loadPagamentiData() {
       tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
       return;
     }
+    // Cella con indicatore nota (sottolineatura arancione se c'è nota)
+    const nc = (amount, mid, r) => {
+      const mn = r['note_mat_pay_'+mid]||'', pn = r['note_pom_pay_'+mid]||'';
+      if (!hasOnlineNoteContent(mn) && !hasOnlineNoteContent(pn)) return `<td class="number">${fmt(amount)}</td>`;
+      const enc = JSON.stringify({mat:mn,pom:pn}).replace(/"/g,'&quot;');
+      return `<td class="number"><span class="pag-has-note" onclick="showPagNote(this,event)" data-mn="${enc}" title="Vedi nota">${fmt(amount)}</span></td>`;
+    };
     const T = {cont:0,banc:0,carte:0,sati:0,satOnl:0,carteOnl:0,pp:0,bon:0,gift:0,buoni:0,rimb:0,tot:0};
     tbody.innerHTML = rows.map(r => {
       const gift = r.gift_card + r.gift_card_online;
@@ -3144,16 +3191,16 @@ async function loadPagamentiData() {
         <td class="number">${fmt(r.contanti)}</td>
         <td class="number">${fmt(r.bancomat)}</td>
         <td class="number">${fmt(r.carte_credito)}</td>
-        <td class="number">${fmt(r.satispay)}</td>
-        <td class="number">${fmt(r.satispay_online)}</td>
-        <td class="number">${fmt(r.carte_credito_online)}</td>
-        <td class="number">${fmt(r.paypal)}</td>
-        <td class="number">${fmt(r.bonifico)}</td>
-        <td class="number">${fmt(gift||null)}</td>
+        ${nc(r.satispay,'satispay',r)}
+        ${nc(r.satispay_online,'satispay_online',r)}
+        ${nc(r.carte_credito_online,'carte_online',r)}
+        ${nc(r.paypal,'paypal',r)}
+        ${nc(r.bonifico,'bonifico',r)}
+        ${nc(gift,'gift_card_online',r)}
         <td class="number">${fmt(r.buoni_altromercato)}</td>
-        <td class="number">${fmt(r.rimborsi_online)}</td>
+        ${nc(r.rimborsi_online,'rimborsi_online',r)}
         <td class="number"><strong>${fmt(r.totale_corrispettivi)}</strong></td>
-        <td style="font-size:11px;color:#64748b;max-width:200px">–</td>
+        <td style="text-align:center"><input type="checkbox" class="pag-contab-ok" ${r.pag_contab_ok?'checked':''} onchange="savePagContabOk('${r.chiave}',this.checked)" title="Registrato in contabilità"></td>
       </tr>`;
     }).join('');
     tbody.innerHTML += `<tr class="total-row">
@@ -3164,7 +3211,7 @@ async function loadPagamentiData() {
       <td class="number">${fmt(T.pp)}</td><td class="number">${fmt(T.bon)}</td>
       <td class="number">${fmt(T.gift)}</td><td class="number">${fmt(T.buoni)}</td>
       <td class="number">${fmt(T.rimb)}</td>
-      <td class="number"><strong>${fmt(T.tot)}</strong></td><td>–</td>
+      <td class="number"><strong>${fmt(T.tot)}</strong></td><td></td>
     </tr>`;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="15" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
