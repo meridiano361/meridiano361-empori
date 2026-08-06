@@ -349,9 +349,38 @@ input[type=month].btn-export{min-width:160px;}
 </head>
 <body>
 
-<nav class="main-nav">
+<!-- ══ LANDING: scelta emporio (visibile prima del nav) ══ -->
+<div id="landing-emp" class="main space-y" style="max-width:1100px;margin:0 auto;padding:24px 16px;">
+  <div class="card card-pad">
+    <div class="sec-title">Emporio</div>
+    <div class="emp-grid">
+      <div class="emp-card" onclick="selectEmp('Casalmaggiore')">
+        <div class="emp-icon"><img src="../../assets/images/logo_casalmaggiore.png" alt="Casalmaggiore" style="width:100%;height:100%;object-fit:cover;"></div>
+        <span class="emp-name">Casalmaggiore</span>
+      </div>
+      <div class="emp-card" onclick="selectEmp('Cremona')">
+        <div class="emp-icon"><img src="../../assets/images/logo_cremona.png" alt="Cremona" style="width:100%;height:100%;object-fit:cover;"></div>
+        <span class="emp-name">Cremona</span>
+      </div>
+      <div class="emp-card" onclick="selectEmp('Reggio Emilia')">
+        <div class="emp-icon"><img src="../../assets/images/logo_reggio_emilia.png" alt="Reggio Emilia" style="width:100%;height:100%;object-fit:cover;"></div>
+        <span class="emp-name">Reggio Emilia</span>
+      </div>
+      <div class="emp-card" onclick="selectEmp('Mantova')">
+        <div class="emp-icon"><img src="../../assets/images/logo_mantova.png" alt="Mantova" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<div style=\'width:100%;height:100%;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-weight:900;color:#7C3AED;font-size:18px\'>MA</div>'"></div>
+        <span class="emp-name">Mantova</span>
+      </div>
+      <div class="emp-card" onclick="selectEmp('Viadana')">
+        <div class="emp-icon"><img src="../../assets/images/logo_viadana.png" alt="Viadana" style="width:100%;height:100%;object-fit:cover;"></div>
+        <span class="emp-name">Viadana</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="main-nav" id="main-nav" style="display:none">
   <button class="nav-tab active" id="navtab-empori" onclick="showMacroSection('empori',this)">
-    <i class="fas fa-store"></i> Empori
+    <i class="fas fa-calendar-day"></i> Giornata
   </button>
   <button class="nav-tab" id="navtab-amministrazione" onclick="showMacroSection('amministrazione',this)">
     <i class="fas fa-file-invoice"></i> Amministrazione
@@ -365,48 +394,9 @@ input[type=month].btn-export{min-width:160px;}
 
 <main class="main space-y">
 
-  <!-- ══ STEP 1: Empori ══ -->
- <div id="step-emp" class="card card-pad">
-  <div class="sec-title">Emporio</div>
-  <div class="emp-grid">
-    
-    <div class="emp-card" onclick="selectEmp('Casalmaggiore')">
-      <div class="emp-icon">
-        <img src="../../assets/images/logo_casalmaggiore.png" alt="Casalmaggiore" style="width:100%; height:100%; object-fit:cover;">
-      </div>
-      <span class="emp-name">Casalmaggiore</span>
-    </div>
+  <!-- step-emp non più usato: selezione avviene nel landing -->
+  <div id="step-emp" class="card card-pad hidden"></div>
 
-    <div class="emp-card" onclick="selectEmp('Cremona')">
-      <div class="emp-icon">
-        <img src="../../assets/images/logo_cremona.png" alt="Cremona" style="width:100%; height:100%; object-fit:cover;">
-      </div>
-      <span class="emp-name">Cremona</span>
-    </div>
-
-    <div class="emp-card" onclick="selectEmp('Reggio Emilia')">
-      <div class="emp-icon">
-        <img src="../../assets/images/logo_reggio_emilia.png" alt="Reggio Emilia" style="width:100%; height:100%; object-fit:cover;">
-      </div>
-      <span class="emp-name">Reggio Emilia</span>
-    </div>
-
-    <div class="emp-card" onclick="selectEmp('Mantova')">
-      <div class="emp-icon">
-        <img src="../../assets/images/logo_mantova.png" alt="Mantova" style="width:100%; height:100%; object-fit:cover;" onerror="this.outerHTML='<div style=\'width:100%;height:100%;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-weight:900;color:#7C3AED;font-size:18px\'>MA</div>'">
-      </div>
-      <span class="emp-name">Mantova</span>
-    </div>
-
-    <div class="emp-card" onclick="selectEmp('Viadana')">
-      <div class="emp-icon">
-        <img src="../../assets/images/logo_viadana.png" alt="Viadana" style="width:100%; height:100%; object-fit:cover;">
-      </div>
-      <span class="emp-name">Viadana</span>
-    </div>
-
-  </div>
-</div>
   <!-- ══ STEP 2: Calendario ══ -->
   <div id="step-date" class="card card-pad hidden">
     <div class="sec-title">Data</div>
@@ -1320,8 +1310,15 @@ async function autoWeather(emp) {
 /* ── EMPORIO ── */
 function selectEmp(emp) {
   currentEmp = emp;
+  document.getElementById('landing-emp').style.display = 'none';
+  document.getElementById('main-nav').style.display = '';
   document.getElementById('step-emp').classList.add('hidden');
   document.getElementById('step-date').classList.remove('hidden');
+  // Attiva tab Giornata
+  document.querySelectorAll('.macro-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('macro-empori').classList.add('active');
+  document.getElementById('navtab-empori').classList.add('active');
 }
 
 /* ── CALENDARIO ── */
@@ -2650,7 +2647,8 @@ function init() {
   document.getElementById('btn-open-day').addEventListener('click', openDay);
   document.getElementById('btn-back-emp').addEventListener('click',()=>{
     document.getElementById('step-date').classList.add('hidden');
-    document.getElementById('step-emp').classList.remove('hidden');
+    document.getElementById('main-nav').style.display = 'none';
+    document.getElementById('landing-emp').style.display = '';
   });
   document.getElementById('btn-back-date').addEventListener('click',()=>{
     if (!confirmLeave()) return;
