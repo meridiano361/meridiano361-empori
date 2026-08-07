@@ -3331,7 +3331,26 @@ async function loadPagamentiData() {
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
     if (error) throw error;
-    const rows = normCassa(data || []).filter(r => r.totale_corrispettivi > 0 || r.contanti > 0);
+    // Usa solo i valori del turno di chiusura (pom se pom_corrispettivi > 0, altrimenti mat)
+    const rows = normCassa(data || []).map(r => {
+      const t = parseFloat(r.pom_corrispettivi || 0) > 0 ? 'pom' : 'mat';
+      const f = k => parseFloat(r[t+'_pay_'+k] || 0);
+      return { ...r,
+        totale_corrispettivi: parseFloat(r[t+'_corrispettivi'] || 0),
+        contanti:             parseFloat(r[t+'_contanti_netti'] || 0),
+        bancomat:             f('bancomat'),
+        carte_credito:        f('carte'),
+        satispay:             f('satispay'),
+        satispay_online:      f('satispay_online'),
+        carte_credito_online: f('carte_online'),
+        paypal:               f('paypal'),
+        bonifico:             f('bonifico'),
+        gift_card:            f('gift_card'),
+        gift_card_online:     f('gift_card_online'),
+        buoni_altromercato:   f('buoni'),
+        rimborsi_online:      f('rimborsi_online'),
+      };
+    }).filter(r => r.totale_corrispettivi > 0 || r.contanti > 0);
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
       return;
