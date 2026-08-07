@@ -2192,6 +2192,9 @@ function selezionaEmporioTurni(nome) {
   const nomeEl = document.getElementById('turni-emp-nome-sel');
   if (nomeEl) nomeEl.textContent = nome;
   cambiaEmporio(nome);
+  // Ripristina la sezione attiva dopo refresh
+  const _savedSez = sessionStorage.getItem('turni_sezione');
+  if (_savedSez && _savedSez !== 'turni') mostraSezione(_savedSez);
 }
 
 function tornaSelettoreEmporio() {
@@ -2218,8 +2221,12 @@ function mostraSezione(quale) {
     if (sez) sez.style.display = s === quale ? 'block' : 'none';
     if (tab) tab.classList.toggle('attivo', s === quale);
   });
+  sessionStorage.setItem('turni_sezione', quale);
   if (quale === 'orari') initOrari();
-  if (quale === 'operatori') mostraOpSub('anagrafica');
+  if (quale === 'operatori') {
+    const _savedOpSub = sessionStorage.getItem('turni_opsub') || 'anagrafica';
+    mostraOpSub(_savedOpSub);
+  }
 }
 
 // ── GESTIONE OPERATORI SUB-TABS ────────────────────────────────────────────
@@ -2230,6 +2237,7 @@ function mostraOpSub(quale) {
     if (el)  el.style.display = s === quale ? 'block' : 'none';
     if (tab) tab.classList.toggle('attivo', s === quale);
   });
+  sessionStorage.setItem('turni_opsub', quale);
   if (quale === 'anagrafica') caricaAnagraficaOperatori();
   else if (quale === 'ore')   renderOre();
   else if (quale === 'assenze') { _assAnno = currentAnno; _assMese = currentMese; renderAssenze('opsub-assenze'); }

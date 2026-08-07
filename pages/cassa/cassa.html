@@ -3342,6 +3342,8 @@ function init() {
   document.getElementById('btn-back-emp').addEventListener('click',()=>{
     sessionStorage.removeItem('cassa_emp');
     sessionStorage.removeItem('cassa_tab');
+    sessionStorage.removeItem('cassa_subtab_admin');
+    sessionStorage.removeItem('cassa_com_subtab');
     document.getElementById('step-date').classList.add('hidden');
     document.getElementById('main-nav').style.display = 'none';
     document.getElementById('landing-emp').style.display = '';
@@ -3374,6 +3376,19 @@ function init() {
     if (_savedTab && _savedTab !== 'empori') {
       const _tabBtn = document.querySelector(`.nav-tab[onclick*="'${_savedTab}'"]`);
       showMacroSection(_savedTab, _tabBtn || null);
+      // Ripristina sub-tab Amministrazione
+      if (_savedTab === 'amministrazione') {
+        const _savedSubAdmin = sessionStorage.getItem('cassa_subtab_admin');
+        if (_savedSubAdmin && _savedSubAdmin !== 'iva') {
+          const _subBtn = document.querySelector(`.sub-tab[onclick*="'admin','${_savedSubAdmin}'"]`);
+          if (_subBtn) showSubTab('admin', _savedSubAdmin, _subBtn);
+        }
+      }
+      // Ripristina sub-tab Commerciale
+      if (_savedTab === 'commerciale') {
+        const _savedComSub = sessionStorage.getItem('cassa_com_subtab');
+        if (_savedComSub && _savedComSub !== 'giorn') showComSubtab(_savedComSub);
+      }
     }
   }
 }
@@ -3435,6 +3450,7 @@ function showSubTab(section, name, btn) {
   parent.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
   document.getElementById(prefix + name).classList.add('active');
   btn.classList.add('active');
+  sessionStorage.setItem('cassa_subtab_' + section, name);
   presetEmporioFiltri(['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','vm-filter-emporio']);
   if (name === 'iva') {
     const oggi2 = new Date();
@@ -4307,6 +4323,7 @@ function showComSubtab(tab) {
   document.getElementById('com-sett-section').style.display  = tab === 'sett'  ? '' : 'none';
   document.getElementById('com-subtab-giorn').classList.toggle('active', tab === 'giorn');
   document.getElementById('com-subtab-sett').classList.toggle('active', tab === 'sett');
+  sessionStorage.setItem('cassa_com_subtab', tab);
   if (tab === 'sett' && document.getElementById('com-sett-emporio').value) loadSettimanaleData();
 }
 
