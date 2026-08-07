@@ -288,16 +288,23 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .date-link:hover{color:#B5453A;text-decoration-color:#B5453A;}
 .pag-col-rimb{background:#fde8d8!important;}
 .pag-col-spese{background:#fef0d8!important;}
-#pag-wrap::-webkit-scrollbar,#cf-wrap::-webkit-scrollbar,#com-table-wrap::-webkit-scrollbar{width:10px;height:10px;}
-#pag-wrap::-webkit-scrollbar-track,#cf-wrap::-webkit-scrollbar-track,#com-table-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:8px;}
-#pag-wrap::-webkit-scrollbar-thumb,#cf-wrap::-webkit-scrollbar-thumb,#com-table-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:8px;border:2px solid #f1f5f9;}
-#pag-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover,#com-table-wrap::-webkit-scrollbar-thumb:hover{background:#64748b;}
-#pag-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner,#com-table-wrap::-webkit-scrollbar-corner{background:#f1f5f9;}
+#pag-wrap::-webkit-scrollbar,#cf-wrap::-webkit-scrollbar,#com-table-wrap::-webkit-scrollbar,#com-sett-wrap::-webkit-scrollbar{width:10px;height:10px;}
+#pag-wrap::-webkit-scrollbar-track,#cf-wrap::-webkit-scrollbar-track,#com-table-wrap::-webkit-scrollbar-track,#com-sett-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:8px;}
+#pag-wrap::-webkit-scrollbar-thumb,#cf-wrap::-webkit-scrollbar-thumb,#com-table-wrap::-webkit-scrollbar-thumb,#com-sett-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:8px;border:2px solid #f1f5f9;}
+#pag-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover,#com-table-wrap::-webkit-scrollbar-thumb:hover,#com-sett-wrap::-webkit-scrollbar-thumb:hover{background:#64748b;}
+#pag-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner,#com-table-wrap::-webkit-scrollbar-corner,#com-sett-wrap::-webkit-scrollbar-corner{background:#f1f5f9;}
 /* Fullscreen commerciale */
 #macro-commerciale.com-fullscreen{position:fixed;inset:0;z-index:9000;overflow:auto;background:#f8fafc;}
 #macro-commerciale.com-fullscreen .main{max-width:none;padding:16px;}
-#macro-commerciale.com-fullscreen #com-table-wrap{max-height:calc(100vh - 260px);}
+#macro-commerciale.com-fullscreen #com-table-wrap,#macro-commerciale.com-fullscreen #com-sett-wrap{max-height:calc(100vh - 220px);}
 #macro-commerciale.com-fullscreen #com-fs-btn{background:#fdf1f0;color:#B5453A;border-color:#B5453A;}
+/* Sub-tab commerciale */
+.com-subtab{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 16px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.com-subtab.active{background:#B5453A;color:#fff;border-color:#B5453A;}
+.com-subtab:hover:not(.active){background:#fdf1f0;color:#B5453A;border-color:#B5453A;}
+/* Settimanale ISO table */
+#com-sett-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
+.sett-month-hdr td{background:#f1f5f9!important;font-size:10px;font-weight:800;letter-spacing:.1em;color:#475569;padding:5px 12px;border-top:2px solid #e2e8f0;}
 .pag-has-note{cursor:pointer;text-decoration:underline dotted #f59e0b;color:inherit;}
 .pag-has-note:hover{color:#d97706;}
 .iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
@@ -1089,42 +1096,71 @@ input[type=month].btn-export{min-width:160px;}
 <div id="macro-commerciale" class="macro-section">
 <div class="main space-y">
 <div class="card card-pad">
-  <div class="sec-title">Andamento Commerciale</div>
-  <div class="export-bar" style="justify-content:flex-start;">
-    <select id="com-filter-emporio" onchange="loadCommercialeData()" class="btn-export">
-      <option value="">Tutti gli empori</option>
-      <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Viadana</option>
-    </select>
-    <input type="month" id="com-filter-mese" onchange="loadCommercialeData()" class="btn-export">
-    <select id="com-confronto-anno" onchange="loadCommercialeData()" class="btn-export">
-      <option value="2025">Confronto vs 2025</option>
-      <option value="2024">Confronto vs 2024</option>
-    </select>
-    <button class="btn-export" onclick="exportTableCSV('com-table','andamento_commerciale')"><i class="fas fa-file-csv"></i> Esporta CSV</button>
-    <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
-    <button class="btn-export" id="com-fs-btn" onclick="toggleComFullscreen()" style="margin-left:auto"><i class="fas fa-expand" id="com-fs-icon"></i> Schermo intero</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div class="sec-title" style="margin:0">Andamento Commerciale</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="com-subtab active" id="com-subtab-giorn" onclick="showComSubtab('giorn')"><i class="fas fa-calendar-day"></i> Giornaliero</button>
+      <button class="com-subtab" id="com-subtab-sett" onclick="showComSubtab('sett')"><i class="fas fa-calendar-week"></i> Settimane ISO</button>
+      <button class="btn-export" id="com-fs-btn" onclick="toggleComFullscreen()" style="margin-left:8px"><i class="fas fa-expand" id="com-fs-icon"></i> Schermo intero</button>
+    </div>
   </div>
 
-  <div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Incasso mese</div><div class="kpi-value" id="kpi-incasso-mese">–</div><div class="kpi-sub" id="kpi-incasso-vs">vs anno prec.</div></div>
-    <div class="kpi-card"><div class="kpi-label">Scontrino medio</div><div class="kpi-value" id="kpi-scontrino-medio">–</div><div class="kpi-sub">media mensile</div></div>
-    <div class="kpi-card"><div class="kpi-label">Giorni aperti</div><div class="kpi-value" id="kpi-giorni-aperti">–</div><div class="kpi-sub">nel mese selezionato</div></div>
-    <div class="kpi-card"><div class="kpi-label">Miglior giorno</div><div class="kpi-value" id="kpi-best-day">–</div><div class="kpi-sub" id="kpi-best-day-val">–</div></div>
-  </div>
+  <!-- ── Giornaliero ── -->
+  <div id="com-giorn-section">
+    <div class="export-bar" style="justify-content:flex-start;">
+      <select id="com-filter-emporio" onchange="loadCommercialeData()" class="btn-export">
+        <option value="">Tutti gli empori</option>
+        <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Viadana</option>
+      </select>
+      <input type="month" id="com-filter-mese" onchange="loadCommercialeData()" class="btn-export">
+      <select id="com-confronto-anno" onchange="loadCommercialeData()" class="btn-export">
+        <option value="2025">Confronto vs 2025</option>
+        <option value="2024">Confronto vs 2024</option>
+      </select>
+      <button class="btn-export" onclick="exportTableCSV('com-table','andamento_commerciale')"><i class="fas fa-file-csv"></i> Esporta CSV</button>
+      <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
+    </div>
 
-  <div id="com-table-wrap" style="overflow:auto;max-height:75vh">
-    <table class="admin-table" id="com-table">
-      <thead><tr>
-        <th>Data</th><th>Emporio</th><th>Meteo</th>
-        <th class="number">Corrispettivi €</th><th class="number">N° Scontrini</th>
-        <th class="number">Scontrino Medio €</th>
-        <th class="number">Stesso giorno <span id="com-anno-prec-label">anno prec.</span></th>
-        <th class="number">Δ% vs anno prec.</th>
-        <th>Arrivo Merci</th><th>Note</th>
-      </tr></thead>
-      <tbody id="com-body"><tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
-    </table>
-  </div>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Incasso mese</div><div class="kpi-value" id="kpi-incasso-mese">–</div><div class="kpi-sub" id="kpi-incasso-vs">vs anno prec.</div></div>
+      <div class="kpi-card"><div class="kpi-label">Scontrino medio</div><div class="kpi-value" id="kpi-scontrino-medio">–</div><div class="kpi-sub">media mensile</div></div>
+      <div class="kpi-card"><div class="kpi-label">Giorni aperti</div><div class="kpi-value" id="kpi-giorni-aperti">–</div><div class="kpi-sub">nel mese selezionato</div></div>
+      <div class="kpi-card"><div class="kpi-label">Miglior giorno</div><div class="kpi-value" id="kpi-best-day">–</div><div class="kpi-sub" id="kpi-best-day-val">–</div></div>
+    </div>
+
+    <div id="com-table-wrap" style="overflow:auto;max-height:75vh">
+      <table class="admin-table" id="com-table">
+        <thead><tr>
+          <th>Data</th><th>Emporio</th><th>Meteo</th>
+          <th class="number">Corrispettivi €</th><th class="number">N° Scontrini</th>
+          <th class="number">Scontrino Medio €</th>
+          <th class="number">Stesso giorno <span id="com-anno-prec-label">anno prec.</span></th>
+          <th class="number">Δ% vs anno prec.</th>
+          <th>Arrivo Merci</th><th>Note</th>
+        </tr></thead>
+        <tbody id="com-body"><tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
+      </table>
+    </div>
+  </div><!-- /com-giorn-section -->
+
+  <!-- ── Settimane ISO ── -->
+  <div id="com-sett-section" style="display:none">
+    <div class="export-bar" style="justify-content:flex-start;margin-bottom:12px">
+      <select id="com-sett-emporio" onchange="loadSettimanaleData()" class="btn-export">
+        <option value="">Seleziona emporio…</option>
+        <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Viadana</option>
+      </select>
+      <input type="number" id="com-sett-anno" value="2026" min="2023" max="2030" onchange="loadSettimanaleData()" class="btn-export" style="width:90px">
+      <button class="btn-export" onclick="exportTableCSV('com-sett-table','settimane_iso')"><i class="fas fa-file-csv"></i> Esporta CSV</button>
+    </div>
+    <div id="com-sett-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
+      <table class="admin-table" id="com-sett-table">
+        <thead id="com-sett-thead"></thead>
+        <tbody id="com-sett-body"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio per visualizzare i dati</td></tr></tbody>
+      </table>
+    </div>
+  </div><!-- /com-sett-section -->
+
 </div>
 </div>
 </div><!-- /macro-commerciale -->
@@ -3856,6 +3892,165 @@ const METEO_EMOJI = {
   'nebbia':'🌫️','vento':'💨','misto':'🌤️'
 };
 
+// ── Sub-tab commerciale ──────────────────────────────────────────────────────
+function showComSubtab(tab) {
+  document.getElementById('com-giorn-section').style.display = tab === 'giorn' ? '' : 'none';
+  document.getElementById('com-sett-section').style.display  = tab === 'sett'  ? '' : 'none';
+  document.getElementById('com-subtab-giorn').classList.toggle('active', tab === 'giorn');
+  document.getElementById('com-subtab-sett').classList.toggle('active', tab === 'sett');
+  if (tab === 'sett' && document.getElementById('com-sett-emporio').value) loadSettimanaleData();
+}
+
+// ── ISO week utilities ───────────────────────────────────────────────────────
+function isoWeekNum(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+}
+function isoWeekYear(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  return d.getFullYear();
+}
+function isoWeekStart(isoYear, isoWeek) {
+  // Returns YYYY-MM-DD of the Monday of the given ISO week
+  const jan4  = new Date(isoYear, 0, 4);
+  const day4  = (jan4.getDay() + 6) % 7;
+  const monday = new Date(jan4.getTime() + (isoWeek - 1) * 7 * 86400000 - day4 * 86400000);
+  return monday.toISOString().slice(0, 10);
+}
+
+// ── Budget Reggio Emilia 2026 (per settimana ISO, da file Excel) ─────────────
+const BUDGET_RE_2026 = {
+   1:  1867.19,  2:  2789.43,  3:  2739.86,  4:  2314.25,  5:  2742.44,
+   6:  1644.51,  7:  2737.89,  8:  1686.76,  9:  2841.10, 10:  2020.41,
+  11:  2517.77, 12:  3250.18, 13:  3126.45, 14:  2187.28, 15:  2688.24,
+  16:  2705.18, 17:  1874.77, 18:  2118.56, 19:  2575.55, 20:  2246.56,
+  21:  3055.43, 22:  2334.86, 23:  2045.50, 24:  1629.05, 25:  1675.99,
+  26:  1474.96, 27:  1682.90, 28:  1751.47, 29:  2108.40, 30:  1528.88,
+  31:  1677.39, 32:  1388.17, 33:  1131.32, 34:  1844.18, 35:  1825.33,
+  36:  1626.91, 37:  1678.64, 38:  1267.00, 39:  1872.15, 40:  1358.52,
+  41:  1636.70, 42:  1271.23, 43:  1962.11, 44:  2176.97, 45:  1904.50,
+  46:  2370.97, 47:  6825.40, 48:  5540.37, 49:  7383.91, 50: 13293.92,
+  51: 19418.96, 52:  7487.90, 53:  7492.84
+};
+
+// ── Settimane ISO ────────────────────────────────────────────────────────────
+async function loadSettimanaleData() {
+  const emporio = document.getElementById('com-sett-emporio').value;
+  const anno    = document.getElementById('com-sett-anno').value;
+  const tbody   = document.getElementById('com-sett-body');
+  const thead   = document.getElementById('com-sett-thead');
+  const NCOL_BASE = 7;
+  const hasBudget = emporio === 'Reggio Emilia' && anno === '2026';
+  const ncol = hasBudget ? 9 : NCOL_BASE;
+
+  if (!emporio) {
+    tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#94a3b8;padding:30px">Caricamento…</td></tr>`;
+
+  try {
+    const chiavi = chiaveYear(emporio, anno);
+    const { data: raw, error } = await db.from('cassa_giorni')
+      .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,corrispettivi_25')
+      .in('chiave', chiavi);
+    if (error) throw error;
+
+    // Raggruppa per settimana ISO
+    const weekMap = new Map();
+    normCassa(raw || []).forEach(r => {
+      const wy = isoWeekYear(r.data);
+      const wn = isoWeekNum(r.data);
+      const key = `${wy}_${String(wn).padStart(2,'0')}`;
+      if (!weekMap.has(key)) weekMap.set(key, { isoYear: wy, isoWeek: wn, corr: 0, sc: 0, corr25: 0, minDate: r.data, maxDate: r.data });
+      const w = weekMap.get(key);
+      w.corr   += r.totale_corrispettivi;
+      w.sc     += parseInt(r.global_scontrini || 0);
+      w.corr25 += parseFloat(r.corrispettivi_25 || 0);
+      if (r.data < w.minDate) w.minDate = r.data;
+      if (r.data > w.maxDate) w.maxDate = r.data;
+    });
+
+    const MESI = ['','Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    const weeks = [...weekMap.values()].sort((a, b) => (a.isoYear - b.isoYear) || (a.isoWeek - b.isoWeek));
+
+    // Header
+    thead.innerHTML = `<tr>
+      <th class="number" style="width:56px">Sett.</th>
+      <th style="text-align:left">Periodo</th>
+      <th class="number">Scontrini</th>
+      <th class="number">Corr. ${+anno - 1}</th>
+      ${hasBudget ? `<th class="number" style="color:#7c3aed">Budget ${anno}</th>` : ''}
+      <th class="number">Effettivo ${anno}</th>
+      ${hasBudget ? `<th class="number">Δ Budget</th>` : ''}
+      <th class="number">Δ vs ${+anno - 1}</th>
+      <th class="number">Saldo budget</th>
+    </tr>`;
+
+    let lastMonth = null;
+    let tCorr = 0, tSc = 0, tCorr25 = 0, tBudget = 0, tSaldo = 0;
+    let html = '';
+
+    weeks.forEach(w => {
+      const monthNum  = parseInt(w.minDate.split('-')[1]);
+      const meseName  = MESI[monthNum];
+      if (meseName !== lastMonth) {
+        html += `<tr class="sett-month-hdr"><td colspan="${ncol}">${meseName.toUpperCase()}</td></tr>`;
+        lastMonth = meseName;
+      }
+
+      const budget   = hasBudget ? (BUDGET_RE_2026[w.isoWeek] ?? null) : null;
+      const saldo    = (budget != null) ? w.corr - budget : null;
+      const deltaBud = (budget && budget > 0) ? (w.corr - budget) / budget * 100 : null;
+      const deltaAnno= w.corr25 > 0 ? (w.corr - w.corr25) / w.corr25 * 100 : null;
+
+      tCorr += w.corr; tSc += w.sc; tCorr25 += w.corr25;
+      if (budget) { tBudget += budget; tSaldo += (saldo ?? 0); }
+
+      const cDB = deltaBud  != null ? (deltaBud  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const cDA = deltaAnno != null ? (deltaAnno >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const cSaldo = (saldo != null) ? (saldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+
+      const per = `${fmtData(w.minDate, {day:'2-digit',month:'short'})} – ${fmtData(w.maxDate, {day:'2-digit',month:'short'})}`;
+      html += `<tr>
+        <td class="number" style="color:#64748b;font-weight:700">${w.isoWeek}</td>
+        <td style="font-size:11px;white-space:nowrap">${per}</td>
+        <td class="number">${w.sc > 0 ? w.sc : '–'}</td>
+        <td class="number" style="color:#94a3b8">${w.corr25 > 0 ? fmt(w.corr25) : '–'}</td>
+        ${hasBudget ? `<td class="number" style="color:#7c3aed">${budget != null ? fmt(budget) : '–'}</td>` : ''}
+        <td class="number"><strong>${fmt(w.corr)}</strong></td>
+        ${hasBudget ? `<td class="number" style="color:${cDB};font-weight:600">${deltaBud  != null ? fmtPct(deltaBud)   : '–'}</td>` : ''}
+        <td class="number" style="color:${cDA};font-weight:600">${deltaAnno != null ? fmtPct(deltaAnno) : '–'}</td>
+        <td class="number" style="color:${cSaldo};font-weight:600">${saldo != null ? fmt(saldo) : '–'}</td>
+      </tr>`;
+    });
+
+    // Riga totali
+    const totDB = tBudget > 0 ? (tCorr - tBudget) / tBudget * 100 : null;
+    const totDA = tCorr25 > 0 ? (tCorr - tCorr25) / tCorr25 * 100 : null;
+    const cTDB  = totDB  != null ? (totDB  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+    const cTDA  = totDA  != null ? (totDA  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+    const cTSaldo = tBudget > 0 ? (tSaldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+    html += `<tr class="total-row">
+      <td colspan="2"><strong>TOTALE ANNO</strong></td>
+      <td class="number"><strong>${tSc || '–'}</strong></td>
+      <td class="number"><strong>${tCorr25 > 0 ? fmt(tCorr25) : '–'}</strong></td>
+      ${hasBudget ? `<td class="number" style="color:#7c3aed"><strong>${fmt(tBudget)}</strong></td>` : ''}
+      <td class="number"><strong>${fmt(tCorr)}</strong></td>
+      ${hasBudget ? `<td class="number" style="color:${cTDB};font-weight:700">${totDB != null ? fmtPct(totDB) : '–'}</td>` : ''}
+      <td class="number" style="color:${cTDA};font-weight:700">${totDA != null ? fmtPct(totDA) : '–'}</td>
+      <td class="number" style="color:${cTSaldo};font-weight:700">${tBudget > 0 ? fmt(tSaldo) : '–'}</td>
+    </tr>`;
+
+    tbody.innerHTML = html;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+  }
+}
+
 function toggleComFullscreen() {
   const macro = document.getElementById('macro-commerciale');
   const icon  = document.getElementById('com-fs-icon');
@@ -3986,7 +4181,7 @@ async function loadCommercialeData() {
         const backBtn = document.getElementById('btn-back-emp');
         if (backBtn) backBtn.style.display = 'none';
         // Blocca tutti i select emporio nelle sezioni secondarie
-        ['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','com-filter-emporio'].forEach(id => {
+        ['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','com-filter-emporio','com-sett-emporio'].forEach(id => {
             if (typeof inizializzaSelectEmporio === 'function') inizializzaSelectEmporio(id);
         });
     });
