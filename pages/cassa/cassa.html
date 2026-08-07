@@ -1328,11 +1328,11 @@ input[type=month].btn-export{min-width:160px;}
         <thead><tr>
           <th>Data</th><th>Apertura</th><th>Meteo</th>
           <th class="number">Corrispettivi<br>I.E.</th><th class="number">Corrispettivi<br>I.I.</th>
-          <th class="number">N° Scontrini</th>
-          <th class="number">Scontrino Medio<br>I.E.</th><th class="number">Scontrino Medio<br>I.I.</th>
-          <th class="number">Stesso giorno <span id="com-anno-prec-label">anno prec.</span></th>
-          <th class="number">Δ% vs anno prec.</th>
-          <th>Arrivo Merci</th><th>Note</th>
+          <th class="number">N°<br>Scontrini</th>
+          <th class="number">Scontrino<br>Medio I.E.</th><th class="number">Scontrino<br>Medio I.I.</th>
+          <th class="number">Stesso giorno<br><span id="com-anno-prec-label">anno prec.</span></th>
+          <th class="number">Δ%<br>anno prec.</th>
+          <th>Arrivo<br>Merci</th><th>Note</th>
         </tr></thead>
         <tbody id="com-body"><tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
       </table>
@@ -4651,10 +4651,16 @@ async function loadCommercialeData() {
     let tInc = 0, tIE = 0, tII = 0, tSc = 0, bestVal = 0, bestDay = '', tOre = 0;
 
     tbody.innerHTML = data.map(r => {
-      const n = v => parseFloat(v || 0);
-      const ie  = n(r.iva_esente);
-      const ii  = n(r.iva_22) + n(r.iva_10) + n(r.iva_4);
+      const _n = v => parseFloat(v || 0);
+      const ie_raw = _n(r.iva_esente);
+      const ii_raw = _n(r.iva_22) + _n(r.iva_10) + _n(r.iva_4);
       const inc = r.totale_corrispettivi;
+      // Auto-derive la parte mancante dal totale corrispettivi
+      let ie, ii;
+      if (ie_raw > 0 && ii_raw > 0) { ie = ie_raw; ii = ii_raw; }
+      else if (ie_raw > 0)           { ie = ie_raw; ii = Math.max(0, inc - ie_raw); }
+      else if (ii_raw > 0)           { ii = ii_raw; ie = Math.max(0, inc - ii_raw); }
+      else                           { ie = 0; ii = 0; }
       const nSc = parseInt(r.global_scontrini || 0);
       const key = r._day + '||' + (r.emporio || '');
       const rP  = dPrec[key];
