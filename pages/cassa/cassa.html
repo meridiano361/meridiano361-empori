@@ -3181,12 +3181,12 @@ function normCassa(rows) {
       gift_card_online:     n2(r.mat_pay_gift_card_online,r.pom_pay_gift_card_online),
       buoni_altromercato:   n2(r.mat_pay_buoni,           r.pom_pay_buoni),
       rimborsi_online:      n2(r.mat_pay_rimborsi_online, r.pom_pay_rimborsi_online),
-      saldo_cassaforte:     parseFloat(r.cassaforte)||0,
+      saldo_cassaforte:     parseFloat(r.cassaforte) || parseFloat(r.mat_cassaforte) || 0,
       note:                 r.note_giornata || null,
     };
   }).sort((a, b) => (a.emporio||'').localeCompare(b.emporio||'') || a._day - b._day);
 }
-const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,fondo_cassa,fondo_residuo,note_giornata';
+const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,mat_cassaforte,fondo_cassa,fondo_residuo,note_giornata';
 const SEL_PAG  = SEL_FULL + ',mat_pay_spese,pom_pay_spese,note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
 const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
@@ -3464,7 +3464,7 @@ async function loadCassaforteData() {
       return;
     }
     const emps = emporio ? [emporio] : EMPORIOS_NOTI;
-    let q = db.from('cassa_giorni').select('chiave,emporio,cassaforte,fondo_residuo')
+    let q = db.from('cassa_giorni').select('chiave,emporio,cassaforte,mat_cassaforte,fondo_residuo')
       .in('chiave', emps.flatMap(e => chiaveMonth(e, mese.slice(0,4), mese.slice(5,7))));
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
