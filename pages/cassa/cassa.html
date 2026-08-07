@@ -288,11 +288,11 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .date-link:hover{color:#B5453A;text-decoration-color:#B5453A;}
 .pag-col-rimb{background:#fde8d8!important;}
 .pag-col-spese{background:#fef0d8!important;}
-#pag-wrap::-webkit-scrollbar{width:10px;height:10px;}
-#pag-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:8px;}
-#pag-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:8px;border:2px solid #f1f5f9;}
-#pag-wrap::-webkit-scrollbar-thumb:hover{background:#64748b;}
-#pag-wrap::-webkit-scrollbar-corner{background:#f1f5f9;}
+#pag-wrap::-webkit-scrollbar,#cf-wrap::-webkit-scrollbar{width:10px;height:10px;}
+#pag-wrap::-webkit-scrollbar-track,#cf-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:8px;}
+#pag-wrap::-webkit-scrollbar-thumb,#cf-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:8px;border:2px solid #f1f5f9;}
+#pag-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover{background:#64748b;}
+#pag-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner{background:#f1f5f9;}
 .pag-has-note{cursor:pointer;text-decoration:underline dotted #f59e0b;color:inherit;}
 .pag-has-note:hover{color:#d97706;}
 .iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
@@ -342,7 +342,9 @@ input[type=month].btn-export{min-width:160px;}
 /* ══ ADMIN TABLE ══ */
 .admin-table{width:100%;border-collapse:collapse;font-size:12px;}
 .admin-table th{background:#f8fafc;color:#64748b;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
-#pag-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
+#pag-table th,#cf-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
+.cf-vers-inp{width:76px;text-align:right;border:1px solid #e2e8f0;border-radius:4px;padding:2px 5px;font-size:11px;font-variant-numeric:tabular-nums;background:transparent;}
+.cf-vers-inp:focus{outline:none;border-color:#94a3b8;background:#fff;}
 .admin-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle;}
 .admin-table tr:hover td{background:#fafbfc;}
 .admin-table .total-row td{font-weight:800;background:#fdf1f0;color:#B5453A;}
@@ -957,13 +959,17 @@ input[type=month].btn-export{min-width:160px;}
       <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
     </div>
     <div class="kpi-grid" id="cf-kpi"></div>
-    <div style="overflow-x:auto">
+    <div id="cf-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0;">
       <table class="admin-table" id="cf-table">
         <thead><tr>
-          <th>Data</th><th>Emporio</th>
-          <th class="number">Cassaforte (giornaliera)</th><th class="number">Fondo Residuo</th>
+          <th style="text-align:left">Data</th><th style="text-align:left">Emporio</th>
+          <th class="number">Cassaforte<br>(giornaliera)</th>
+          <th class="number">Fondo<br>Cassa</th>
+          <th class="number">Differenze<br>di cassa</th>
+          <th class="number">Versamenti</th>
+          <th class="number">Saldo Cassa<br>Generale</th>
         </tr></thead>
-        <tbody id="cf-body"><tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
+        <tbody id="cf-body"><tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -3457,45 +3463,115 @@ async function loadCassaforteData() {
   const emporio = document.getElementById('cf-filter-emporio').value;
   const mese    = document.getElementById('cf-filter-mese').value;
   const tbody   = document.getElementById('cf-body');
-  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
+  const PH = (msg, cls='color:#94a3b8') =>
+    `<tr><td colspan="7" style="text-align:center;${cls};padding:30px">${msg}</td></tr>`;
+  tbody.innerHTML = PH('Caricamento...');
   try {
-    if (!mese) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px">Seleziona un mese</td></tr>';
-      return;
-    }
+    if (!mese) { tbody.innerHTML = PH('Seleziona un mese'); return; }
+    const [anno, mm] = mese.split('-');
     const emps = emporio ? [emporio] : EMPORIOS_NOTI;
-    let q = db.from('cassa_giorni').select('chiave,emporio,cassaforte,mat_cassaforte,fondo_residuo')
-      .in('chiave', emps.flatMap(e => chiaveMonth(e, mese.slice(0,4), mese.slice(5,7))));
+
+    // Mese corrente
+    let q = db.from('cassa_giorni')
+      .select('chiave,emporio,cassaforte,mat_cassaforte,fondo_residuo,mat_contanti_netti,pom_contanti_netti,mat_pay_spese,pom_pay_spese,versamenti')
+      .in('chiave', emps.flatMap(e => chiaveMonth(e, anno, mm)));
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
     if (error) throw error;
-    const rows = normCassa(data || []).filter(r => r.saldo_cassaforte > 0 || parseFloat(r.fondo_residuo||0) > 0);
+    const rows = normCassa(data || []);
+
+    // Riporto: fondo_residuo ultimo giorno mese precedente per emporio
+    const prevM = parseInt(mm) === 1 ? 12 : parseInt(mm) - 1;
+    const prevY = parseInt(mm) === 1 ? parseInt(anno) - 1 : parseInt(anno);
+    const { data: prevRaw } = await db.from('cassa_giorni')
+      .select('chiave,emporio,fondo_residuo')
+      .in('chiave', emps.flatMap(e => chiaveMonth(e, prevY, prevM)))
+      .not('fondo_residuo', 'is', null);
+    const prevFrMap = new Map();
+    const prevSorted = normCassa(prevRaw || []).sort((a,b) => b._day - a._day);
+    for (const r of prevSorted) {
+      if (!prevFrMap.has(r.emporio)) prevFrMap.set(r.emporio, parseFloat(r.fondo_residuo || 0));
+    }
+
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato</td></tr>';
+      tbody.innerHTML = PH('Nessun dato');
       document.getElementById('cf-kpi').innerHTML = '';
       return;
     }
-    let tCf = 0;
+
+    // Per-emporio running state
+    const empState = {};
+    for (const emp of emps) {
+      empState[emp] = { sumCf: 0, sumVers: 0, prevFr: prevFrMap.get(emp) || 0 };
+    }
+
+    let tCf = 0, tVers = 0, lastSaldo = 0;
+
     tbody.innerHTML = rows.map(r => {
+      const emp  = r.emporio || '';
+      const st   = empState[emp] ?? (empState[emp] = { sumCf:0, sumVers:0, prevFr:0 });
       const cf   = r.saldo_cassaforte;
-      const fr   = parseFloat(r.fondo_residuo||0);
-      tCf += cf;
+      const fr   = parseFloat(r.fondo_residuo || 0);
+      const cont = r.contanti;
+      const spese= parseFloat(r.mat_pay_spese||0) + parseFloat(r.pom_pay_spese||0);
+      const vers = parseFloat(r.versamenti || 0);
+
+      // Differenza = (cassaforte + fondo attuale) − (fondo precedente + contanti − spese)
+      const diff  = cf + fr - st.prevFr - cont + spese;
+      st.sumCf   += cf;
+      st.sumVers += vers;
+      // Saldo = fondo corrente + cassaforte accumulata − versamenti accumulati (mese corrente)
+      const saldo = fr + st.sumCf - st.sumVers;
+      st.prevFr  = fr;
+      lastSaldo  = saldo;
+      tCf += cf; tVers += vers;
+
+      const diffColor = Math.abs(diff) < 0.01 ? '' : (diff > 0.009 ? 'color:#16a34a' : 'color:#dc2626');
+      const diffTxt   = Math.abs(diff) < 0.01 ? '–' : (diff > 0 ? '+' : '') + fmt(diff);
+
       return `<tr>
-        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata">${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata">${fmtData(r.data)}</td>
+        <td>${emp || '–'}</td>
         <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
         <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
+        <td class="number" style="${diffColor}">${diffTxt}</td>
+        <td class="number">
+          <input type="text" class="cf-vers-inp" value="${vers > 0 ? euro(vers) : ''}"
+            placeholder="–"
+            onfocus="if(!this.value.trim())this.value='€ 0,00'"
+            onblur="saveCfVersamento('${r.chiave}',this)">
+        </td>
+        <td class="number"><strong>${fmt(saldo)}</strong></td>
       </tr>`;
     }).join('');
+
     tbody.innerHTML += `<tr class="total-row">
       <td colspan="2"><strong>TOTALE</strong></td>
       <td class="number"><strong>${fmt(tCf)}</strong></td>
-      <td style="color:#94a3b8">–</td>
+      <td>–</td><td>–</td>
+      <td class="number"><strong>${fmt(tVers)}</strong></td>
+      <td class="number"><strong>${fmt(lastSaldo)}</strong></td>
     </tr>`;
+
     document.getElementById('cf-kpi').innerHTML = `
       <div class="kpi-card"><div class="kpi-label">Cassaforte mese (tot.)</div><div class="kpi-value">${fmt(tCf)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Versamenti</div><div class="kpi-value">${fmt(tVers)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Saldo Cassa Generale</div><div class="kpi-value">${fmt(lastSaldo)}</div></div>
     `;
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    tbody.innerHTML = PH(`Errore: ${e.message}`, 'color:#dc2626');
+  }
+}
+
+async function saveCfVersamento(chiave, el) {
+  const val = parseEuro(el.value);
+  el.value = val > 0 ? euro(val) : '';
+  try {
+    await db.from('cassa_giorni').update({ versamenti: val || null }).eq('chiave', chiave);
+    loadCassaforteData();
+  } catch(e) {
+    el.style.borderColor = '#dc2626';
+    setTimeout(() => { el.style.borderColor = ''; }, 2000);
   }
 }
 
