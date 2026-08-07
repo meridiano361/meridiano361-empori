@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lista Spesa</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root{
+      --R:#B5453A;--Rd:#8c362d;--Rl:#fdf1f0;
+      --S:#1e293b;--S2:#334155;--S3:#475569;
+      --G:#94a3b8;--Gl:#e2e8f0;--bg:#f1f5f9;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Nunito',sans-serif;background:var(--bg);padding-bottom:80px;color:var(--S)}
+
+    /* ── Top bar ── */
+    .top-bar{position:sticky;top:56px;z-index:200;background:#fff;border-bottom:1px solid var(--Gl);
+      padding:10px 14px;display:flex;align-items:center;gap:10px}
+    .btn-back{background:none;border:none;cursor:pointer;color:var(--G);font-size:17px;padding:4px 8px 4px 0;display:flex;align-items:center;transition:color .12s}
+    .btn-back:hover{color:var(--R)}
+    .top-title{font-size:15px;font-weight:800;color:var(--S);flex:1}
+    .btn-reset{background:none;border:1.5px solid var(--Gl);border-radius:8px;padding:5px 11px;
+      font-size:11px;font-weight:800;color:var(--G);cursor:pointer;font-family:inherit;
+      text-transform:uppercase;letter-spacing:.06em;transition:all .12s}
+    .btn-reset:hover{border-color:var(--R);color:var(--R)}
+
+    /* ── Emporio pills ── */
+    .emp-strip{background:#fff;border-bottom:1px solid var(--Gl);padding:8px 14px;
+      display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;position:sticky;top:calc(56px + 45px);z-index:199}
+    .emp-strip::-webkit-scrollbar{display:none}
+    .emp-pill{border:1.5px solid var(--Gl);background:#fff;border-radius:20px;padding:5px 14px;
+      font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--G);
+      transition:all .12s;white-space:nowrap;letter-spacing:.04em}
+    .emp-pill:hover{border-color:#cbd5e1;color:var(--S3)}
+    .emp-pill.on{border-color:var(--R);background:var(--R);color:#fff}
+
+    /* ── Category filter ── */
+    .cat-strip{background:#fff;border-bottom:1px solid var(--Gl);padding:7px 14px;
+      display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+    .cat-strip::-webkit-scrollbar{display:none}
+    .cat-pill{border:1.5px solid var(--Gl);background:#fff;border-radius:16px;padding:4px 12px;
+      font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--G);
+      transition:all .12s;white-space:nowrap}
+    .cat-pill.on{color:#fff;border-color:transparent}
+
+    /* ── Category section ── */
+    .list-wrap{padding:10px 12px;max-width:860px;margin:0 auto}
+    .cat-section{margin-bottom:14px}
+    .cat-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;
+      cursor:pointer;user-select:none;border-radius:12px 12px 0 0}
+    .cat-hdr-left{display:flex;align-items:center;gap:8px}
+    .cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+    .cat-name{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.12em}
+    .cat-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+      background:rgba(255,255,255,.6);color:var(--S3)}
+    .cat-chev{font-size:11px;color:rgba(255,255,255,.7);transition:transform .2s}
+    .cat-section.collapsed .cat-chev{transform:rotate(-90deg)}
+    .cat-items{display:flex;flex-direction:column;gap:1px;background:var(--Gl);
+      border-radius:0 0 12px 12px;overflow:hidden}
+    .cat-section.collapsed .cat-items{display:none}
+
+    /* ── Item row (single emporio) ── */
+    .item-row{background:#fff;display:flex;align-items:center;gap:10px;padding:11px 14px;
+      transition:background .12s;min-height:54px}
+    .item-row:last-child{border-radius:0 0 12px 12px}
+    .item-row:hover{background:#fafbfc}
+    .item-row.done .item-desc{text-decoration:line-through;color:var(--G)}
+    .item-row.done{background:#f0fdf4}
+
+    .chk-box{width:22px;height:22px;border-radius:6px;border:2px solid var(--Gl);
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
+      flex-shrink:0;transition:all .12s;font-size:12px}
+    .chk-box.on{background:#059669;border-color:#059669;color:#fff}
+    .chk-box:hover:not(.on){border-color:#94a3b8}
+
+    .item-body{flex:1;min-width:0}
+    .item-desc{font-size:13px;font-weight:700;color:var(--S);line-height:1.3}
+    .item-sub{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+    .item-code{font-size:10px;font-weight:700;color:var(--G);background:#f8fafc;
+      border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums}
+    .item-sup{font-size:10px;font-weight:600;color:var(--G)}
+    .item-conf{font-size:10px;font-weight:600;color:var(--G);background:#f1f5f9;
+      border-radius:4px;padding:1px 5px}
+    .item-sep{color:var(--Gl);font-size:10px}
+
+    .item-right{display:flex;align-items:center;gap:7px;flex-shrink:0}
+    .qty-inp{width:52px;text-align:center;border:1.5px solid var(--Gl);border-radius:8px;
+      padding:5px 4px;font-size:13px;font-weight:700;font-family:inherit;color:var(--S);
+      outline:none;transition:border-color .12s;background:transparent}
+    .qty-inp:focus{border-color:var(--R);background:#fff}
+    .qty-inp.has-val{border-color:#B5453A;color:#B5453A;background:#fdf1f0}
+
+    .link-btn{color:var(--G);font-size:13px;padding:5px 4px;text-decoration:none;
+      transition:color .12s;display:flex;align-items:center}
+    .link-btn:hover{color:#3b82f6}
+
+    /* ── TUTTI view: mini table ── */
+    .tutti-row{background:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px}
+    .tutti-row:last-child{border-radius:0 0 12px 12px}
+    .tutti-body{flex:1;min-width:0}
+    .tutti-grid{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+    .tutti-emp{display:flex;flex-direction:column;align-items:center;gap:2px}
+    .tutti-emp-lbl{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--G)}
+    .qty-inp-sm{width:42px;text-align:center;border:1.5px solid var(--Gl);border-radius:7px;
+      padding:4px 2px;font-size:12px;font-weight:700;font-family:inherit;color:var(--S);
+      outline:none;transition:border-color .12s}
+    .qty-inp-sm:focus{border-color:var(--R)}
+    .qty-inp-sm.has-val{border-color:#B5453A;color:#B5453A;background:#fdf1f0}
+    .tutti-tot{font-size:11px;font-weight:800;color:var(--S3);min-width:28px;text-align:center}
+
+    /* ── Empty / Loading ── */
+    .empty{text-align:center;padding:60px 20px;color:var(--G);font-size:14px;font-weight:600}
+    .loader{text-align:center;padding:40px;color:var(--G)}
+
+    /* ── Category colors ── */
+    .cat-borse     .cat-hdr{background:#f59e0b;} .cat-borse     .cat-name,.cat-borse     .cat-chev{color:#fff}
+    .cat-sacchetti .cat-hdr{background:#0d9488;} .cat-sacchetti .cat-name,.cat-sacchetti .cat-chev{color:#fff}
+    .cat-materiali .cat-hdr{background:#7c3aed;} .cat-materiali .cat-name,.cat-materiali .cat-chev{color:#fff}
+    .cat-cartoleria.cat-hdr-wrap .cat-hdr{background:#2563eb;} .cat-cartoleria .cat-name,.cat-cartoleria .cat-chev{color:#fff}
+    .cat-igiene    .cat-hdr{background:#059669;} .cat-igiene    .cat-name,.cat-igiene    .cat-chev{color:#fff}
+
+    @media(max-width:480px){
+      .item-desc{font-size:12px}
+      .qty-inp{width:44px;font-size:12px}
+      .list-wrap{padding:8px 8px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <button class="btn-back" onclick="history.back()"><i class="fas fa-chevron-left"></i></button>
+  <span class="top-title"><i class="fas fa-cart-shopping" style="color:var(--R);margin-right:6px"></i>Lista Spesa</span>
+  <button class="btn-reset" onclick="confirmReset()"><i class="fas fa-rotate-left"></i> Reset</button>
+</div>
+
+<!-- Emporio filter -->
+<div class="emp-strip" id="emp-strip">
+  <button class="emp-pill on" data-emp="">Tutti</button>
+  <button class="emp-pill" data-emp="CR">CR · Cremona</button>
+  <button class="emp-pill" data-emp="CAS">CAS · Casalmaggiore</button>
+  <button class="emp-pill" data-emp="VIA">VIA · Viadana</button>
+  <button class="emp-pill" data-emp="UFF">UFF · Ufficio</button>
+</div>
+
+<!-- Category filter -->
+<div class="cat-strip" id="cat-strip">
+  <button class="cat-pill on" data-cat="" style="background:var(--S);border-color:var(--S)">Tutte</button>
+</div>
+
+<!-- List -->
+<div class="list-wrap" id="list-wrap">
+  <div class="loader"><i class="fas fa-spinner fa-spin"></i> Caricamento...</div>
+</div>
+
+<!-- Reset confirm dialog -->
+<div id="rdlg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px 20px;max-width:340px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25)">
+    <p style="margin:0 0 8px;font-size:15px;font-weight:800;color:var(--S)">Reset lista spesa</p>
+    <p id="rdlg-msg" style="margin:0 0 22px;font-size:13px;color:var(--S3);line-height:1.5"></p>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeReset()" style="flex:1;padding:9px 0;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:1.5px solid var(--Gl);background:#fff;color:var(--S3);font-family:inherit">Annulla</button>
+      <button onclick="doReset()" style="flex:1;padding:9px 0;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--R);color:#fff;font-family:inherit">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const EMPORIOS = ['CR','CAS','VIA','UFF'];
+const CAT_META = {
+  'Borse con manici': { slug:'borse',      color:'#f59e0b', bg:'#fffbeb', pill:'#f59e0b' },
+  'Sacchetti':        { slug:'sacchetti',   color:'#0d9488', bg:'#f0fdfa', pill:'#0d9488' },
+  'Materiali':        { slug:'materiali',   color:'#7c3aed', bg:'#f5f3ff', pill:'#7c3aed' },
+  'Cartoleria':       { slug:'cartoleria',  color:'#2563eb', bg:'#eff6ff', pill:'#2563eb' },
+  'Igiene':           { slug:'igiene',      color:'#059669', bg:'#f0fdf4', pill:'#059669' },
+};
+
+let currentEmp = '';  // '' = TUTTI
+let currentCat = '';  // '' = tutte
+let articoli   = [];
+let righe      = {};  // { [art_id]: { CR:{q,done}, CAS:..., VIA:..., UFF:... } }
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const [{ data: arts }, { data: rows }] = await Promise.all([
+    db.from('lista_spesa_articoli').select('*').order('categoria').order('sort_order'),
+    db.from('lista_spesa_righe').select('*'),
+  ]);
+  articoli = arts || [];
+  indexRighe(rows || []);
+  buildCatPills();
+  render();
+}
+
+function indexRighe(rows) {
+  righe = {};
+  for (const r of rows) {
+    if (!righe[r.articolo_id]) righe[r.articolo_id] = {};
+    righe[r.articolo_id][r.emporio] = { q: parseFloat(r.quantita) || 0, done: !!r.completato };
+  }
+}
+
+// ── Category pills ────────────────────────────────────────────────────────────
+function buildCatPills() {
+  const cats = [...new Set(articoli.map(a => a.categoria))];
+  const strip = document.getElementById('cat-strip');
+  cats.forEach(cat => {
+    const m = CAT_META[cat] || { color:'#64748b' };
+    const b = document.createElement('button');
+    b.className = 'cat-pill';
+    b.dataset.cat = cat;
+    b.textContent = cat;
+    b.style.cssText = `color:${m.color};border-color:${m.color}20`;
+    b.onclick = () => selectCat(cat, b);
+    strip.appendChild(b);
+  });
+}
+
+function selectCat(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-pill').forEach(p => {
+    p.classList.remove('on');
+    const m = CAT_META[p.dataset.cat] || {};
+    p.style.cssText = `color:${m.color||'#64748b'};border-color:${m.color||'#94a3b8'}20`;
+    if (!p.dataset.cat) { p.style.cssText = ''; p.classList.remove('on'); }
+  });
+  el.classList.add('on');
+  el.style.cssText = `background:${CAT_META[cat]?.color||'#64748b'};color:#fff;border-color:transparent`;
+  render();
+}
+
+function selectAllCat() {
+  currentCat = '';
+  document.querySelectorAll('.cat-pill').forEach(p => {
+    p.classList.remove('on');
+    const m = CAT_META[p.dataset.cat] || {};
+    if (!p.dataset.cat) { p.classList.add('on'); p.style.cssText='background:var(--S);border-color:var(--S);color:#fff'; }
+    else p.style.cssText=`color:${m.color};border-color:${m.color}20`;
+  });
+  render();
+}
+
+// Init cat pill click for "Tutte"
+document.querySelector('.cat-pill[data-cat=""]').onclick = selectAllCat;
+
+// ── Emporio pills ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.emp-pill').forEach(p => {
+  p.onclick = () => {
+    currentEmp = p.dataset.emp;
+    document.querySelectorAll('.emp-pill').forEach(x => x.classList.remove('on'));
+    p.classList.add('on');
+    render();
+  };
+});
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const cats = [...new Set(articoli.map(a => a.categoria))];
+  let html = '';
+  for (const cat of cats) {
+    if (currentCat && currentCat !== cat) continue;
+    const items = articoli.filter(a => a.categoria === cat);
+    html += renderCat(cat, items);
+  }
+  document.getElementById('list-wrap').innerHTML = html || '<div class="empty">Nessun articolo trovato</div>';
+}
+
+function renderCat(cat, items) {
+  const m    = CAT_META[cat] || { color:'#64748b', bg:'#f8fafc', slug:'other' };
+  const done = items.filter(a => isDone(a.id)).length;
+  const allDone = done === items.length && items.length > 0;
+
+  return `
+  <div class="cat-section" id="cat-${m.slug}">
+    <div class="cat-hdr" style="background:${m.color}" onclick="toggleCat('${m.slug}')">
+      <div class="cat-hdr-left">
+        <div class="cat-dot" style="background:rgba(255,255,255,.5)"></div>
+        <span class="cat-name" style="color:#fff">${cat}</span>
+        <span class="cat-badge" style="background:rgba(0,0,0,.15);color:#fff">${done}/${items.length}</span>
+      </div>
+      <i class="fas fa-chevron-down cat-chev" style="color:rgba(255,255,255,.8)"></i>
+    </div>
+    <div class="cat-items" id="items-${m.slug}">
+      ${items.map(a => currentEmp ? renderItemSingle(a) : renderItemTutti(a)).join('')}
+    </div>
+  </div>`;
+}
+
+function isDone(artId) {
+  if (currentEmp) return !!(righe[artId]?.[currentEmp]?.done);
+  return EMPORIOS.every(e => !!(righe[artId]?.[e]?.done));
+}
+
+function renderItemSingle(art) {
+  const r    = righe[art.id]?.[currentEmp] || { q:0, done:false };
+  const done = r.done;
+  const q    = r.q || 0;
+  const hasQ = q > 0;
+  return `
+  <div class="item-row${done?' done':''}" id="item-${art.id}">
+    <div class="chk-box${done?' on':''}" onclick="toggleDone(${art.id})" title="${done?'Annulla':'Segna come ordinato'}">
+      ${done ? '<i class="fas fa-check"></i>' : ''}
+    </div>
+    <div class="item-body">
+      <div class="item-desc">${art.descrizione}</div>
+      <div class="item-sub">
+        ${art.codice   ? `<span class="item-code">${art.codice}</span>` : ''}
+        ${art.fornitore? `<span class="item-sup">${art.fornitore}</span>` : ''}
+        ${art.confezione ? `<span class="item-conf">conf. ${art.confezione}</span>` : ''}
+      </div>
+    </div>
+    <div class="item-right">
+      <input type="number" min="0" step="1" class="qty-inp${hasQ?' has-val':''}" value="${hasQ?q:''}" placeholder="0"
+        oninput="markHasVal(this)"
+        onchange="saveQty(${art.id},'${currentEmp}',this)"
+        onblur="saveQty(${art.id},'${currentEmp}',this)">
+      ${art.link ? `<a href="${art.link}" target="_blank" class="link-btn" title="Apri fornitore"><i class="fas fa-arrow-up-right-from-square"></i></a>` : '<span style="width:21px"></span>'}
+    </div>
+  </div>`;
+}
+
+function renderItemTutti(art) {
+  let tots = 0;
+  const inps = EMPORIOS.map(emp => {
+    const q = righe[art.id]?.[emp]?.q || 0;
+    tots += q;
+    return `<div class="tutti-emp">
+      <span class="tutti-emp-lbl">${emp}</span>
+      <input type="number" min="0" step="1" class="qty-inp-sm${q>0?' has-val':''}" value="${q||''}" placeholder="0"
+        oninput="markHasVal(this)"
+        onchange="saveQty(${art.id},'${emp}',this)"
+        onblur="saveQty(${art.id},'${emp}',this)">
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="tutti-row" id="item-${art.id}">
+    <div class="tutti-body">
+      <div class="item-desc">${art.descrizione}</div>
+      <div class="item-sub">
+        ${art.codice   ? `<span class="item-code">${art.codice}</span>` : ''}
+        ${art.fornitore? `<span class="item-sup">${art.fornitore}</span>` : ''}
+        ${art.confezione ? `<span class="item-conf">conf. ${art.confezione}</span>` : ''}
+      </div>
+      <div class="tutti-grid">${inps}</div>
+    </div>
+    <div class="item-right" style="flex-shrink:0;padding-left:4px">
+      ${tots > 0 ? `<span class="tutti-tot" style="color:var(--R);font-weight:900">=${tots}</span>` : '<span class="tutti-tot" style="color:var(--G)">–</span>'}
+      ${art.link ? `<a href="${art.link}" target="_blank" class="link-btn" title="Apri fornitore"><i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Interactions ──────────────────────────────────────────────────────────────
+function toggleCat(slug) {
+  const sec = document.getElementById('cat-' + slug);
+  if (sec) sec.classList.toggle('collapsed');
+}
+
+function markHasVal(el) {
+  el.classList.toggle('has-val', parseFloat(el.value) > 0);
+}
+
+async function toggleDone(artId) {
+  if (!currentEmp) return;
+  const cur = righe[artId]?.[currentEmp]?.done || false;
+  const done = !cur;
+  const { error } = await db.from('lista_spesa_righe').upsert(
+    { articolo_id: artId, emporio: currentEmp, completato: done, updated_at: new Date().toISOString() },
+    { onConflict: 'articolo_id,emporio' }
+  );
+  if (error) return;
+  if (!righe[artId])              righe[artId] = {};
+  if (!righe[artId][currentEmp]) righe[artId][currentEmp] = { q:0 };
+  righe[artId][currentEmp].done = done;
+
+  const row = document.getElementById('item-' + artId);
+  if (!row) return;
+  row.classList.toggle('done', done);
+  const box = row.querySelector('.chk-box');
+  if (box) {
+    box.classList.toggle('on', done);
+    box.innerHTML = done ? '<i class="fas fa-check"></i>' : '';
+  }
+  // Update category badge
+  updateCatBadge(artId);
+}
+
+function updateCatBadge(artId) {
+  const art = articoli.find(a => a.id === artId);
+  if (!art) return;
+  const m = CAT_META[art.categoria];
+  if (!m) return;
+  const catItems = articoli.filter(a => a.categoria === art.categoria);
+  const done = catItems.filter(a => isDone(a.id)).length;
+  const badge = document.querySelector(`#cat-${m.slug} .cat-badge`);
+  if (badge) badge.textContent = `${done}/${catItems.length}`;
+}
+
+async function saveQty(artId, emp, el) {
+  const q = parseFloat(el.value) || 0;
+  el.classList.toggle('has-val', q > 0);
+  const { error } = await db.from('lista_spesa_righe').upsert(
+    { articolo_id: artId, emporio: emp, quantita: q, updated_at: new Date().toISOString() },
+    { onConflict: 'articolo_id,emporio' }
+  );
+  if (!error) {
+    if (!righe[artId])     righe[artId] = {};
+    if (!righe[artId][emp]) righe[artId][emp] = { done:false };
+    righe[artId][emp].q = q;
+    // Update totale in TUTTI mode
+    if (!currentEmp) {
+      const row = document.getElementById('item-' + artId);
+      const totEl = row?.querySelector('.tutti-tot');
+      if (totEl) {
+        const tot = EMPORIOS.reduce((s, e2) => s + (righe[artId]?.[e2]?.q || 0), 0);
+        totEl.style.color = tot > 0 ? 'var(--R)' : 'var(--G)';
+        totEl.style.fontWeight = tot > 0 ? '900' : '700';
+        totEl.textContent = tot > 0 ? `=${tot}` : '–';
+      }
+    }
+  } else {
+    el.style.borderColor = '#dc2626';
+    setTimeout(() => { el.style.borderColor = ''; }, 1500);
+  }
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function confirmReset() {
+  const msg = currentEmp
+    ? `Azzera tutte le quantità e i segni di spunta per ${currentEmp}?`
+    : `Azzera tutte le quantità e i segni di spunta per tutti gli empori?`;
+  document.getElementById('rdlg-msg').textContent = msg;
+  document.getElementById('rdlg').style.display = 'flex';
+}
+function closeReset() { document.getElementById('rdlg').style.display = 'none'; }
+
+async function doReset() {
+  closeReset();
+  let q = db.from('lista_spesa_righe').update({ quantita: 0, completato: false, updated_at: new Date().toISOString() });
+  if (currentEmp) q = q.eq('emporio', currentEmp);
+  const { error } = await q;
+  if (!error) {
+    // Update in-memory
+    for (const aid of Object.keys(righe)) {
+      if (currentEmp) {
+        if (righe[aid][currentEmp]) righe[aid][currentEmp] = { q:0, done:false };
+      } else {
+        for (const emp of EMPORIOS) {
+          if (righe[aid][emp]) righe[aid][emp] = { q:0, done:false };
+        }
+      }
+    }
+    render();
+  }
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+
+<script src="../../scripts/nav-script.js"></script>
+</body>
+</html>
