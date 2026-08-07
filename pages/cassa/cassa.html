@@ -288,11 +288,16 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .date-link:hover{color:#B5453A;text-decoration-color:#B5453A;}
 .pag-col-rimb{background:#fde8d8!important;}
 .pag-col-spese{background:#fef0d8!important;}
-#pag-wrap::-webkit-scrollbar,#cf-wrap::-webkit-scrollbar{width:10px;height:10px;}
-#pag-wrap::-webkit-scrollbar-track,#cf-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:8px;}
-#pag-wrap::-webkit-scrollbar-thumb,#cf-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:8px;border:2px solid #f1f5f9;}
-#pag-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover{background:#64748b;}
-#pag-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner{background:#f1f5f9;}
+#pag-wrap::-webkit-scrollbar,#cf-wrap::-webkit-scrollbar,#com-table-wrap::-webkit-scrollbar{width:10px;height:10px;}
+#pag-wrap::-webkit-scrollbar-track,#cf-wrap::-webkit-scrollbar-track,#com-table-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:8px;}
+#pag-wrap::-webkit-scrollbar-thumb,#cf-wrap::-webkit-scrollbar-thumb,#com-table-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:8px;border:2px solid #f1f5f9;}
+#pag-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover,#com-table-wrap::-webkit-scrollbar-thumb:hover{background:#64748b;}
+#pag-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner,#com-table-wrap::-webkit-scrollbar-corner{background:#f1f5f9;}
+/* Fullscreen commerciale */
+#macro-commerciale.com-fullscreen{position:fixed;inset:0;z-index:9000;overflow:auto;background:#f8fafc;}
+#macro-commerciale.com-fullscreen .main{max-width:none;padding:16px;}
+#macro-commerciale.com-fullscreen #com-table-wrap{max-height:calc(100vh - 260px);}
+#macro-commerciale.com-fullscreen #com-fs-btn{background:#fdf1f0;color:#B5453A;border-color:#B5453A;}
 .pag-has-note{cursor:pointer;text-decoration:underline dotted #f59e0b;color:inherit;}
 .pag-has-note:hover{color:#d97706;}
 .iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
@@ -342,7 +347,7 @@ input[type=month].btn-export{min-width:160px;}
 /* ══ ADMIN TABLE ══ */
 .admin-table{width:100%;border-collapse:collapse;font-size:12px;}
 .admin-table th{background:#f8fafc;color:#64748b;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
-#pag-table th,#cf-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
+#pag-table th,#cf-table th,#com-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
 .cf-vers-inp{width:76px;text-align:right;border:1px solid #e2e8f0;border-radius:4px;padding:2px 5px;font-size:11px;font-variant-numeric:tabular-nums;background:transparent;}
 .cf-vers-inp:focus{outline:none;border-color:#94a3b8;background:#fff;}
 .admin-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle;}
@@ -1097,6 +1102,7 @@ input[type=month].btn-export{min-width:160px;}
     </select>
     <button class="btn-export" onclick="exportTableCSV('com-table','andamento_commerciale')"><i class="fas fa-file-csv"></i> Esporta CSV</button>
     <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
+    <button class="btn-export" id="com-fs-btn" onclick="toggleComFullscreen()" style="margin-left:auto"><i class="fas fa-expand" id="com-fs-icon"></i> Schermo intero</button>
   </div>
 
   <div class="kpi-grid">
@@ -1106,7 +1112,7 @@ input[type=month].btn-export{min-width:160px;}
     <div class="kpi-card"><div class="kpi-label">Miglior giorno</div><div class="kpi-value" id="kpi-best-day">–</div><div class="kpi-sub" id="kpi-best-day-val">–</div></div>
   </div>
 
-  <div style="overflow-x:auto">
+  <div id="com-table-wrap" style="overflow:auto;max-height:75vh">
     <table class="admin-table" id="com-table">
       <thead><tr>
         <th>Data</th><th>Emporio</th><th>Meteo</th>
@@ -3849,6 +3855,24 @@ const METEO_EMOJI = {
   'pioggia':'🌧️','pioggia leggera':'🌦️','temporale':'⛈️','neve':'❄️',
   'nebbia':'🌫️','vento':'💨','misto':'🌤️'
 };
+
+function toggleComFullscreen() {
+  const macro = document.getElementById('macro-commerciale');
+  const icon  = document.getElementById('com-fs-icon');
+  const btn   = document.getElementById('com-fs-btn');
+  const isFs  = macro.classList.toggle('com-fullscreen');
+  icon.className = isFs ? 'fas fa-compress' : 'fas fa-expand';
+  btn.innerHTML  = (isFs ? '<i class="fas fa-compress"></i> Esci schermo intero' : '<i class="fas fa-expand"></i> Schermo intero');
+  if (isFs) {
+    macro.scrollTop = 0;
+    document.addEventListener('keydown', _comFsEsc);
+  } else {
+    document.removeEventListener('keydown', _comFsEsc);
+  }
+}
+function _comFsEsc(e) {
+  if (e.key === 'Escape') toggleComFullscreen();
+}
 
 async function loadCommercialeData() {
   const emporio       = document.getElementById('com-filter-emporio').value;
