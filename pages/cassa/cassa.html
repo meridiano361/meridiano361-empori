@@ -3947,17 +3947,31 @@ async function loadCassaforteData() {
     if (error) throw error;
     const rows = normCassa(data || []);
 
-    // Riporto: fondo_residuo ultimo giorno mese precedente per emporio
+    // Riporto: dati mese precedente per emporio (fondo residuo ultimo giorno + somme cf/versamenti)
     const prevM = parseInt(mm) === 1 ? 12 : parseInt(mm) - 1;
     const prevY = parseInt(mm) === 1 ? parseInt(anno) - 1 : parseInt(anno);
     const { data: prevRaw } = await db.from('cassa_giorni')
-      .select('chiave,emporio,fondo_residuo')
-      .in('chiave', emps.flatMap(e => chiaveMonth(e, prevY, prevM)))
-      .not('fondo_residuo', 'is', null);
+      .select('chiave,emporio,fondo_residuo,cassaforte,mat_cassaforte,versamenti')
+      .in('chiave', emps.flatMap(e => chiaveMonth(e, prevY, prevM)));
     const prevFrMap = new Map();
-    const prevSorted = normCassa(prevRaw || []).sort((a,b) => b._day - a._day);
-    for (const r of prevSorted) {
-      if (!prevFrMap.has(r.emporio)) prevFrMap.set(r.emporio, parseFloat(r.fondo_residuo || 0));
+    const prevW0Map = new Map();
+    const prevNorm  = normCassa(prevRaw || []);
+    // Aggregazione per emporio
+    const prevByEmp = {};
+    for (const r of prevNorm) {
+      const e = r.emporio;
+      if (!prevByEmp[e]) prevByEmp[e] = { cf: 0, vers: 0, lastFr: 0, lastDay: -1 };
+      prevByEmp[e].cf   += r.saldo_cassaforte;
+      prevByEmp[e].vers += parseFloat(r.versamenti || 0);
+      if (r.fondo_residuo != null && r._day > prevByEmp[e].lastDay) {
+        prevByEmp[e].lastDay = r._day;
+        prevByEmp[e].lastFr  = parseFloat(r.fondo_residuo || 0);
+      }
+    }
+    for (const [e, d] of Object.entries(prevByEmp)) {
+      prevFrMap.set(e, d.lastFr);
+      // W_0 = saldo fine mese precedente = fondo_residuo + somma_cf - somma_versamenti
+      prevW0Map.set(e, d.lastFr + d.cf - d.vers);
     }
 
     if (!rows.length) {
@@ -3970,7 +3984,8 @@ async function loadCassaforteData() {
     const empState = {};
     for (const emp of emps) {
       const initFr = prevFrMap.get(emp) || 0;
-      empState[emp] = { sumCf: 0, sumVers: 0, prevFr: initFr, riporto: initFr };
+      const initW0 = prevW0Map.get(emp) || 0;
+      empState[emp] = { sumCf: 0, sumVers: 0, prevFr: initFr, riporto_fr: initFr, w0: initW0 };
     }
 
     let tCf = 0, tVers = 0, lastSaldo = 0;
@@ -3979,22 +3994,21 @@ async function loadCassaforteData() {
 
     for (const r of rows) {
       const emp  = r.emporio || '';
-      const st   = empState[emp] ?? (empState[emp] = { sumCf:0, sumVers:0, prevFr:0, riporto:0 });
+      const st   = empState[emp] ?? (empState[emp] = { sumCf:0, sumVers:0, prevFr:0, riporto_fr:0, w0:0 });
 
       // Riga riporto alla prima comparsa dell'emporio
       if (emp !== prevEmp) {
         prevEmp = emp;
-        const riporto = st.riporto;
-        if (riporto > 0) {
+        if (st.riporto_fr > 0 || st.w0 > 0) {
           const prevMLabel = parseInt(mm) === 1
             ? `dic ${parseInt(anno)-1}` : `${['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'][parseInt(mm)-2]} ${anno}`;
           htmlRows.push(`<tr style="background:#f0fdf4;font-style:italic;color:#15803d">
             <td style="font-size:11px;font-weight:700;padding-left:10px">Riporto ${prevMLabel}</td>
             <td class="number">–</td>
-            <td class="number">${fmt(riporto)}</td>
+            <td class="number">${st.riporto_fr > 0 ? fmt(st.riporto_fr) : '–'}</td>
             <td class="number">–</td>
             <td class="number">–</td>
-            <td class="number"><strong>${fmt(riporto)}</strong></td>
+            <td class="number"><strong>${fmt(st.w0)}</strong></td>
           </tr>`);
         }
       }
@@ -4005,12 +4019,14 @@ async function loadCassaforteData() {
       const spese= parseFloat(r.mat_pay_spese||0) + parseFloat(r.pom_pay_spese||0);
       const vers = parseFloat(r.versamenti || 0);
 
-      // Differenza = (cassaforte + fondo attuale) − (fondo precedente + contanti − spese)
-      const diff  = cf + fr - st.prevFr - cont + spese;
+      // Differenza = cassaforte + spese − fondo_precedente − contanti_netti
+      // (da Excel: T_N = R_N + P_N − S_{N-1} − D_lordi, dove D_lordi = netti + S_N che si cancella con +S_N)
+      const diff  = cf + spese - st.prevFr - cont;
       st.sumCf   += cf;
       st.sumVers += vers;
-      // Saldo = riporto mese prec. + cassaforte accumulata mese corrente − versamenti accumulati
-      const saldo = st.riporto + st.sumCf - st.sumVers;
+      // Saldo progressivo: W_0 + fondo_attuale + somma_cf_mese − fondo_iniziale − somma_vers_mese
+      // (da Excel: W_N = W_0 + sumCf + S_N − S_0 − sumVers)
+      const saldo = st.w0 + fr + st.sumCf - st.riporto_fr - st.sumVers;
       st.prevFr  = fr;
       lastSaldo  = saldo;
       tCf += cf; tVers += vers;
