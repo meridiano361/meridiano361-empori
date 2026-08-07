@@ -1308,14 +1308,14 @@ input[type=month].btn-export{min-width:160px;}
     <div id="com-table-wrap" style="overflow:auto;max-height:75vh">
       <table class="admin-table" id="com-table">
         <thead><tr>
-          <th>Data</th><th>Meteo</th>
+          <th>Data</th><th>Apertura</th><th>Meteo</th>
           <th class="number">Corrispettivi €</th><th class="number">N° Scontrini</th>
           <th class="number">Scontrino Medio €</th>
           <th class="number">Stesso giorno <span id="com-anno-prec-label">anno prec.</span></th>
           <th class="number">Δ% vs anno prec.</th>
           <th>Arrivo Merci</th><th>Note</th>
         </tr></thead>
-        <tbody id="com-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
+        <tbody id="com-body"><tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
       </table>
     </div>
   </div><!-- /com-giorn-section -->
@@ -3550,7 +3550,7 @@ const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contant
 const SEL_PAG  = SEL_FULL + ',mat_pay_spese,pom_pay_spese,note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
 const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
-const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata';
+const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata,turno_type';
 
 /* ══════════════════════════════════════════════════════
    IVA
@@ -4351,9 +4351,17 @@ async function loadVistaMensileData() {
    COMMERCIALE
 ══════════════════════════════════════════════════════ */
 const METEO_EMOJI = {
-  'sereno':'☀️','soleggiato':'☀️','nuvoloso':'☁️','parzialmente nuvoloso':'⛅',
-  'pioggia':'🌧️','pioggia leggera':'🌦️','temporale':'⛈️','neve':'❄️',
-  'nebbia':'🌫️','vento':'💨','misto':'🌤️'
+  'sereno':'☀️','soleggiato':'☀️',
+  'prevalentemente sereno':'🌤️','variabile':'🌤️','misto':'🌤️',
+  'parzialmente nuvoloso':'⛅',
+  'nuvoloso':'☁️','coperto':'☁️',
+  'nebbia':'🌫️',
+  'pioviggine':'🌦️','pioggia leggera':'🌦️',
+  'pioggia':'🌧️',
+  'grandine':'🌨️',
+  'temporale':'⛈️',
+  'neve':'❄️',
+  'vento':'💨'
 };
 
 // ── Sub-tab commerciale ──────────────────────────────────────────────────────
@@ -4577,11 +4585,16 @@ async function loadCommercialeData() {
         emojiMat || '',
         r.meteo_pomeriggio && r.meteo_pomeriggio !== r.meteo_mattino ? emojiPom : ''
       ].filter(Boolean).join(' ') || '–';
+      const _ttMap = { entrambi:'● 8h', solo_mattino:'◑ 4h', solo_pomeriggio:'◐ 4h' };
+      const _ttLbl = { entrambi:'Tutto il giorno', solo_mattino:'Solo mattino', solo_pomeriggio:'Solo pomeriggio' };
+      const ttKey  = (r.turno_type || 'entrambi');
+      const aperturaCell = `<span title="${_ttLbl[ttKey]||''}" style="white-space:nowrap;font-size:12px;font-weight:700">${_ttMap[ttKey]||'–'}</span>`;
       const arrivoMerciCell = r.arrivo_merci
         ? '✓' + (r.note_arrivo_merci ? ` <span style="font-size:10px;color:#64748b">${r.note_arrivo_merci}</span>` : '')
         : '–';
       return `<tr>
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
+        <td style="text-align:center">${aperturaCell}</td>
         <td style="text-align:center;font-size:16px">${meteoCell}</td>
         <td class="number"><strong>${fmt(inc)}</strong></td>
         <td class="number">${nSc > 0 ? nSc : '–'}</td>
@@ -4595,7 +4608,7 @@ async function loadCommercialeData() {
 
     const mediaGen = tSc > 0 ? tInc / tSc : null;
     tbody.innerHTML += `<tr class="total-row">
-      <td colspan="2"><strong>TOTALE MESE</strong></td>
+      <td colspan="3"><strong>TOTALE MESE</strong></td>
       <td class="number"><strong>${fmt(tInc)}</strong></td>
       <td class="number"><strong>${tSc || '–'}</strong></td>
       <td class="number"><strong>${mediaGen ? fmt(mediaGen) : '–'}</strong></td>
