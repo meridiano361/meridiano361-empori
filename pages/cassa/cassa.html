@@ -349,7 +349,7 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .ddt-pag-pill{padding:6px 13px;font-size:11px;font-weight:700;font-family:'Nunito',sans-serif;border:1.5px solid #e2e8f0;border-radius:20px;color:#64748b;background:#fff;transition:all .15s;display:block;}
 .ddt-pag-opts input[type=radio]:checked+.ddt-pag-pill{background:#B5453A;color:#fff;border-color:#B5453A;}
 .ddt-form-actions{display:flex;gap:8px;}
-@media(max-width:600px){.ddt-flds{grid-template-columns:1fr;}.ddt-item{grid-template-columns:auto 1fr auto;}.ddt-item-importo{display:none;}}
+@media(max-width:600px){.ddt-flds{grid-template-columns:1fr;}.ddt-item{grid-template-columns:auto 1fr auto auto auto;}}
 /* esente dettaglio floating tooltip */
 #esente-tooltip{position:fixed;background:#1e293b;color:#fff;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;z-index:9999;max-width:260px;line-height:1.7;box-shadow:0 4px 20px rgba(0,0,0,.25);display:none;}
 .iva-summary{background:#fdf1f0;border-radius:16px;padding:16px 20px;margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
@@ -511,9 +511,11 @@ input[type=month].btn-export{min-width:160px;}
         <div>
           <button class="back-link" id="btn-back-date"><i class="fas fa-arrow-left"></i> Cambia data</button>
           <div class="nav-giorno">
+            <button class="btn-freccia" id="btn-mese-prec" onclick="mesePrec()" title="Mese precedente" style="font-size:11px;opacity:.6">&#171;</button>
             <button class="btn-freccia" id="btn-giorno-prec" onclick="giornoPrec()" title="Giorno precedente">&#8592;</button>
             <div class="day-title" id="day-label"></div>
             <button class="btn-freccia" id="btn-giorno-succ" onclick="giornoSucc()" title="Giorno successivo">&#8594;</button>
+            <button class="btn-freccia" id="btn-mese-succ" onclick="meseSucc()" title="Mese successivo" style="font-size:11px;opacity:.6">&#187;</button>
           </div>
           <div class="day-emp-lbl" id="emporio-label"></div>
         </div>
@@ -963,8 +965,8 @@ input[type=month].btn-export{min-width:160px;}
           <input id="ddt-ragione" type="text" placeholder="Nome azienda / cliente">
         </div>
 
-        <!-- Tipo + Numero + Importo sulla stessa riga -->
-        <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <!-- Tipo + Numero + Importo -->
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:12px;margin-bottom:14px;align-items:end">
           <div>
             <div class="ddt-tipo-lbl" style="margin-bottom:6px">Tipo</div>
             <div class="ddt-tipo-toggle">
@@ -972,14 +974,22 @@ input[type=month].btn-export{min-width:160px;}
               <label><input type="radio" name="ddt-tipo" value="fattura"><span class="ddt-tipo-btn">Fattura</span></label>
             </div>
           </div>
-          <div class="ddt-fld" style="width:90px">
-            <label>N.</label>
-            <input id="ddt-numero" type="text" placeholder="">
+          <div class="ddt-fld">
+            <label>Numero</label>
+            <input id="ddt-numero" type="text" placeholder="es. 123">
           </div>
-          <div class="ddt-fld" style="width:130px">
-            <label>Importo</label>
+          <div class="ddt-fld">
+            <label>Importo *</label>
             <input id="ddt-importo" type="text" placeholder="€ 0,00" onfocus="clearMiniMoney(this)" onblur="formatMiniMoney(this)">
           </div>
+        </div>
+
+        <!-- Canale acquisto -->
+        <div class="ddt-pag-lbl" style="margin-top:4px">Canale acquisto</div>
+        <div class="ddt-pag-opts" style="margin-bottom:14px">
+          <label><input type="radio" name="ddt-canale" value="emporio" checked><span class="ddt-pag-pill">🏪 Emporio</span></label>
+          <label><input type="radio" name="ddt-canale" value="meridiano361"><span class="ddt-pag-pill">🌐 meridiano361.it</span></label>
+          <label><input type="radio" name="ddt-canale" value="onearth"><span class="ddt-pag-pill">🌱 on-earth.it</span></label>
         </div>
 
         <!-- Forma di pagamento -->
@@ -2896,11 +2906,39 @@ function giornoSucc() {
   });
 }
 
+function mesePrec() {
+  if (!selectedDate) return;
+  const d = new Date(selectedDate.y, selectedDate.m - 1, selectedDate.d);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(selectedDate.d, lastDay));
+  withLeaveCheck(() => {
+    selectedDate = {y: d.getFullYear(), m: d.getMonth(), d: d.getDate()};
+    calYear = selectedDate.y; calMonth = selectedDate.m;
+    openDay();
+  });
+}
+function meseSucc() {
+  if (!selectedDate) return;
+  const d = new Date(selectedDate.y, selectedDate.m + 1, selectedDate.d);
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (d > today) return;
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(selectedDate.d, lastDay));
+  withLeaveCheck(() => {
+    selectedDate = {y: d.getFullYear(), m: d.getMonth(), d: d.getDate()};
+    calYear = selectedDate.y; calMonth = selectedDate.m;
+    openDay();
+  });
+}
+
 // ── DDT / Fatture ────────────────────────────────────────────────────────────
 const DDT_PAG_LABELS = {
   bancomat: 'Bancomat', carte_credito: 'Carte di credito',
   satispay: 'Satispay', satispay_online: 'Satispay Online',
   carte_online: 'Carte Online', paypal: 'PayPal'
+};
+const DDT_CAN_LABELS = {
+  emporio: '🏪 Emporio', meridiano361: '🌐 meridiano361.it', onearth: '🌱 on-earth.it'
 };
 let _ddtEditId = null;
 
@@ -2933,7 +2971,7 @@ async function loadDdtFatture(chiave) {
       <span class="ddt-tipo-badge ddt-tipo-${d.tipo}">${d.tipo.toUpperCase()}</span>
       <div>
         <div class="ddt-item-rs">${d.ragione_sociale}${d.numero ? ' <span style="font-weight:400;color:#94a3b8">N. '+d.numero+'</span>' : ''}</div>
-        <div class="ddt-item-meta">${DDT_PAG_LABELS[d.forma_pagamento] || d.forma_pagamento}</div>
+        <div class="ddt-item-meta">${DDT_PAG_LABELS[d.forma_pagamento] || d.forma_pagamento}${d.canale && d.canale !== 'emporio' ? ' · ' + (DDT_CAN_LABELS[d.canale] || d.canale) : ''}</div>
       </div>
       <div class="ddt-item-importo">${imp > 0 ? euro(imp) : '–'}</div>
       <button class="ddt-item-btn" onclick="openDdtForm('${d.id}')"><i class="fas fa-pencil"></i></button>
@@ -2953,6 +2991,7 @@ function openDdtForm(id) {
   document.getElementById('ddt-numero').value   = '';
   document.getElementById('ddt-importo').value  = '';
   document.querySelectorAll('input[name="ddt-pag"]').forEach(r => r.checked = false);
+  document.querySelector('input[name="ddt-canale"][value="emporio"]').checked = true;
 
   if (id) {
     // carica dati esistenti per edit
@@ -2965,6 +3004,8 @@ function openDdtForm(id) {
       document.getElementById('ddt-importo').value = data.importo ? euro(data.importo) : '';
       const pagEl = document.querySelector(`input[name="ddt-pag"][value="${data.forma_pagamento}"]`);
       if (pagEl) pagEl.checked = true;
+      const canEl = document.querySelector(`input[name="ddt-canale"][value="${data.canale || 'emporio'}"]`);
+      if (canEl) canEl.checked = true;
     });
   }
   wrap.style.display = '';
@@ -2985,12 +3026,14 @@ async function saveDdt() {
   const numero  = document.getElementById('ddt-numero').value.trim();
   const importoRaw = document.getElementById('ddt-importo').value;
   const importo = parseEuro(importoRaw) || null;
+  const canale  = document.querySelector('input[name="ddt-canale"]:checked')?.value || 'emporio';
 
   const record = {
     chiave: currentKey, emporio: currentEmp,
     tipo, numero: numero || null,
     ragione_sociale: ragione,
     forma_pagamento: pagEl.value,
+    canale,
     importo
   };
 
