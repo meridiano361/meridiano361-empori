@@ -284,6 +284,8 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .iva-note-icon:hover{color:#1d4ed8;}
 .iva-admin-ok{width:15px;height:15px;accent-color:#22c55e;cursor:pointer;vertical-align:middle;}
 .pag-contab-ok{width:15px;height:15px;accent-color:#22c55e;cursor:pointer;vertical-align:middle;}
+.date-link{cursor:pointer;color:inherit;text-decoration:underline dotted #94a3b8;}
+.date-link:hover{color:#B5453A;text-decoration-color:#B5453A;}
 .pag-has-note{cursor:pointer;text-decoration:underline dotted #f59e0b;color:inherit;}
 .pag-has-note:hover{color:#d97706;}
 .iva-amm-note-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 5px;color:#94a3b8;transition:color .15s;font-family:'Nunito',sans-serif;}
@@ -3089,6 +3091,17 @@ const fmtData = (d, opts) => {
   return new Date(d).toLocaleDateString('it-IT', opts || {weekday:'short', day:'2-digit', month:'short'});
 };
 
+function goToDay(dateStr, emp) {
+  const [yr, mo, dy] = dateStr.split('-').map(Number);
+  withLeaveCheck(() => {
+    showMacroSection('empori', document.getElementById('navtab-empori'));
+    if (currentEmp !== emp) selectEmp(emp);
+    calYear = yr; calMonth = mo - 1;
+    selectedDate = { y: yr, m: mo - 1, d: dy };
+    openDay();
+  });
+}
+
 function exportTableCSV(tableId, filename) {
   const table = document.getElementById(tableId);
   if (!table) return;
@@ -3250,7 +3263,7 @@ async function loadIvaData() {
         <td><button class="iva-amm-note-btn${r.admin_note?' has-note':''}" onclick="editAdminIvaNota('${r.chiave}',this)" data-nota="${(r.admin_note||'').replace(/"/g,'&quot;')}" title="${r.admin_note?r.admin_note.replace(/"/g,'&quot;'):'Aggiungi nota'}"><i class="fas fa-sticky-note"></i></button></td>
       ` : '';
       return `<tr>
-        <td>${label}</td>
+        <td ${mese ? `class="date-link" onclick="goToDay('${r.periodo}','${r.emporio}')" title="Apri foglio di giornata"` : ''}>${label}</td>
         <td class="number" style="${bc}">${fmt(r.lordo)}</td>
         <td class="number">${fmt(totNet)}</td>
         <td class="number">${fmt(totIva)}</td>
@@ -3371,7 +3384,7 @@ async function loadPagamentiData() {
       T.pp+=r.paypal; T.bon+=r.bonifico; T.gift+=gift;
       T.buoni+=r.buoni_altromercato; T.rimb+=r.rimborsi_online; T.tot+=r.totale_corrispettivi;
       return `<tr>
-        <td>${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata">${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
         <td class="number">${fmt(r.contanti)}</td>
         <td class="number">${fmt(r.bancomat)}</td>
         <td class="number">${fmt(r.carte_credito)}</td>
@@ -3433,7 +3446,7 @@ async function loadCassaforteData() {
       const fr   = parseFloat(r.fondo_residuo||0);
       tCf += cf;
       return `<tr>
-        <td>${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata">${fmtData(r.data)}</td><td>${r.emporio||'–'}</td>
         <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
         <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
       </tr>`;
@@ -3548,7 +3561,7 @@ async function loadVistaMensileData() {
       const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
 
       rows1.push(`<tr>
-        <td><strong>${dl}</strong></td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${dl}</strong></td>
         <td class="number">${corr > 0 ? fmt(corr) : '–'}</td>
         <td class="number">${incassi > 0 ? fmt(incassi) : '–'}</td>
         <td class="number">${cont > 0 ? fmt(cont) : '–'}</td>
@@ -3602,7 +3615,7 @@ async function loadVistaMensileData() {
       const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
 
       rows2.push(`<tr>
-        <td><strong>${dl}</strong></td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${dl}</strong></td>
         <td class="number">${tot > 0 ? fmt(tot) : '–'}</td>
         <td class="number">${v22 > 0 ? fmt(v22) : '–'}</td>
         <td class="number">${v10 > 0 ? fmt(v10) : '–'}</td>
@@ -3662,7 +3675,7 @@ async function loadVistaMensileData() {
       const dl = fmtData(r.data, { weekday: 'short', day: '2-digit', month: 'short' });
 
       rows3.push(`<tr>
-        <td><strong>${dl}</strong></td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${dl}</strong></td>
         <td class="number">${c26 > 0 ? fmt(c26) : '–'}</td>
         <td class="number">${c25 > 0 ? fmt(c25) : '–'}</td>
         <td class="number">${fmtPct(deltaPct)}</td>
@@ -3791,7 +3804,7 @@ async function loadCommercialeData() {
         ? '✓' + (r.note_arrivo_merci ? ` <span style="font-size:10px;color:#64748b">${r.note_arrivo_merci}</span>` : '')
         : '–';
       return `<tr>
-        <td><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
+        <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
         <td>${r.emporio || '–'}</td>
         <td style="text-align:center">${meteoCell}</td>
         <td class="number"><strong>${fmt(inc)}</strong></td>
