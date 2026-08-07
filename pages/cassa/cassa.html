@@ -2779,6 +2779,19 @@ function checkIva(corId, errors) {
   const cor = getNum(corId);
   if (Math.abs(iva - cor) >= 0.015) errors.push('IVA giornaliera (non corrisponde ai corrispettivi)');
 }
+const NOTE_OBBLIGATORIE_IDS = ['satispay_online','carte_online','paypal','bonifico'];
+function checkNoteObbligatorie(turni, errors) {
+  NOTE_OBBLIGATORIE_IDS.forEach(id => {
+    const label = PAGAMENTI.find(p => p.id === id)?.label || id;
+    turni.forEach(t => {
+      const amt = parseEuro(document.getElementById(t+'_pay_'+id)?.value || '');
+      if (Math.abs(amt) > 0 && !hasNoteVal(t, id)) {
+        const suf = turni.length > 1 ? (t === 'mat' ? ' (mattino)' : ' (pomeriggio)') : '';
+        errors.push(`${label}${suf}: nota obbligatoria`);
+      }
+    });
+  });
+}
 
 /* ── SALVA CHIUSURA MATTINO (solo modalità "entrambi") ── */
 async function saveMat() {
@@ -2793,6 +2806,7 @@ async function saveMat() {
   checkOps('mat', 'Operatore/i mattino', errors);
   checkScontrini('mat-scontrini', 'Numero scontrini mattino', errors);
   checkField('mat-corrispettivi','Corrispettivi mattino', errors);
+  checkNoteObbligatorie(['mat'], errors);
   if (errors.length) {
     alert('Campi obbligatori mancanti per la chiusura mattino:\n\n• ' + errors.join('\n• '));
     return;
@@ -2838,6 +2852,7 @@ async function saveDay() {
     checkIva('pom-corrispettivi', errors);
     if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
     if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
+    checkNoteObbligatorie(['pom'], errors);
   } else if (tipo === 'solo_mattino') {
     checkOps('mat', 'Operatore/i mattino', errors);
     checkScontrini('mat-scontrini', 'Numero scontrini mattino', errors);
@@ -2845,6 +2860,7 @@ async function saveDay() {
     checkField('mat-cassaforte',   'Contanti in cassaforte', errors);
     checkIva('mat-corrispettivi', errors);
     if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
+    checkNoteObbligatorie(['mat'], errors);
   } else { // solo_pomeriggio
     checkOps('pom', 'Operatore/i pomeriggio', errors);
     checkScontrini('pom-scontrini', 'Numero scontrini pomeriggio', errors);
@@ -2852,6 +2868,7 @@ async function saveDay() {
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
     if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
+    checkNoteObbligatorie(['pom'], errors);
   }
   if (errors.length) {
     alert('Campi obbligatori mancanti o errati:\n\n• ' + errors.join('\n• '));
