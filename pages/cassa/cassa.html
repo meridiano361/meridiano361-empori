@@ -45,7 +45,7 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .cal-month-pill.cal-mp-active{background:#B5453A;color:#fff!important;border-color:#B5453A;}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
 .cal-head{text-align:center;font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:.08em;padding:6px 0;text-transform:uppercase;}
-.cal-day{aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;cursor:pointer;color:#475569;transition:all .12s;border:1.5px solid transparent;}
+.cal-day{height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;cursor:pointer;color:#475569;transition:all .12s;border:1.5px solid transparent;}
 .cal-day:hover{background:#fdf1f0;color:#B5453A;}
 .cal-day.today{border-color:#B5453A;color:#B5453A;font-weight:800;}
 .cal-day.selected{background:#B5453A;color:#fff!important;font-weight:800;border-color:#B5453A;}
@@ -477,7 +477,7 @@ input[type=month].btn-export{min-width:160px;}
       <!-- Lista mesi -->
       <div id="cal-months-list" style="display:flex;flex-direction:column;gap:4px;min-width:46px;padding-top:2px;"></div>
       <!-- Calendario + azioni -->
-      <div style="flex:1;min-width:0;">
+      <div style="flex:1;min-width:0;max-width:420px;">
         <div class="calendar-wrap" style="max-width:none;">
           <div class="month-nav">
             <button class="nav-btn" id="cal-prev"><i class="fas fa-chevron-left"></i></button>
@@ -1327,13 +1327,14 @@ input[type=month].btn-export{min-width:160px;}
       <table class="admin-table" id="com-table">
         <thead><tr>
           <th>Data</th><th>Apertura</th><th>Meteo</th>
-          <th class="number">Corrispettivi €</th><th class="number">N° Scontrini</th>
-          <th class="number">Scontrino Medio €</th>
+          <th class="number">Corrispettivi<br>I.E.</th><th class="number">Corrispettivi<br>I.I.</th>
+          <th class="number">N° Scontrini</th>
+          <th class="number">Scontrino Medio<br>I.E.</th><th class="number">Scontrino Medio<br>I.I.</th>
           <th class="number">Stesso giorno <span id="com-anno-prec-label">anno prec.</span></th>
           <th class="number">Δ% vs anno prec.</th>
           <th>Arrivo Merci</th><th>Note</th>
         </tr></thead>
-        <tbody id="com-body"><tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
+        <tbody id="com-body"><tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese per visualizzare i dati</td></tr></tbody>
       </table>
     </div>
   </div><!-- /com-giorn-section -->
@@ -3583,7 +3584,7 @@ const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contant
 const SEL_PAG  = SEL_FULL + ',mat_pay_spese,pom_pay_spese,note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
 const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
-const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata,turno_type';
+const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,iva_esente,iva_4,iva_10,iva_22,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata,turno_type';
 
 /* ══════════════════════════════════════════════════════
    IVA
@@ -4599,10 +4600,10 @@ async function loadCommercialeData() {
   const mese          = (_aa && _mm) ? `${_aa}-${_mm}` : '';
   const annoConfronto = document.getElementById('com-confronto-anno').value;
   const tbody         = document.getElementById('com-body');
-  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:30px">Caricamento...</td></tr>';
   try {
     if (!mese) {
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px">Seleziona un mese</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:30px">Seleziona un mese</td></tr>';
       return;
     }
     const [anno, mm] = mese.split('-');
@@ -4647,17 +4648,19 @@ async function loadCommercialeData() {
     } catch(_) {}
 
     document.getElementById('com-anno-prec-label').textContent = annoConfronto;
-    let tInc = 0, tSc = 0, bestVal = 0, bestDay = '', tOre = 0;
+    let tInc = 0, tIE = 0, tII = 0, tSc = 0, bestVal = 0, bestDay = '', tOre = 0;
 
     tbody.innerHTML = data.map(r => {
-      const inc   = r.totale_corrispettivi;
-      const nSc   = parseInt(r.global_scontrini || 0);
-      const media = nSc > 0 ? inc / nSc : null;
-      const key   = r._day + '||' + (r.emporio || '');
-      const rP    = dPrec[key];
-      const incP  = rP ? rP.totale_corrispettivi : null;
+      const n = v => parseFloat(v || 0);
+      const ie  = n(r.iva_esente);
+      const ii  = n(r.iva_22) + n(r.iva_10) + n(r.iva_4);
+      const inc = r.totale_corrispettivi;
+      const nSc = parseInt(r.global_scontrini || 0);
+      const key = r._day + '||' + (r.emporio || '');
+      const rP  = dPrec[key];
+      const incP = rP ? rP.totale_corrispettivi : null;
       const delta = (incP != null && incP > 0) ? (inc - incP) / incP * 100 : null;
-      tInc += inc; tSc += nSc;
+      tInc += inc; tIE += ie; tII += ii; tSc += nSc;
       if (inc > bestVal) { bestVal = inc; bestDay = r.data; }
       const meteoMat = (r.meteo_mattino || '').toLowerCase();
       const meteoPom = (r.meteo_pomeriggio || '').toLowerCase();
@@ -4676,13 +4679,17 @@ async function loadCommercialeData() {
       const oreStr = ore > 0 ? ore.toFixed(2)+'h' : '–';
       const aperturaCell = `<span title="${_ttLbl[ttKey]||''}" style="white-space:nowrap;font-size:12px;font-weight:700">${_ttSym[ttKey]||'●'} ${oreStr}</span>`;
       const arrivoMerciCell = r.arrivo_merci ? '✓' : '–';
+      const medIE = nSc > 0 && ie > 0 ? fmt(ie / nSc) : '–';
+      const medII = nSc > 0 && ii > 0 ? fmt(ii / nSc) : '–';
       return `<tr>
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
         <td style="text-align:center">${aperturaCell}</td>
         <td style="text-align:center;font-size:16px">${meteoCell}</td>
-        <td class="number"><strong>${fmt(inc)}</strong></td>
+        <td class="number">${ie > 0 ? fmt(ie) : '–'}</td>
+        <td class="number">${ii > 0 ? fmt(ii) : '–'}</td>
         <td class="number">${nSc > 0 ? nSc : '–'}</td>
-        <td class="number">${media ? fmt(media) : '–'}</td>
+        <td class="number">${medIE}</td>
+        <td class="number">${medII}</td>
         <td class="number">${incP != null ? fmt(incP) : '–'}</td>
         <td class="number">${fmtPct(delta)}</td>
         <td style="font-size:11px">${arrivoMerciCell}</td>
@@ -4690,21 +4697,24 @@ async function loadCommercialeData() {
       </tr>`;
     }).join('');
 
-    const mediaGen = tSc > 0 ? tInc / tSc : null;
+    const tMedIE = tSc > 0 && tIE > 0 ? fmt(tIE / tSc) : '–';
+    const tMedII = tSc > 0 && tII > 0 ? fmt(tII / tSc) : '–';
     tbody.innerHTML += `<tr class="total-row">
       <td colspan="3"><strong>TOTALE MESE</strong></td>
-      <td class="number"><strong>${fmt(tInc)}</strong></td>
+      <td class="number"><strong>${tIE > 0 ? fmt(tIE) : '–'}</strong></td>
+      <td class="number"><strong>${tII > 0 ? fmt(tII) : '–'}</strong></td>
       <td class="number"><strong>${tSc || '–'}</strong></td>
-      <td class="number"><strong>${mediaGen ? fmt(mediaGen) : '–'}</strong></td>
+      <td class="number"><strong>${tMedIE}</strong></td>
+      <td class="number"><strong>${tMedII}</strong></td>
       <td colspan="4">–</td>
     </tr>`;
 
     document.getElementById('kpi-incasso-mese').textContent    = fmt(tInc);
-    document.getElementById('kpi-scontrino-medio').textContent = mediaGen ? fmt(mediaGen) : '–';
+    document.getElementById('kpi-scontrino-medio').textContent = tSc > 0 ? fmt(tInc / tSc) : '–';
     document.getElementById('kpi-giorni-aperti').textContent   = data.filter(r => r.totale_corrispettivi > 0).length;
     document.getElementById('kpi-ore-apertura').textContent    = tOre > 0 ? tOre.toFixed(2)+'h' : '–';
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
 </script>
