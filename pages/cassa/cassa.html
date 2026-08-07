@@ -40,6 +40,9 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .month-label{font-size:18px;font-weight:800;color:#1e293b;}
 .nav-btn{width:36px;height:36px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s;}
 .nav-btn:hover{background:#fdf1f0;color:#B5453A;border-color:#B5453A;}
+.cal-month-pill{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 6px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;text-align:center;transition:all .12s;width:100%;font-family:'Nunito',sans-serif;}
+.cal-month-pill:hover{background:#fdf1f0;color:#B5453A;border-color:#B5453A;}
+.cal-month-pill.cal-mp-active{background:#B5453A;color:#fff!important;border-color:#B5453A;}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
 .cal-head{text-align:center;font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:.08em;padding:6px 0;text-transform:uppercase;}
 .cal-day{aspect-ratio:1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;cursor:pointer;color:#475569;transition:all .12s;border:1.5px solid transparent;}
@@ -470,17 +473,24 @@ input[type=month].btn-export{min-width:160px;}
   <!-- ══ STEP 2: Calendario ══ -->
   <div id="step-date" class="card card-pad hidden">
     <div class="sec-title">Data</div>
-    <div class="calendar-wrap">
-      <div class="month-nav">
-        <button class="nav-btn" id="cal-prev"><i class="fas fa-chevron-left"></i></button>
-        <span class="month-label" id="cal-month-label"></span>
-        <button class="nav-btn" id="cal-next"><i class="fas fa-chevron-right"></i></button>
+    <div style="display:flex;gap:14px;align-items:flex-start;">
+      <!-- Lista mesi -->
+      <div id="cal-months-list" style="display:flex;flex-direction:column;gap:4px;min-width:46px;padding-top:2px;"></div>
+      <!-- Calendario + azioni -->
+      <div style="flex:1;min-width:0;">
+        <div class="calendar-wrap" style="max-width:none;">
+          <div class="month-nav">
+            <button class="nav-btn" id="cal-prev"><i class="fas fa-chevron-left"></i></button>
+            <span class="month-label" id="cal-month-label"></span>
+            <button class="nav-btn" id="cal-next"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+        <div class="cal-actions" style="margin-top:14px;">
+          <button class="btn-primary" id="btn-open-day">Apri giorno</button>
+          <button class="btn-secondary" id="btn-back-emp">Indietro</button>
+        </div>
       </div>
-      <div class="cal-grid" id="cal-grid"></div>
-    </div>
-    <div class="cal-actions">
-      <button class="btn-primary" id="btn-open-day">Apri giorno</button>
-      <button class="btn-secondary" id="btn-back-emp">Indietro</button>
     </div>
   </div>
 
@@ -1718,6 +1728,16 @@ function selectEmp(emp) {
 }
 
 /* ── CALENDARIO ── */
+const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+function jumpToMonth(m) { calMonth = m; renderCalendar(); }
+function renderMonthsList() {
+  const wrap = document.getElementById('cal-months-list');
+  if (!wrap) return;
+  wrap.innerHTML = MESI_BREVI.map((m, i) =>
+    `<button class="cal-month-pill${i === calMonth ? ' cal-mp-active' : ''}" onclick="jumpToMonth(${i})">${m}</button>`
+  ).join('');
+}
+
 function renderCalendar() {
   const now = new Date();
   document.getElementById('cal-month-label').textContent = MESI[calMonth]+' '+calYear;
@@ -1742,6 +1762,7 @@ function renderCalendar() {
   }
   const rem=(offset+dim)%7===0?0:7-((offset+dim)%7);
   for(let i=1;i<=rem;i++){ const d=document.createElement('div'); d.className='cal-day other-month'; d.textContent=i; grid.appendChild(d); }
+  renderMonthsList();
 }
 
 /* ── BUILD COINS ── */
@@ -4654,9 +4675,7 @@ async function loadCommercialeData() {
       tOre += ore;
       const oreStr = ore > 0 ? ore.toFixed(2)+'h' : '–';
       const aperturaCell = `<span title="${_ttLbl[ttKey]||''}" style="white-space:nowrap;font-size:12px;font-weight:700">${_ttSym[ttKey]||'●'} ${oreStr}</span>`;
-      const arrivoMerciCell = r.arrivo_merci
-        ? '✓' + (r.note_arrivo_merci ? ` <span style="font-size:10px;color:#64748b">${r.note_arrivo_merci}</span>` : '')
-        : '–';
+      const arrivoMerciCell = r.arrivo_merci ? '✓' : '–';
       return `<tr>
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
         <td style="text-align:center">${aperturaCell}</td>
