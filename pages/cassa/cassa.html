@@ -3088,6 +3088,12 @@ async function openDay() {
     renderShiftOps('pom');
     updateTurnoVisibility();
     clearDirty();
+    // Per giornate passate: auto-conferma meteo senza richiedere click manuale
+    if (selectedDate) {
+      const _oggi = new Date(); _oggi.setHours(0,0,0,0);
+      const _sel  = new Date(selectedDate.y, selectedDate.m, selectedDate.d);
+      if (_sel < _oggi) { setMeteoConfirmed('mat', true); setMeteoConfirmed('pom', true); }
+    }
     showDayTab(document.getElementById('day-tab-btn-ddt').classList.contains('active') ? 'ddt' : 'corrispettivi');
     loadDdtFatture(currentKey);
     const bkJson = localStorage.getItem('cassa_bk_' + currentKey);
@@ -3223,6 +3229,15 @@ async function saveDay() {
   const tipo = document.querySelector('input[name="turno_type"]:checked').value;
   const errors = [];
 
+  // Giornate passate: meteo auto-confermato, nessun click necessario
+  const _isPassato = (() => {
+    if (!selectedDate) return false;
+    const _o = new Date(); _o.setHours(0,0,0,0);
+    return new Date(selectedDate.y, selectedDate.m, selectedDate.d) < _o;
+  })();
+  const _meteoMatOk = _meteoMatConfirmed || _isPassato;
+  const _meteoPomOk = _meteoPomConfirmed || _isPassato;
+
   // ── Validazione obbligatori per turno ──
   if (tipo === 'entrambi') {
     if (!matOraChiusura) {
@@ -3234,8 +3249,8 @@ async function saveDay() {
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
-    if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
-    if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
+    if (!_meteoMatOk) errors.push('Meteo mattino: conferma il dato o modificalo');
+    if (!_meteoPomOk) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
     checkNoteObbligatorie(['pom'], errors);
   } else if (tipo === 'solo_mattino') {
     checkOps('mat', 'Operatore/i mattino', errors);
@@ -3243,7 +3258,7 @@ async function saveDay() {
     checkField('mat-corrispettivi','Corrispettivi mattino', errors);
     checkField('mat-cassaforte',   'Contanti in cassaforte', errors);
     checkIva('mat-corrispettivi', errors);
-    if (!_meteoMatConfirmed) errors.push('Meteo mattino: conferma il dato o modificalo');
+    if (!_meteoMatOk) errors.push('Meteo mattino: conferma il dato o modificalo');
     checkNoteObbligatorie(['mat'], errors);
   } else { // solo_pomeriggio
     checkOps('pom', 'Operatore/i pomeriggio', errors);
@@ -3251,7 +3266,7 @@ async function saveDay() {
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
-    if (!_meteoPomConfirmed) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
+    if (!_meteoPomOk) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
     checkNoteObbligatorie(['pom'], errors);
   }
   if (errors.length) {
