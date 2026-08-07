@@ -4662,6 +4662,24 @@ async function loadCommercialeData() {
       }
     } catch(_) {}
 
+    // Meteo storico da API open-meteo (fallback per giorni senza meteo in DB)
+    const wxArchive = {}; // 'emporio_day' → descrizione
+    try {
+      const _lastDay = new Date(+anno, +mm, 0).getDate();
+      const _startDt = `${anno}-${String(+mm).padStart(2,'0')}-01`;
+      const _endDt   = `${anno}-${String(+mm).padStart(2,'0')}-${String(_lastDay).padStart(2,'0')}`;
+      await Promise.allSettled(emps.map(async e => {
+        const city = CITY[e]; if (!city) return;
+        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${city.lat}&longitude=${city.lon}&start_date=${_startDt}&end_date=${_endDt}&daily=weather_code&timezone=Europe%2FRome`;
+        const j = await (await fetch(url)).json();
+        if (j.daily?.time && j.daily?.weather_code) {
+          j.daily.time.forEach((ds, i) => {
+            wxArchive[e + '_' + parseInt(ds.split('-')[2])] = wxCode(j.daily.weather_code[i]);
+          });
+        }
+      }));
+    } catch(_) {}
+
     document.getElementById('com-anno-prec-label').textContent = annoConfronto;
     let tInc = 0, tIE = 0, tII = 0, tSc = 0, bestVal = 0, bestDay = '', tOre = 0;
 
@@ -4683,8 +4701,9 @@ async function loadCommercialeData() {
       const delta = (incP != null && incP > 0) ? (inc - incP) / incP * 100 : null;
       tInc += inc; tIE += ie; tII += ii; tSc += nSc;
       if (inc > bestVal) { bestVal = inc; bestDay = r.data; }
-      const meteoMat = (r.meteo_mattino || '').toLowerCase();
-      const meteoPom = (r.meteo_pomeriggio || '').toLowerCase();
+      const _wxFb = wxArchive[r.emporio + '_' + r._day] || '';
+      const meteoMat = (r.meteo_mattino || _wxFb).toLowerCase();
+      const meteoPom = (r.meteo_pomeriggio || _wxFb).toLowerCase();
       const emojiMat = METEO_EMOJI[meteoMat] || '';
       const emojiPom = METEO_EMOJI[meteoPom] || '';
       const meteoCell = [
