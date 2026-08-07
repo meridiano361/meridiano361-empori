@@ -1342,7 +1342,19 @@ const parseEuro = v => {
   }
   return parseFloat(s)||0;
 };
-const formatMoney    = el => { el.value = euro(parseEuro(el.value)); };
+function evalMoneyFormula(el) {
+  const raw = el.value.trim();
+  if (!raw.startsWith('=')) return;
+  const expr = raw.slice(1).replace(/[^0-9.,+\-*/\s()]/g, '').replace(/,/g, '.');
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = Function('"use strict"; return (' + expr + ')')();
+    if (typeof result === 'number' && isFinite(result)) {
+      el.value = String(Math.round(result * 100) / 100);
+    } else { el.value = ''; }
+  } catch(e) { el.value = ''; }
+}
+const formatMoney    = el => { evalMoneyFormula(el); el.value = euro(parseEuro(el.value)); };
 const clearMoney     = el => { if(parseEuro(el.value)===0) el.value=''; };
 const formatMiniMoney= el => { el.value = euro(parseEuro(el.value)); };
 const clearMiniMoney = el => { if(parseEuro(el.value)===0) el.value=''; };
