@@ -3969,14 +3969,36 @@ async function loadCassaforteData() {
     // Per-emporio running state
     const empState = {};
     for (const emp of emps) {
-      empState[emp] = { sumCf: 0, sumVers: 0, prevFr: prevFrMap.get(emp) || 0 };
+      const initFr = prevFrMap.get(emp) || 0;
+      empState[emp] = { sumCf: 0, sumVers: 0, prevFr: initFr, riporto: initFr };
     }
 
     let tCf = 0, tVers = 0, lastSaldo = 0;
+    let prevEmp = null;
+    const htmlRows = [];
 
-    tbody.innerHTML = rows.map(r => {
+    for (const r of rows) {
       const emp  = r.emporio || '';
-      const st   = empState[emp] ?? (empState[emp] = { sumCf:0, sumVers:0, prevFr:0 });
+      const st   = empState[emp] ?? (empState[emp] = { sumCf:0, sumVers:0, prevFr:0, riporto:0 });
+
+      // Riga riporto alla prima comparsa dell'emporio
+      if (emp !== prevEmp) {
+        prevEmp = emp;
+        const riporto = st.riporto;
+        if (riporto > 0) {
+          const prevMLabel = parseInt(mm) === 1
+            ? `dic ${parseInt(anno)-1}` : `${['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'][parseInt(mm)-2]} ${anno}`;
+          htmlRows.push(`<tr style="background:#f0fdf4;font-style:italic;color:#15803d">
+            <td style="font-size:11px;font-weight:700;padding-left:10px">Riporto ${prevMLabel}</td>
+            <td class="number">–</td>
+            <td class="number">${fmt(riporto)}</td>
+            <td class="number">–</td>
+            <td class="number">–</td>
+            <td class="number"><strong>${fmt(riporto)}</strong></td>
+          </tr>`);
+        }
+      }
+
       const cf   = r.saldo_cassaforte;
       const fr   = parseFloat(r.fondo_residuo || 0);
       const cont = r.contanti;
@@ -3987,8 +4009,8 @@ async function loadCassaforteData() {
       const diff  = cf + fr - st.prevFr - cont + spese;
       st.sumCf   += cf;
       st.sumVers += vers;
-      // Saldo = fondo corrente + cassaforte accumulata − versamenti accumulati (mese corrente)
-      const saldo = fr + st.sumCf - st.sumVers;
+      // Saldo = riporto mese prec. + cassaforte accumulata mese corrente − versamenti accumulati
+      const saldo = st.riporto + st.sumCf - st.sumVers;
       st.prevFr  = fr;
       lastSaldo  = saldo;
       tCf += cf; tVers += vers;
@@ -3996,7 +4018,7 @@ async function loadCassaforteData() {
       const diffColor = Math.abs(diff) < 0.01 ? '' : (diff > 0.009 ? 'color:#16a34a' : 'color:#dc2626');
       const diffTxt   = Math.abs(diff) < 0.01 ? '–' : (diff > 0 ? '+' : '') + fmt(diff);
 
-      return `<tr>
+      htmlRows.push(`<tr>
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata">${fmtData(r.data)}</td>
         <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
         <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
@@ -4008,8 +4030,10 @@ async function loadCassaforteData() {
             onblur="saveCfVersamento('${r.chiave}',this)">
         </td>
         <td class="number"><strong>${fmt(saldo)}</strong></td>
-      </tr>`;
-    }).join('');
+      </tr>`);
+    }
+
+    tbody.innerHTML = htmlRows.join('');
 
     tbody.innerHTML += `<tr class="total-row">
       <td><strong>TOTALE</strong></td>
