@@ -482,6 +482,14 @@ input[type=month].btn-export{min-width:160px;}
   <!-- ══ SCREEN GIORNATA ══ -->
   <div id="screen-day" class="hidden space-y">
 
+    <!-- ── Sub-tab giornata ── -->
+    <div class="card card-pad" style="padding:0 24px">
+      <div class="sub-tabs" style="margin-bottom:0">
+        <button class="sub-tab active" id="day-tab-btn-corr" onclick="showDayTab('corrispettivi')"><i class="fas fa-cash-register"></i> Corrispettivi</button>
+        <button class="sub-tab" id="day-tab-btn-ddt" onclick="showDayTab('ddt')"><i class="fas fa-file-invoice"></i> DDT / Fatture</button>
+      </div>
+    </div>
+
     <!-- Header giornata -->
     <div class="card card-pad">
       <div class="day-header">
@@ -494,7 +502,7 @@ input[type=month].btn-export{min-width:160px;}
           </div>
           <div class="day-emp-lbl" id="emporio-label"></div>
         </div>
-        <div class="meta-chips">
+        <div class="meta-chips" id="day-corr-extras">
           <div class="meta-chip" id="meteo-mat-chip">
             <div class="meta-chip-lbl"><i id="meteo-mat-icon" class="fas fa-sun"></i> Meteo mattino</div>
             <select id="meteo-mattino" onchange="syncWeatherIcon(); setMeteoConfirmed('mat', true)">
@@ -560,7 +568,7 @@ input[type=month].btn-export{min-width:160px;}
     </div>
 
     <!-- ── TIPO TURNO ── -->
-    <div class="card card-pad">
+    <div class="card card-pad" id="day-turno-card">
       <div class="turno-type-wrap">
         <div class="turno-type-lbl">Seleziona apertura emporio</div>
         <div class="turno-type-opts">
@@ -577,14 +585,6 @@ input[type=month].btn-export{min-width:160px;}
             <i class="fas fa-moon"></i> Solo pomeriggio
           </label>
         </div>
-      </div>
-    </div>
-
-    <!-- ── Sub-tab giornata ── -->
-    <div class="card card-pad" style="padding:0 24px">
-      <div class="sub-tabs" style="margin-bottom:0">
-        <button class="sub-tab active" id="day-tab-btn-corr" onclick="showDayTab('corrispettivi')"><i class="fas fa-cash-register"></i> Corrispettivi</button>
-        <button class="sub-tab" id="day-tab-btn-ddt" onclick="showDayTab('ddt')"><i class="fas fa-file-invoice"></i> DDT / Fatture</button>
       </div>
     </div>
 
@@ -2807,10 +2807,13 @@ const DDT_PAG_LABELS = {
 let _ddtEditId = null;
 
 function showDayTab(tab) {
-  document.getElementById('day-content-corrispettivi').style.display = tab === 'corrispettivi' ? '' : 'none';
-  document.getElementById('day-content-ddt').style.display           = tab === 'ddt'            ? '' : 'none';
-  document.getElementById('day-tab-btn-corr').classList.toggle('active', tab === 'corrispettivi');
-  document.getElementById('day-tab-btn-ddt').classList.toggle('active',  tab === 'ddt');
+  const isCorr = tab === 'corrispettivi';
+  document.getElementById('day-content-corrispettivi').style.display = isCorr ? '' : 'none';
+  document.getElementById('day-content-ddt').style.display           = isCorr ? 'none' : '';
+  document.getElementById('day-tab-btn-corr').classList.toggle('active',  isCorr);
+  document.getElementById('day-tab-btn-ddt').classList.toggle('active',  !isCorr);
+  document.getElementById('day-corr-extras').style.display           = isCorr ? '' : 'none';
+  document.getElementById('day-turno-card').style.display            = isCorr ? '' : 'none';
 }
 
 async function loadDdtFatture(chiave) {
