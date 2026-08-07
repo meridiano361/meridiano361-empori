@@ -1078,13 +1078,15 @@ input[type=month].btn-export{min-width:160px;}
       <table class="admin-table" id="pag-ddt-table">
         <thead><tr>
           <th style="text-align:left">Data</th>
-          <th style="text-align:center">Tipo</th>
-          <th>N.</th>
-          <th style="text-align:left">Ragione Sociale</th>
-          <th>Forma pagamento</th>
-          <th class="number">Importo</th>
+          <th class="number">Bancomat</th>
+          <th class="number">Carte di<br>credito</th>
+          <th class="number">Satispay</th>
+          <th class="number">Satispay<br>Online</th>
+          <th class="number">Carte<br>Online</th>
+          <th class="number">PayPal</th>
+          <th class="number">Totale</th>
         </tr></thead>
-        <tbody id="pag-ddt-body"><tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:30px">Seleziona emporio e mese</td></tr></tbody>
+        <tbody id="pag-ddt-body"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:30px">Seleziona emporio e mese</td></tr></tbody>
       </table>
     </div>
 
@@ -3677,15 +3679,15 @@ async function loadPagamentiData() {
   const ddtBody  = document.getElementById('pag-ddt-body');
   const totBody  = document.getElementById('pag-tot-body');
   const PH16 = m => `<tr><td colspan="16" style="text-align:center;color:#94a3b8;padding:30px">${m}</td></tr>`;
-  const PH6  = m => `<tr><td colspan="6"  style="text-align:center;color:#94a3b8;padding:20px">${m}</td></tr>`;
+  const PH8  = m => `<tr><td colspan="8"  style="text-align:center;color:#94a3b8;padding:20px">${m}</td></tr>`;
   const PH15 = m => `<tr><td colspan="15" style="text-align:center;color:#94a3b8;padding:30px">${m}</td></tr>`;
   tbody.innerHTML = PH16('Caricamento…');
-  ddtBody.innerHTML = PH6('Caricamento…');
+  ddtBody.innerHTML = PH8('Caricamento…');
   totBody.innerHTML = PH15('Caricamento…');
   try {
     if (!mese) {
       tbody.innerHTML = PH16('Seleziona un mese');
-      ddtBody.innerHTML = PH6('Seleziona un mese');
+      ddtBody.innerHTML = PH8('Seleziona un mese');
       totBody.innerHTML = PH15('Seleziona un mese');
       return;
     }
@@ -3766,38 +3768,45 @@ async function loadPagamentiData() {
     }
 
     // ── DDT / FATTURE ────────────────────────────────────────────────────────
-    // Mappa per data→{bancomat,carte,satispay,satispay_online,carte_online,paypal,tot}
+    // Aggrega per data: una riga per giorno con colonne per forma di pagamento
     const ddtByDate = new Map();
     const TD = {banc:0,carte:0,sati:0,satOnl:0,carteOnl:0,pp:0,tot:0};
-    if (!ddtRaw || !ddtRaw.length) {
-      ddtBody.innerHTML = PH6('Nessun DDT o fattura registrata');
+    (ddtRaw || []).forEach(d => {
+      const imp = parseFloat(d.importo || 0);
+      const fp  = d.forma_pagamento;
+      if (!ddtByDate.has(d.chiave)) ddtByDate.set(d.chiave, {emporio:d.emporio, bancomat:0,carte_credito:0,satispay:0,satispay_online:0,carte_online:0,paypal:0,tot:0});
+      const dd = ddtByDate.get(d.chiave);
+      if (fp in dd) dd[fp] += imp;
+      dd.tot += imp;
+      TD.banc    += fp==='bancomat'        ? imp : 0;
+      TD.carte   += fp==='carte_credito'   ? imp : 0;
+      TD.sati    += fp==='satispay'        ? imp : 0;
+      TD.satOnl  += fp==='satispay_online' ? imp : 0;
+      TD.carteOnl+= fp==='carte_online'    ? imp : 0;
+      TD.pp      += fp==='paypal'          ? imp : 0;
+      TD.tot     += imp;
+    });
+    if (!ddtByDate.size) {
+      ddtBody.innerHTML = PH8('Nessun DDT o fattura registrata');
     } else {
-      ddtBody.innerHTML = ddtRaw.map(d => {
-        const imp = parseFloat(d.importo || 0);
-        const fp  = d.forma_pagamento;
-        if (!ddtByDate.has(d.chiave)) ddtByDate.set(d.chiave, {bancomat:0,carte_credito:0,satispay:0,satispay_online:0,carte_online:0,paypal:0,tot:0});
-        const dd = ddtByDate.get(d.chiave);
-        if (dd[fp] !== undefined) dd[fp] += imp; dd.tot += imp;
-        TD.banc    += fp==='bancomat'        ? imp : 0;
-        TD.carte   += fp==='carte_credito'   ? imp : 0;
-        TD.sati    += fp==='satispay'        ? imp : 0;
-        TD.satOnl  += fp==='satispay_online' ? imp : 0;
-        TD.carteOnl+= fp==='carte_online'    ? imp : 0;
-        TD.pp      += fp==='paypal'          ? imp : 0;
-        TD.tot     += imp;
-        // Normalizza chiave → data
-        const p = d.chiave.split('_'); const dy=p[p.length-3],dm=p[p.length-2],dd2=p[p.length-1];
-        const dataStr = `${dy}-${String(dm).padStart(2,'0')}-${String(dd2).padStart(2,'0')}`;
+      ddtBody.innerHTML = [...ddtByDate.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([chiave, d]) => {
+        const p = chiave.split('_');
+        const dataStr = `${p[p.length-3]}-${String(p[p.length-2]).padStart(2,'0')}-${String(p[p.length-1]).padStart(2,'0')}`;
         return `<tr>
           <td class="date-link" onclick="goToDay('${dataStr}','${d.emporio}')" title="Apri foglio di giornata">${fmtData(dataStr)}</td>
-          <td style="text-align:center"><span class="ddt-tipo-badge ddt-tipo-${d.tipo}">${d.tipo.toUpperCase()}</span></td>
-          <td style="color:#64748b">${d.numero || '–'}</td>
-          <td><strong>${d.ragione_sociale}</strong></td>
-          <td style="font-size:11px">${DDT_PAG_LABELS[d.forma_pagamento] || d.forma_pagamento}</td>
-          <td class="number"><strong>${imp > 0 ? fmt(imp) : '–'}</strong></td>
+          <td class="number">${d.bancomat     > 0 ? fmt(d.bancomat)      : '–'}</td>
+          <td class="number">${d.carte_credito> 0 ? fmt(d.carte_credito) : '–'}</td>
+          <td class="number">${d.satispay     > 0 ? fmt(d.satispay)      : '–'}</td>
+          <td class="number">${d.satispay_online > 0 ? fmt(d.satispay_online) : '–'}</td>
+          <td class="number">${d.carte_online > 0 ? fmt(d.carte_online)  : '–'}</td>
+          <td class="number">${d.paypal       > 0 ? fmt(d.paypal)        : '–'}</td>
+          <td class="number"><strong>${fmt(d.tot)}</strong></td>
         </tr>`;
       }).join('') + `<tr class="total-row">
-        <td colspan="5"><strong>TOTALE DDT/FATTURE</strong></td>
+        <td><strong>TOTALE</strong></td>
+        <td class="number">${fmt(TD.banc)}</td><td class="number">${fmt(TD.carte)}</td>
+        <td class="number">${fmt(TD.sati)}</td><td class="number">${fmt(TD.satOnl)}</td>
+        <td class="number">${fmt(TD.carteOnl)}</td><td class="number">${fmt(TD.pp)}</td>
         <td class="number"><strong>${fmt(TD.tot)}</strong></td>
       </tr>`;
     }
@@ -3858,7 +3867,7 @@ async function loadPagamentiData() {
     </tr>`;
   } catch(e) {
     tbody.innerHTML   = `<tr><td colspan="16" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
-    ddtBody.innerHTML = `<tr><td colspan="6"  style="text-align:center;color:#dc2626;padding:20px">Errore: ${e.message}</td></tr>`;
+    ddtBody.innerHTML = `<tr><td colspan="8"  style="text-align:center;color:#dc2626;padding:20px">Errore: ${e.message}</td></tr>`;
     totBody.innerHTML = `<tr><td colspan="15" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
