@@ -375,6 +375,7 @@
             <span id="biometric-label">Accesso biometrico</span>
           </button>
           <p id="biometric-user" style="text-align:center;font-size:12px;color:#94a3b8;margin-top:10px"></p>
+          <button type="button" onclick="resetBiometric()" style="display:block;margin:4px auto 0;font-size:11px;color:#94a3b8;background:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif;">Riconfigura accesso biometrico</button>
         </div>
 
         <!-- Prompt attivazione biometrica (visibile dopo primo login con email) -->
@@ -394,6 +395,7 @@
               </button>
               <button onclick="skipBiometric()" class="lw-btn" style="height:40px;font-size:13px;margin-top:0;background:transparent;border:1.5px solid #bbf7d0;color:#15803d;flex:0 0 auto;padding:0 18px">Non ora</button>
             </div>
+            <div id="bio-reg-error" style="display:none;font-size:12px;color:#b91c1c;margin-top:8px;font-weight:600"></div>
           </div>
         </div>
 
@@ -528,8 +530,7 @@
     btn.disabled = true; spinner.style.display = 'block'; label.style.display = 'none';
     try {
       const credId = localStorage.getItem('m361_bio_cred_id');
-      const refreshToken = localStorage.getItem('m361_bio_refresh_token');
-      if (!credId || !refreshToken) throw new Error('Credenziali non trovate. Accedi con email.');
+      if (!credId) throw new Error('Nessuna credenziale biometrica registrata su questo dispositivo. Accedi con email.');
 
       await navigator.credentials.get({
         publicKey: {
@@ -540,14 +541,26 @@
         }
       });
 
-      const { data, error } = await _supabase.auth.refreshSession({ refresh_token: refreshToken });
-      if (error || !data?.session) {
+      // Prova con refresh token salvato, poi fallback su sessione attiva
+      let session = null;
+      const storedToken = localStorage.getItem('m361_bio_refresh_token');
+      if (storedToken && storedToken !== 'null') {
+        const { data: rd } = await _supabase.auth.refreshSession({ refresh_token: storedToken });
+        if (rd?.session) {
+          session = rd.session;
+          localStorage.setItem('m361_bio_refresh_token', session.refresh_token);
+        }
+      }
+      if (!session) {
+        const { data: sd } = await _supabase.auth.getSession();
+        session = sd?.session || null;
+      }
+      if (!session) {
         localStorage.removeItem('m361_bio_refresh_token');
         throw new Error('Sessione scaduta. Accedi con email per rinnovarla.');
       }
-      localStorage.setItem('m361_bio_refresh_token', data.session.refresh_token);
 
-      const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', data.user.email).single();
+      const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', session.user.email).single();
       if (opErr || !op) throw new Error('Utente non autorizzato.');
       localStorage.setItem('m361_user', JSON.stringify(op));
       window.location.href = 'index.html';
@@ -561,16 +574,19 @@
   }
 
   async function registerBiometric() {
-    const btn = document.getElementById('bio-reg-btn');
-    const sp  = document.getElementById('bio-reg-spinner');
+    const btn   = document.getElementById('bio-reg-btn');
+    const sp    = document.getElementById('bio-reg-spinner');
+    const errEl = document.getElementById('bio-reg-error');
     btn.disabled = true; sp.style.display = 'block';
+    if (errEl) errEl.style.display = 'none';
     try {
+      const uid = new TextEncoder().encode(String(_pendingOperatore.id));
       const credential = await navigator.credentials.create({
         publicKey: {
           challenge: crypto.getRandomValues(new Uint8Array(32)),
           rp: { name: 'Meridiano 361', id: window.location.hostname },
           user: {
-            id: new TextEncoder().encode(_pendingOperatore.id),
+            id: uid,
             name: _pendingOperatore.email,
             displayName: _pendingOperatore.nome || _pendingOperatore.email.split('@')[0],
           },
@@ -586,16 +602,29 @@
           timeout: 60000,
         }
       });
+      if (!credential) throw new Error('Nessuna credenziale restituita.');
       localStorage.setItem('m361_bio_cred_id', _abToB64(credential.rawId));
       localStorage.setItem('m361_bio_refresh_token', _pendingRefreshToken);
       localStorage.setItem('m361_bio_user_name', _pendingOperatore.nome || _pendingOperatore.email.split('@')[0]);
-    } catch (_) { /* annullato o non supportato: redirect comunque */ }
-    window.location.href = 'index.html';
+      window.location.href = 'index.html';
+    } catch (err) {
+      sp.style.display = 'none'; btn.disabled = false;
+      if (err.name === 'NotAllowedError') return; // utente ha annullato
+      if (errEl) { errEl.textContent = 'Errore: ' + err.message; errEl.style.display = ''; }
+    }
   }
 
   function skipBiometric() {
     localStorage.setItem('m361_bio_skip_until', Date.now() + 30 * 24 * 60 * 60 * 1000);
     window.location.href = 'index.html';
+  }
+
+  function resetBiometric() {
+    localStorage.removeItem('m361_bio_cred_id');
+    localStorage.removeItem('m361_bio_refresh_token');
+    localStorage.removeItem('m361_bio_user_name');
+    localStorage.removeItem('m361_bio_skip_until');
+    document.getElementById('biometric-section').style.display = 'none';
   }
 
   window.addEventListener('DOMContentLoaded', checkAndShowBiometricButton);
@@ -669,7 +698,7 @@
     const password = document.getElementById('password').value;
 
     try {
-      const { error: authError } = await _supabase.auth.signInWithPassword({ email, password });
+      const { data: authData, error: authError } = await _supabase.auth.signInWithPassword({ email, password });
       if (authError) throw new Error('Email o password non corretti.');
 
       const { data: operatore, error: opError } = await _supabase
@@ -698,9 +727,8 @@
       if (!alreadyReg && Date.now() > skipUntil && window.PublicKeyCredential) {
         const platformOk = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
         if (platformOk) {
-          const { data: sess } = await _supabase.auth.getSession();
           _pendingOperatore    = operatore;
-          _pendingRefreshToken = sess?.session?.refresh_token || null;
+          _pendingRefreshToken = authData?.session?.refresh_token || null;
           if (_pendingRefreshToken) {
             document.getElementById('login-form').style.display    = 'none';
             document.getElementById('biometric-section').style.display = 'none';
