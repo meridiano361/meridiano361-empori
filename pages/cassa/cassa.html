@@ -3541,6 +3541,7 @@ function init() {
     sessionStorage.removeItem('cassa_tab');
     sessionStorage.removeItem('cassa_subtab_admin');
     sessionStorage.removeItem('cassa_com_subtab');
+    ['pag','cf','vm','iva'].forEach(p => sessionStorage.removeItem('cassa_mese_'+p));
     document.getElementById('step-date').classList.add('hidden');
     document.getElementById('main-nav').style.display = 'none';
     document.getElementById('landing-emp').style.display = '';
@@ -3565,12 +3566,32 @@ function init() {
     if (_dirty) { e.preventDefault(); e.returnValue = ''; }
   });
 
+  // Salva il mese selezionato in sessionStorage quando cambia
+  const meseCorrente = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  ['pag','cf','vm','iva'].forEach(pfx => {
+    const mEl = document.getElementById(pfx+'-filter-mese-m');
+    const aEl = document.getElementById(pfx+'-filter-anno');
+    const save = () => {
+      const m = mEl?.value||'', a = aEl?.value||'';
+      if (m && a) sessionStorage.setItem('cassa_mese_'+pfx, a+'-'+m);
+    };
+    mEl?.addEventListener('change', save);
+    aEl?.addEventListener('change', save);
+  });
+
   // Ripristina emporio e tab dopo un refresh
   const _savedEmp = sessionStorage.getItem('cassa_emp');
   if (_savedEmp) {
     selectEmp(_savedEmp);
     const _savedTab = sessionStorage.getItem('cassa_tab');
     if (_savedTab && _savedTab !== 'empori') {
+      // Ripristina filtri mese PRIMA di caricare i dati (default: mese corrente)
+      if (_savedTab === 'amministrazione') {
+        ['pag','cf','vm','iva'].forEach(pfx => {
+          const m = sessionStorage.getItem('cassa_mese_'+pfx) || meseCorrente;
+          setAdminMese(pfx, m);
+        });
+      }
       const _tabBtn = document.querySelector(`.nav-tab[onclick*="'${_savedTab}'"]`);
       showMacroSection(_savedTab, _tabBtn || null);
       // Ripristina sub-tab Amministrazione
