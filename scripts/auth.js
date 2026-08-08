@@ -3,6 +3,42 @@
  * Dipende da: localStorage.m361_user impostato da login.html → nav-script.js
  */
 
+// ── Prevenzione autofill browser ─────────────────────────────────────────────
+// I browser ignorano autocomplete="off" e riempiono i campi con email/password
+// salvate. Soluzione: form-honeypot nascosto che assorbe l'autofill + cleanup.
+(function preventAutofill() {
+  function run() {
+    // 1. Form honeypot: il browser riempie questo (nascosto) e lascia stare gli altri
+    if (!document.getElementById('m361-autofill-trap')) {
+      const trap = document.createElement('form');
+      trap.id = 'm361-autofill-trap';
+      trap.setAttribute('aria-hidden', 'true');
+      trap.style.cssText = 'display:none;position:absolute;left:-9999px;width:0;height:0;overflow:hidden;pointer-events:none';
+      trap.innerHTML =
+        '<input type="text"     name="m361fu" autocomplete="username"         tabindex="-1">' +
+        '<input type="email"    name="m361fe" autocomplete="email"            tabindex="-1">' +
+        '<input type="password" name="m361fp" autocomplete="current-password" tabindex="-1">';
+      document.body.insertBefore(trap, document.body.firstChild);
+    }
+
+    // 2. Cleanup reattivo: rimuove email iniettate nei campi non-login dopo 250ms
+    setTimeout(() => {
+      document.querySelectorAll('input[type="text"], input[type="search"], input:not([type])').forEach(el => {
+        if (el.closest('#login-view, #login-form, [data-autofill-ok]')) return;
+        if (el.value && el.value.includes('@')) {
+          el.value = el.defaultValue || '';
+        }
+      });
+    }, 250);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+})();
+
 function getOperatoreLoggato() {
   try { return JSON.parse(localStorage.getItem('m361_user') || 'null'); }
   catch { return null; }
