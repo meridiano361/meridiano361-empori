@@ -2714,7 +2714,6 @@ function calcAll() {
     PAGAMENTI.forEach(p=>{
       const raw=parseEuro(document.getElementById(turno+'_pay_'+p.id)?.value);
       if(p.sign<0) altri-=Math.abs(raw);
-      else if(p.spese) altri-=Math.abs(raw);
       else altri+=raw;
     });
     const totale=netti+altri;
@@ -3768,13 +3767,14 @@ function normCassa(rows) {
       gift_card_online:     n2(r.mat_pay_gift_card_online,r.pom_pay_gift_card_online),
       buoni_altromercato:   n2(r.mat_pay_buoni,           r.pom_pay_buoni),
       rimborsi_online:      n2(r.mat_pay_rimborsi_online, r.pom_pay_rimborsi_online),
+      spese:                n2(r.mat_pay_spese,           r.pom_pay_spese),
       saldo_cassaforte:     parseFloat(r.cassaforte) || parseFloat(r.mat_cassaforte) || 0,
       note:                 r.note_giornata || null,
     };
   }).sort((a, b) => (a.emporio||'').localeCompare(b.emporio||'') || a._day - b._day);
 }
-const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,cassaforte,mat_cassaforte,fondo_cassa,fondo_residuo,note_giornata';
-const SEL_PAG  = SEL_FULL + ',mat_pay_spese,pom_pay_spese,note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
+const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,mat_pay_spese,pom_pay_spese,cassaforte,mat_cassaforte,fondo_cassa,fondo_residuo,note_giornata';
+const SEL_PAG  = SEL_FULL + ',note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
 const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
 const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,iva_esente,iva_4,iva_10,iva_22,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata,turno_type';
@@ -4167,7 +4167,7 @@ async function loadCassaforteData() {
 
     // Mese corrente
     let q = db.from('cassa_giorni')
-      .select(SEL_FULL + ',mat_pay_spese,pom_pay_spese,turno_type,versamenti')
+      .select(SEL_FULL + ',turno_type,versamenti')
       .in('chiave', emps.flatMap(e => chiaveMonth(e, anno, mm)));
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
@@ -4468,7 +4468,8 @@ async function loadVistaMensileData() {
       const gcOnl   = r.gift_card_online;
       const buoni   = r.buoni_altromercato;
       const rimb    = r.rimborsi_online;
-      const incassi = cont + banc + carte + sati + satOnl + cOnl + pp + bon + gc + gcOnl + buoni - rimb;
+      const spese   = n(r.spese);
+      const incassi = cont + banc + carte + sati + satOnl + cOnl + pp + bon + gc + gcOnl + buoni - rimb + spese;
       const cf      = r.saldo_cassaforte;
       const fc      = n(r.fondo_cassa);
       const diff    = corr - incassi;
@@ -5042,7 +5043,7 @@ async function quickSaveVersamento() {
     cf:   'Saldo fisico del contante presente in cassaforte a fine giornata, inserito dall\'operatore nel foglio di giornata.',
     prog: 'Riporto mese precedente (cassaforte netta) + somma dei saldi cassaforte del mese corrente − versamenti in banca effettuati fino a questa data.',
     fr:   'Fondo residuo del giorno: contanti lordi contati meno il fondo fisso. Diventa il fondo iniziale del giorno successivo.',
-    inc:  'Totale incassato del turno di chiusura: contanti netti + bancomat + carte + Satispay + pagamenti online + gift card + buoni − rimborsi online − spese.\nTurno: pomeriggio se giornata intera o solo pom; mattino se solo mat.',
+    inc:  'Totale incassato del turno di chiusura: contanti netti + bancomat + carte + Satispay + pagamenti online + gift card + buoni + spese − rimborsi online.\nLe spese sono incluse perché coperte da giustificativo.\nTurno: pomeriggio se giornata intera o solo pom; mattino se solo mat.',
     cor:  'Corrispettivi dichiarati nel foglio di giornata per il turno di chiusura (pomeriggio se giornata intera o solo pom; mattino se solo mat).',
     diff: 'Incassato − Corrispettivi del turno di chiusura.\nPositivo = surplus di cassa; negativo = ammanco.',
     vers: 'Contante versato in banca in questa data. Modificabile direttamente nella tabella.',
