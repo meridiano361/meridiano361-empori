@@ -361,6 +361,42 @@
           <a href="/richiedi-accesso.html" class="lw-link" id="login-link1" style="margin-top:20px">Richiedi credenziali di accesso</a>
           <button type="button" class="lw-link" id="login-link2-btn" onclick="showRecovery()" style="margin-top:8px">Ho dimenticato la password</button>
         </form>
+
+        <!-- Login biometrico (visibile se già registrato su questo dispositivo) -->
+        <div id="biometric-section" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin:20px 0 16px">
+            <div style="flex:1;height:1px;background:#e2e8f0"></div>
+            <span style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.08em">oppure</span>
+            <div style="flex:1;height:1px;background:#e2e8f0"></div>
+          </div>
+          <button type="button" id="biometric-btn" onclick="loginWithBiometric()" class="lw-btn" style="background:#1e293b">
+            <div id="biometric-spinner" class="lw-spinner"></div>
+            <i class="fas fa-fingerprint" style="font-size:19px"></i>
+            <span id="biometric-label">Accesso biometrico</span>
+          </button>
+          <p id="biometric-user" style="text-align:center;font-size:12px;color:#94a3b8;margin-top:10px"></p>
+        </div>
+
+        <!-- Prompt attivazione biometrica (visibile dopo primo login con email) -->
+        <div id="biometric-prompt" style="display:none">
+          <div class="lw-success on" style="flex-direction:column;align-items:flex-start;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <i class="fas fa-fingerprint" style="font-size:20px;flex-shrink:0"></i>
+              <div>
+                <div style="font-weight:800;margin-bottom:3px">Accesso rapido disponibile</div>
+                <div style="font-weight:500;font-size:12px">Vuoi usare l'impronta digitale o Face ID per i prossimi accessi?</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:2px">
+              <button onclick="registerBiometric()" id="bio-reg-btn" class="lw-btn" style="height:40px;font-size:13px;margin-top:0;background:#15803d;flex:0 0 auto;padding:0 18px">
+                <div id="bio-reg-spinner" class="lw-spinner"></div>
+                Attiva
+              </button>
+              <button onclick="skipBiometric()" class="lw-btn" style="height:40px;font-size:13px;margin-top:0;background:transparent;border:1.5px solid #bbf7d0;color:#15803d;flex:0 0 auto;padding:0 18px">Non ora</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Vista recupero password -->
@@ -454,6 +490,116 @@
     if (e.data && e.data.type === 'm361-preview') applyLoginSettings(e.data.settings);
   });
 
+  /* ── Biometrico (WebAuthn) ── */
+  let _pendingOperatore = null;
+  let _pendingRefreshToken = null;
+
+  function _abToB64(buf) {
+    const b = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  }
+  function _b64ToAb(b64) {
+    const s = atob(b64.replace(/-/g,'+').replace(/_/g,'/'));
+    const b = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+    return b.buffer;
+  }
+
+  async function checkAndShowBiometricButton() {
+    if (!window.PublicKeyCredential) return;
+    const credId = localStorage.getItem('m361_bio_cred_id');
+    if (!credId) return;
+    const ok = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
+    if (!ok) return;
+    const section = document.getElementById('biometric-section');
+    section.style.display = '';
+    const name = localStorage.getItem('m361_bio_user_name');
+    if (name) document.getElementById('biometric-user').textContent = 'Accedi come ' + name;
+  }
+
+  async function loginWithBiometric() {
+    const btn = document.getElementById('biometric-btn');
+    const spinner = document.getElementById('biometric-spinner');
+    const label = document.getElementById('biometric-label');
+    const errDiv = document.getElementById('error-msg');
+    errDiv.classList.remove('on');
+    btn.disabled = true; spinner.style.display = 'block'; label.style.display = 'none';
+    try {
+      const credId = localStorage.getItem('m361_bio_cred_id');
+      const refreshToken = localStorage.getItem('m361_bio_refresh_token');
+      if (!credId || !refreshToken) throw new Error('Credenziali non trovate. Accedi con email.');
+
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          userVerification: 'required',
+          timeout: 60000,
+          allowCredentials: [{ id: _b64ToAb(credId), type: 'public-key' }],
+        }
+      });
+
+      const { data, error } = await _supabase.auth.refreshSession({ refresh_token: refreshToken });
+      if (error || !data?.session) {
+        localStorage.removeItem('m361_bio_refresh_token');
+        throw new Error('Sessione scaduta. Accedi con email per rinnovarla.');
+      }
+      localStorage.setItem('m361_bio_refresh_token', data.session.refresh_token);
+
+      const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', data.user.email).single();
+      if (opErr || !op) throw new Error('Utente non autorizzato.');
+      localStorage.setItem('m361_user', JSON.stringify(op));
+      window.location.href = 'index.html';
+    } catch (err) {
+      btn.disabled = false; spinner.style.display = 'none'; label.style.display = '';
+      if (err.name !== 'NotAllowedError') {
+        document.getElementById('error-text').textContent = err.message;
+        errDiv.classList.add('on');
+      }
+    }
+  }
+
+  async function registerBiometric() {
+    const btn = document.getElementById('bio-reg-btn');
+    const sp  = document.getElementById('bio-reg-spinner');
+    btn.disabled = true; sp.style.display = 'block';
+    try {
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'Meridiano 361', id: window.location.hostname },
+          user: {
+            id: new TextEncoder().encode(_pendingOperatore.id),
+            name: _pendingOperatore.email,
+            displayName: _pendingOperatore.nome || _pendingOperatore.email.split('@')[0],
+          },
+          pubKeyCredParams: [
+            { alg: -7,   type: 'public-key' },
+            { alg: -257, type: 'public-key' },
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            userVerification: 'required',
+            residentKey: 'preferred',
+          },
+          timeout: 60000,
+        }
+      });
+      localStorage.setItem('m361_bio_cred_id', _abToB64(credential.rawId));
+      localStorage.setItem('m361_bio_refresh_token', _pendingRefreshToken);
+      localStorage.setItem('m361_bio_user_name', _pendingOperatore.nome || _pendingOperatore.email.split('@')[0]);
+    } catch (_) { /* annullato o non supportato: redirect comunque */ }
+    window.location.href = 'index.html';
+  }
+
+  function skipBiometric() {
+    localStorage.setItem('m361_bio_skip_until', Date.now() + 30 * 24 * 60 * 60 * 1000);
+    window.location.href = 'index.html';
+  }
+
+  window.addEventListener('DOMContentLoaded', checkAndShowBiometricButton);
+
   function showRecovery() {
     document.getElementById('login-view').style.display    = 'none';
     document.getElementById('recovery-view').style.display = '';
@@ -545,6 +691,27 @@
         if (!operatore.first_login_at) payload.first_login_at = loginNow;
         await _supabase.from('operatori').update(payload).eq('id', operatore.id);
       } catch (_) {}
+
+      // Offri registrazione biometrica se supportata e non già registrata/saltata
+      const skipUntil = +localStorage.getItem('m361_bio_skip_until') || 0;
+      const alreadyReg = !!localStorage.getItem('m361_bio_cred_id');
+      if (!alreadyReg && Date.now() > skipUntil && window.PublicKeyCredential) {
+        const platformOk = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
+        if (platformOk) {
+          const { data: sess } = await _supabase.auth.getSession();
+          _pendingOperatore    = operatore;
+          _pendingRefreshToken = sess?.session?.refresh_token || null;
+          if (_pendingRefreshToken) {
+            document.getElementById('login-form').style.display    = 'none';
+            document.getElementById('biometric-section').style.display = 'none';
+            document.getElementById('biometric-prompt').style.display  = '';
+            btn.disabled = false;
+            document.getElementById('btn-spinner').style.display = 'none';
+            document.getElementById('btn-label').textContent = 'Accedi';
+            return;
+          }
+        }
+      }
 
       window.location.href = 'index.html';
 
