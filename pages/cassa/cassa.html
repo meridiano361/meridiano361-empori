@@ -1188,6 +1188,16 @@ input[type=month].btn-export{min-width:160px;}
   <!-- CASSAFORTE & VERSAMENTI -->
   <div id="admin-sub-cassaforte" class="sub-content">
     <div class="export-bar">
+      <div style="background:#1e293b;border-radius:10px;padding:7px 14px;display:flex;gap:10px;align-items:center;margin-right:auto;">
+        <span style="font-size:12px;font-weight:700;color:#60a5fa;white-space:nowrap;"><i class="fas fa-building-columns"></i> Versamento</span>
+        <input type="date" id="cf-vers-data" style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:6px;padding:5px 9px;font-size:12px;">
+        <input type="text" id="cf-vers-importo" placeholder="€ 0,00"
+          style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:6px;padding:5px 9px;font-size:12px;width:110px;text-align:right;font-variant-numeric:tabular-nums;"
+          onfocus="if(!this.value.trim())this.value='€ 0,00'"
+          onblur="const v=parseEuro(this.value);this.value=v>0?euro(v):''">
+        <button onclick="quickSaveVersamento()" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Salva</button>
+        <span id="cf-vers-msg" style="font-size:11px;min-width:0;white-space:nowrap;"></span>
+      </div>
       <select id="cf-filter-emporio" onchange="loadCassaforteData()" class="btn-export">
         <option value="">Tutti gli empori</option>
         <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
@@ -1221,37 +1231,6 @@ input[type=month].btn-export{min-width:160px;}
         </tr></thead>
         <tbody id="cf-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
       </table>
-    </div>
-
-    <!-- Widget versamento rapido -->
-    <div id="cf-vers-widget" style="margin-top:18px;background:#1e293b;border-radius:14px;padding:20px 24px;">
-      <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-        <i class="fas fa-building-columns" style="color:#60a5fa;"></i> Registra versamento in banca
-      </div>
-      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;">Emporio</div>
-          <select id="cf-vers-emp" style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:8px;padding:8px 11px;font-size:13px;cursor:pointer;">
-            <option value="">– scegli –</option>
-            <option>Cremona</option><option>Casalmaggiore</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
-          </select>
-        </div>
-        <div>
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;">Data</div>
-          <input type="date" id="cf-vers-data" style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:8px;padding:8px 11px;font-size:13px;">
-        </div>
-        <div>
-          <div style="font-size:10px;color:#94a3b8;margin-bottom:5px;text-transform:uppercase;letter-spacing:.6px;">Importo</div>
-          <input type="text" id="cf-vers-importo" placeholder="€ 0,00"
-            style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:8px;padding:8px 11px;font-size:13px;width:130px;text-align:right;font-variant-numeric:tabular-nums;"
-            onfocus="if(!this.value.trim())this.value='€ 0,00'"
-            onblur="const v=parseEuro(this.value);this.value=v>0?euro(v):''">
-        </div>
-        <button onclick="quickSaveVersamento()" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
-          <i class="fas fa-check"></i> Salva
-        </button>
-      </div>
-      <div id="cf-vers-msg" style="margin-top:11px;font-size:12px;min-height:18px;"></div>
     </div>
   </div>
 
@@ -4939,12 +4918,12 @@ async function loadCommercialeData() {
 }
 
 async function quickSaveVersamento() {
-  const emp      = document.getElementById('cf-vers-emp').value;
-  const dataVal  = document.getElementById('cf-vers-data').value;
-  const impEl    = document.getElementById('cf-vers-importo');
-  const msg      = document.getElementById('cf-vers-msg');
+  const emp     = document.getElementById('cf-filter-emporio').value;
+  const dataVal = document.getElementById('cf-vers-data').value;
+  const impEl   = document.getElementById('cf-vers-importo');
+  const msg     = document.getElementById('cf-vers-msg');
   msg.textContent = '';
-  if (!emp)     { msg.style.color='#f87171'; msg.textContent='Seleziona un emporio.'; return; }
+  if (!emp)     { msg.style.color='#f87171'; msg.textContent='Seleziona prima un emporio nel filtro.'; return; }
   if (!dataVal) { msg.style.color='#f87171'; msg.textContent='Inserisci la data.'; return; }
   const val = parseEuro(impEl.value);
   if (!val || val <= 0) { msg.style.color='#f87171'; msg.textContent='Inserisci un importo valido.'; return; }
@@ -4954,7 +4933,7 @@ async function quickSaveVersamento() {
     const { error } = await db.from('cassa_giorni').update({ versamenti: val }).eq('chiave', chiave);
     if (error) throw error;
     msg.style.color = '#4ade80';
-    msg.textContent = `✓ ${euro(val)} versati in banca il ${d}/${m}/${y} (${emp})`;
+    msg.textContent = `✓ ${euro(val)} — ${d}/${m}/${y}`;
     impEl.value = '';
     loadCassaforteData();
   } catch(e) {
@@ -4979,18 +4958,6 @@ async function quickSaveVersamento() {
     // Data di default = oggi nel widget versamento
     const versDataEl = document.getElementById('cf-vers-data');
     if (versDataEl) versDataEl.value = new Date().toISOString().slice(0, 10);
-
-    // Sincronizza emporio filtro → widget
-    const filterEmp = document.getElementById('cf-filter-emporio');
-    if (filterEmp) {
-      const syncEmp = () => {
-        const v = filterEmp.value;
-        const w = document.getElementById('cf-vers-emp');
-        if (w && v) w.value = v;
-      };
-      filterEmp.addEventListener('change', syncEmp);
-      syncEmp();
-    }
 
     const popup = document.getElementById('cf-col-popup');
     document.querySelectorAll('.cf-info-btn').forEach(btn => {
