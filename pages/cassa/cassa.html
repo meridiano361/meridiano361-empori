@@ -4164,7 +4164,7 @@ async function loadCassaforteData() {
       empState[emp] = { sumCf: 0, sumVers: 0, prevFr: initFr, riporto_fr: initFr, w0: initW0 };
     }
 
-    let tCf = 0, tVers = 0, tDiff = 0, tCorr = 0, tInc = 0, lastSaldo = 0;
+    let tCf = 0, tRip = 0, tVers = 0, tDiff = 0, tCorr = 0, tInc = 0, lastSaldo = 0;
     let prevEmp = null;
     const htmlRows = [];
 
@@ -4179,9 +4179,10 @@ async function loadCassaforteData() {
           const prevMLabel = parseInt(mm) === 1
             ? `dic ${parseInt(anno)-1}` : `${['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'][parseInt(mm)-2]} ${anno}`;
           const r4 = Math.round((st.w0 - st.riporto_fr) * 100) / 100;
+          tRip += r4;
           htmlRows.push(`<tr style="background:#f0fdf4;font-style:italic;color:#15803d">
             <td style="font-size:11px;font-weight:700;padding-left:10px">Riporto ${prevMLabel}</td>
-            <td class="number">–</td>
+            <td class="number">${r4 !== 0 ? fmt(r4) : '–'}</td>
             <td class="number">${r4 !== 0 ? fmt(r4) : '–'}</td>
             <td class="number">${st.riporto_fr > 0 ? fmt(st.riporto_fr) : '–'}</td>
             <td class="number">–</td>
@@ -4247,7 +4248,7 @@ async function loadCassaforteData() {
     const tDiffStyle = tDiffAbs === 0 ? 'color:#94a3b8' : tDiff < 0 ? 'color:#dc2626' : 'color:#d97706';
     tbody.innerHTML += `<tr class="total-row">
       <td><strong>TOTALE</strong></td>
-      <td class="number"><strong>${fmt(tCf)}</strong></td>
+      <td class="number"><strong>${fmt(tCf + tRip)}</strong></td>
       <td>–</td><td>–</td>
       <td class="number"><strong>${tInc > 0 ? fmt(tInc) : '–'}</strong></td>
       <td class="number"><strong>${tCorr > 0 ? fmt(tCorr) : '–'}</strong></td>
