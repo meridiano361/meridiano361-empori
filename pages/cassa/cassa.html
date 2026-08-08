@@ -4099,7 +4099,7 @@ async function loadCassaforteData() {
 
     // Mese corrente
     let q = db.from('cassa_giorni')
-      .select('chiave,emporio,cassaforte,mat_cassaforte,fondo_residuo,mat_contanti_netti,pom_contanti_netti,mat_pay_spese,pom_pay_spese,versamenti')
+      .select(SEL_FULL + ',mat_pay_spese,pom_pay_spese,turno_type,versamenti')
       .in('chiave', emps.flatMap(e => chiaveMonth(e, anno, mm)));
     if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
@@ -4187,13 +4187,17 @@ async function loadCassaforteData() {
 
       const cf   = r.saldo_cassaforte;
       const fr   = parseFloat(r.fondo_residuo || 0);
-      const cont = r.contanti;
-      const spese= parseFloat(r.mat_pay_spese||0) + parseFloat(r.pom_pay_spese||0);
       const vers = parseFloat(r.versamenti || 0);
 
-      // Differenza = cassaforte + spese − fondo_precedente − contanti_netti
-      // (da Excel: T_N = R_N + P_N − S_{N-1} − D_lordi, dove D_lordi = netti + S_N che si cancella con +S_N)
-      const diff  = cf + spese - st.prevFr - cont;
+      // Differenza = incassato_turno - corrispettivi_turno (dal foglio di giornata)
+      const _tipo = r.turno_type || 'entrambi';
+      const _t    = _tipo === 'solo_mattino' ? 'mat' : 'pom';
+      let   _inc  = parseFloat(r[_t + '_contanti_netti'] || 0);
+      PAGAMENTI.forEach(p => {
+        const v = parseFloat(r[_t + '_pay_' + p.id] || 0);
+        if (p.sign < 0 || p.spese) _inc -= Math.abs(v); else _inc += v;
+      });
+      const diff = _inc - parseFloat(r[_t + '_corrispettivi'] || 0);
       tDiff      += diff;
       st.sumCf   += cf;
       st.sumVers += vers;
