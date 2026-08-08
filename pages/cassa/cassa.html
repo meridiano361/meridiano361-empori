@@ -1209,12 +1209,13 @@ input[type=month].btn-export{min-width:160px;}
           <th class="number">Cassaforte<br>del giorno</th>
           <th class="number">Cassaforte<br>progressivo</th>
           <th class="number">Fondo<br>cassa</th>
+          <th class="number">Incassato</th>
           <th class="number">Corrispettivi</th>
           <th class="number cf-col-diff">Differenza<br>giornaliera</th>
           <th class="number cf-col-vers">Versamenti<br>in banca</th>
           <th class="number cf-col-saldo">Saldo cassa generale<br>progressivo</th>
         </tr></thead>
-        <tbody id="cf-body"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
+        <tbody id="cf-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1405,7 +1406,7 @@ input[type=month].btn-export{min-width:160px;}
     <div id="com-sett-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
       <table class="admin-table" id="com-sett-table">
         <thead id="com-sett-thead"></thead>
-        <tbody id="com-sett-body"><tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio per visualizzare i dati</td></tr></tbody>
+        <tbody id="com-sett-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio per visualizzare i dati</td></tr></tbody>
       </table>
     </div>
   </div><!-- /com-sett-section -->
@@ -4091,7 +4092,7 @@ async function loadCassaforteData() {
   const mese    = adminMese('cf');
   const tbody   = document.getElementById('cf-body');
   const PH = (msg, cls='color:#94a3b8') =>
-    `<tr><td colspan="8" style="text-align:center;${cls};padding:30px">${msg}</td></tr>`;
+    `<tr><td colspan="9" style="text-align:center;${cls};padding:30px">${msg}</td></tr>`;
   tbody.innerHTML = PH('Caricamento...');
   try {
     if (!mese) { tbody.innerHTML = PH('Seleziona un mese'); return; }
@@ -4159,7 +4160,7 @@ async function loadCassaforteData() {
       empState[emp] = { sumCf: 0, sumVers: 0, prevFr: initFr, riporto_fr: initFr, w0: initW0 };
     }
 
-    let tCf = 0, tVers = 0, tDiff = 0, tCorr = 0, lastSaldo = 0;
+    let tCf = 0, tVers = 0, tDiff = 0, tCorr = 0, tInc = 0, lastSaldo = 0;
     let prevEmp = null;
     const htmlRows = [];
 
@@ -4179,6 +4180,7 @@ async function loadCassaforteData() {
             <td class="number">–</td>
             <td class="number">${r4 !== 0 ? fmt(r4) : '–'}</td>
             <td class="number">${st.riporto_fr > 0 ? fmt(st.riporto_fr) : '–'}</td>
+            <td class="number">–</td>
             <td class="number">–</td>
             <td class="number cf-col-diff">–</td>
             <td class="number cf-col-vers">–</td>
@@ -4203,6 +4205,7 @@ async function loadCassaforteData() {
       const diff = _inc - corr;
       tDiff      += diff;
       tCorr      += corr;
+      tInc       += _inc;
       st.sumCf   += cf;
       st.sumVers += vers;
       // Saldo progressivo: W_0 + fondo_attuale + somma_cf_mese − fondo_iniziale − somma_vers_mese
@@ -4221,6 +4224,7 @@ async function loadCassaforteData() {
         <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
         <td class="number" style="color:#64748b">${(() => { const p = Math.round(((st.w0 - st.riporto_fr) + st.sumCf - st.sumVers) * 100) / 100; return p !== 0 ? fmt(p) : '–'; })()}</td>
         <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
+        <td class="number">${_inc > 0 ? fmt(_inc) : '–'}</td>
         <td class="number">${corr > 0 ? fmt(corr) : '–'}</td>
         <td class="number cf-col-diff" style="${diffStyle}">${diffAbs === 0 ? '–' : fmt(diff)}</td>
         <td class="number cf-col-vers" style="${versStyle}">
@@ -4241,6 +4245,7 @@ async function loadCassaforteData() {
       <td><strong>TOTALE</strong></td>
       <td class="number"><strong>${fmt(tCf)}</strong></td>
       <td>–</td><td>–</td>
+      <td class="number"><strong>${tInc > 0 ? fmt(tInc) : '–'}</strong></td>
       <td class="number"><strong>${tCorr > 0 ? fmt(tCorr) : '–'}</strong></td>
       <td class="number cf-col-diff" style="${tDiffStyle}"><strong>${tDiffAbs === 0 ? '–' : fmt(tDiff)}</strong></td>
       <td class="number cf-col-vers"><strong>${fmt(tVers)}</strong></td>
