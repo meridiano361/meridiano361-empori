@@ -400,10 +400,12 @@ input[type=month].btn-export{min-width:160px;}
 .cf-vers-inp:focus{outline:none;border-color:#3b82f6;background:#fff;}
 .cf-col-vers{border-left:2px solid #bfdbfe;background:#f0f7ff;}
 .cf-col-saldo{border-left:2px solid #fecaca;background:#fff5f5;}
-.cf-col-diff{border-left:1px solid #fde68a;}
+.cf-col-diff{border-left:1px solid #fde68a;background:#fffbeb;}
+.cf-col-inc,.cf-col-cor{background:#fffbeb;}
 #cf-table th.cf-col-vers{background:#dbeafe;color:#1d4ed8;}
 #cf-table th.cf-col-saldo{background:#fee2e2;color:#b91c1c;}
 #cf-table th.cf-col-diff{background:#fef3c7;color:#92400e;}
+#cf-table th.cf-col-inc,#cf-table th.cf-col-cor{background:#fef3c7;color:#92400e;}
 .cf-info-btn{cursor:pointer;color:#94a3b8;font-size:9px;vertical-align:super;margin-left:3px;font-weight:400;user-select:none;}
 .cf-info-btn:hover{color:#3b82f6;}
 #cf-col-popup{position:fixed;background:#1e293b;color:#f1f5f9;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.6;max-width:270px;z-index:9999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.35);pointer-events:none;}
@@ -1220,12 +1222,12 @@ input[type=month].btn-export{min-width:160px;}
       <table class="admin-table" id="cf-table">
         <thead><tr>
           <th style="text-align:left">Data</th>
+          <th class="number cf-col-inc">Incassato<span class="cf-info-btn" data-cf="inc">*</span></th>
+          <th class="number cf-col-cor">Corrispettivi<span class="cf-info-btn" data-cf="cor">*</span></th>
+          <th class="number cf-col-diff">Differenza<br>giornaliera<span class="cf-info-btn" data-cf="diff">*</span></th>
           <th class="number">Cassaforte<br>del giorno<span class="cf-info-btn" data-cf="cf">*</span></th>
           <th class="number">Cassaforte<br>progressivo<span class="cf-info-btn" data-cf="prog">*</span></th>
           <th class="number">Fondo<br>cassa<span class="cf-info-btn" data-cf="fr">*</span></th>
-          <th class="number">Incassato<span class="cf-info-btn" data-cf="inc">*</span></th>
-          <th class="number">Corrispettivi<span class="cf-info-btn" data-cf="cor">*</span></th>
-          <th class="number cf-col-diff">Differenza<br>giornaliera<span class="cf-info-btn" data-cf="diff">*</span></th>
           <th class="number cf-col-vers">Versamenti<br>in banca<span class="cf-info-btn" data-cf="vers">*</span></th>
           <th class="number cf-col-saldo">Saldo cassa generale<br>progressivo<span class="cf-info-btn" data-cf="saldo">*</span></th>
         </tr></thead>
@@ -4192,12 +4194,12 @@ async function loadCassaforteData() {
           tRip += r4;
           htmlRows.push(`<tr style="background:#f0fdf4;font-style:italic;color:#15803d">
             <td style="font-size:11px;font-weight:700;padding-left:10px">Riporto ${prevMLabel}</td>
+            <td class="number cf-col-inc">–</td>
+            <td class="number cf-col-cor">–</td>
+            <td class="number cf-col-diff">–</td>
             <td class="number">${r4 !== 0 ? fmt(r4) : '–'}</td>
             <td class="number">${r4 !== 0 ? fmt(r4) : '–'}</td>
             <td class="number">${st.riporto_fr > 0 ? fmt(st.riporto_fr) : '–'}</td>
-            <td class="number">–</td>
-            <td class="number">–</td>
-            <td class="number cf-col-diff">–</td>
             <td class="number cf-col-vers">–</td>
             <td class="number cf-col-saldo"><strong>${st.w0 !== 0 ? fmt(st.w0) : '–'}</strong></td>
           </tr>`);
@@ -4236,12 +4238,12 @@ async function loadCassaforteData() {
       const diffStyle = diffAbs === 0 ? 'color:#94a3b8' : diff < 0 ? 'color:#dc2626;font-weight:700' : 'color:#d97706;font-weight:700';
       htmlRows.push(`<tr>
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata">${fmtData(r.data)}</td>
-        <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
-        <td class="number" style="color:#64748b">${(() => { const p = Math.round(((st.w0 - st.riporto_fr) + st.sumCf - st.sumVers) * 100) / 100; return p !== 0 ? fmt(p) : '–'; })()}</td>
-        <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
-        <td class="number">${_inc > 0 ? fmt(_inc) : '–'}</td>
-        <td class="number">${corr > 0 ? fmt(corr) : '–'}</td>
+        <td class="number cf-col-inc">${_inc > 0 ? fmt(_inc) : '–'}</td>
+        <td class="number cf-col-cor">${corr > 0 ? fmt(corr) : '–'}</td>
         <td class="number cf-col-diff" style="${diffStyle}">${diffAbs === 0 ? '–' : fmt(diff)}</td>
+        <td class="number">${cf > 0 ? fmt(cf) : '–'}</td>
+        <td class="number" style="color:#1e293b;font-weight:600">${(() => { const p = Math.round(((st.w0 - st.riporto_fr) + st.sumCf - st.sumVers) * 100) / 100; return p !== 0 ? fmt(p) : '–'; })()}</td>
+        <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
         <td class="number cf-col-vers" style="${versStyle}">
           <input type="text" class="cf-vers-inp" value="${vers > 0 ? euro(vers) : ''}"
             placeholder="–"
@@ -4258,11 +4260,11 @@ async function loadCassaforteData() {
     const tDiffStyle = tDiffAbs === 0 ? 'color:#94a3b8' : tDiff < 0 ? 'color:#dc2626' : 'color:#d97706';
     tbody.innerHTML += `<tr class="total-row">
       <td><strong>TOTALE</strong></td>
+      <td class="number cf-col-inc"><strong>${tInc > 0 ? fmt(tInc) : '–'}</strong></td>
+      <td class="number cf-col-cor"><strong>${tCorr > 0 ? fmt(tCorr) : '–'}</strong></td>
+      <td class="number cf-col-diff" style="${tDiffStyle}"><strong>${tDiffAbs === 0 ? '–' : fmt(tDiff)}</strong></td>
       <td class="number"><strong>${fmt(tCf + tRip)}</strong></td>
       <td>–</td><td>–</td>
-      <td class="number"><strong>${tInc > 0 ? fmt(tInc) : '–'}</strong></td>
-      <td class="number"><strong>${tCorr > 0 ? fmt(tCorr) : '–'}</strong></td>
-      <td class="number cf-col-diff" style="${tDiffStyle}"><strong>${tDiffAbs === 0 ? '–' : fmt(tDiff)}</strong></td>
       <td class="number cf-col-vers"><strong>${fmt(tVers)}</strong></td>
       <td class="number cf-col-saldo"><strong>${fmt(lastSaldo)}</strong></td>
     </tr>`;
