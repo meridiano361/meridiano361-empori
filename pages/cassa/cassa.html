@@ -396,8 +396,29 @@ input[type=month].btn-export{min-width:160px;}
 .admin-table{width:100%;border-collapse:collapse;font-size:12px;}
 .admin-table th{background:#f8fafc;color:#64748b;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:10px 12px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
 #pag-table th,#cf-table th,#com-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
-.cf-vers-inp{width:88px;text-align:right;border:1px solid #e2e8f0;border-radius:4px;padding:2px 5px;font-size:11px;font-variant-numeric:tabular-nums;background:transparent;}
-.cf-vers-inp:focus{outline:none;border-color:#3b82f6;background:#fff;}
+.cf-vers-link{cursor:pointer;color:#1d4ed8;font-weight:600;text-decoration:underline dotted;font-variant-numeric:tabular-nums;}
+.cf-vers-link:hover{color:#1e40af;}
+#cf-vers-modal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
+#cf-vers-modal.open{display:flex;}
+#cf-vers-modal-box{background:#1e293b;color:#f1f5f9;border-radius:14px;padding:28px 28px 22px;min-width:300px;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
+#cf-vers-modal-box h3{margin:0 0 6px;font-size:15px;font-weight:700;}
+#cf-vers-modal-box .sub{color:#94a3b8;font-size:12px;margin-bottom:18px;}
+#cf-vers-modal-inp{width:100%;box-sizing:border-box;background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:8px;padding:8px 12px;font-size:15px;text-align:right;font-variant-numeric:tabular-nums;font-family:'Nunito',sans-serif;margin-bottom:16px;}
+#cf-vers-modal-inp:focus{outline:none;border-color:#3b82f6;}
+.cf-vers-modal-btns{display:flex;gap:10px;justify-content:flex-end;}
+.cf-vers-modal-btns button{border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;}
+#cf-vers-modal-save{background:#3b82f6;color:#fff;}
+#cf-vers-modal-save:hover{background:#2563eb;}
+#cf-vers-modal-del{background:#dc2626;color:#fff;}
+#cf-vers-modal-del:hover{background:#b91c1c;}
+#cf-vers-modal-cancel{background:#334155;color:#94a3b8;}
+#cf-vers-modal-cancel:hover{background:#475569;color:#f1f5f9;}
+#cf-vers-confirm{display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.55);align-items:center;justify-content:center;}
+#cf-vers-confirm.open{display:flex;}
+#cf-vers-confirm-box{background:#1e293b;color:#f1f5f9;border-radius:14px;padding:26px 28px 20px;max-width:340px;box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center;}
+#cf-vers-confirm-box p{margin:0 0 20px;font-size:14px;line-height:1.5;}
+.cf-vers-confirm-btns{display:flex;gap:10px;justify-content:center;}
+.cf-vers-confirm-btns button{border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;}
 .cf-col-vers{border-left:2px solid #bfdbfe;background:#f0f7ff;}
 .cf-col-saldo{border-left:2px solid #fecaca;background:#fff5f5;}
 .cf-col-diff{border-left:1px solid #fde68a;background:#fffbeb;}
@@ -1202,6 +1223,33 @@ input[type=month].btn-export{min-width:160px;}
         <button onclick="quickSaveVersamento()" style="background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Salva</button>
         <span id="cf-vers-msg" style="font-size:11px;min-width:0;white-space:nowrap;"></span>
       </div>
+
+      <!-- Modal modifica/elimina versamento -->
+      <div id="cf-vers-modal" onclick="if(event.target===this)closeVersModal()">
+        <div id="cf-vers-modal-box">
+          <h3>Versamento in banca</h3>
+          <div class="sub" id="cf-vers-modal-sub"></div>
+          <input id="cf-vers-modal-inp" type="text" placeholder="€ 0,00"
+            onfocus="if(!this.value.trim())this.value='€ 0,00'"
+            onblur="const v=parseEuro(this.value);this.value=v>0?euro(v):''">
+          <div class="cf-vers-modal-btns">
+            <button id="cf-vers-modal-del"    onclick="confirmVers('del')"><i class="fas fa-trash-alt"></i> Elimina</button>
+            <button id="cf-vers-modal-cancel" onclick="closeVersModal()">Annulla</button>
+            <button id="cf-vers-modal-save"   onclick="confirmVers('save')">Salva</button>
+          </div>
+        </div>
+      </div>
+      <!-- Dialog di conferma -->
+      <div id="cf-vers-confirm" onclick="if(event.target===this)closeVersConfirm()">
+        <div id="cf-vers-confirm-box">
+          <p id="cf-vers-confirm-msg"></p>
+          <div class="cf-vers-confirm-btns">
+            <button onclick="closeVersConfirm()" style="background:#334155;color:#94a3b8;">Annulla</button>
+            <button id="cf-vers-confirm-ok" style="background:#dc2626;color:#fff;">Conferma</button>
+          </div>
+        </div>
+      </div>
+
       <select id="cf-filter-emporio" onchange="loadCassaforteData()" class="btn-export">
         <option value="">Tutti gli empori</option>
         <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
@@ -4248,10 +4296,9 @@ async function loadCassaforteData() {
         <td class="number" style="color:#1e293b;font-weight:600">${(() => { const p = Math.round(((st.w0 - st.riporto_fr) + st.sumCf - st.sumVers) * 100) / 100; return p !== 0 ? fmt(p) : '–'; })()}</td>
         <td class="number">${fr > 0 ? fmt(fr) : '–'}</td>
         <td class="number cf-col-vers" style="${versStyle}">
-          <input type="text" class="cf-vers-inp" value="${vers > 0 ? euro(vers) : ''}"
-            placeholder="–"
-            onfocus="if(!this.value.trim())this.value='€ 0,00'"
-            onblur="saveCfVersamento('${r.chiave}',this)">
+          ${vers > 0
+            ? `<span class="cf-vers-link" onclick="openVersModal('${r.chiave}','${fmtData(r.data)}',${vers})">${fmt(vers)}</span>`
+            : `<span style="color:#94a3b8">–</span>`}
         </td>
         <td class="number cf-col-saldo"><strong>${fmt(saldo)}</strong></td>
       </tr>`);
@@ -4282,15 +4329,57 @@ async function loadCassaforteData() {
   }
 }
 
-async function saveCfVersamento(chiave, el) {
-  const val = parseEuro(el.value);
-  el.value = val > 0 ? euro(val) : '';
+let _versModalChiave = null;
+let _versModalAction = null;
+
+function openVersModal(chiave, dataLabel, currentVal) {
+  _versModalChiave = chiave;
+  document.getElementById('cf-vers-modal-sub').textContent = dataLabel;
+  const inp = document.getElementById('cf-vers-modal-inp');
+  inp.value = currentVal > 0 ? euro(currentVal) : '';
+  document.getElementById('cf-vers-modal').classList.add('open');
+  setTimeout(() => inp.focus(), 50);
+}
+
+function closeVersModal() {
+  document.getElementById('cf-vers-modal').classList.remove('open');
+  _versModalChiave = null;
+}
+
+function closeVersConfirm() {
+  document.getElementById('cf-vers-confirm').classList.remove('open');
+  _versModalAction = null;
+}
+
+function confirmVers(action) {
+  _versModalAction = action;
+  const inp = document.getElementById('cf-vers-modal-inp');
+  const val = parseEuro(inp.value);
+  let msg;
+  if (action === 'del') {
+    msg = 'Sei sicuro di voler eliminare questo versamento?';
+    document.getElementById('cf-vers-confirm-ok').style.background = '#dc2626';
+  } else {
+    if (!val || val <= 0) { inp.focus(); return; }
+    msg = `Sei sicuro di voler salvare un versamento di ${euro(val)}?`;
+    document.getElementById('cf-vers-confirm-ok').style.background = '#3b82f6';
+  }
+  document.getElementById('cf-vers-confirm-msg').textContent = msg;
+  document.getElementById('cf-vers-confirm').classList.add('open');
+  document.getElementById('cf-vers-confirm-ok').onclick = execVers;
+}
+
+async function execVers() {
+  const chiave = _versModalChiave;
+  const action = _versModalAction;
+  const val    = action === 'del' ? null : parseEuro(document.getElementById('cf-vers-modal-inp').value || '');
+  closeVersConfirm();
+  closeVersModal();
   try {
     await db.from('cassa_giorni').update({ versamenti: val || null }).eq('chiave', chiave);
     loadCassaforteData();
   } catch(e) {
-    el.style.borderColor = '#dc2626';
-    setTimeout(() => { el.style.borderColor = ''; }, 2000);
+    alert('Errore nel salvataggio: ' + e.message);
   }
 }
 
