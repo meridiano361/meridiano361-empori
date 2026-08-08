@@ -81,6 +81,7 @@
         const { data: { session } } = await db.auth.getSession();
         if (!session) {
           localStorage.removeItem('m361_user');
+          sessionStorage.setItem('m361_return_url', window.location.href);
           window.location.href = BASE + 'login.html';
         }
       } catch { /* ignora errori di rete */ }
@@ -615,6 +616,7 @@ function buildNav() {
     // 3. PROTEZIONE: Se l'utente non esiste, spediscilo al login immediatamente
     if (!user || !user.email) {
       console.warn("Accesso non autorizzato. Reindirizzamento...");
+      sessionStorage.setItem('m361_return_url', window.location.href);
       window.location.href = getBase() + 'login.html';
       return;
     }
@@ -631,6 +633,7 @@ function buildNav() {
             user = op;
           } else {
             localStorage.removeItem('m361_user');
+            sessionStorage.setItem('m361_return_url', window.location.href);
             window.location.href = getBase() + 'login.html';
             return;
           }

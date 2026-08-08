@@ -492,6 +492,13 @@
     if (e.data && e.data.type === 'm361-preview') applyLoginSettings(e.data.settings);
   });
 
+  /* ── Redirect post-login: torna alla pagina da cui si è stati mandati al login ── */
+  function _redirectAfterLogin() {
+    const url = sessionStorage.getItem('m361_return_url');
+    sessionStorage.removeItem('m361_return_url');
+    window.location.href = (url && !url.includes('login.html')) ? url : 'index.html';
+  }
+
   /* ── Biometrico (WebAuthn) ── */
   let _pendingOperatore    = null;
   let _pendingEmail        = null;
@@ -570,7 +577,7 @@
       const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', email).single();
       if (opErr || !op) throw new Error('Utente non autorizzato.');
       localStorage.setItem('m361_user', JSON.stringify(op));
-      window.location.href = 'index.html';
+      _redirectAfterLogin();
     } catch (err) {
       btn.disabled = false; spinner.style.display = 'none'; label.style.display = '';
       if (err.name !== 'NotAllowedError') {
@@ -615,7 +622,7 @@
       localStorage.setItem('m361_bio_creds',     JSON.stringify(encrypted));
       localStorage.setItem('m361_bio_user_name', _pendingOperatore.nome || _pendingOperatore.email.split('@')[0]);
       localStorage.removeItem('m361_bio_refresh_token'); // non più usato
-      window.location.href = 'index.html';
+      _redirectAfterLogin();
     } catch (err) {
       sp.style.display = 'none'; btn.disabled = false;
       if (err.name === 'NotAllowedError') return; // utente ha annullato
@@ -750,7 +757,7 @@
         }
       }
 
-      window.location.href = 'index.html';
+      _redirectAfterLogin();
 
     } catch (err) {
       errorText.textContent = err.message;
