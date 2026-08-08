@@ -1191,7 +1191,7 @@ input[type=month].btn-export{min-width:160px;}
   <div id="admin-sub-cassaforte" class="sub-content">
     <div class="export-bar">
       <div style="background:#1e293b;border-radius:10px;padding:7px 14px;display:flex;gap:10px;align-items:center;margin-right:auto;">
-        <span style="font-size:12px;font-weight:700;color:#60a5fa;white-space:nowrap;"><i class="fas fa-building-columns"></i> Versamento</span>
+        <span style="font-size:12px;font-weight:700;color:#60a5fa;white-space:nowrap;"><i class="fas fa-building-columns"></i> Registra versamento in banca</span>
         <input type="date" id="cf-vers-data" style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:6px;padding:5px 9px;font-size:12px;font-family:'Nunito',sans-serif;">
         <input type="text" id="cf-vers-importo" placeholder="€ 0,00" autocomplete="new-password"
           style="background:#334155;color:#f1f5f9;border:1px solid #475569;border-radius:6px;padding:5px 9px;font-size:12px;width:110px;text-align:right;font-variant-numeric:tabular-nums;"
@@ -4176,7 +4176,7 @@ async function loadCassaforteData() {
       empState[emp] = { sumCf: 0, sumVers: 0, prevFr: initFr, riporto_fr: initFr, w0: initW0 };
     }
 
-    let tCf = 0, tRip = 0, tVers = 0, tDiff = 0, tCorr = 0, tInc = 0, lastSaldo = 0;
+    let tCf = 0, tRip = 0, tVers = 0, tDiff = 0, tCorr = 0, tInc = 0, lastSaldo = 0, lastProg = 0;
     let prevEmp = null;
     const htmlRows = [];
 
@@ -4230,6 +4230,7 @@ async function loadCassaforteData() {
       const saldo = st.w0 + fr + st.sumCf - st.riporto_fr - st.sumVers;
       st.prevFr  = fr;
       lastSaldo  = saldo;
+      lastProg   = Math.round(((st.w0 - st.riporto_fr) + st.sumCf - st.sumVers) * 100) / 100;
       tCf += cf; tVers += vers;
 
       const versStyle = vers > 0 ? 'background:#eff6ff' : '';
@@ -4270,7 +4271,7 @@ async function loadCassaforteData() {
     </tr>`;
 
     document.getElementById('cf-kpi').innerHTML = `
-      <div class="kpi-card"><div class="kpi-label">Cassaforte mese (tot.)</div><div class="kpi-value">${fmt(tCf)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Cassaforte progressivo</div><div class="kpi-value">${fmt(lastProg)}</div></div>
       <div class="kpi-card"><div class="kpi-label">Versamenti</div><div class="kpi-value">${fmt(tVers)}</div></div>
       <div class="kpi-card"><div class="kpi-label">Saldo Cassa Generale</div><div class="kpi-value">${fmt(lastSaldo)}</div></div>
     `;
