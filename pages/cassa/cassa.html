@@ -3695,6 +3695,28 @@ function setAdminMese(pfx, yyyyMM) {
   if (elY && y) elY.value = y;
 }
 
+// Trova il mese più recente con dati per l'emporio dato.
+// richiedeCorr=true → solo righe con corrispettivi > 0 (per IVA/Pagamenti).
+async function findLatestMeseConDati(emporio, richiedeCorr = false) {
+  const emps = emporio ? [emporio] : EMPORIOS_NOTI;
+  let q = db.from('cassa_giorni')
+    .select('chiave')
+    .in('emporio', emps)
+    .order('chiave', { ascending: false })
+    .limit(60);
+  if (richiedeCorr) q = q.or('mat_corrispettivi.gt.0,pom_corrispettivi.gt.0');
+  const { data } = await q;
+  if (!data || !data.length) return null;
+  let bestYear = 0, bestMon = 0;
+  for (const row of data) {
+    const p = row.chiave.split('_');
+    const yr = +p[p.length - 3], mo = +p[p.length - 2];
+    if (isNaN(yr) || isNaN(mo) || yr < 2020 || mo < 1 || mo > 12) continue;
+    if (yr > bestYear || (yr === bestYear && mo > bestMon)) { bestYear = yr; bestMon = mo; }
+  }
+  return bestYear ? bestYear + '-' + String(bestMon).padStart(2,'0') : null;
+}
+
 const fmt = v => (v != null && v !== '' && !isNaN(v)) ? '€ ' + numIT(parseFloat(v)) : '–';
 
 const fmtPct = v => {
@@ -3869,6 +3891,14 @@ async function loadIvaData() {
 
     const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
     if (!aggRows.length) {
+      if (mese) {
+        const latest = await findLatestMeseConDati(emporio, true);
+        if (latest && latest !== _ivaMese) {
+          sessionStorage.setItem('cassa_mese_iva', latest);
+          setAdminMese('iva', latest);
+          return loadIvaData();
+        }
+      }
       tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:#94a3b8;padding:30px">Nessun dato per il periodo selezionato</td></tr>`;
       document.getElementById('iva-kpi').innerHTML = '';
       return;
@@ -4019,6 +4049,14 @@ async function loadPagamentiData() {
       const enc = noteRaw.replace(/"/g,'&quot;');
       return `<td class="number"><span class="pag-has-note" onclick="showPagNote(this,event)" data-mn="${enc}" title="Vedi nota">${fmt(amount)}</span></td>`;
     };
+    if (!rows.length && !(ddtRaw || []).length) {
+      const latest = await findLatestMeseConDati(emporio, true);
+      if (latest && latest !== mese) {
+        sessionStorage.setItem('cassa_mese_pag', latest);
+        setAdminMese('pag', latest);
+        return loadPagamentiData();
+      }
+    }
     const TC = {cont:0,banc:0,carte:0,sati:0,satOnl:0,carteOnl:0,pp:0,bon:0,gift:0,giftOnl:0,buoni:0,rimb:0,spese:0,tot:0};
     if (!rows.length) {
       tbody.innerHTML = PH16('Nessun dato corrispettivi');
@@ -4234,6 +4272,12 @@ async function loadCassaforteData() {
     }
 
     if (!rows.length) {
+      const latest = await findLatestMeseConDati(emporio);
+      if (latest && latest !== mese) {
+        sessionStorage.setItem('cassa_mese_cf', latest);
+        setAdminMese('cf', latest);
+        return loadCassaforteData();
+      }
       tbody.innerHTML = PH('Nessun dato');
       document.getElementById('cf-kpi').innerHTML = '';
       return;
@@ -4453,6 +4497,12 @@ async function loadVistaMensileData() {
     const riporto = parseFloat(prevRows[0]?.fondo_residuo || 0);
 
     if (!data.length) {
+      const latest = await findLatestMeseConDati(emporio);
+      if (latest && latest !== mese) {
+        sessionStorage.setItem('cassa_mese_vm', latest);
+        setAdminMese('vm', latest);
+        return loadVistaMensileData();
+      }
       t1b.innerHTML = placeholderMsg(18, 'Nessun dato per questo mese');
       t2b.innerHTML = placeholderMsg(11, 'Nessun dato per questo mese');
       t3b.innerHTML = placeholderMsg(13, 'Nessun dato per questo mese');
