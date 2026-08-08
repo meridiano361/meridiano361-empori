@@ -493,8 +493,9 @@
   });
 
   /* ── Biometrico (WebAuthn) ── */
-  let _pendingOperatore = null;
-  let _pendingRefreshToken = null;
+  let _pendingOperatore    = null;
+  let _pendingEmail        = null;
+  let _pendingPassword     = null;
 
   function _abToB64(buf) {
     const b = new Uint8Array(buf);
@@ -507,6 +508,23 @@
     const b = new Uint8Array(s.length);
     for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
     return b.buffer;
+  }
+
+  // AES-GCM: cifra email+password da salvare in localStorage.
+  // Sicurezza: la chiave è salvata accanto al ciphertext, ma l'accesso richiede
+  // comunque la verifica biometrica hardware (WebAuthn) — quella è il vero controllo.
+  async function _encryptCreds(email, password) {
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    const exported = await crypto.subtle.exportKey('raw', key);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const data = new TextEncoder().encode(JSON.stringify({ email, password }));
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+    return { k: _abToB64(exported), iv: _abToB64(iv), ct: _abToB64(ct) };
+  }
+  async function _decryptCreds(stored) {
+    const key = await crypto.subtle.importKey('raw', _b64ToAb(stored.k), { name: 'AES-GCM' }, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _b64ToAb(stored.iv) }, key, _b64ToAb(stored.ct));
+    return JSON.parse(new TextDecoder().decode(plain));
   }
 
   async function checkAndShowBiometricButton() {
@@ -541,26 +559,15 @@
         }
       });
 
-      // Prova con refresh token salvato, poi fallback su sessione attiva
-      let session = null;
-      const storedToken = localStorage.getItem('m361_bio_refresh_token');
-      if (storedToken && storedToken !== 'null') {
-        const { data: rd } = await _supabase.auth.refreshSession({ refresh_token: storedToken });
-        if (rd?.session) {
-          session = rd.session;
-          localStorage.setItem('m361_bio_refresh_token', session.refresh_token);
-        }
-      }
-      if (!session) {
-        const { data: sd } = await _supabase.auth.getSession();
-        session = sd?.session || null;
-      }
-      if (!session) {
-        localStorage.removeItem('m361_bio_refresh_token');
-        throw new Error('Sessione scaduta. Accedi con email per rinnovarla.');
-      }
+      // Verifica biometrica superata: decifra credenziali e crea sessione fresca
+      const credsStr = localStorage.getItem('m361_bio_creds');
+      if (!credsStr) throw new Error('Credenziali cifrate non trovate. Riattiva il login biometrico.');
+      const { email, password } = await _decryptCreds(JSON.parse(credsStr));
 
-      const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', session.user.email).single();
+      const { data: authData, error: authError } = await _supabase.auth.signInWithPassword({ email, password });
+      if (authError) throw new Error('Password cambiata o account disattivato. Accedi con email per aggiornare le credenziali.');
+
+      const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', email).single();
       if (opErr || !op) throw new Error('Utente non autorizzato.');
       localStorage.setItem('m361_user', JSON.stringify(op));
       window.location.href = 'index.html';
@@ -603,9 +610,11 @@
         }
       });
       if (!credential) throw new Error('Nessuna credenziale restituita.');
-      localStorage.setItem('m361_bio_cred_id', _abToB64(credential.rawId));
-      localStorage.setItem('m361_bio_refresh_token', _pendingRefreshToken);
+      const encrypted = await _encryptCreds(_pendingEmail, _pendingPassword);
+      localStorage.setItem('m361_bio_cred_id',  _abToB64(credential.rawId));
+      localStorage.setItem('m361_bio_creds',     JSON.stringify(encrypted));
       localStorage.setItem('m361_bio_user_name', _pendingOperatore.nome || _pendingOperatore.email.split('@')[0]);
+      localStorage.removeItem('m361_bio_refresh_token'); // non più usato
       window.location.href = 'index.html';
     } catch (err) {
       sp.style.display = 'none'; btn.disabled = false;
@@ -621,6 +630,7 @@
 
   function resetBiometric() {
     localStorage.removeItem('m361_bio_cred_id');
+    localStorage.removeItem('m361_bio_creds');
     localStorage.removeItem('m361_bio_refresh_token');
     localStorage.removeItem('m361_bio_user_name');
     localStorage.removeItem('m361_bio_skip_until');
@@ -727,17 +737,16 @@
       if (!alreadyReg && Date.now() > skipUntil && window.PublicKeyCredential) {
         const platformOk = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
         if (platformOk) {
-          _pendingOperatore    = operatore;
-          _pendingRefreshToken = authData?.session?.refresh_token || null;
-          if (_pendingRefreshToken) {
-            document.getElementById('login-form').style.display    = 'none';
-            document.getElementById('biometric-section').style.display = 'none';
-            document.getElementById('biometric-prompt').style.display  = '';
-            btn.disabled = false;
-            document.getElementById('btn-spinner').style.display = 'none';
-            document.getElementById('btn-label').textContent = 'Accedi';
-            return;
-          }
+          _pendingOperatore = operatore;
+          _pendingEmail     = email;
+          _pendingPassword  = password;
+          document.getElementById('login-form').style.display    = 'none';
+          document.getElementById('biometric-section').style.display = 'none';
+          document.getElementById('biometric-prompt').style.display  = '';
+          btn.disabled = false;
+          document.getElementById('btn-spinner').style.display = 'none';
+          document.getElementById('btn-label').textContent = 'Accedi';
+          return;
         }
       }
 
