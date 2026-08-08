@@ -404,6 +404,9 @@ input[type=month].btn-export{min-width:160px;}
 #cf-table th.cf-col-vers{background:#dbeafe;color:#1d4ed8;}
 #cf-table th.cf-col-saldo{background:#fee2e2;color:#b91c1c;}
 #cf-table th.cf-col-diff{background:#fef3c7;color:#92400e;}
+.cf-info-btn{cursor:pointer;color:#94a3b8;font-size:9px;vertical-align:super;margin-left:3px;font-weight:400;user-select:none;}
+.cf-info-btn:hover{color:#3b82f6;}
+#cf-col-popup{position:fixed;background:#1e293b;color:#f1f5f9;padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.6;max-width:270px;z-index:9999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.35);pointer-events:none;}
 .admin-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle;}
 .admin-table tr:hover td{background:#fafbfc;}
 .admin-table .total-row td{font-weight:800;background:#fdf1f0;color:#B5453A;}
@@ -1202,18 +1205,19 @@ input[type=month].btn-export{min-width:160px;}
       <button class="btn-export" onclick="window.print()"><i class="fas fa-print"></i> Stampa</button>
     </div>
     <div class="kpi-grid" id="cf-kpi"></div>
+    <div id="cf-col-popup"></div>
     <div id="cf-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0;">
       <table class="admin-table" id="cf-table">
         <thead><tr>
           <th style="text-align:left">Data</th>
-          <th class="number">Cassaforte<br>del giorno</th>
-          <th class="number">Cassaforte<br>progressivo</th>
-          <th class="number">Fondo<br>cassa</th>
-          <th class="number">Incassato</th>
-          <th class="number">Corrispettivi</th>
-          <th class="number cf-col-diff">Differenza<br>giornaliera</th>
-          <th class="number cf-col-vers">Versamenti<br>in banca</th>
-          <th class="number cf-col-saldo">Saldo cassa generale<br>progressivo</th>
+          <th class="number">Cassaforte<br>del giorno<span class="cf-info-btn" data-cf="cf">*</span></th>
+          <th class="number">Cassaforte<br>progressivo<span class="cf-info-btn" data-cf="prog">*</span></th>
+          <th class="number">Fondo<br>cassa<span class="cf-info-btn" data-cf="fr">*</span></th>
+          <th class="number">Incassato<span class="cf-info-btn" data-cf="inc">*</span></th>
+          <th class="number">Corrispettivi<span class="cf-info-btn" data-cf="cor">*</span></th>
+          <th class="number cf-col-diff">Differenza<br>giornaliera<span class="cf-info-btn" data-cf="diff">*</span></th>
+          <th class="number cf-col-vers">Versamenti<br>in banca<span class="cf-info-btn" data-cf="vers">*</span></th>
+          <th class="number cf-col-saldo">Saldo cassa generale<br>progressivo<span class="cf-info-btn" data-cf="saldo">*</span></th>
         </tr></thead>
         <tbody id="cf-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr></tbody>
       </table>
@@ -4901,6 +4905,37 @@ async function loadCommercialeData() {
     tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
 }
+
+/* ── Popup info colonne cassaforte ── */
+(function() {
+  const INFO = {
+    cf:   'Saldo fisico del contante presente in cassaforte a fine giornata, inserito dall\'operatore nel foglio di giornata.',
+    prog: 'Riporto mese precedente (cassaforte netta) + somma dei saldi cassaforte del mese corrente − versamenti in banca effettuati fino a questa data.',
+    fr:   'Fondo residuo del giorno: contanti lordi contati meno il fondo fisso. Diventa il fondo iniziale del giorno successivo.',
+    inc:  'Totale incassato del turno di chiusura: contanti netti + bancomat + carte + Satispay + pagamenti online + gift card + buoni − rimborsi online − spese.\nTurno: pomeriggio se giornata intera o solo pom; mattino se solo mat.',
+    cor:  'Corrispettivi dichiarati nel foglio di giornata per il turno di chiusura (pomeriggio se giornata intera o solo pom; mattino se solo mat).',
+    diff: 'Incassato − Corrispettivi del turno di chiusura.\nPositivo = surplus di cassa; negativo = ammanco.',
+    vers: 'Contante versato in banca in questa data. Modificabile direttamente nella tabella.',
+    saldo:'Riporto mese precedente + fondo cassa attuale + somma cassaforte mese − fondo iniziale mese − versamenti in banca cumulativi.',
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    const popup = document.getElementById('cf-col-popup');
+    document.querySelectorAll('.cf-info-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const txt = INFO[btn.dataset.cf];
+        if (!txt) return;
+        popup.textContent = txt;
+        popup.style.display = 'block';
+        const r = btn.getBoundingClientRect();
+        const left = Math.min(r.left, window.innerWidth - 285);
+        popup.style.top  = (r.bottom + 6) + 'px';
+        popup.style.left = Math.max(8, left) + 'px';
+      });
+    });
+    document.addEventListener('click', () => { popup.style.display = 'none'; });
+  });
+})();
 </script>
 <script src="../../scripts/auth.js"></script>
 <script>
