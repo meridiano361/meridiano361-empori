@@ -7,7 +7,7 @@ const CORS = {
 };
 
 type OpEntry  = { nome?: string; rimosso?: boolean };
-type TurnoRec = { emporio: string; turno: string; operatori: OpEntry[] | null };
+type TurnoRec = { emporio: string; turno: string; operatori: OpEntry[] | null; assenze?: Record<string, unknown> | null };
 type Shift    = { turno: string; emporio: string };
 type Sub      = { operatore_nome: string; operatore_id: string | null; endpoint: string; subscription: object; last_push_at: string | null };
 type LogEntry = {
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     { data: subsRaw },
   ] = await Promise.all([
     db.from("turni_orari").select("emporio, orari"),
-    db.from("turni").select("emporio, turno, operatori")
+    db.from("turni").select("emporio, turno, operatori, assenze")
       .eq("anno", year).eq("mese", month).eq("giorno", day).eq("aperto", true),
     db.from("operatore_notif_prefs").select("operatore_id").eq("tipo", "turni").eq("abilitato", false),
     db.from("operatori").select("id, nome"),
@@ -116,7 +116,18 @@ Deno.serve(async (req) => {
     emporio:   t.emporio,
     turno:     t.turno,
     operatori: (t.operatori ?? []) as OpEntry[],
+    assenze:   (t.assenze ?? null) as Record<string, unknown> | null,
   }));
+
+  // Operatori con assenza oggi (qualsiasi tipo: ferie, malattia, permesso, altro)
+  const assentiOggi = new Set<string>();
+  for (const t of turniOggi) {
+    for (const key of Object.keys(t.assenze ?? {})) {
+      // key: ${emporio}|${anno}|${mese}|${giorno}|${nome}
+      const nome = key.split("|").slice(4).join("|");
+      if (nome) assentiOggi.add(nome.toLowerCase().trim());
+    }
+  }
 
   if (!turniOggi.length) {
     return new Response(
@@ -183,6 +194,12 @@ Deno.serve(async (req) => {
   for (const [nome, shifts] of operatoriMap.entries()) {
     if (soloOp && !nome.toLowerCase().includes(soloOp)) {
       results.log.push({ nome, motivo_skip: `escluso da filtro ?operatore=${soloOp}` });
+      continue;
+    }
+
+    if (assentiOggi.has(nome.toLowerCase().trim())) {
+      results.skipped++;
+      results.log.push({ nome, motivo_skip: "assenza registrata oggi" });
       continue;
     }
 

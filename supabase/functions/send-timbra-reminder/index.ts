@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     { data: prefsDisab },
     { data: subsRaw },
   ] = await Promise.all([
-    db.from("turni").select("emporio, turno, operatori")
+    db.from("turni").select("emporio, turno, operatori, assenze")
       .eq("anno", year).eq("mese", month).eq("giorno", day).eq("aperto", true),
     db.from("turni_orari").select("emporio, orari"),
     db.from("operatori").select("id, nome"),
@@ -90,6 +90,16 @@ Deno.serve(async (req) => {
   const emporiOrari: Record<string, Record<string, string>> = {};
   for (const row of orariRows ?? []) {
     emporiOrari[row.emporio] = (row.orari as Record<string, string>) ?? {};
+  }
+
+  // Operatori con assenza oggi (qualsiasi tipo: ferie, malattia, permesso, altro)
+  const assentiOggi = new Set<string>();
+  for (const t of turniRows ?? []) {
+    for (const key of Object.keys((t.assenze as Record<string, unknown>) ?? {})) {
+      // key: ${emporio}|${anno}|${mese}|${giorno}|${nome}
+      const nome = key.split("|").slice(4).join("|");
+      if (nome) assentiOggi.add(nome.toLowerCase().trim());
+    }
   }
 
   // Determina chi va notificato in questo minuto
@@ -123,6 +133,7 @@ Deno.serve(async (req) => {
 
     for (const op of (t.operatori ?? []) as OpEntry[]) {
       if (!op.nome || op.rimosso) continue;
+      if (assentiOggi.has(op.nome.toLowerCase().trim())) continue;
       tasks.push({ nome: op.nome, nomeLower: op.nome.toLowerCase().trim(), emporio: t.emporio, fascia: t.turno, tipo, body });
     }
   }
