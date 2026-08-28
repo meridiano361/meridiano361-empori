@@ -1,4 +1,4 @@
-const CACHE_NAME = 'm361-empori-v12';
+const CACHE_NAME = 'm361-empori-v13';
 
 const PRECACHE_URLS = [
   '/',
