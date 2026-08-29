@@ -150,10 +150,18 @@ const PDV_LABEL = { CR:'Cremona', CA:'Casalmaggiore', VI:'Viadana', RE:'Reggio E
 const PDV_ORDER = ['CR','CA','VI','RE','WEB'];
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
               'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const EMPORIO_TO_PDV = {
+  'Cremona':       'CR',
+  'Casalmaggiore': 'CA',
+  'Viadana':       'VI',
+  'Reggio Emilia': 'RE',
+};
 
 let currentYear = String(new Date().getFullYear());
 let filterSettore = null;
 let availableYears = [];
+let _userPdv   = null;  // codice PDV dell'utente loggato (null = admin, vede tutto)
+let _adminUser = false;
 
 async function loadEventi() {
   if (!_sb) { render(); return; }
@@ -180,6 +188,8 @@ async function loadAvailableYears() {
 async function init() {
   const u = JSON.parse(localStorage.getItem('m361_user') || 'null');
   if (!u) { window.location.href = '/login.html'; return; }
+  _adminUser = ['admin','dipendente'].includes(u.ruolo) || !!(u.is_full_admin);
+  _userPdv   = _adminUser ? null : (EMPORIO_TO_PDV[u.emporio] || null);
   await loadAvailableYears();
   buildYearTabs();
   buildSettoreFilters();
@@ -219,7 +229,15 @@ function buildSettoreFilters() {
 }
 
 function getEventi() {
-  const evs = _eventi[currentYear] || [];
+  let evs = _eventi[currentYear] || [];
+  if (_userPdv) {
+    evs = evs.filter(ev => {
+      if (!ev.pdv_data) return true;
+      const entry = ev.pdv_data[_userPdv];
+      if (entry === undefined) return true;
+      return !!(entry?.aderisce);
+    });
+  }
   return filterSettore ? evs.filter(e => e.settore === filterSettore) : evs;
 }
 
