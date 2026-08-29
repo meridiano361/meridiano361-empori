@@ -337,6 +337,35 @@ function getCurrentPageId(){ return 'calendario'; }
 
 </div>
 
+<!-- MODAL DETTAGLIO (sola lettura, operatori non-admin) -->
+<div id="ev-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;align-items:flex-end;justify-content:center;font-family:'Nunito',sans-serif" onclick="closeDetail()">
+  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:0 0 32px;margin:0 auto;box-shadow:0 -8px 40px rgba(0,0,0,.18)" onclick="event.stopPropagation()">
+    <div id="ev-detail-header" style="padding:18px 20px 14px;display:flex;align-items:center;gap:12px;border-bottom:1.5px solid #f1f5f9">
+      <div id="ev-detail-stripe" style="width:5px;height:36px;border-radius:3px;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div id="ev-detail-titolo" style="font-size:16px;font-weight:900;color:#1e293b;text-transform:uppercase"></div>
+        <div id="ev-detail-badges" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px"></div>
+      </div>
+      <button onclick="closeDetail()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:4px"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+      <div id="ev-detail-periodo" style="display:none">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:4px"><i class="fas fa-calendar-day" style="margin-right:4px"></i>Periodo</div>
+        <div id="ev-detail-periodo-val" style="font-size:15px;font-weight:700;color:#1e293b"></div>
+      </div>
+      <div id="ev-detail-meccanica" style="display:none">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:4px"><i class="fas fa-cogs" style="margin-right:4px"></i>Meccanica</div>
+        <div id="ev-detail-meccanica-val" style="font-size:13px;font-weight:600;color:#475569;line-height:1.5;background:#f8fafc;border-radius:8px;padding:10px 12px"></div>
+      </div>
+      <div id="ev-detail-allegato" style="display:none">
+        <a id="ev-detail-allegato-btn" href="#" onclick="event.preventDefault();event.stopPropagation();window.open(this.href,'_blank')||(window.location.href=this.href)" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;background:#B5453A;border-radius:12px;font-size:15px;font-weight:800;color:#fff;text-decoration:none">
+          <i class="fas fa-paperclip"></i> Apri allegato
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL FORM -->
 <div id="ev-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;align-items:flex-start;justify-content:center;padding:16px;padding-top:60px;font-family:'Nunito',sans-serif;overflow-y:auto">
   <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.22);margin:0 auto">
@@ -636,8 +665,8 @@ function renderAnno(evs){
           barHtml=`<div class="gantt-bar" style="left:${left}%;width:${width}%;background:${s.color}" title="${escH(ev.titolo)}"><span>${escH(ev.titolo)}</span></div>`;
         }
       }
-      const clickAttr=_canEdit?`onclick="openForm(${ev.id})"`:'' ;
-      return `<div class="gantt-row${_canEdit?' clickable':''}" ${clickAttr}>
+      const clickAttr=_canEdit?`onclick="openForm(${ev.id})"`:` onclick="openDetail(${ev.id})"`;
+      return `<div class="gantt-row clickable" ${clickAttr}>
         <div class="gantt-label">
           <div class="gantt-label-name" style="color:${s.color}">${escH(ev.titolo)}</div>
           <div class="gantt-label-date">${dateStr}</div>
@@ -683,7 +712,7 @@ function renderMese(evs){
     }):[];
     const evHtml=dayEvs.map(ev=>{
       const s=SETTORI[ev.settore]||SETTORI.G;
-      return `<div class="cal-day-ev" style="background:${s.color}" onclick="event.stopPropagation();${_canEdit?`openForm(${ev.id})`:''}" title="${escH(ev.titolo)}">${escH(ev.titolo)}</div>`;
+      return `<div class="cal-day-ev" style="background:${s.color}" onclick="event.stopPropagation();${_canEdit?`openForm(${ev.id})`:`openDetail(${ev.id})`}" title="${escH(ev.titolo)}">${escH(ev.titolo)}</div>`;
     }).join('');
     const more='';
     daysHtml+=`<div class="cal-day${isCur?'':' other'}">
@@ -747,8 +776,8 @@ function renderSettimana(evs){
         const active=ev.data_inizio<=dStr&&evEnd>=dStr;
         return `<div class="cal-week-day-dot${active?' active':''}" style="background:${s.color}">${DOW_SHORT[i]}</div>`;
       }).join('');
-      const clickAttr=_canEdit?`onclick="openForm(${ev.id})"`:'' ;
-      return `<div class="cal-week-ev" style="background:${s.color}" ${clickAttr}>
+      const clickAttr=_canEdit?`onclick="openForm(${ev.id})"`:` onclick="openDetail(${ev.id})"`;
+      return `<div class="cal-week-ev" style="background:${s.color};cursor:pointer" ${clickAttr}>
         <div class="cal-week-ev-name">${escH(ev.titolo)}</div>
         <div class="cal-week-ev-sub">${escH(ev.tipologia||'')}${ev.tipologia&&dateStr?' · ':''}${dateStr}</div>
         <div class="cal-week-ev-days">${dots}</div>
@@ -863,8 +892,8 @@ function renderMobile(evs){
         ${d[rKey]?`<span style="font-size:11px;color:var(--s700);font-weight:700">${escH(d[rKey])}</span>`:''}
       </div>`;
     }).join('');
-    const headClick=_canEdit?`onclick="openForm(${ev.id})" style="cursor:pointer;${isPastM?'border-color:#334155':''}"`:
-                             `style="${isPastM?'border-color:#334155':''}"`;
+    const headClick=_canEdit?`onclick="openForm(${ev.id})" style="cursor:pointer;${isPastM?'border-color:#334155':''}"`
+                           :`onclick="openDetail(${ev.id})" style="cursor:pointer;${isPastM?'border-color:#334155':''}"`;
     const allegato=ev.link_info
       ? (_canEdit
           ? ` · <a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400)"><i class="fas fa-arrow-up-right-from-square"></i> info</a>`
@@ -1042,6 +1071,35 @@ function buildPdvForm(pdv){
       <td><input type="text" id="pdv-r2023-${pk}" class="mini-inp" value="${escH(d.r2023||'')}" placeholder=""></td>
     </tr>`;
   }).join('');
+}
+
+function openDetail(evId){
+  const ev = _eventi.find(e => e.id === evId);
+  if(!ev) return;
+  const s = SETTORI[ev.settore] || SETTORI.G;
+  document.getElementById('ev-detail-stripe').style.background = s.color;
+  document.getElementById('ev-detail-titolo').textContent = ev.titolo || '';
+  const badges = document.getElementById('ev-detail-badges');
+  badges.innerHTML = [
+    ev.settore ? `<span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;background:${s.color}22;color:${s.color}">${s.label||ev.settore}</span>` : '',
+    ev.tipologia ? `<span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;background:#f1f5f9;color:#64748b">${escH(ev.tipologia)}</span>` : '',
+  ].join('');
+  const di = fmtDate(ev.data_inizio), df = fmtDate(ev.data_fine);
+  const periodoEl = document.getElementById('ev-detail-periodo');
+  const periodoVal = document.getElementById('ev-detail-periodo-val');
+  if(di){ periodoEl.style.display='block'; periodoVal.textContent=(df&&df!==di)?`${di} → ${df}`:di; }
+  else { periodoEl.style.display='none'; }
+  const mecEl = document.getElementById('ev-detail-meccanica');
+  if(ev.meccanica){ mecEl.style.display='block'; document.getElementById('ev-detail-meccanica-val').textContent=ev.meccanica; }
+  else { mecEl.style.display='none'; }
+  const allEl = document.getElementById('ev-detail-allegato');
+  if(ev.link_info){ allEl.style.display='block'; document.getElementById('ev-detail-allegato-btn').href=ev.link_info; }
+  else { allEl.style.display='none'; }
+  const modal = document.getElementById('ev-detail-modal');
+  modal.style.display = 'flex';
+}
+function closeDetail(){
+  document.getElementById('ev-detail-modal').style.display = 'none';
 }
 
 function openForm(evId){
