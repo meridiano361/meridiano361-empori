@@ -862,20 +862,30 @@ function renderMobile(evs){
         ${d[rKey]?`<span style="font-size:11px;color:var(--s700);font-weight:700">${escH(d[rKey])}</span>`:''}
       </div>`;
     }).join('');
+    const headClick=_canEdit?`onclick="openForm(${ev.id})" style="cursor:pointer;${isPastM?'border-color:#334155':''}"`:
+                             `style="${isPastM?'border-color:#334155':''}"`;
+    const allegato=ev.link_info
+      ? (_canEdit
+          ? ` · <a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400)"><i class="fas fa-arrow-up-right-from-square"></i> info</a>`
+          : '')
+      : '';
+    const allegatoBtn=(!_canEdit&&ev.link_info)
+      ? `<a href="${escH(ev.link_info)}" onclick="event.stopPropagation();window.open(this.href,'_blank')||(window.location.href=this.href);return false;" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 12px 4px;padding:12px 16px;background:#B5453A;border-radius:10px;font-size:14px;font-weight:800;color:#fff;text-decoration:none"><i class="fas fa-paperclip"></i> Apri allegato</a>`
+      : '';
     return `<div class="ev-card" style="${cardStyle}">
-      <div class="ev-card-head" onclick="openForm(${ev.id})" style="${isPastM?'border-color:#334155':''}">
+      <div class="ev-card-head" ${headClick}>
         <div style="flex:1">
           <div class="ev-card-titolo" style="color:${isPastM?'#94a3b8':s.color}">${escH(ev.titolo)}</div>
           <div class="ev-card-meta" style="${isPastM?'color:#475569':''}">
             ${ev.settore?`<span style="color:${isPastM?'#475569':s.color}">${ev.settore}</span> · `:''}
             ${ev.tipologia?escH(ev.tipologia)+' · ':''}
-            ${dateStr}
-            ${ev.link_info?` · <a href="${escH(ev.link_info)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--s400)"><i class="fas fa-arrow-up-right-from-square"></i> info</a>`:''}
+            ${dateStr}${allegato}
           </div>
           ${ev.meccanica?`<div style="font-size:11px;color:var(--s500);margin-top:4px;line-height:1.35">${escH(ev.meccanica)}</div>`:''}
         </div>
-        <i class="fas fa-chevron-right" style="color:var(--s300);font-size:13px;margin-top:2px"></i>
+        ${_canEdit?`<i class="fas fa-chevron-right" style="color:var(--s300);font-size:13px;margin-top:2px"></i>`:''}
       </div>
+      ${allegatoBtn}
       <div class="ev-card-body">${pdvRows}</div>
     </div>`;
   }).join('');
