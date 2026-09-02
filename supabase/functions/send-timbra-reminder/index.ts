@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     db.from("turni").select("emporio, turno, operatori, assenze")
       .eq("anno", year).eq("mese", month).eq("giorno", day).eq("aperto", true),
     db.from("turni_orari").select("emporio, orari"),
-    db.from("operatori").select("id, nome"),
+    db.from("operatori").select("id, nome, ruolo"),
     db.from("operatore_notif_prefs").select("operatore_id").eq("tipo", "timbrate").eq("abilitato", false),
     db.from("push_subscriptions").select("operatore_nome, operatore_id, endpoint, subscription"),
   ]);
@@ -146,12 +146,17 @@ Deno.serve(async (req) => {
   }
 
   // Lookup maps operatori
+  const RUOLI_NO_TIMBRA = new Set(["volontario", "scu", "serviziocivile", "altro"]);
   const nomeToId = new Map<string, string>();
   const idToNome = new Map<string, string>();
+  const volontariNomi = new Set<string>();
   for (const op of operatoriRows ?? []) {
     if (op.nome) {
       nomeToId.set(op.nome.toLowerCase().trim(), op.id);
       idToNome.set(op.id, op.nome);
+      if (RUOLI_NO_TIMBRA.has((op.ruolo ?? "").toLowerCase())) {
+        volontariNomi.add(op.nome.toLowerCase().trim());
+      }
     }
   }
 
@@ -188,6 +193,13 @@ Deno.serve(async (req) => {
 
   for (const task of tasks) {
     const opId = nomeToId.get(task.nomeLower);
+
+    // Salta volontari e ruoli non contrattualizzati
+    if (volontariNomi.has(task.nomeLower)) {
+      results.skipped++;
+      results.log.push({ nome: task.nome, motivo_skip: "volontario/non contrattualizzato" });
+      continue;
+    }
 
     // Rispetta preferenza "turni" disabilitata
     if (opId && disabledIds.has(opId)) {
