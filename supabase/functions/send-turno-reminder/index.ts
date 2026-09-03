@@ -21,6 +21,14 @@ function primoNome(nome: string): string {
   return nome.trim().split(/\s+/)[0];
 }
 
+// Nomi maschili italiani che terminano per 'a' (eccezioni all'euristica)
+const MASCHILI_IN_A = new Set(["luca", "andrea", "nicola", "mattia", "elia", "battista", "enea"]);
+function soloSola(nomeCompleto: string): string {
+  const first = nomeCompleto.trim().split(/\s+/)[0].toLowerCase();
+  if (MASCHILI_IN_A.has(first)) return "solo";
+  return first.endsWith("a") ? "sola" : "solo";
+}
+
 function joinNomi(nomi: string[]): string {
   if (nomi.length === 0) return "";
   if (nomi.length === 1) return primoNome(nomi[0]);
@@ -55,6 +63,7 @@ Deno.serve(async (req) => {
   const urlObj    = new URL(req.url);
   const dryrun    = urlObj.searchParams.get("dryrun") === "1";
   const force     = dryrun || urlObj.searchParams.get("force") === "1";
+  const reset     = urlObj.searchParams.get("reset") === "1"; // bypassa dedup last_push_at
   const soloOp    = (urlObj.searchParams.get("operatore") ?? "").toLowerCase().trim();
   const customMsg = urlObj.searchParams.get("msg") ?? "";
 
@@ -241,7 +250,7 @@ Deno.serve(async (req) => {
 
       const rec  = turniOggi.find(t => t.emporio === s.emporio && t.turno === s.turno);
       const cols = rec ? altriInTurno(rec, nome) : [];
-      fasceTesto.push(cols.length > 0 ? `${orarioLabel} con ${joinNomi(cols)}` : orarioLabel);
+      fasceTesto.push(cols.length > 0 ? `${orarioLabel} con ${joinNomi(cols)}` : `${orarioLabel} da ${soloSola(nome)}`);
       fasceDiag.push({ fascia: orarioLabel, colleghi: cols });
     }
 
@@ -295,7 +304,7 @@ Deno.serve(async (req) => {
 
     for (const sub of operatoreSubs) {
       // Dedup: salta se già inviato oggi a questo endpoint (catch-up run successivi)
-      if (sub.last_push_at && new Date(sub.last_push_at) >= todayMidnightUtc) {
+      if (!reset && sub.last_push_at && new Date(sub.last_push_at) >= todayMidnightUtc) {
         const logEntry = results.log.find(l => l.nome === nome);
         if (logEntry) logEntry.motivo_skip = (logEntry.motivo_skip ?? "") + "[già inviato oggi] ";
         results.skipped++;
