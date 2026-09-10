@@ -1295,6 +1295,15 @@ function calcSubtotal(groupId) {
                 document.getElementById('nc-wa').value = 'true';
                 const icon = document.querySelector('#nc-wa-btn i');
                 if (icon) { icon.className = 'fab fa-whatsapp fa-lg text-green-500'; }
+                // Pre-fill from main form fields
+                const mainNome    = document.getElementById('cust-nome')?.value.trim();
+                const mainCognome = document.getElementById('cust-cognome')?.value.trim();
+                const mainCel     = document.getElementById('cust-cel')?.value.trim();
+                const mainEmail   = document.getElementById('cust-email')?.value.trim();
+                if (mainNome)    document.getElementById('nc-nome').value    = mainNome;
+                if (mainCognome) document.getElementById('nc-cognome').value = mainCognome;
+                if (mainCel)     document.getElementById('nc-tel').value     = mainCel;
+                if (mainEmail)   document.getElementById('nc-email').value   = mainEmail;
             }
         }
 
@@ -1333,7 +1342,7 @@ function calcSubtotal(groupId) {
                 email:    document.getElementById('nc-email').value.trim() || null,
             };
             try {
-                const { error } = await _supabase.from('clienti').insert([clienteData]);
+                const { data: inserted, error } = await _supabase.from('clienti').insert([clienteData]).select().single();
                 if (error) throw error;
                 document.getElementById('cust-nome').value    = nome;
                 document.getElementById('cust-cognome').value = cognome;
@@ -1342,6 +1351,7 @@ function calcSubtotal(groupId) {
                 if (emailEl) emailEl.value = clienteData.email || '';
                 ['nc-nome','nc-cognome','nc-tel','nc-email'].forEach(id => document.getElementById(id).value = '');
                 toggleNuovoClienteForm();
+                if (inserted) setSelectedCliente(inserted);
                 M361.toast(`${clienteVal} aggiunto alla rubrica!`, 'ok');
             } catch(e) {
                 await m361Alert('Errore salvataggio cliente: ' + e.message, 'Errore', 'error');
