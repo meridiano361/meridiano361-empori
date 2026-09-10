@@ -781,8 +781,9 @@ input[type=month].btn-export{min-width:160px;}
               <button class="btn-save-mat" id="btn-save-mat" onclick="saveMat()">
                 <i class="fas fa-check-circle"></i> Salva chiusura mattino
               </button>
-              <div id="mat-chiusura-badge" class="chiusura-badge hidden">
+              <div id="mat-chiusura-badge" class="chiusura-badge hidden" onclick="editOrarioChiusura('mat')" style="cursor:pointer" title="Clicca per modificare l'orario">
                 <i class="fas fa-check"></i> <span id="mat-chiusura-time"></span>
+                <i class="fas fa-pen" style="font-size:9px;opacity:.55;margin-left:2px"></i>
               </div>
             </div>
           </div>
@@ -907,8 +908,9 @@ input[type=month].btn-export{min-width:160px;}
               <button class="btn-save-mat" id="btn-save-pom" onclick="saveDay()">
                 <i class="fas fa-save"></i> Salva chiusura pomeriggio (e giornata)
               </button>
-              <div id="pom-chiusura-badge" class="chiusura-badge hidden">
+              <div id="pom-chiusura-badge" class="chiusura-badge hidden" onclick="editOrarioChiusura('pom')" style="cursor:pointer" title="Clicca per modificare l'orario">
                 <i class="fas fa-check"></i> <span id="pom-chiusura-time"></span>
+                <i class="fas fa-pen" style="font-size:9px;opacity:.55;margin-left:2px"></i>
               </div>
             </div>
           </div>
@@ -1786,6 +1788,7 @@ async function autoWeather(emp) {
         pomOpen  = orRow.orari.pom_open  ?? pomOpen;
         pomClose = orRow.orari.pom_close ?? pomClose;
       }
+      _storeOrari = { mat_close: matClose, pom_close: pomClose };
     } catch(e) {}
   }
 
@@ -2987,7 +2990,8 @@ function fillForm(data) {
     const btn = document.getElementById('btn-save-mat');
     if (btn) btn.innerHTML = '<i class="fas fa-check-circle"></i> Aggiorna chiusura mattino';
   }
-  if (data.pom_ora_chiusura) showChiusuraBadge('pom', data.pom_ora_chiusura);
+  pomOraChiusura = data.pom_ora_chiusura || null;
+  if (pomOraChiusura) showChiusuraBadge('pom', pomOraChiusura);
   syncWeatherIcon(); calcIva();
 }
 
@@ -3189,6 +3193,7 @@ function resetDayForm() {
   // Reset nuovi campi
   const ms = document.getElementById('mat-scontrini'); if (ms) ms.value = '';
   matOraChiusura = null;
+  pomOraChiusura = null;
   ['mat','pom'].forEach(t => {
     const b = document.getElementById(t+'-chiusura-badge'); if (b) b.classList.add('hidden');
   });
@@ -3280,6 +3285,8 @@ function calcScontrini(changed) {
 
 /* ── ORARI CHIUSURA ── */
 let matOraChiusura = null;
+let pomOraChiusura = null;
+let _storeOrari = { mat_close: '13:00', pom_close: '19:00' };
 
 function fmtOra(isoStr) {
   if (!isoStr) return '';
@@ -3293,6 +3300,55 @@ function showChiusuraBadge(turno, isoStr) {
   badge.classList.remove('hidden');
   const label = turno === 'mat' ? 'Mattino chiuso alle ' : 'Giornata chiusa alle ';
   if (time) time.textContent = label + fmtOra(isoStr);
+}
+
+let _editChiusuraTurno = null;
+
+function editOrarioChiusura(turno) {
+  _editChiusuraTurno = turno;
+  const currentIso = turno === 'mat' ? matOraChiusura : pomOraChiusura;
+  const storeClose = turno === 'mat' ? _storeOrari.mat_close : _storeOrari.pom_close;
+  const label = turno === 'mat' ? 'Modifica chiusura mattino' : 'Modifica chiusura pomeriggio';
+
+  document.getElementById('edit-chiusura-title').textContent = label;
+  document.getElementById('edit-chiusura-time').value = currentIso ? fmtOra(currentIso) : '';
+  document.getElementById('edit-chiusura-store-time').textContent = storeClose;
+  const modal = document.getElementById('modal-edit-chiusura');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('edit-chiusura-time').focus(), 80);
+}
+
+function usaOrarioNegozio() {
+  const storeClose = _editChiusuraTurno === 'mat' ? _storeOrari.mat_close : _storeOrari.pom_close;
+  document.getElementById('edit-chiusura-time').value = storeClose;
+}
+
+function chiudiEditChiusura() {
+  document.getElementById('modal-edit-chiusura').style.display = 'none';
+  _editChiusuraTurno = null;
+}
+
+async function confermaOrarioChiusura() {
+  const turno = _editChiusuraTurno;
+  if (!turno) return;
+  const timeStr = document.getElementById('edit-chiusura-time').value; // HH:MM
+  if (!timeStr) { alert('Inserisci un orario valido'); return; }
+
+  const {y, m, d} = selectedDate || {};
+  if (!y) { alert('Nessuna data selezionata'); return; }
+  const [hh, mm] = timeStr.split(':').map(Number);
+  const dt = new Date(y, m, d, hh, mm, 0);
+  const isoStr = dt.toISOString();
+
+  const field = turno === 'mat' ? 'mat_ora_chiusura' : 'pom_ora_chiusura';
+  const err = await dbUpsert({ chiave: currentKey, emporio: currentEmp, [field]: isoStr });
+  if (err) { alert('Errore salvataggio: ' + err.message); return; }
+
+  if (turno === 'mat') matOraChiusura = isoStr;
+  else pomOraChiusura = isoStr;
+
+  showChiusuraBadge(turno, isoStr);
+  chiudiEditChiusura();
 }
 
 /* ── VALIDAZIONE CAMPI OBBLIGATORI ── */
@@ -3484,7 +3540,7 @@ async function saveDay() {
       return (m + p) || null;
     })(),
     mat_ora_chiusura: tipo === 'solo_mattino' ? new Date().toISOString() : (matOraChiusura||null),
-    pom_ora_chiusura: new Date().toISOString(),
+    pom_ora_chiusura: pomOraChiusura || new Date().toISOString(),
     mat_foto_rf:  photosMap.mat_rf.length  ? JSON.stringify(photosMap.mat_rf)  : null,
     mat_foto_pos: photosMap.mat_pos.length ? JSON.stringify(photosMap.mat_pos) : null,
     pom_foto_rf:  photosMap.pom_rf.length  ? JSON.stringify(photosMap.pom_rf)  : null,
@@ -3521,8 +3577,9 @@ async function saveDay() {
   if(error) return alert('Errore salvataggio: '+error.message);
   clearDirty();
   clearBackup();
+  pomOraChiusura = payload.pom_ora_chiusura;
   showChiusuraBadge('pom', payload.pom_ora_chiusura);
-  if (tipo === 'solo_mattino') showChiusuraBadge('mat', payload.mat_ora_chiusura);
+  if (tipo === 'solo_mattino') { matOraChiusura = payload.mat_ora_chiusura; showChiusuraBadge('mat', payload.mat_ora_chiusura); }
   alert('Foglio di giornata salvato ✓');
 }
 
@@ -5172,6 +5229,23 @@ document.addEventListener('click', () => {
   if (tip) tip.style.display = 'none';
 });
 </script>
+
+<!-- ── MODAL MODIFICA ORARIO CHIUSURA ── -->
+<div id="modal-edit-chiusura" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;align-items:center;justify-content:center;padding:20px" onclick="chiudiEditChiusura()">
+  <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.25)" onclick="event.stopPropagation()">
+    <div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:18px;text-transform:uppercase;letter-spacing:.06em" id="edit-chiusura-title">Modifica orario chiusura</div>
+    <label style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:6px">Nuovo orario</label>
+    <input type="time" id="edit-chiusura-time" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:22px;font-weight:700;color:#1e293b;margin-bottom:12px;outline:none;font-family:inherit" onfocus="this.style.borderColor='#B5453A'" onblur="this.style.borderColor='#e2e8f0'">
+    <button id="edit-chiusura-store-btn" onclick="usaOrarioNegozio()" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 14px;font-size:12px;font-weight:700;color:#475569;background:#f8fafc;margin-bottom:18px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px">
+      <i class="fas fa-store" style="color:#B5453A"></i>
+      <span>Usa orario chiusura negozio: <strong id="edit-chiusura-store-time"></strong></span>
+    </button>
+    <div style="display:flex;gap:10px">
+      <button onclick="chiudiEditChiusura()" style="flex:1;border:1.5px solid #e2e8f0;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;background:#fff">Annulla</button>
+      <button onclick="confermaOrarioChiusura()" style="flex:2;border-radius:12px;padding:11px;font-size:13px;font-weight:700;color:#fff;background:#B5453A;border:none;cursor:pointer">Conferma</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── CUSTOM CONFIRM DIALOG ── -->
 <div id="cdlg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
