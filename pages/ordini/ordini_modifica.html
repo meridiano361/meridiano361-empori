@@ -515,6 +515,14 @@
 
                 populateForm(data);
 
+                // Auto-collega cliente alla rubrica se esiste
+                if (data.cliente_nome && data.cliente_cognome) {
+                    const { data: found } = await _supabase.from('clienti').select('*')
+                        .ilike('nome', data.cliente_nome).ilike('cognome', data.cliente_cognome)
+                        .limit(1).maybeSingle();
+                    if (found) setSelectedCliente(found);
+                }
+
                 document.getElementById('loading-overlay').remove();
             } catch (error) {
                 console.error('Error loading order:', error);
@@ -612,14 +620,6 @@
             setValueSafe('cust-cognome', order.cliente_cognome);
             setValueSafe('cust-cel', order.cliente_cellulare);
             setValueSafe('cust-email', order.cliente_email);
-
-            // Auto-collega cliente alla rubrica se esiste
-            if (order.cliente_nome && order.cliente_cognome) {
-                const { data: found } = await _supabase.from('clienti').select('*')
-                    .ilike('nome', order.cliente_nome).ilike('cognome', order.cliente_cognome)
-                    .limit(1).maybeSingle();
-                if (found) setSelectedCliente(found);
-            }
             
             // WhatsApp
             const waBtn = document.getElementById('btn-wa');
