@@ -373,7 +373,11 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .hidden{display:none!important;}
 
 /* ══ MAIN NAV TABS ══ */
-.main-nav{position:sticky;top:56px;z-index:200;background:#fff;border-bottom:1px solid #f1f5f9;display:flex;gap:0;padding:0 24px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.main-nav{position:sticky;top:56px;z-index:200;background:#fff;border-bottom:1px solid #f1f5f9;display:flex;gap:0;padding:0 24px;box-shadow:0 2px 8px rgba(0,0,0,.06);justify-content:space-between;align-items:center;}
+.nav-day-nav{display:none;align-items:center;gap:8px;padding:8px 0;}
+.nav-day-nav.visible{display:flex;}
+.nav-day-label{font-size:12px;font-weight:800;color:#1e293b;letter-spacing:.02em;min-width:170px;text-align:center;font-family:'Nunito',sans-serif;}
+.nav-day-nav .btn-freccia{width:30px;height:30px;font-size:15px;}
 .nav-tab{padding:16px 24px;background:none;border:none;font-family:'Nunito', sans-serif;font-size:12px;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.08em;}
 .nav-tab:hover{color:#B5453A;}
 .nav-tab.active{color:#B5453A;border-bottom-color:#B5453A;}
@@ -487,15 +491,24 @@ input[type=month].btn-export{min-width:160px;}
 </div>
 
 <nav class="main-nav" id="main-nav" style="display:none">
-  <button class="nav-tab active" id="navtab-empori" onclick="showMacroSection('empori',this)">
-    <i class="fas fa-calendar-day"></i> Giornata
-  </button>
-  <button class="nav-tab" id="navtab-amministrazione" onclick="showMacroSection('amministrazione',this)">
-    <i class="fas fa-file-invoice"></i> Amministrazione
-  </button>
-  <button class="nav-tab" id="navtab-commerciale" onclick="showMacroSection('commerciale',this)">
-    <i class="fas fa-chart-line"></i> Commerciale
-  </button>
+  <div style="display:flex;gap:0">
+    <button class="nav-tab active" id="navtab-empori" onclick="showMacroSection('empori',this)">
+      <i class="fas fa-calendar-day"></i> Giornata
+    </button>
+    <button class="nav-tab" id="navtab-amministrazione" onclick="showMacroSection('amministrazione',this)">
+      <i class="fas fa-file-invoice"></i> Amministrazione
+    </button>
+    <button class="nav-tab" id="navtab-commerciale" onclick="showMacroSection('commerciale',this)">
+      <i class="fas fa-chart-line"></i> Commerciale
+    </button>
+  </div>
+  <div class="nav-day-nav" id="nav-day-nav">
+    <button class="btn-freccia" onclick="mesePrec()" title="Mese precedente" style="font-size:10px;opacity:.6">&#171;</button>
+    <button class="btn-freccia" onclick="giornoPrec()" title="Giorno precedente">&#8592;</button>
+    <div class="nav-day-label" id="nav-day-label"></div>
+    <button class="btn-freccia" id="btn-giorno-succ-nav" onclick="giornoSucc()" title="Giorno successivo">&#8594;</button>
+    <button class="btn-freccia" onclick="meseSucc()" title="Mese successivo" style="font-size:10px;opacity:.6">&#187;</button>
+  </div>
 </nav>
 
 <div id="macro-empori" class="macro-section active">
@@ -1047,15 +1060,6 @@ input[type=month].btn-export{min-width:160px;}
       </div>
     </div>
     </div><!-- /day-content-ddt -->
-
-    <!-- ── Navigazione giorno (fondo pagina) ── -->
-    <div class="card card-pad" style="display:flex;align-items:center;justify-content:center;gap:16px;padding:14px 24px;">
-      <button class="btn-freccia" onclick="mesePrec()" title="Mese precedente" style="font-size:11px;opacity:.6">&#171;</button>
-      <button class="btn-freccia" onclick="giornoPrec()" title="Giorno precedente">&#8592;</button>
-      <div id="day-label-btm" class="day-title" style="min-width:180px;text-align:center"></div>
-      <button class="btn-freccia" id="btn-giorno-succ-btm" onclick="giornoSucc()" title="Giorno successivo">&#8594;</button>
-      <button class="btn-freccia" onclick="meseSucc()" title="Mese successivo" style="font-size:11px;opacity:.6">&#187;</button>
-    </div>
 
   </div><!-- /screen-day -->
 </main>
@@ -3237,8 +3241,12 @@ async function openDay() {
   const dateObj = new Date(y, m, d);
   const dayLabelText = GIORNI[dateObj.getDay()]+' '+d+' '+MESI[m]+' '+y;
   document.getElementById('day-label').textContent     = dayLabelText;
-  const lblBtm = document.getElementById('day-label-btm'); if (lblBtm) lblBtm.textContent = dayLabelText;
+  const lblNav = document.getElementById('nav-day-label'); if (lblNav) lblNav.textContent = dayLabelText;
   document.getElementById('emporio-label').textContent = currentEmp;
+
+  // Mostra navigazione giorno nella barra tab
+  const navDayNav = document.getElementById('nav-day-nav');
+  if (navDayNav) navDayNav.classList.add('visible');
 
   // Disabilita freccia destra se domani è futuro
   const tomorrow = new Date(y, m, d); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -3246,8 +3254,8 @@ async function openDay() {
   const isLastDay = tomorrow > today;
   const succBtn = document.getElementById('btn-giorno-succ');
   if (succBtn) succBtn.disabled = isLastDay;
-  const succBtnBtm = document.getElementById('btn-giorno-succ-btm');
-  if (succBtnBtm) succBtnBtm.disabled = isLastDay;
+  const succBtnNav = document.getElementById('btn-giorno-succ-nav');
+  if (succBtnNav) succBtnNav.disabled = isLastDay;
 
   document.getElementById('step-date').classList.add('hidden');
   document.getElementById('screen-day').classList.remove('hidden');
@@ -3635,6 +3643,8 @@ function init() {
       document.getElementById('screen-day').classList.add('hidden');
       document.getElementById('save-bar').classList.add('hidden');
       document.getElementById('step-date').classList.remove('hidden');
+      const navDayNav = document.getElementById('nav-day-nav');
+      if (navDayNav) navDayNav.classList.remove('visible');
     });
   });
 
