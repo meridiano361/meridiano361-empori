@@ -3229,6 +3229,7 @@ async function openDay() {
 
   document.getElementById('step-date').classList.add('hidden');
   document.getElementById('screen-day').classList.remove('hidden');
+  sessionStorage.setItem('cassa_day', JSON.stringify(selectedDate));
 
   Promise.all([
     loadPreviousFondo(currentEmp, y, m1, d).then(fondo => {
@@ -3597,6 +3598,7 @@ function init() {
   document.getElementById('btn-back-emp').addEventListener('click',()=>{
     sessionStorage.removeItem('cassa_emp');
     sessionStorage.removeItem('cassa_tab');
+    sessionStorage.removeItem('cassa_day');
     sessionStorage.removeItem('cassa_subtab_admin');
     sessionStorage.removeItem('cassa_com_subtab');
     ['pag','cf','vm','iva'].forEach(p => sessionStorage.removeItem('cassa_mese_'+p));
@@ -3607,6 +3609,7 @@ function init() {
   document.getElementById('btn-back-date').addEventListener('click',()=>{
     withLeaveCheck(() => {
       clearDirty();
+      sessionStorage.removeItem('cassa_day');
       document.getElementById('screen-day').classList.add('hidden');
       document.getElementById('save-bar').classList.add('hidden');
       document.getElementById('step-date').classList.remove('hidden');
@@ -3664,6 +3667,23 @@ function init() {
       if (_savedTab === 'commerciale') {
         const _savedComSub = sessionStorage.getItem('cassa_com_subtab');
         if (_savedComSub && _savedComSub !== 'giorn') showComSubtab(_savedComSub);
+      }
+    }
+
+    // Ripristina la giornata aperta se il tab era "giornata" (o default)
+    if (!_savedTab || _savedTab === 'giornata') {
+      const _savedDay = sessionStorage.getItem('cassa_day');
+      if (_savedDay) {
+        try {
+          const _d = JSON.parse(_savedDay);
+          if (_d && typeof _d.y === 'number' && typeof _d.m === 'number' && typeof _d.d === 'number') {
+            selectedDate = _d;
+            calYear = _d.y;
+            calMonth = _d.m;
+            renderCalendar();
+            openDay();
+          }
+        } catch(e) {}
       }
     }
   }
