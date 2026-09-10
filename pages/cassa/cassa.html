@@ -1048,6 +1048,15 @@ input[type=month].btn-export{min-width:160px;}
     </div>
     </div><!-- /day-content-ddt -->
 
+    <!-- ── Navigazione giorno (fondo pagina) ── -->
+    <div class="card card-pad" style="display:flex;align-items:center;justify-content:center;gap:16px;padding:14px 24px;">
+      <button class="btn-freccia" onclick="mesePrec()" title="Mese precedente" style="font-size:11px;opacity:.6">&#171;</button>
+      <button class="btn-freccia" onclick="giornoPrec()" title="Giorno precedente">&#8592;</button>
+      <div id="day-label-btm" class="day-title" style="min-width:180px;text-align:center"></div>
+      <button class="btn-freccia" id="btn-giorno-succ-btm" onclick="giornoSucc()" title="Giorno successivo">&#8594;</button>
+      <button class="btn-freccia" onclick="meseSucc()" title="Mese successivo" style="font-size:11px;opacity:.6">&#187;</button>
+    </div>
+
   </div><!-- /screen-day -->
 </main>
 </div><!-- /macro-empori -->
@@ -3226,14 +3235,19 @@ async function openDay() {
   syncOperators();
 
   const dateObj = new Date(y, m, d);
-  document.getElementById('day-label').textContent     = GIORNI[dateObj.getDay()]+' '+d+' '+MESI[m]+' '+y;
+  const dayLabelText = GIORNI[dateObj.getDay()]+' '+d+' '+MESI[m]+' '+y;
+  document.getElementById('day-label').textContent     = dayLabelText;
+  const lblBtm = document.getElementById('day-label-btm'); if (lblBtm) lblBtm.textContent = dayLabelText;
   document.getElementById('emporio-label').textContent = currentEmp;
 
   // Disabilita freccia destra se domani è futuro
   const tomorrow = new Date(y, m, d); tomorrow.setDate(tomorrow.getDate() + 1);
   const today = new Date(); today.setHours(0,0,0,0);
+  const isLastDay = tomorrow > today;
   const succBtn = document.getElementById('btn-giorno-succ');
-  if (succBtn) succBtn.disabled = tomorrow > today;
+  if (succBtn) succBtn.disabled = isLastDay;
+  const succBtnBtm = document.getElementById('btn-giorno-succ-btm');
+  if (succBtnBtm) succBtnBtm.disabled = isLastDay;
 
   document.getElementById('step-date').classList.add('hidden');
   document.getElementById('screen-day').classList.remove('hidden');
