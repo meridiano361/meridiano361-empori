@@ -476,9 +476,9 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                        <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input" oninput="clearSelectedCliente()">
+                        <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input" oninput="onCustFieldInput()">
                         <div class="relative">
-                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="clearSelectedCliente()">
+                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="onCustFieldInput()">
                             <div id="cognome-ac-dropdown" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
                         </div>
                         <div class="relative">
@@ -497,7 +497,14 @@
                             </label>
                         </div>
                     </div>
-                    <!-- Azioni rubrica: visibili solo dopo aver selezionato un cliente esistente -->
+                    <!-- Salva in rubrica: visibile quando il cliente NON è ancora in rubrica -->
+                    <div id="salva-rubrica-bar" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                        <button type="button" onclick="salvaBozzaInRubrica()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-emerald-100 transition-colors">
+                            <i class="fas fa-address-book"></i> Salva in rubrica
+                        </button>
+                        <span class="text-xs text-slate-400">Aggiungi questo cliente alla rubrica</span>
+                    </div>
+                    <!-- Azioni rubrica: visibili solo dopo aver selezionato/salvato un cliente in rubrica -->
                     <div id="rubrica-actions" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                         <span class="text-xs text-slate-400 mr-1"><i class="fas fa-address-book mr-1"></i>Cliente in rubrica:</span>
                         <button type="button" onclick="aggiornaRubrica()" class="text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-blue-100 transition-colors">
@@ -1143,15 +1150,48 @@ function calcSubtotal(groupId) {
 
         function setSelectedCliente(c) {
             _selectedClienteId = c ? c.id : null;
-            const bar = document.getElementById('rubrica-actions');
-            if (bar) bar.classList.toggle('hidden', !_selectedClienteId);
+            document.getElementById('rubrica-actions')?.classList.toggle('hidden', !_selectedClienteId);
+            document.getElementById('salva-rubrica-bar')?.classList.toggle('hidden', !!_selectedClienteId);
         }
 
         function clearSelectedCliente() {
             if (!_selectedClienteId) return;
             _selectedClienteId = null;
-            const bar = document.getElementById('rubrica-actions');
-            if (bar) bar.classList.add('hidden');
+            document.getElementById('rubrica-actions')?.classList.add('hidden');
+            document.getElementById('salva-rubrica-bar')?.classList.remove('hidden');
+        }
+
+        function onCustFieldInput() {
+            clearSelectedCliente();
+            const nome    = document.getElementById('cust-nome')?.value.trim();
+            const cognome = document.getElementById('cust-cognome')?.value.trim();
+            const bar = document.getElementById('salva-rubrica-bar');
+            if (bar) bar.classList.toggle('hidden', !(nome && cognome));
+        }
+
+        async function salvaBozzaInRubrica() {
+            const nome    = document.getElementById('cust-nome').value.trim();
+            const cognome = document.getElementById('cust-cognome').value.trim();
+            if (!nome || !cognome) { await m361Alert('Inserisci nome e cognome prima di salvare in rubrica', '', 'warning'); return; }
+            const tel   = document.getElementById('cust-cel').value.trim();
+            const email = document.getElementById('cust-email')?.value.trim() || null;
+            const wa    = document.getElementById('btn-wa')?.classList.contains('wa-active') ?? true;
+
+            const { data: existing } = await _supabase.from('clienti').select('id')
+                .ilike('nome', nome).ilike('cognome', cognome);
+            const count = (existing || []).length;
+            const clienteVal = count === 0 ? `${nome} ${cognome}` : `${nome} ${cognome} ${count}`;
+
+            try {
+                const { data: inserted, error } = await _supabase.from('clienti')
+                    .insert([{ nome, cognome, cliente: clienteVal, telefono: tel || null, email, wa }])
+                    .select().single();
+                if (error) throw error;
+                setSelectedCliente(inserted);
+                M361.toast(`${clienteVal} aggiunto alla rubrica!`, 'ok');
+            } catch(e) {
+                await m361Alert('Errore salvataggio: ' + e.message, 'Errore', 'error');
+            }
         }
 
         function selectCliente(idx) {
