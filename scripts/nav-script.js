@@ -20,6 +20,12 @@
 
   function getSupabase() {
     if (window._supabase) return window._supabase;
+    // Riusa il client già creato dalla pagina (evita istanze multiple che confliggono sulla sessione)
+    const existing = window.db || window.DB || window._sb;
+    if (existing && typeof existing.from === 'function') {
+      window._supabase = existing;
+      return window._supabase;
+    }
     if (window.supabase && window.supabase.createClient) {
       window._supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
       return window._supabase;
