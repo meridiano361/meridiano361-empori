@@ -2793,6 +2793,13 @@ async function trasferisciTurno() {
     if (fEl && tEl) { tEl.value = fEl.value; fEl.value = ''; }
   });
 
+  // Salva i valori degli input di pagamento PRIMA che buildPayments li distrugga
+  const fromPayVals = {};
+  PAGAMENTI.forEach(p => {
+    const el = document.getElementById(from + '_pay_' + p.id);
+    if (el) fromPayVals[p.id] = el.value;
+  });
+
   // Pagamenti noteMap
   PAGAMENTI.forEach(p => {
     const fKey = from + '_' + p.id;
@@ -2817,6 +2824,13 @@ async function trasferisciTurno() {
   // Ri-costruisce i pannelli pagamento con il nuovo noteMap
   buildPayments('mat');
   buildPayments('pom');
+
+  // Ripristina i valori di pagamento nel turno di destinazione (buildPayments azzera il DOM)
+  PAGAMENTI.forEach(p => {
+    const toEl = document.getElementById(to + '_pay_' + p.id);
+    if (toEl && fromPayVals[p.id]) toEl.value = fromPayVals[p.id];
+  });
+
   calcAll();
   markDirty();
 }
