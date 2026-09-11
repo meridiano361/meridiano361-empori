@@ -1684,6 +1684,8 @@ function setMeteoConfirmed(fascia, ok) {
 function showConfirmDialog(msg, buttons) {
   return new Promise(resolve => {
     document.getElementById('cdlg-msg').textContent = msg;
+    const inp = document.getElementById('cdlg-input');
+    inp.style.display = 'none'; inp.value = '';
     const row = document.getElementById('cdlg-btns');
     row.innerHTML = '';
     buttons.forEach(b => {
@@ -1696,6 +1698,34 @@ function showConfirmDialog(msg, buttons) {
       row.appendChild(el);
     });
     document.getElementById('cdlg').style.display = 'flex';
+  });
+}
+
+function showInputDialog(msg, placeholder) {
+  return new Promise(resolve => {
+    document.getElementById('cdlg-msg').textContent = msg;
+    const inp = document.getElementById('cdlg-input');
+    inp.placeholder = placeholder || '';
+    inp.value = '';
+    inp.style.display = '';
+    const row = document.getElementById('cdlg-btns');
+    row.innerHTML = '';
+    [{ label:'Salta', value:null }, { label:'Salva nota', value:'ok', primary:true }].forEach(b => {
+      const el = document.createElement('button');
+      el.textContent = b.label;
+      Object.assign(el.style, { flex:'1', padding:'9px 0', borderRadius:'8px', fontSize:'14px', fontWeight:'600', cursor:'pointer', border:'none' });
+      if (b.primary) Object.assign(el.style, { background:'#7c2d12', color:'#fff' });
+      else Object.assign(el.style, { background:'#f1f5f9', color:'#334155' });
+      el.onclick = () => {
+        const val = b.value === 'ok' ? inp.value.trim() : null;
+        inp.style.display = 'none';
+        document.getElementById('cdlg').style.display = 'none';
+        resolve(val);
+      };
+      row.appendChild(el);
+    });
+    document.getElementById('cdlg').style.display = 'flex';
+    setTimeout(() => inp.focus(), 50);
   });
 }
 
@@ -3442,7 +3472,11 @@ async function saveMat() {
       { label:'No',  value:'no' },
       { label:'Sì',  value:'yes', primary:true },
     ]);
-    if (ans === 'yes') { document.getElementById('arrivo-merci').checked = true; toggleArrivoMerci(); }
+    if (ans === 'yes') {
+      document.getElementById('arrivo-merci').checked = true; toggleArrivoMerci();
+      const nota = await showInputDialog('Vuoi inserire delle note per l\'arrivo merci?', 'Note sull\'arrivo merci...');
+      if (nota) document.getElementById('note-arrivo-merci').value = nota;
+    }
   }
   const errors = [];
   checkOps('mat', 'Operatore/i mattino', errors);
@@ -3476,7 +3510,11 @@ async function saveDay() {
       { label:'No',  value:'no' },
       { label:'Sì',  value:'yes', primary:true },
     ]);
-    if (ans === 'yes') { document.getElementById('arrivo-merci').checked = true; toggleArrivoMerci(); }
+    if (ans === 'yes') {
+      document.getElementById('arrivo-merci').checked = true; toggleArrivoMerci();
+      const nota = await showInputDialog('Vuoi inserire delle note per l\'arrivo merci?', 'Note sull\'arrivo merci...');
+      if (nota) document.getElementById('note-arrivo-merci').value = nota;
+    }
   }
   const tipo = document.querySelector('input[name="turno_type"]:checked').value;
   const errors = [];
@@ -5316,6 +5354,7 @@ document.addEventListener('click', () => {
 <div id="cdlg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:28px 24px 20px;max-width:380px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.25)">
     <p id="cdlg-msg" style="margin:0 0 22px;font-size:15px;line-height:1.5;color:#1e293b"></p>
+    <textarea id="cdlg-input" rows="3" style="display:none;width:100%;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;resize:vertical;margin-bottom:16px" placeholder=""></textarea>
     <div id="cdlg-btns" style="display:flex;gap:8px"></div>
   </div>
 </div>
