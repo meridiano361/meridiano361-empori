@@ -3633,7 +3633,6 @@ async function saveDay() {
     checkOps('pom', 'Operatore/i pomeriggio', errors);
     checkScontrini('pom-scontrini', 'Numero scontrini pomeriggio', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
-    checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
     if (!_meteoMatOk) errors.push('Meteo mattino: conferma il dato o modificalo');
     if (!_meteoPomOk) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
@@ -3642,7 +3641,6 @@ async function saveDay() {
     checkOps('mat', 'Operatore/i mattino', errors);
     checkScontrini('mat-scontrini', 'Numero scontrini mattino', errors);
     checkField('mat-corrispettivi','Corrispettivi mattino', errors);
-    checkField('mat-cassaforte',   'Contanti in cassaforte', errors);
     checkIva('mat-corrispettivi', errors);
     if (!_meteoMatOk) errors.push('Meteo mattino: conferma il dato o modificalo');
     checkNoteObbligatorie(['mat'], errors);
@@ -3650,7 +3648,6 @@ async function saveDay() {
     checkOps('pom', 'Operatore/i pomeriggio', errors);
     checkScontrini('pom-scontrini', 'Numero scontrini pomeriggio', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
-    checkField('cassaforte',        'Contanti in cassaforte', errors);
     checkIva('pom-corrispettivi', errors);
     if (!_meteoPomOk) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
     checkNoteObbligatorie(['pom'], errors);
@@ -3658,6 +3655,17 @@ async function saveDay() {
   if (errors.length) {
     alert('Campi obbligatori mancanti o errati:\n\n• ' + errors.join('\n• '));
     return;
+  }
+
+  // Cassaforte: se è €0.00 chiedi conferma esplicita
+  const cfId = tipo === 'solo_mattino' ? 'mat-cassaforte' : 'cassaforte';
+  if (getNum(cfId) === 0) {
+    const cfConf = await showConfirmDialog('La cassaforte risulta €0,00 — confermi che non sono stati lasciati contanti?', [
+      { label: 'Annulla', value: null },
+      { label: 'Sì, è zero', value: 'ok', primary: true },
+    ]);
+    if (!cfConf) { document.getElementById(cfId).classList.add('req-err'); return; }
+    document.getElementById(cfId).classList.remove('req-err');
   }
 
   calcIva();
