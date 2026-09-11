@@ -2664,9 +2664,9 @@ function updateTurnoVisibility() {
     pomDiv.style.display = 'none';
     document.getElementById('mat-cassaforte-box').classList.remove('hidden');
     if (spacer) spacer.style.display = 'none';
-    if (matScRow) matScRow.style.display = '';
+    if (matScRow) matScRow.style.display = 'none'; // sostituito dal chip globale
     if (pomScRow) pomScRow.style.display = 'none';
-    if (globalChip) globalChip.style.display = 'none'; // sostituito da campi separati
+    if (globalChip) globalChip.style.display = '';
     if (matSaveSec) matSaveSec.style.display = '';
     if (pomSaveSec) pomSaveSec.style.display = 'none';
     if (btnSaveMat && !btnSaveMat.dataset.manualLabel) {
@@ -2678,9 +2678,9 @@ function updateTurnoVisibility() {
     pomDiv.style.display = 'flex';
     document.getElementById('mat-cassaforte-box').classList.add('hidden');
     if (spacer) spacer.style.display = '';
-    if (matScRow) matScRow.style.display = 'none';
-    if (pomScRow) pomScRow.style.display = '';
-    if (globalChip) globalChip.style.display = 'none';
+    if (matScRow) matScRow.style.display = 'none'; // sostituito dal chip globale
+    if (pomScRow) pomScRow.style.display = 'none';
+    if (globalChip) globalChip.style.display = '';
     if (matSaveSec) matSaveSec.style.display = 'none';
     if (pomSaveSec) pomSaveSec.style.display = '';
   } else { // entrambi
@@ -3297,6 +3297,18 @@ function calcScontrini(changed) {
   const pomEl = document.getElementById('pom-scontrini');
   const totEl = document.getElementById('global-scontrini');
   if (!matEl || !pomEl || !totEl) return;
+  const tipo = document.querySelector('input[name="turno_type"]:checked')?.value || 'entrambi';
+  // Per turni singoli il chip globale è l'unico input: sincronizza col campo nascosto
+  if (tipo === 'solo_mattino') {
+    if (changed === 'tot') matEl.value = totEl.value;
+    else if (changed === 'mat') totEl.value = matEl.value;
+    return;
+  }
+  if (tipo === 'solo_pomeriggio') {
+    if (changed === 'tot') pomEl.value = totEl.value;
+    else if (changed === 'pom') totEl.value = pomEl.value;
+    return;
+  }
   const matFull = matEl.value.trim() !== '';
   const pomFull = pomEl.value.trim() !== '';
   const totFull = totEl.value.trim() !== '';
