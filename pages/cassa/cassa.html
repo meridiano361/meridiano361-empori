@@ -650,6 +650,11 @@ input[type=month].btn-export{min-width:160px;}
             <i class="fas fa-moon"></i> Solo pomeriggio
           </label>
         </div>
+        <div style="margin-top:10px;text-align:right">
+          <button type="button" onclick="trasferisciTurno()" style="background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;padding:4px 0;text-decoration:underline;font-family:inherit">
+            <i class="fas fa-exchange-alt"></i> Sposta dati da un turno all'altro
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2737,6 +2742,76 @@ function updateTurnoVisibility() {
   }
   
   calcAll();
+}
+
+/* ── TRASFERISCI DATI TRA TURNI ── */
+async function trasferisciTurno() {
+  const dir = await showConfirmDialog('Sposta i dati da quale turno?', [
+    { label: 'Annulla',               value: null },
+    { label: '☀ Mat → Pom 🌙',       value: 'mat_pom', primary: true },
+    { label: '🌙 Pom → Mat ☀',       value: 'pom_mat' },
+  ]);
+  if (!dir) return;
+  const from = dir === 'mat_pom' ? 'mat' : 'pom';
+  const to   = dir === 'mat_pom' ? 'pom' : 'mat';
+  const conf = await showConfirmDialog(`I dati del turno ${to === 'mat' ? 'mattino' : 'pomeriggio'} verranno sovrascritti. Continuare?`, [
+    { label: 'Annulla', value: null },
+    { label: 'Sì, trasferisci', value: 'ok', primary: true },
+  ]);
+  if (!conf) return;
+
+  // Corrispettivi
+  const fromCor = document.getElementById(from + '-corrispettivi');
+  const toCor   = document.getElementById(to   + '-corrispettivi');
+  if (fromCor && toCor) { toCor.value = fromCor.value; fromCor.value = '€ 0,00'; }
+
+  // Scontrini
+  const fromSc = document.getElementById(from + '-scontrini');
+  const toSc   = document.getElementById(to   + '-scontrini');
+  if (fromSc && toSc) { toSc.value = fromSc.value; fromSc.value = ''; }
+
+  // Coin counts fine turno
+  TAGLI.forEach(t => {
+    const key = String(t).replace('.', '_');
+    const fEl = document.getElementById(from + '_coin_' + key);
+    const tEl = document.getElementById(to   + '_coin_' + key);
+    if (fEl && tEl) { tEl.value = fEl.value; fEl.value = ''; }
+  });
+
+  // Conta contanti inizio turno
+  TAGLI.forEach(t => {
+    const key = String(t).replace('.', '_');
+    const fEl = document.getElementById('conta_' + from + '_coin_' + key);
+    const tEl = document.getElementById('conta_' + to   + '_coin_' + key);
+    if (fEl && tEl) { tEl.value = fEl.value; fEl.value = ''; }
+  });
+
+  // Pagamenti noteMap
+  PAGAMENTI.forEach(p => {
+    const fKey = from + '_' + p.id;
+    const tKey = to   + '_' + p.id;
+    noteMap[tKey] = noteMap[fKey] || '';
+    delete noteMap[fKey];
+  });
+
+  // Nota turno
+  const notaFromId = from === 'mat' ? 'nota-mattino' : 'nota-pomeriggio';
+  const notaToId   = to   === 'mat' ? 'nota-mattino' : 'nota-pomeriggio';
+  const notaFromEl = document.getElementById(notaFromId);
+  const notaToEl   = document.getElementById(notaToId);
+  if (notaFromEl && notaToEl) { notaToEl.value = notaFromEl.value; notaFromEl.value = ''; }
+
+  // Operatori
+  selectedOps[to]   = [...selectedOps[from]];
+  selectedOps[from] = [];
+  renderShiftOps('mat');
+  renderShiftOps('pom');
+
+  // Ri-costruisce i pannelli pagamento con il nuovo noteMap
+  buildPayments('mat');
+  buildPayments('pom');
+  calcAll();
+  markDirty();
 }
 
 /* ── CALCOLO ── */
