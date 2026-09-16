@@ -5456,6 +5456,49 @@ async function quickSaveVersamento() {
 })();
 </script>
 <script src="../../scripts/nav-script.js"></script>
+<script>
+/* ── Operatori turno: sempre abilitati anche in modalità sola-lettura ──
+   La readonly mode di nav-script nasconde button[onclick*="add"] e disabilita
+   i <select>, il che impedisce di aggiungere operatori al foglio di giornata.
+   Questa operazione è SEMPRE necessaria per gli operatori non-admin.
+   L'override usa selettori con specificità ID (0,1,0,x) che battono i selettori
+   attribute/class (0,0,1,x) del readonly CSS anche a parità di !important. */
+(function() {
+  const OVID = 'cassa-op-readonly-override';
+  function applyOpOverride() {
+    if (document.getElementById(OVID) || !window.__m361_readonly) return;
+    const s = document.createElement('style');
+    s.id = OVID;
+    s.textContent = `
+      select#chiuso-da-mat, select#chiuso-da-pom,
+      #op-mini-mat button, #op-mini-pom button,
+      #op-mini-mat input, #op-mini-pom input,
+      button[onclick^="toggleOpModal"],
+      button[onclick^="addOperatore"] {
+        display: inline-flex !important;
+        pointer-events: auto !important;
+        visibility: visible !important;
+        background: #fff !important;
+        color: #334155 !important;
+        cursor: pointer !important;
+        border-color: #e2e8f0 !important;
+        opacity: 1 !important;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+  // Osserva <head> per rilevare quando nav-script inietta m361-readonly-styles
+  const obs = new MutationObserver(() => {
+    if (document.getElementById('m361-readonly-styles')) {
+      obs.disconnect();
+      setTimeout(applyOpOverride, 30);
+    }
+  });
+  obs.observe(document.head, { childList: true });
+  // Fallback: se lo stile era già presente o arriva tardi
+  setTimeout(applyOpOverride, 3000);
+})();
+</script>
 <div id="esente-tooltip"></div>
 <script>
 document.addEventListener('click', () => {
