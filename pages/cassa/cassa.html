@@ -615,8 +615,12 @@ input[type=month].btn-export{min-width:160px;}
             </div>
           </div>
           <div class="meta-chip scontrini-chip" id="global-scontrini-chip">
-            <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Scontrini totali</div>
+            <div class="meta-chip-lbl"><i class="fas fa-receipt"></i> Tot.N.Scontrino</div>
             <input id="global-scontrini" type="number" min="0" step="1" placeholder="0" oninput="calcScontrini('tot')">
+          </div>
+          <div class="meta-chip scontrini-chip" id="tot-scontrini-chip">
+            <div class="meta-chip-lbl"><i class="fas fa-euro-sign"></i> Tot.Scontrini</div>
+            <span id="tot-scontrini-display" style="font-size:13px;font-weight:700;color:#334155;padding:2px 6px">€ 0,00</span>
           </div>
           <div class="meta-chip">
             <div class="meta-chip-lbl">Arrivo merci</div>
@@ -2888,6 +2892,21 @@ function calcAll() {
   document.getElementById('fondo-residuo').textContent=euro(Math.max(0, pomLordiTotal - cass));
   
   calcIva();
+  calcTotScontrini();
+}
+
+function calcTotScontrini() {
+  const tipo = document.querySelector('input[name="turno_type"]:checked')?.value || 'entrambi';
+  let tot = 0;
+  if (tipo === 'solo_mattino') {
+    tot = getNum('mat-corrispettivi');
+  } else if (tipo === 'solo_pomeriggio') {
+    tot = getNum('pom-corrispettivi');
+  } else {
+    tot = getNum('mat-corrispettivi') + getNum('pom-corrispettivi');
+  }
+  const el = document.getElementById('tot-scontrini-display');
+  if (el) el.textContent = euro(tot);
 }
 
 function calcIva() {
