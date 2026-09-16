@@ -83,8 +83,46 @@
 </head>
 <body class="pb-28">
 
+<!-- ═══════════════════════════ EMPORIO SELECTOR ════════════════════ -->
+<div id="prev-emp-selector">
+  <div style="max-width:700px;margin:40px auto;padding:0 20px">
+    <div class="sec-t" style="margin-bottom:20px">Seleziona emporio</div>
+    <div class="emp-grid">
+      <div class="emp-btn" onclick="selezionaEmporioPreventivi('Casalmaggiore')">
+        <img src="../../assets/images/logo_casalmaggiore.png" alt="Casalmaggiore" style="width:54px;height:54px;object-fit:cover;border-radius:50%">
+        <span>Casalmaggiore</span>
+      </div>
+      <div class="emp-btn" onclick="selezionaEmporioPreventivi('Cremona')">
+        <img src="../../assets/images/logo_cremona.png" alt="Cremona" style="width:54px;height:54px;object-fit:cover;border-radius:50%">
+        <span>Cremona</span>
+      </div>
+      <div class="emp-btn" onclick="selezionaEmporioPreventivi('Reggio Emilia')">
+        <img src="../../assets/images/logo_reggio_emilia.png" alt="Reggio Emilia" style="width:54px;height:54px;object-fit:cover;border-radius:50%">
+        <span>Reggio Emilia</span>
+      </div>
+      <div class="emp-btn" onclick="selezionaEmporioPreventivi('Mantova')">
+        <img src="../../assets/images/logo_mantova.png" alt="Mantova" style="width:54px;height:54px;object-fit:cover;border-radius:50%">
+        <span>Mantova</span>
+      </div>
+      <div class="emp-btn" onclick="selezionaEmporioPreventivi('Viadana')">
+        <img src="../../assets/images/logo_viadana.png" alt="Viadana" style="width:54px;height:54px;object-fit:cover;border-radius:50%">
+        <span>Viadana</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ LISTA VIEW ═══════════════════════════ -->
-<div id="lista-view">
+<div id="lista-view" class="hidden">
+    <!-- Barra emporio selezionato -->
+    <div id="prev-emp-bar" class="bg-slate-50 border-b px-6 py-2 flex items-center gap-3">
+      <button id="prev-cambio-emp-btn" onclick="tornaSelettorePreventivi()" class="text-xs font-bold text-slate-500 hover:text-[#B5453A] flex items-center gap-1 transition-colors">
+        <i class="fas fa-arrow-left text-xs"></i> Cambia emporio
+      </button>
+      <span class="text-slate-300">|</span>
+      <span class="text-sm font-bold text-slate-700" id="prev-emp-nome"></span>
+    </div>
+
     <div class="bg-white border-b px-6 md:px-8 py-3 flex items-center justify-end sticky top-0 z-40 shadow-sm gap-3">
         <a href="ordini_incorso.html" class="text-xs font-bold text-slate-500 hover:text-[#B5453A] border border-slate-200 rounded-lg px-3 py-2 flex items-center gap-2 transition-colors">
             <i class="fas fa-clock"></i> Ordini in corso
@@ -374,6 +412,43 @@ let groupCount  = 0;
 let editingId   = null;
 let modificheNonSalvate = false;
 let _uscitaCallback = null;
+let currentEmporioPreventivi = null;
+
+function selezionaEmporioPreventivi(nome) {
+    const _u   = typeof getOperatoreLoggato === 'function' ? getOperatoreLoggato() : null;
+    const _adm = typeof isAdmin === 'function' ? isAdmin() : true;
+    if (_u && !_adm) {
+        const disp = typeof getEmporioDisponibili === 'function' ? getEmporioDisponibili() : (_u.emporio ? [_u.emporio] : []);
+        const ok = disp.some(e => (e||'').trim().toLowerCase() === nome.trim().toLowerCase());
+        if (!ok) {
+            if (typeof showToast === 'function') showToast('Puoi accedere solo al tuo emporio', 'err');
+            else alert('Puoi accedere solo al tuo emporio');
+            return;
+        }
+    }
+    currentEmporioPreventivi = nome;
+    sessionStorage.setItem('prev_emporio', nome);
+    document.getElementById('prev-emp-selector').classList.add('hidden');
+    document.getElementById('lista-view').classList.remove('hidden');
+    document.getElementById('prev-emp-nome').textContent = nome;
+    if (_u && !_adm) {
+        const btn = document.getElementById('prev-cambio-emp-btn');
+        if (btn) btn.style.display = 'none';
+    }
+    const filterEmp = document.getElementById('filter-emporio');
+    if (filterEmp) { filterEmp.value = nome; filterEmp.disabled = true; }
+    loadPreventivi();
+}
+
+function tornaSelettorePreventivi() {
+    currentEmporioPreventivi = null;
+    sessionStorage.removeItem('prev_emporio');
+    document.getElementById('prev-emp-selector').classList.remove('hidden');
+    document.getElementById('lista-view').classList.add('hidden');
+    document.getElementById('form-view').classList.add('hidden');
+    const filterEmp = document.getElementById('filter-emporio');
+    if (filterEmp) { filterEmp.value = ''; filterEmp.disabled = false; }
+}
 
 const OPERATORI_DATA = {
     "Cremona":       ["Chiara Monteverdi","Emilio Mazzolari"],
@@ -485,7 +560,7 @@ async function convertiInOrdine(id) {
     if (fetchErr || !prev) { await m361Alert('Errore nel caricamento del preventivo', 'Errore', 'error'); return; }
 
     // Genera numero ordine
-    const emporioMap = { Cremona:'CR', Casalmaggiore:'CA', 'Reggio Emilia':'RE', Viadana:'VI' };
+    const emporioMap = { Cremona:'CR', Casalmaggiore:'CA', 'Reggio Emilia':'RE', Viadana:'VI', Mantova:'MA' };
     const sigla   = emporioMap[prev.emporio] || 'XX';
     const dateStr = (prev.data_preventivo || new Date().toISOString().slice(0,10)).replace(/-/g,'');
     const { data: existOrd } = await _supabase.from('ordini_incorso').select('numero_ordine').ilike('numero_ordine',`${dateStr}${sigla}#%`).order('numero_ordine',{ascending:false}).limit(1);
@@ -536,6 +611,11 @@ function showFormView(tipo) {
     document.getElementById('lista-view').classList.add('hidden');
     document.getElementById('form-view').classList.remove('hidden');
     document.getElementById('form-title').textContent = 'Nuovo Preventivo';
+    if (currentEmporioPreventivi) {
+        const sel = document.getElementById('select-emporio');
+        if (sel) { sel.value = currentEmporioPreventivi; sel.disabled = true; }
+        handleCittaChange();
+    }
     refreshNumeroOrdinePreview();
 }
 
@@ -543,6 +623,12 @@ function backToLista() {
     if (modificheNonSalvate) { apriModalUscita(() => { modificheNonSalvate = false; backToLista(); }); return; }
     document.getElementById('form-view').classList.add('hidden');
     document.getElementById('lista-view').classList.remove('hidden');
+    document.getElementById('prev-emp-selector').classList.add('hidden');
+    // Re-lock select-emporio if emporio was selected from selector
+    if (currentEmporioPreventivi) {
+        const filterEmp = document.getElementById('filter-emporio');
+        if (filterEmp) { filterEmp.value = currentEmporioPreventivi; filterEmp.disabled = true; }
+    }
     loadPreventivi();
 }
 
@@ -565,7 +651,12 @@ function resetForm() {
     _selectedClienteId = null;
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('order-date').value = today;
-    if (typeof inizializzaSelectEmporio === 'function') inizializzaSelectEmporio('select-emporio');
+    if (currentEmporioPreventivi) {
+        const sel = document.getElementById('select-emporio');
+        if (sel) { sel.value = currentEmporioPreventivi; sel.disabled = true; }
+    } else if (typeof inizializzaSelectEmporio === 'function') {
+        inizializzaSelectEmporio('select-emporio');
+    }
     if (typeof isAdmin === 'function' && !isAdmin()) handleCittaChange();
 }
 
@@ -663,7 +754,7 @@ async function apriPreventivo(id) {
 
 /* ────────────────── NUMERO PREVENTIVO ────────────────── */
 function emporioCode(citta) {
-    return { Cremona:'CR', Casalmaggiore:'CA', 'Reggio Emilia':'RE', Viadana:'VI' }[citta] || 'XX';
+    return { Cremona:'CR', Casalmaggiore:'CA', 'Reggio Emilia':'RE', Viadana:'VI', Mantova:'MA' }[citta] || 'XX';
 }
 
 async function refreshNumeroOrdinePreview() {
@@ -1409,13 +1500,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prevForm').addEventListener('input',  () => { if (!document.getElementById('form-view').classList.contains('hidden')) modificheNonSalvate = true; }, true);
     document.getElementById('prevForm').addEventListener('change', () => { if (!document.getElementById('form-view').classList.contains('hidden')) modificheNonSalvate = true; }, true);
 
-    if (typeof inizializzaSelectEmporio === 'function') {
-        inizializzaSelectEmporio('select-emporio');
-        inizializzaSelectEmporio('filter-emporio');
-        if (typeof isAdmin === 'function' && !isAdmin()) handleCittaChange();
-    }
-
-    loadPreventivi();
+    // Emporio selector init
+    (function initPrevEmporio() {
+        const _u   = typeof getOperatoreLoggato === 'function' ? getOperatoreLoggato() : null;
+        const _adm = typeof isAdmin === 'function' ? isAdmin() : true;
+        if (!_adm && _u?.emporio) {
+            // Non-admin: salta il selettore e va diretto al proprio emporio
+            selezionaEmporioPreventivi(_u.emporio);
+        } else {
+            // Admin: ripristina eventuale emporio salvato in sessione
+            const saved = sessionStorage.getItem('prev_emporio');
+            if (saved) selezionaEmporioPreventivi(saved);
+            // altrimenti rimane sul selettore
+        }
+    })();
 });
 </script>
 <script src="../../scripts/auth.js"></script>
