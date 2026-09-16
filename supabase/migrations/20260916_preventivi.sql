@@ -27,8 +27,9 @@ CREATE TABLE IF NOT EXISTS preventivi (
 
 ALTER TABLE preventivi ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "anon_all_preventivi" ON preventivi
-  FOR ALL TO anon USING (true) WITH CHECK (true);
+-- Policy aperta a tutti i ruoli (anon + authenticated)
+CREATE POLICY "all_preventivi" ON preventivi
+  FOR ALL USING (true) WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON preventivi TO anon;
-GRANT USAGE, SELECT ON SEQUENCE preventivi_id_seq TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON preventivi TO anon, authenticated;
+GRANT USAGE, SELECT ON SEQUENCE preventivi_id_seq TO anon, authenticated;
