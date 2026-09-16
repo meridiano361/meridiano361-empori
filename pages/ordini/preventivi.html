@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <link rel="icon" href="/faviconm361.png" type="image/png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preventivi Clienti</title>
+    <link rel="stylesheet" href="../../assets/style/nav-style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Nunito', sans-serif; background-color: #f1f5f9; color: #1A1A1A; }
+        .text-m361-red { color: #B5453A; }
+        .bg-m361-red { background-color: #B5453A; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .wa-active { color: #25D366; }
+        .wa-inactive { color: #cbd5e1; }
+        .row-error { background-color: #fee2e2 !important; border: 2px solid #ef4444 !important; }
+        .btn-red-big { padding: 24px 40px; background-color: #B5453A; color: white; border-radius: 16px; font-weight: 700; font-size: 18px; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 10px 25px rgba(181,69,58,0.3); display: inline-flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer; border: none; transition: all .2s; }
+        .btn-red-big:hover { opacity: .9; transform: translateY(-2px); }
+        .btn-submit { width: 100%; padding: 20px; background-color: #B5453A; color: white; border-radius: 16px; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; box-shadow: 0 8px 20px rgba(181,69,58,0.3); border: none; cursor: pointer; transition: all .2s; }
+        .btn-submit:hover:not(:disabled) { transform: scale(1.01); }
+        .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+        .section-card { background: white; border-radius: 20px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.07); border: 1px solid #f1f5f9; }
+        .section-title { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+        .section-title::before { content: ''; display: block; width: 3px; height: 14px; background: #B5453A; border-radius: 2px; }
+        .form-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; font-size: 16px; color: #334155; background: #fff; }
+        .form-input:focus { outline: none; border-color: #B5453A; }
+        .form-select { width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; font-size: 16px; color: #334155; background: #fff; }
+        .form-select:focus { outline: none; border-color: #B5453A; }
+        .product-table th { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding-bottom: 8px; }
+        .product-table input, .product-table select { font-size: 14px; padding: 8px 10px; border-radius: 8px; }
+        .riga-controls { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+        .btn-sposta { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; width: 24px; height: 24px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #94a3b8; min-height: 24px; transition: all .12s; }
+        .btn-sposta:hover { background: #1e293b; color: #fff; border-color: #1e293b; }
+        .product-row:first-child .btn-sposta:first-child { opacity: .2; pointer-events: none; }
+        .product-row:last-child .btn-sposta:last-child { opacity: .2; pointer-events: none; }
+        .total-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 16px; text-align: center; min-width: 180px; }
+        .total-box-label { font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 8px; }
+        .total-box-value { font-size: 24px; font-weight: 900; color: #B5453A; }
+        .acconto-box { background: #fff; border: 2px dashed #cbd5e1; padding: 16px; border-radius: 16px; text-align: center; min-width: 180px; }
+        .saldo-box { background: #B5453A; padding: 16px; border-radius: 16px; text-align: center; min-width: 180px; box-shadow: 0 8px 20px rgba(181,69,58,0.3); }
+        .saldo-box-label { font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.8); display: block; margin-bottom: 8px; }
+        .saldo-box-value { font-size: 24px; font-weight: 900; color: white; }
+        .add-row-btn { background: #f1f5f9; color: #64748b; padding: 8px 16px; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; border: none; cursor: pointer; transition: all .15s; }
+        .add-row-btn:hover { background: #e2e8f0; }
+        .add-group-btn { background: #1e293b; color: white; padding: 16px 32px; border-radius: 16px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(30,41,59,.3); transition: all .15s; }
+        .add-group-btn:hover { background: #334155; }
+        .confez-sub-row td { padding: 0 !important; }
+        .confez-inner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 12px; background: #334155; border-radius: 0; }
+        .confez-inp-sm { width: 100%; border: 1px solid #4b5563; border-radius: 6px; padding: 5px 7px; font-size: 12px; background: #fff; color: #1e293b; }
+        .confez-inp-sm:focus { outline: none; border-color: #94a3b8; }
+        .confez-cell { padding: 0 4px !important; vertical-align: middle; }
+        .omaggio-sub-row td { padding: 3px 4px !important; font-size: 12px; color: #B5453A; background: rgba(181,69,58,.12); vertical-align: middle; }
+        .omaggio-inp-sm { width: 100%; border: 1px solid rgba(181,69,58,.4); border-radius: 6px; padding: 5px 7px; font-size: 12px; background: rgba(255,255,255,.7); color: #B5453A; text-align: center; }
+        .omaggio-inp-sm:focus { outline: none; background: rgba(255,255,255,.9); }
+        .cartoncino-preview-sub-row td { padding: 0 4px 10px 16px !important; background: #f1f5f9; }
+        .cartoncino-preview { display: flex; width: 400px; max-width: 100%; height: 120px; border: 1.5px solid #94a3b8; border-radius: 4px; overflow: hidden; margin-top: 8px; font-family: 'Nunito', sans-serif; background: #fffdf7; }
+        .cartoncino-faccia { flex: 1; padding: 8px; display: flex; align-items: center; justify-content: center; }
+        .cartoncino-faccia:first-child { border-right: 2px dashed #94a3b8; }
+        .cartoncino-faccia textarea { width: 100%; height: 100%; border: none; background: transparent; text-align: center; font-family: 'Nunito', sans-serif; font-size: 13px; color: #1e293b; resize: none; outline: none; line-height: 1.4; }
+        .campo-errore { border-color: #B5453A !important; background: #fee2e2 !important; animation: shake .3s ease; }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+        /* Lista preventivi */
+        .stato-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+        .stato-bozza       { background: #f1f5f9; color: #64748b; }
+        .stato-inviato     { background: #dbeafe; color: #1d4ed8; }
+        .stato-accettato   { background: #dcfce7; color: #166534; }
+        .stato-rifiutato   { background: #fee2e2; color: #991b1b; }
+        .stato-convertito  { background: #f3e8ff; color: #7c3aed; }
+        .prev-row { transition: background .1s; }
+        .prev-row:hover { background: #f8fafc; }
+        .breakdown-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; min-width: 220px; }
+        .breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; color: #475569; }
+        .breakdown-row .lbl { font-weight: 600; }
+        .breakdown-row .val { font-weight: 700; }
+        .breakdown-row.bd-total { border-top: 2px solid #e2e8f0; margin-top: 8px; padding-top: 10px; font-size: 15px; font-weight: 900; color: #1e293b; }
+    </style>
+</head>
+<body class="pb-28">
+
+<!-- ═══════════════════════════ LISTA VIEW ═══════════════════════════ -->
+<div id="lista-view">
+    <div class="bg-white border-b px-6 md:px-8 py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div class="flex items-center gap-4">
+            <img src="../../assets/images/logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.style.display='none'">
+            <h1 class="font-bold text-lg border-l pl-4 text-slate-700">Preventivi Clienti</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="ordini_incorso.html" class="text-xs font-bold text-slate-500 hover:text-[#B5453A] border border-slate-200 rounded-lg px-3 py-2 flex items-center gap-2 transition-colors">
+                <i class="fas fa-clock"></i> Ordini in corso
+            </a>
+            <button onclick="showFormView('standard')" class="bg-[#B5453A] text-white text-sm font-bold rounded-xl px-4 py-2.5 flex items-center gap-2 hover:bg-[#9c3a30] transition-colors shadow-sm">
+                <i class="fas fa-plus"></i> Nuovo Preventivo
+            </button>
+        </div>
+    </div>
+
+    <main class="max-w-[1400px] mx-auto p-4 md:p-6 space-y-5">
+        <!-- Filtri -->
+        <div class="bg-white rounded-2xl border border-slate-100 px-5 py-4 flex flex-wrap gap-3 items-center shadow-sm">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Filtra:</span>
+            <select id="filter-emporio" class="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-600 bg-white" onchange="loadPreventivi()">
+                <option value="">Tutti gli empori</option>
+                <option>Casalmaggiore</option><option>Cremona</option>
+                <option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
+            </select>
+            <select id="filter-stato" class="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-600 bg-white" onchange="loadPreventivi()">
+                <option value="">Tutti gli stati</option>
+                <option value="bozza">Bozza</option>
+                <option value="inviato">Inviato al cliente</option>
+                <option value="accettato">Accettato</option>
+                <option value="rifiutato">Rifiutato</option>
+                <option value="convertito">Convertito in ordine</option>
+            </select>
+            <input type="text" id="filter-search" placeholder="Cerca cliente…" class="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-600" oninput="loadPreventivi()">
+            <button onclick="loadPreventivi()" class="text-xs font-bold text-slate-500 border border-slate-200 rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors"><i class="fas fa-rotate-right"></i></button>
+        </div>
+
+        <!-- Tabella -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div id="lista-loading" class="text-center py-12 text-slate-400 text-sm">
+                <i class="fas fa-spinner fa-spin text-2xl mb-3 block"></i> Caricamento…
+            </div>
+            <table id="lista-table" class="w-full text-sm hidden">
+                <thead>
+                    <tr class="border-b border-slate-100 text-left">
+                        <th class="px-5 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider">N. Prev.</th>
+                        <th class="px-4 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider">Cliente</th>
+                        <th class="px-4 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider">Emporio</th>
+                        <th class="px-4 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider">Data</th>
+                        <th class="px-4 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider text-right">Totale</th>
+                        <th class="px-4 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider">Stato</th>
+                        <th class="px-4 py-3 text-xs font-800 text-slate-400 uppercase tracking-wider">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="lista-body"></tbody>
+            </table>
+            <div id="lista-empty" class="hidden text-center py-16 text-slate-400">
+                <i class="fas fa-file-invoice text-4xl mb-3 block opacity-30"></i>
+                <p class="font-semibold">Nessun preventivo trovato</p>
+                <button onclick="showFormView('standard')" class="mt-4 text-sm font-bold text-[#B5453A] hover:underline">
+                    <i class="fas fa-plus mr-1"></i> Crea il primo preventivo
+                </button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- ═══════════════════════════ FORM VIEW ════════════════════════════ -->
+<div id="form-view" class="hidden">
+    <header class="bg-white border-b p-4 px-6 md:px-8 flex justify-between items-center sticky top-0 z-50 shadow-sm">
+        <div class="flex items-center gap-4">
+            <img src="../../assets/images/logom361_rosso.jpg" alt="Logo" class="h-8" onerror="this.style.display='none'">
+            <h1 id="form-title" class="font-bold text-lg border-l pl-4 text-slate-700">Nuovo Preventivo</h1>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="backToLista()" class="text-sm font-bold text-slate-500 hover:text-[#B5453A] transition-colors flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Lista preventivi
+            </button>
+        </div>
+    </header>
+
+    <div class="bg-white border-b px-6 md:px-8 py-3 flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-400 uppercase">Tipo:</span>
+        <button id="btn-tipo-standard" onclick="cambioTipo('standard')"
+            class="text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]">
+            <i class="fas fa-shopping-bag"></i> Standard
+        </button>
+        <button id="btn-tipo-bomboniere" onclick="cambioTipo('bomboniere')"
+            class="text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50">
+            <i class="fas fa-gift"></i> Bomboniere
+        </button>
+    </div>
+
+    <main class="max-w-[1600px] mx-auto p-4 md:p-6">
+        <form id="prevForm" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <!-- EMPORIO -->
+                <div class="lg:col-span-1 section-card">
+                    <h2 class="section-title">Emporio</h2>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <select id="select-emporio" required class="form-select flex-1">
+                                <option value="">Città *</option>
+                                <option>Casalmaggiore</option><option>Cremona</option>
+                                <option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
+                            </select>
+                            <button type="button" id="btn-add-city" class="bg-red-50 px-3 rounded-xl hover:bg-red-100 text-[#B5453A]"><i class="fas fa-plus"></i></button>
+                            <button type="button" id="btn-remove-city" class="bg-red-50 px-3 rounded-xl hover:bg-red-200 text-[#B5453A]"><i class="fas fa-trash-can"></i></button>
+                        </div>
+                        <div id="canale-cremona-container" class="hidden">
+                            <select id="select-canale" class="form-select border-2 border-[#B5453A] bg-red-50">
+                                <option value="">Seleziona Canale *</option>
+                                <option value="emporio">emporio</option>
+                                <option value="meridiano361.it">meridiano361.it</option>
+                                <option value="on-earth.it">on-earth.it</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="select-operatore" class="form-select flex-1">
+                                <option value="">Operatore</option>
+                            </select>
+                            <button type="button" id="btn-add-operator" class="bg-red-50 px-3 rounded-xl hover:bg-red-100 text-[#B5453A]"><i class="fas fa-plus"></i></button>
+                            <button type="button" id="btn-remove-operator" class="bg-red-50 px-3 rounded-xl hover:bg-red-200 text-[#B5453A]"><i class="fas fa-trash-can"></i></button>
+                        </div>
+                        <input type="date" id="order-date" required class="form-input">
+                        <input type="text" id="numero-ordine-preview" readonly class="form-input bg-slate-50 text-slate-500 font-mono text-xs" placeholder="N. preventivo">
+                    </div>
+                </div>
+
+                <!-- CLIENTE -->
+                <div class="lg:col-span-3 section-card">
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="section-title" style="margin-bottom:0">Cliente</h2>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="toggleCercaRubrica()" class="text-xs font-bold text-slate-600 border border-slate-200 bg-white rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-slate-50 transition-colors">
+                                <i class="fas fa-search"></i> Cerca cliente
+                            </button>
+                            <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold text-[#B5453A] border border-red-200 bg-red-50 rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-red-100 transition-colors">
+                                <i class="fas fa-plus"></i> Nuovo cliente
+                            </button>
+                        </div>
+                    </div>
+                    <div id="cerca-rubrica-panel" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Cerca in rubrica</div>
+                        <div class="relative mb-3">
+                            <input type="text" id="cr-search" placeholder="Nome o cognome…" class="form-input pr-10" oninput="cercaInRubrica(this.value)">
+                            <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        </div>
+                        <div id="cr-results" class="max-h-48 overflow-y-auto -mx-1"></div>
+                    </div>
+                    <div id="nuovo-cliente-form" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Aggiungi alla rubrica</div>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <input type="text" id="nc-nome" placeholder="Nome *" class="form-input">
+                            <input type="text" id="nc-cognome" placeholder="Cognome *" class="form-input">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div class="relative">
+                                <input type="tel" id="nc-tel" placeholder="Cellulare" class="form-input pr-10">
+                                <button type="button" id="nc-wa-btn" onclick="toggleNcWa()" class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors">
+                                    <i class="fab fa-whatsapp fa-lg text-green-500"></i>
+                                </button>
+                            </div>
+                            <input type="email" id="nc-email" placeholder="Email" class="form-input">
+                        </div>
+                        <input type="hidden" id="nc-wa" value="true">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="saveNuovoCliente()" class="bg-[#B5453A] text-white text-xs font-bold rounded-xl px-4 py-2"><i class="fas fa-check mr-1"></i>Salva cliente</button>
+                            <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold border border-slate-200 rounded-xl px-3 py-2 text-slate-500">Annulla</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                        <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input" oninput="onCustFieldInput()">
+                        <div class="relative">
+                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="onCustFieldInput()">
+                            <div id="cognome-ac-dropdown" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
+                        </div>
+                        <div class="relative">
+                            <input type="tel" id="cust-cel" placeholder="Cellulare *" required class="form-input pr-10">
+                            <button type="button" id="btn-wa" class="absolute right-3 top-3 transition-colors wa-active">
+                                <i class="fab fa-whatsapp fa-lg"></i>
+                            </button>
+                        </div>
+                        <input type="email" id="cust-email" placeholder="Email" class="form-input">
+                        <div class="flex gap-2 p-1 bg-gray-100 rounded-xl h-[46px] items-center">
+                            <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
+                                <input type="radio" name="mod_consegna" value="Ritiro" checked class="hidden"> Ritiro
+                            </label>
+                            <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
+                                <input type="radio" name="mod_consegna" value="Spedizione" class="hidden"> Sped.
+                            </label>
+                        </div>
+                    </div>
+                    <div id="salva-rubrica-bar" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                        <button type="button" onclick="salvaBozzaInRubrica()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-emerald-100 transition-colors">
+                            <i class="fas fa-address-book"></i> Salva in rubrica
+                        </button>
+                        <span class="text-xs text-slate-400">Aggiungi questo cliente alla rubrica</span>
+                    </div>
+                    <div id="rubrica-actions" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                        <span class="text-xs text-slate-400 mr-1"><i class="fas fa-address-book mr-1"></i>Cliente in rubrica:</span>
+                        <button type="button" onclick="aggiornaRubrica()" class="text-xs font-bold text-blue-700 border border-blue-200 bg-blue-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-blue-100 transition-colors">
+                            <i class="fas fa-save"></i> Salva modifiche
+                        </button>
+                        <button type="button" onclick="eliminaClienteRubrica()" class="text-xs font-bold text-[#B5453A] border border-red-200 bg-red-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-red-100 transition-colors">
+                            <i class="fas fa-trash"></i> Elimina dalla rubrica
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TITOLO -->
+            <div class="section-card py-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Titolo preventivo</span>
+                    <input type="text" id="titolo-ordine" class="form-input flex-1" placeholder="Proposta automatica — clicca Genera">
+                    <button type="button" onclick="autoGenerateTitolo()" class="text-xs font-bold text-slate-500 hover:text-[#B5453A] border border-slate-200 rounded-lg px-3 py-2 whitespace-nowrap transition-colors flex items-center gap-1">
+                        <i class="fas fa-magic"></i> Genera
+                    </button>
+                </div>
+            </div>
+
+            <!-- PRODOTTI -->
+            <div id="groups-container" class="space-y-8"></div>
+            <div id="add-group-container" class="hidden flex justify-center">
+                <button type="button" id="btn-add-group" class="add-group-btn">
+                    <i class="fas fa-plus mr-2"></i> Aggiungi Tipologia Bomboniera
+                </button>
+            </div>
+
+            <!-- TOTALI -->
+            <div class="section-card">
+                <div id="breakdown-container" class="hidden mb-4">
+                    <div class="breakdown-section">
+                        <div class="breakdown-row"><span class="lbl">Subtotale bomboniere</span><span class="val" id="breakdown-bomb">€ 0,00</span></div>
+                        <div class="breakdown-row"><span class="lbl">Confezionamento totale</span><span class="val" id="breakdown-confez">€ 0,00</span></div>
+                        <div class="breakdown-row bd-total"><span class="lbl">TOTALE PREVENTIVO</span><span class="val" id="breakdown-total">€ 0,00</span></div>
+                    </div>
+                </div>
+                <div class="flex flex-col md:flex-row justify-end items-stretch gap-4">
+                    <div class="total-box"><span class="total-box-label">Totale Preventivo</span><span id="grand-total" class="total-box-value">€ 0,00</span></div>
+                    <div class="acconto-box">
+                        <span class="total-box-label" style="color:#94a3b8">Acconto</span>
+                        <input type="text" id="acconto" class="w-full text-center text-slate-800 bg-transparent text-2xl outline-none font-bold" value="€ 0,00" placeholder="€ 0,00">
+                    </div>
+                    <div class="saldo-box"><span class="saldo-box-label">Da Pagare</span><span id="saldo-finale" class="saldo-box-value">€ 0,00</span></div>
+                </div>
+            </div>
+
+            <!-- NOTE -->
+            <div class="section-card">
+                <textarea id="order-notes" rows="2" class="form-input" placeholder="Note per il cliente…"></textarea>
+            </div>
+
+            <!-- SALVA -->
+            <button type="submit" id="submit-btn" class="btn-submit">
+                <i class="fas fa-save mr-2"></i> Salva Preventivo
+            </button>
+        </form>
+    </main>
+
+    <!-- Modal uscita -->
+    <div id="modal-uscita" class="hidden fixed inset-0 z-[9100] flex items-center justify-center bg-black/40">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm mx-4 p-6">
+            <h3 class="font-bold text-lg text-slate-800 mb-2">⚠️ Dati non salvati</h3>
+            <p class="text-sm text-slate-500 mb-6">Hai inserito dati che non sono stati salvati. Cosa vuoi fare?</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="document.getElementById('submit-btn').click(); chiudiModalUscita();"
+                    class="text-sm font-bold bg-[#B5453A] text-white rounded-xl px-4 py-3 hover:bg-[#9c3a30] transition-colors flex items-center justify-center gap-2">
+                    <i class="fas fa-save"></i> Sì, salva il preventivo
+                </button>
+                <button onclick="confermUscita()" class="text-sm font-bold border-2 border-slate-300 rounded-xl px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">No, esci senza salvare</button>
+                <button onclick="chiudiModalUscita()" class="text-xs text-slate-400 hover:text-slate-600 py-1 transition-colors">Annulla — resta qui</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal cambio stato -->
+<div id="modal-stato" class="hidden fixed inset-0 z-[9200] flex items-center justify-center bg-black/40">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xs mx-4 p-6">
+        <h3 class="font-bold text-base text-slate-800 mb-4">Cambia stato preventivo</h3>
+        <div id="stato-options" class="space-y-2"></div>
+        <button onclick="chiudiModalStato()" class="mt-4 w-full text-xs text-slate-400 hover:text-slate-600 py-2 transition-colors">Annulla</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const itFmt   = n => Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const itParse = s => parseFloat(String(s||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.')) || 0;
+const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+window._supabase = _supabase;
+
+let currentType = 'standard';
+let groupCount  = 0;
+let editingId   = null;
+let modificheNonSalvate = false;
+let _uscitaCallback = null;
+
+const OPERATORI_DATA = {
+    "Cremona":       ["Chiara Monteverdi","Emilio Mazzolari"],
+    "Casalmaggiore": ["Alessandra Rivetti","Barbara Araldi","Carla Maffei","Chiara Monteverdi","Edoardo Pavesi","Emilio Mazzolari","Erica Bossi","Francesco Lunardini","Giovanna Raineri","Giulia Frigeri","Giuseppe Lunardini","Ileana Galli","Maria Marcella Scaravonati","Matilde Chiarini","Michele Marchini","Roberta Vezzosi","Teyssir Mabrouk","Vittoria Lunardini"],
+    "Viadana":       ["Alessia Rovina","Ave Aroldi","Barbara Piotrowska","Carla Bellelli","Carla Chittolini","Chiara Monteverdi","Claudio Mortini","Donatella Falugi","Elena Ghelfi","Emilio Mazzolari","Franco Furlotti","Giuseppina Amadini","Manuela Scazza","Marta Sanfelici","Mariagrazia Bertolini","Mirella Panato","Roberta Alberini","Sara Germani","Tiziana Bortesi"],
+    "Reggio Emilia": ["Alessia Bartolomei","Elsa Scarpa","Manuela Capanni","Marica Pioli"]
+};
+let ALL_EMPORI = ["Casalmaggiore","Cremona","Reggio Emilia","Mantova","Viadana"];
+
+/* ────────────────── LISTA ────────────────── */
+const STATO_LABELS = { bozza:'Bozza', inviato:'Inviato', accettato:'Accettato', rifiutato:'Rifiutato', convertito:'Convertito' };
+const STATO_CSS    = { bozza:'stato-bozza', inviato:'stato-inviato', accettato:'stato-accettato', rifiutato:'stato-rifiutato', convertito:'stato-convertito' };
+
+async function loadPreventivi() {
+    document.getElementById('lista-loading').classList.remove('hidden');
+    document.getElementById('lista-table').classList.add('hidden');
+    document.getElementById('lista-empty').classList.add('hidden');
+
+    let q = _supabase.from('preventivi').select('*').order('created_at', { ascending: false }).limit(200);
+    const emp   = document.getElementById('filter-emporio')?.value;
+    const stato = document.getElementById('filter-stato')?.value;
+    const srch  = document.getElementById('filter-search')?.value?.trim();
+    if (emp)   q = q.eq('emporio', emp);
+    if (stato) q = q.eq('stato', stato);
+    if (srch)  q = q.or(`cliente_nome.ilike.%${srch}%,cliente_cognome.ilike.%${srch}%,numero_preventivo.ilike.%${srch}%`);
+
+    const { data, error } = await q;
+    document.getElementById('lista-loading').classList.add('hidden');
+
+    if (error) { console.error(error); return; }
+    if (!data?.length) { document.getElementById('lista-empty').classList.remove('hidden'); return; }
+
+    const tbody = document.getElementById('lista-body');
+    tbody.innerHTML = data.map(p => {
+        const cliente = [p.cliente_nome, p.cliente_cognome].filter(Boolean).join(' ') || '—';
+        const data_fmt = p.data_preventivo ? new Date(p.data_preventivo).toLocaleDateString('it-IT') : '—';
+        const totale   = '€ ' + itFmt(p.totale || 0);
+        const badge    = `<span class="stato-badge ${STATO_CSS[p.stato]||'stato-bozza'}">${STATO_LABELS[p.stato]||p.stato}</span>`;
+        const puo_convertire = p.stato !== 'convertito' && p.stato !== 'rifiutato';
+        return `<tr class="prev-row border-b border-slate-50 cursor-pointer" onclick="apriPreventivo(${p.id})">
+            <td class="px-5 py-3.5 font-mono text-xs text-slate-500">${escHtml(p.numero_preventivo)}</td>
+            <td class="px-4 py-3.5 font-semibold text-slate-700">${escHtml(cliente)}</td>
+            <td class="px-4 py-3.5 text-slate-500">${escHtml(p.emporio)}</td>
+            <td class="px-4 py-3.5 text-slate-500 whitespace-nowrap">${data_fmt}</td>
+            <td class="px-4 py-3.5 text-right font-bold text-slate-700">${totale}</td>
+            <td class="px-4 py-3.5">${badge}</td>
+            <td class="px-4 py-3.5" onclick="event.stopPropagation()">
+                <div class="flex gap-2 items-center flex-wrap">
+                    <button onclick="apriPreventivo(${p.id})" class="text-xs font-bold text-slate-500 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-colors">
+                        <i class="fas fa-pencil"></i> Modifica
+                    </button>
+                    <button onclick="apriModalStato(${p.id}, '${p.stato}')" class="text-xs font-bold text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 transition-colors">
+                        <i class="fas fa-tag"></i> Stato
+                    </button>
+                    ${puo_convertire ? `<button onclick="convertiInOrdine(${p.id})" class="text-xs font-bold text-[#B5453A] border border-red-200 rounded-lg px-2.5 py-1.5 hover:bg-red-50 transition-colors whitespace-nowrap">
+                        <i class="fas fa-arrow-right-arrow-left"></i> → Ordine
+                    </button>` : (p.ordine_id ? `<span class="text-xs text-purple-600 font-semibold"><i class="fas fa-check-circle mr-1"></i>${escHtml(p.ordine_id)}</span>` : '')}
+                    <button onclick="eliminaPreventivo(${p.id})" class="text-xs font-bold text-slate-400 hover:text-red-500 px-1.5 py-1.5 transition-colors">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+    document.getElementById('lista-table').classList.remove('hidden');
+}
+
+async function eliminaPreventivo(id) {
+    const ok = await m361Confirm('Eliminare definitivamente questo preventivo?', 'Elimina', 'Elimina', 'Annulla', 'error');
+    if (!ok) return;
+    const { error } = await _supabase.from('preventivi').delete().eq('id', id);
+    if (error) { await m361Alert('Errore: ' + error.message, 'Errore', 'error'); return; }
+    M361.toast('Preventivo eliminato', 'err');
+    loadPreventivi();
+}
+
+/* ────────────────── MODAL STATO ────────────────── */
+let _statoEditId = null;
+function apriModalStato(id, statoCorrente) {
+    _statoEditId = id;
+    const opts = document.getElementById('stato-options');
+    const STATI = ['bozza','inviato','accettato','rifiutato'];
+    opts.innerHTML = STATI.map(s => `
+        <button onclick="cambiaStato('${s}')" class="w-full text-left px-4 py-3 rounded-xl border-2 transition-all font-semibold text-sm flex items-center gap-3
+            ${s === statoCorrente ? 'border-[#B5453A] bg-red-50 text-[#B5453A]' : 'border-slate-200 hover:bg-slate-50 text-slate-600'}">
+            <span class="stato-badge ${STATO_CSS[s]}">${STATO_LABELS[s]}</span>
+        </button>`).join('');
+    document.getElementById('modal-stato').classList.remove('hidden');
+}
+function chiudiModalStato() { document.getElementById('modal-stato').classList.add('hidden'); _statoEditId = null; }
+async function cambiaStato(nuovo) {
+    if (!_statoEditId) return;
+    const { error } = await _supabase.from('preventivi').update({ stato: nuovo, data_modifica: new Date().toISOString() }).eq('id', _statoEditId);
+    chiudiModalStato();
+    if (error) { await m361Alert('Errore: ' + error.message, 'Errore', 'error'); return; }
+    M361.toast('Stato aggiornato', 'ok');
+    loadPreventivi();
+}
+
+/* ────────────────── CONVERTI IN ORDINE ────────────────── */
+async function convertiInOrdine(id) {
+    const ok = await m361Confirm(
+        'Convertire questo preventivo in ordine? Verrà inserito nella lista ordini in corso.',
+        'Converti in ordine', 'Sì, converti', 'Annulla', 'ok'
+    );
+    if (!ok) return;
+
+    const { data: prev, error: fetchErr } = await _supabase.from('preventivi').select('*').eq('id', id).single();
+    if (fetchErr || !prev) { await m361Alert('Errore nel caricamento del preventivo', 'Errore', 'error'); return; }
+
+    // Genera numero ordine
+    const emporioMap = { Cremona:'CR', Casalmaggiore:'CA', 'Reggio Emilia':'RE', Viadana:'VI' };
+    const sigla   = emporioMap[prev.emporio] || 'XX';
+    const dateStr = (prev.data_preventivo || new Date().toISOString().slice(0,10)).replace(/-/g,'');
+    const { data: existOrd } = await _supabase.from('ordini_incorso').select('numero_ordine').ilike('numero_ordine',`${dateStr}${sigla}#%`).order('numero_ordine',{ascending:false}).limit(1);
+    let prog = 1;
+    if (existOrd?.length) { const m = existOrd[0].numero_ordine.match(/#(\d+)$/); if (m) prog = parseInt(m[1]) + 1; }
+    const numeroOrdine = `${dateStr}${sigla}#${String(prog).padStart(2,'0')}`;
+
+    const orderData = {
+        numero_ordine:     numeroOrdine,
+        tipo_ordine:       prev.tipo_ordine || 'standard',
+        emporio:           prev.emporio,
+        canale:            prev.canale || null,
+        operatore:         prev.operatore || null,
+        data_ordine:       prev.data_preventivo,
+        cliente_nome:      prev.cliente_nome,
+        cliente_cognome:   prev.cliente_cognome,
+        cliente_cellulare: prev.cliente_cellulare,
+        cliente_email:     prev.cliente_email,
+        wa_attivo:         prev.wa_attivo,
+        modalita_consegna: prev.modalita_consegna,
+        totale_ordine:     prev.totale,
+        acconto:           prev.acconto,
+        da_pagare:         prev.da_pagare,
+        note:              prev.note,
+        articoli:          prev.articoli,
+        stato:             'in_corso',
+        titolo:            prev.titolo,
+        data_creazione:    new Date().toISOString()
+    };
+
+    const { error: insErr } = await _supabase.from('ordini_incorso').insert([orderData]);
+    if (insErr) { await m361Alert('Errore creazione ordine: ' + insErr.message, 'Errore', 'error'); return; }
+
+    await _supabase.from('preventivi').update({ stato: 'convertito', ordine_id: numeroOrdine, data_modifica: new Date().toISOString() }).eq('id', id);
+
+    M341 && M341.toast ? M341.toast(`Ordine ${numeroOrdine} creato!`, 'ok') : (typeof M361 !== 'undefined' && M361.toast ? M361.toast(`Ordine ${numeroOrdine} creato!`, 'ok') : alert(`Ordine ${numeroOrdine} creato!`));
+
+    const vai = await m361Confirm(`Ordine ${numeroOrdine} creato con successo! Vuoi andare alla lista ordini in corso?`, 'Ordine creato', 'Sì, vai agli ordini', 'Resta qui', 'ok');
+    if (vai) { window.location.href = 'ordini_incorso.html'; } else { loadPreventivi(); }
+}
+
+/* ────────────────── FORM / LISTA SWITCH ────────────────── */
+function showFormView(tipo) {
+    editingId = null;
+    resetForm();
+    currentType = tipo || 'standard';
+    cambioTipo(currentType);
+    addGroup();
+    document.getElementById('lista-view').classList.add('hidden');
+    document.getElementById('form-view').classList.remove('hidden');
+    document.getElementById('form-title').textContent = 'Nuovo Preventivo';
+    refreshNumeroOrdinePreview();
+}
+
+function backToLista() {
+    if (modificheNonSalvate) { apriModalUscita(() => { modificheNonSalvate = false; backToLista(); }); return; }
+    document.getElementById('form-view').classList.add('hidden');
+    document.getElementById('lista-view').classList.remove('hidden');
+    loadPreventivi();
+}
+
+function resetForm() {
+    modificheNonSalvate = false;
+    groupCount = 0;
+    document.getElementById('groups-container').innerHTML = '';
+    document.getElementById('prevForm')?.reset();
+    ['numero-ordine-preview','titolo-ordine','order-notes','acconto'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = id === 'acconto' ? '€ 0,00' : '';
+    });
+    document.getElementById('grand-total').textContent = '€ 0,00';
+    document.getElementById('saldo-finale').textContent = '€ 0,00';
+    document.getElementById('breakdown-container')?.classList.add('hidden');
+    document.getElementById('add-group-container')?.classList.add('hidden');
+    document.getElementById('cerca-rubrica-panel')?.classList.add('hidden');
+    document.getElementById('nuovo-cliente-form')?.classList.add('hidden');
+    document.getElementById('rubrica-actions')?.classList.add('hidden');
+    document.getElementById('salva-rubrica-bar')?.classList.add('hidden');
+    _selectedClienteId = null;
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('order-date').value = today;
+    if (typeof inizializzaSelectEmporio === 'function') inizializzaSelectEmporio('select-emporio');
+    if (typeof isAdmin === 'function' && !isAdmin()) handleCittaChange();
+}
+
+function cambioTipo(tipo) {
+    currentType = tipo;
+    document.getElementById('btn-tipo-standard').className = tipo === 'standard'
+        ? 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]'
+        : 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50';
+    document.getElementById('btn-tipo-bomboniere').className = tipo === 'bomboniere'
+        ? 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]'
+        : 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50';
+    document.getElementById('add-group-container')?.classList.toggle('hidden', tipo !== 'bomboniere');
+    document.getElementById('breakdown-container')?.classList.toggle('hidden', tipo !== 'bomboniere');
+    // Ricostruisce gruppo se già presenti righe
+    if (document.getElementById('groups-container').children.length === 0) addGroup();
+}
+
+/* ────────────────── APRI/MODIFICA PREVENTIVO ────────────────── */
+async function apriPreventivo(id) {
+    const { data: prev, error } = await _supabase.from('preventivi').select('*').eq('id', id).single();
+    if (error || !prev) { await m361Alert('Errore caricamento preventivo', 'Errore', 'error'); return; }
+
+    editingId = id;
+    resetForm();
+    currentType = prev.tipo_ordine || 'standard';
+    cambioTipo(currentType);
+
+    // Campi base
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    setVal('select-emporio', prev.emporio);
+    handleCittaChange();
+    setVal('select-canale', prev.canale);
+    setVal('select-operatore', prev.operatore);
+    setVal('order-date', prev.data_preventivo);
+    setVal('numero-ordine-preview', prev.numero_preventivo);
+    setVal('cust-nome', prev.cliente_nome);
+    setVal('cust-cognome', prev.cliente_cognome);
+    setVal('cust-cel', prev.cliente_cellulare);
+    setVal('cust-email', prev.cliente_email);
+    setVal('titolo-ordine', prev.titolo);
+    setVal('order-notes', prev.note);
+    setVal('acconto', '€ ' + itFmt(prev.acconto || 0));
+
+    const waBtn = document.getElementById('btn-wa');
+    if (waBtn) {
+        waBtn.classList.toggle('wa-active', !!prev.wa_attivo);
+        waBtn.classList.toggle('wa-inactive', !prev.wa_attivo);
+    }
+    const consEl = document.querySelector(`input[name="mod_consegna"][value="${prev.modalita_consegna}"]`);
+    if (consEl) consEl.checked = true;
+
+    // Ricostruisci articoli
+    if (Array.isArray(prev.articoli) && prev.articoli.length > 0) {
+        document.getElementById('groups-container').innerHTML = '';
+        groupCount = 0;
+        const gruppiMap = {};
+        prev.articoli.forEach(a => {
+            const gid = a.gruppo_id || 1;
+            if (!gruppiMap[gid]) gruppiMap[gid] = [];
+            gruppiMap[gid].push(a);
+        });
+        Object.entries(gruppiMap).forEach(([gid, righe]) => {
+            const tipName = righe[0]?.tipologia || '';
+            addGroup(tipName);
+            const curGid = groupCount;
+            // rimuovi riga vuota aggiunta da addGroup
+            const tbody = document.getElementById(`rows-container-${curGid}`);
+            tbody?.querySelector('.product-row')?.remove();
+            righe.filter(r => !r.is_omaggio).forEach(r => {
+                addRow(curGid);
+                const rows = tbody?.querySelectorAll('.product-row');
+                const row  = rows?.[rows.length - 1];
+                if (!row) return;
+                const setI = (cls, val) => { const el = row.querySelector(cls); if (el) el.value = val || ''; };
+                setI('.codice-input',  r.codice);
+                setI('.desc-input',    r.descrizione);
+                row.querySelector('.price-input').value = '€ ' + itFmt(r.prezzo || 0);
+                setI('.qty-input',    r.qta);
+                setI('.pronta-input', r.merce_pronta);
+                setI('.forn-input',   r.da_forn);
+                setI('.emp-q-input',  r.da_emporio_qta);
+                setI('.altri-q-input',r.da_altri_qta);
+                setI('.altri-spec-input', r.da_altri_spec);
+                const rowId = row.id.replace('row-', '');
+                calcRow(rowId, curGid);
+            });
+        });
+    }
+    calcGrandTotal();
+
+    document.getElementById('lista-view').classList.add('hidden');
+    document.getElementById('form-view').classList.remove('hidden');
+    document.getElementById('form-title').textContent = 'Modifica Preventivo';
+}
+
+/* ────────────────── NUMERO PREVENTIVO ────────────────── */
+function emporioCode(citta) {
+    return { Cremona:'CR', Casalmaggiore:'CA', 'Reggio Emilia':'RE', Viadana:'VI' }[citta] || 'XX';
+}
+
+async function refreshNumeroOrdinePreview() {
+    if (editingId) return; // non sovrascrivere numero esistente
+    const date  = document.getElementById('order-date')?.value;
+    const citta = document.getElementById('select-emporio')?.value;
+    if (!date || !citta) { document.getElementById('numero-ordine-preview').value = ''; return; }
+    const dateStr = date.replace(/-/g,'');
+    const sigla   = emporioCode(citta);
+    const { data } = await _supabase.from('preventivi').select('numero_preventivo').ilike('numero_preventivo',`${dateStr}${sigla}-P%`).order('numero_preventivo',{ascending:false}).limit(1);
+    let prog = 1;
+    if (data?.length) { const m = data[0].numero_preventivo.match(/-P(\d+)$/); if (m) prog = parseInt(m[1]) + 1; }
+    document.getElementById('numero-ordine-preview').value = `${dateStr}${sigla}-P${String(prog).padStart(2,'0')}`;
+}
+
+/* ────────────────── EMPORIO / OPERATORI ────────────────── */
+function handleCittaChange() {
+    const citta = document.getElementById('select-emporio')?.value;
+    document.getElementById('canale-cremona-container')?.classList.toggle('hidden', citta !== 'Cremona');
+    const opSelect = document.getElementById('select-operatore');
+    if (opSelect) {
+        opSelect.innerHTML = '<option value="">Operatore</option>';
+        (OPERATORI_DATA[citta] || []).sort().forEach(op => {
+            const opt = document.createElement('option');
+            opt.value = op; opt.text = op;
+            opSelect.add(opt);
+        });
+    }
+    updateAllEmporiDropdowns();
+    refreshNumeroOrdinePreview();
+}
+
+function getEmporioOptions() {
+    const main = document.getElementById('select-emporio')?.value || '';
+    return '<option value="">Dove?</option>' + ALL_EMPORI.filter(e => e !== main).map(e => `<option value="${e}">${e}</option>`).join('');
+}
+function updateAllEmporiDropdowns() {
+    document.querySelectorAll('.emporio-dropdown').forEach(sel => { const v = sel.value; sel.innerHTML = getEmporioOptions(); sel.value = v; });
+}
+async function addNewCityPrompt() {
+    const n = await m361Prompt('Inserisci il nome della nuova città:');
+    if (n?.trim() && !ALL_EMPORI.includes(n.trim())) {
+        ALL_EMPORI.push(n.trim());
+        const sel = document.getElementById('select-emporio');
+        const opt = document.createElement('option'); opt.value = n.trim(); opt.text = n.trim();
+        sel.add(opt); sel.value = n.trim(); handleCittaChange();
+    }
+}
+async function removeCurrentCity() {
+    const sel = document.getElementById('select-emporio');
+    if (sel.selectedIndex > 0 && await m361Confirm('Rimuovere la città selezionata?','Conferma','Rimuovi')) {
+        ALL_EMPORI = ALL_EMPORI.filter(c => c !== sel.value);
+        sel.remove(sel.selectedIndex); handleCittaChange();
+    }
+}
+async function addNewOperatorPrompt() {
+    const nome = await m361Prompt('Nuovo operatore:');
+    if (nome?.trim()) {
+        const sel = document.getElementById('select-operatore');
+        const opt = document.createElement('option'); opt.value = nome.trim(); opt.text = nome.trim();
+        sel.add(opt); sel.value = opt.value;
+    }
+}
+async function removeCurrentOperator() {
+    const sel = document.getElementById('select-operatore');
+    if (sel.selectedIndex > 0 && await m361Confirm('Rimuovere operatore?','Conferma','Rimuovi')) sel.remove(sel.selectedIndex);
+}
+function toggleWA() {
+    const btn = document.getElementById('btn-wa');
+    btn.classList.toggle('wa-active'); btn.classList.toggle('wa-inactive');
+}
+
+/* ────────────────── GRUPPI PRODOTTI ────────────────── */
+function addGroup(tipologiaName) {
+    groupCount++;
+    const gid = groupCount;
+    const container = document.getElementById('groups-container');
+    const subtotalSection = currentType === 'bomboniere' ? `
+        <div class="mt-4 flex justify-end border-t pt-4">
+            <div class="text-right">
+                <span class="text-[10px] font-bold text-slate-400 uppercase block">Subtotale Tipologia</span>
+                <span id="subtotal-${gid}" class="text-xl font-bold text-slate-600">€ 0,00</span>
+            </div>
+        </div>` : '';
+    const titleHtml = currentType === 'bomboniere'
+        ? `<div class="flex items-center gap-2 flex-wrap">
+               <span class="section-title" style="margin-bottom:0;white-space:nowrap;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8">Tipologia Bomboniera ${gid}</span>
+               <input type="text" value="${tipologiaName||''}" placeholder="es. per invitati…" class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 focus:outline-none focus:border-[#B5453A]" style="min-width:220px;max-width:340px" id="tipologia-name-${gid}">
+               <button type="button" onclick="removeGroup(${gid})" class="ml-2 text-xs text-slate-400 hover:text-red-500 border border-slate-200 rounded-lg px-2 py-1 transition-colors"><i class="fas fa-trash-can"></i></button>
+           </div>`
+        : `<h3 class="section-title">Prodotti</h3>`;
+    const div = document.createElement('div');
+    div.id = `group-${gid}`; div.className = 'section-card';
+    div.innerHTML = `
+        <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+            ${titleHtml}
+            <button type="button" class="add-row-btn" data-group="${gid}"><i class="fas fa-plus mr-1"></i> Aggiungi prodotto</button>
+        </div>
+        <div class="overflow-x-auto text-xs">
+            <table class="w-full text-left border-separate border-spacing-y-0 product-table">
+                <thead><tr class="text-gray-400 text-center">
+                    <th class="pb-2 w-8"></th>
+                    <th class="pb-2 pl-2 text-left" style="min-width:80px">Codice *</th>
+                    <th class="pb-2 text-left">Descrizione *</th>
+                    <th class="pb-2 w-24 text-right pr-2">Prezzo</th>
+                    <th class="pb-2 w-16">Qtà</th>
+                    <th class="pb-2 w-16 bg-green-50 text-green-700">Pronta</th>
+                    <th class="pb-2 w-16 bg-slate-50">Da forn.</th>
+                    <th class="pb-2 w-32 bg-slate-50">Da empori</th>
+                    <th class="pb-2 w-32 bg-slate-50">Da altri</th>
+                    <th class="pb-2 w-16 bg-red-50 text-[#B5453A]">Da Ord</th>
+                    <th class="pb-2 w-24 text-right pr-4">Totale</th>
+                    <th class="pb-2 w-8"></th>
+                </tr></thead>
+                <tbody id="rows-container-${gid}"></tbody>
+            </table>
+        </div>${subtotalSection}`;
+    container.appendChild(div);
+    div.querySelector('.add-row-btn').addEventListener('click', () => addRow(gid));
+    addRow(gid);
+    if (currentType === 'bomboniere') addBomboniereSubRows(document.getElementById(`rows-container-${gid}`), gid);
+}
+function removeGroup(gid) { document.getElementById(`group-${gid}`)?.remove(); calcGrandTotal(); }
+
+function addRow(gid) {
+    const tbody = document.getElementById(`rows-container-${gid}`);
+    const rowId = Date.now() + Math.random();
+    const row = document.createElement('tr');
+    row.className = 'product-row transition-all'; row.id = `row-${rowId}`;
+    row.innerHTML = `
+        <td class="p-1 text-center"><div class="riga-controls">
+            <button type="button" class="btn-sposta" onclick="spostaRiga(this,-1)">▲</button>
+            <button type="button" class="btn-sposta" onclick="spostaRiga(this,1)">▼</button>
+        </div></td>
+        <td class="p-1 pl-4"><input type="text" placeholder="Codice" class="w-full border-gray-200 border rounded-lg p-2 codice-input"></td>
+        <td class="p-1"><input type="text" placeholder="Descrizione" class="w-full border-gray-200 border rounded-lg p-2 desc-input"></td>
+        <td class="p-1"><input type="text" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0,00"></td>
+        <td class="p-1"><input type="number" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="1" min="1"></td>
+        <td class="p-1 bg-green-50"><input type="number" class="pronta-input w-full border-green-200 border rounded-lg p-2 text-center" value="0" min="0"></td>
+        <td class="p-1 bg-slate-50"><input type="number" class="forn-input w-full border-slate-200 border rounded-lg p-2 text-center" value="0" min="0"></td>
+        <td class="p-1 bg-slate-50"><div class="flex flex-col gap-1">
+            <input type="number" class="emp-q-input w-full border-slate-200 border rounded-lg p-1 text-center" value="0" min="0">
+            <select class="emporio-dropdown w-full border-slate-200 border rounded-lg p-1 text-[9px] bg-white">${getEmporioOptions()}</select>
+        </div></td>
+        <td class="p-1 bg-slate-50"><div class="flex flex-col gap-1">
+            <input type="number" class="altri-q-input w-full border-slate-200 border rounded-lg p-1 text-center" value="0" min="0">
+            <input type="text" placeholder="Specifica…" class="altri-spec-input w-full border-slate-200 border rounded-lg p-1 text-[9px] bg-white">
+        </div></td>
+        <td class="p-1 bg-red-50 text-center font-bold text-[#B5453A] do-value">0</td>
+        <td class="p-1 text-right pr-4 font-bold">€ <span class="row-total">0,00</span></td>
+        <td class="p-1 text-center"><button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button></td>`;
+    const confezRow = document.getElementById(`confez-${gid}`);
+    if (confezRow) tbody.insertBefore(row, confezRow); else tbody.appendChild(row);
+    row.querySelector('.price-input').addEventListener('focus', function() { clearCurrency(this); });
+    row.querySelector('.price-input').addEventListener('blur',  function() { formatCurrency(this); });
+    row.querySelector('.price-input').addEventListener('input', () => calcRow(rowId, gid));
+    row.querySelector('.qty-input').addEventListener('input',   () => calcRow(rowId, gid));
+    row.querySelector('.pronta-input').addEventListener('input',() => calcRow(rowId, gid));
+    row.querySelector('.forn-input').addEventListener('input',  () => calcRow(rowId, gid));
+    row.querySelector('.emp-q-input').addEventListener('input', () => calcRow(rowId, gid));
+    row.querySelector('.altri-q-input').addEventListener('input',() => calcRow(rowId, gid));
+    row.querySelector('.delete-row-btn').addEventListener('click', () => removeRow(rowId, gid));
+    if (currentType === 'bomboniere') row.querySelector('.qty-input').addEventListener('input', () => syncConfezOmaggio(gid));
+}
+
+function calcRow(rowId, gid) {
+    const row = document.getElementById(`row-${rowId}`); if (!row) return;
+    const qty   = parseInt(row.querySelector('.qty-input').value) || 0;
+    const price = parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim()) || 0;
+    const sum   = (parseInt(row.querySelector('.pronta-input').value)||0)+(parseInt(row.querySelector('.forn-input').value)||0)+(parseInt(row.querySelector('.emp-q-input').value)||0)+(parseInt(row.querySelector('.altri-q-input').value)||0);
+    row.classList.toggle('row-error', sum > qty);
+    row.querySelector('.do-value').textContent = Math.max(0, qty - sum);
+    row.querySelector('.row-total').textContent = itFmt(qty * price);
+    if (currentType === 'bomboniere') { calcConfezOmaggio(gid); calcSubtotal(gid); }
+    calcGrandTotal(); validateGlobal();
+}
+
+function validateGlobal() {
+    document.getElementById('submit-btn').disabled = document.querySelectorAll('.row-error').length > 0;
+}
+
+function calcSubtotal(gid) {
+    let sub = 0;
+    document.getElementById(`rows-container-${gid}`)?.querySelectorAll('.row-total').forEach(el => sub += itParse(el.textContent));
+    const confezOn  = document.getElementById(`check-conf-${gid}`)?.checked;
+    const confezTot = document.getElementById(`confez-total-${gid}`);
+    if (confezTot && confezOn) sub += itParse(confezTot.textContent);
+    const el = document.getElementById(`subtotal-${gid}`); if (el) el.textContent = '€ ' + itFmt(sub);
+}
+
+function calcGrandTotal() {
+    let grand = 0;
+    document.querySelectorAll('.row-total').forEach(el => grand += itParse(el.textContent));
+    document.querySelectorAll('.confez-total-cell').forEach(el => {
+        const gid = el.id.replace('confez-total-','');
+        if (document.getElementById(`check-conf-${gid}`)?.checked) grand += itParse(el.textContent);
+    });
+    document.getElementById('grand-total').textContent = '€ ' + itFmt(grand);
+    const acconto = itParse(document.getElementById('acconto').value);
+    document.getElementById('saldo-finale').textContent = '€ ' + itFmt(Math.max(0, grand - acconto));
+    if (currentType === 'bomboniere') calcBomboniereBreakdown();
+}
+
+function calcBomboniereBreakdown() {
+    let subtotBomb = 0, subtotConfez = 0;
+    document.querySelectorAll('.product-row').forEach(row => {
+        subtotBomb += (parseInt(row.querySelector('.qty-input')?.value)||0) * (parseFloat(row.querySelector('.price-input')?.value.replace('€','').replace(',','.').trim())||0);
+    });
+    document.querySelectorAll('[id^="confez-total-"]').forEach(el => {
+        const gid = el.id.replace('confez-total-','');
+        if (document.getElementById(`check-conf-${gid}`)?.checked) subtotConfez += itParse(el.textContent);
+    });
+    const fmt = n => '€ ' + itFmt(n);
+    if (document.getElementById('breakdown-bomb'))  document.getElementById('breakdown-bomb').textContent  = fmt(subtotBomb);
+    if (document.getElementById('breakdown-confez')) document.getElementById('breakdown-confez').textContent = fmt(subtotConfez);
+    if (document.getElementById('breakdown-total'))  document.getElementById('breakdown-total').textContent  = fmt(subtotBomb + subtotConfez);
+}
+
+function clearCurrency(inp) { const v = inp.value.replace('€','').replace(',','.').trim(); inp.value = (v==='0.00'||v==='0') ? '' : v; }
+function formatCurrency(inp) { inp.value = '€ ' + itFmt(itParse(inp.value)); }
+
+function removeRow(rowId, gid) {
+    document.getElementById(`row-${rowId}`)?.remove();
+    ['confez','cartoncino','omaggio'].forEach(p => document.getElementById(`${p}-${rowId}`)?.remove());
+    if (currentType === 'bomboniere') calcSubtotal(gid);
+    calcGrandTotal(); validateGlobal();
+}
+
+function getRowBlock(productRow) {
+    const rowId = productRow.id.replace('row-','');
+    const res = [productRow];
+    ['confez','cartoncino','omaggio'].forEach(p => { const el = document.getElementById(`${p}-${rowId}`); if (el) res.push(el); });
+    return res;
+}
+function spostaRiga(btn, dir) {
+    const riga = btn.closest('.product-row');
+    const cont  = riga.parentElement;
+    const righe = [...cont.querySelectorAll('.product-row')];
+    const idx   = righe.indexOf(riga);
+    const nidx  = idx + dir;
+    if (nidx < 0 || nidx >= righe.length) return;
+    const bC = getRowBlock(riga), bT = getRowBlock(righe[nidx]);
+    if (dir === -1) bC.forEach(el => cont.insertBefore(el, bT[0]));
+    else            bT.forEach(el => cont.insertBefore(el, bC[0]));
+}
+
+function autoGenerateTitolo() {
+    const descs = [...document.querySelectorAll('.desc-input')].slice(0,3).map(el => el.value.trim()).filter(Boolean);
+    let t = descs.join(', ');
+    if (t.length > 35) t = t.substring(0,35) + '…';
+    const el = document.getElementById('titolo-ordine'); if (el) el.value = t;
+}
+
+/* ────────────────── BOMBONIERE SUB ROWS ────────────────── */
+function addBomboniereSubRows(tbody, gid) {
+    const confezRow = document.createElement('tr');
+    confezRow.id = `confez-${gid}`; confezRow.className = 'confez-sub-row';
+    confezRow.innerHTML = `
+        <td style="background:rgba(51,65,85,.15);width:32px;text-align:center;vertical-align:middle;padding:4px !important">
+            <input type="checkbox" id="check-conf-${gid}" onchange="toggleConfezOptions(${gid})" style="width:16px;height:16px;accent-color:#475569;cursor:pointer">
+        </td>
+        <td style="background:rgba(51,65,85,.15);padding:4px 4px 4px 16px !important"><input type="text" id="confez-cod-${gid}" value="CB" class="confez-inp-sm"></td>
+        <td style="background:rgba(51,65,85,.15);padding:4px !important"><span style="display:block;width:100%;border:1px solid #4b5563;border-radius:6px;padding:5px 7px;font-size:12px;font-weight:600;color:#334155;background:rgba(51,65,85,.08);box-sizing:border-box">Confezionamento</span></td>
+        <td style="background:rgba(51,65,85,.15);padding:4px !important"><input type="text" id="confez-cost-inp-${gid}" class="confez-inp-sm" value="€ 3,00" style="text-align:right" onfocus="clearCurrency(this)" onblur="formatCurrency(this);calcConfezOmaggio(${gid})" oninput="calcConfezOmaggio(${gid})"></td>
+        <td style="background:rgba(51,65,85,.15);padding:4px !important"><input type="number" id="confez-qty-${gid}" value="1" min="0" oninput="calcConfezOmaggio(${gid})" class="confez-inp-sm" style="text-align:center"></td>
+        <td style="background:rgba(51,65,85,.15);padding:4px !important;text-align:center;vertical-align:middle"><input type="checkbox" id="confez-pronta-${gid}" style="width:16px;height:16px;accent-color:#166534;cursor:pointer"></td>
+        <td colspan="4" style="background:rgba(51,65,85,.15)"></td>
+        <td class="confez-total-cell" style="background:rgba(51,65,85,.15);padding:4px 16px 4px 4px !important;font-weight:700;color:#334155;font-size:12px;text-align:right" id="confez-total-${gid}">0,00</td>
+        <td style="background:rgba(51,65,85,.15)"></td>`;
+    tbody.appendChild(confezRow);
+    const confOpsRow = document.createElement('tr');
+    confOpsRow.id = `confez-opts-${gid}`; confOpsRow.style.display = 'none';
+    confOpsRow.innerHTML = `<td style="background:rgba(51,65,85,.08)"></td><td style="background:rgba(51,65,85,.08)"></td>
+        <td colspan="10" style="background:rgba(51,65,85,.08);padding:6px 12px !important">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                    <input type="radio" name="confez-tipo-${gid}" value="completo" id="confez-completo-${gid}" checked onchange="toggleConfezTipo('${gid}')">
+                    <span style="font-size:11px;font-weight:700;color:#334155">Completo</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+                    <input type="radio" name="confez-tipo-${gid}" value="senza_confetti" id="confez-senza-${gid}" onchange="toggleConfezTipo('${gid}')">
+                    <span style="font-size:11px;font-weight:700;color:#334155">Senza confetti</span>
+                </label>
+                <div class="confez-gusto-grp" id="confez-gusto-grp-${gid}" style="display:flex">
+                    <select class="confez-gusto-sel" id="confez-gusto-${gid}" onchange="toggleGusto('${gid}')">
+                        <option value="mandorla">Mandorla</option>
+                        <option value="mandorla-cioc">Mandorla e Cioccolato</option>
+                        <option value="altro">Altro gusto…</option>
+                    </select>
+                    <input type="text" class="confez-gusto-altro" id="confez-gusto-altro-${gid}" placeholder="Specifica gusto…">
+                </div>
+            </div>
+        </td>`;
+    tbody.appendChild(confOpsRow);
+    const cartRow = document.createElement('tr');
+    cartRow.id = `cartoncino-${gid}`; cartRow.className = 'cartoncino-preview-sub-row'; cartRow.style.display = 'none';
+    cartRow.innerHTML = `<td colspan="12"><div style="padding:8px 12px 12px;background:#f1f5f9">
+        <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px">Anteprima Cartoncino</div>
+        <div class="cartoncino-preview">
+            <div class="cartoncino-faccia"><textarea id="cart-fronte-${gid}" placeholder="Fronte…"></textarea></div>
+            <div class="cartoncino-faccia"><textarea id="cart-interno-${gid}" placeholder="Retro…"></textarea></div>
+        </div></div></td>`;
+    tbody.appendChild(cartRow);
+    const omaggioRow = document.createElement('tr');
+    omaggioRow.id = `omaggio-${gid}`; omaggioRow.className = 'omaggio-sub-row';
+    omaggioRow.innerHTML = `
+        <td style="background:rgba(181,69,58,.12);width:32px"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px 3px 16px !important"><input type="text" value="CO" class="omaggio-inp-sm" style="text-align:left"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><span style="display:block;width:100%;border:1px solid rgba(181,69,58,.4);border-radius:6px;padding:5px 7px;font-size:12px;font-weight:700;color:#B5453A;background:rgba(181,69,58,.07);box-sizing:border-box">Cartoncini omaggio</span></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><input type="text" value="€ 0,00" class="omaggio-inp-sm" style="text-align:right" id="omaggio-price-${gid}" onfocus="clearCurrency(this)" onblur="formatCurrency(this)"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><input type="number" id="omaggio-qty-${gid}" value="1" min="0" oninput="calcConfezOmaggio(${gid})" class="omaggio-inp-sm" style="text-align:center"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><input type="number" id="omaggio-pronta-${gid}" value="0" min="0" oninput="calcOmaggioDisp(${gid})" class="omaggio-inp-sm" style="text-align:center"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><input type="number" id="omaggio-forn-${gid}" value="0" min="0" oninput="calcOmaggioDisp(${gid})" class="omaggio-inp-sm" style="text-align:center"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><input type="number" id="omaggio-emp-${gid}" value="0" min="0" oninput="calcOmaggioDisp(${gid})" class="omaggio-inp-sm" style="text-align:center"></td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"><input type="number" id="omaggio-altri-${gid}" value="0" min="0" oninput="calcOmaggioDisp(${gid})" class="omaggio-inp-sm" style="text-align:center"></td>
+        <td id="omaggio-daord-${gid}" style="background:rgba(155,53,48,.25);padding:3px 4px !important;text-align:center;font-weight:800;color:#B5453A;font-family:'Nunito',sans-serif">0</td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 16px 3px 4px !important;text-align:right;font-weight:700;color:#B5453A;font-family:'Nunito',sans-serif">€ 0,00</td>
+        <td style="background:rgba(181,69,58,.12);padding:3px 4px !important"></td>`;
+    tbody.appendChild(omaggioRow);
+}
+
+function syncConfezOmaggio(gid) {
+    const tbody = document.getElementById(`rows-container-${gid}`); if (!tbody) return;
+    const qty = parseInt(tbody.querySelector('.product-row .qty-input')?.value) || 1;
+    const cq = document.getElementById(`confez-qty-${gid}`); if (cq) cq.value = qty;
+    const oq = document.getElementById(`omaggio-qty-${gid}`); if (oq) oq.value = qty;
+    calcConfezOmaggio(gid);
+}
+function calcConfezOmaggio(gid) {
+    const checked = document.getElementById(`check-conf-${gid}`)?.checked;
+    const totEl   = document.getElementById(`confez-total-${gid}`);
+    if (!checked) { if (totEl) totEl.textContent = '0,00'; calcOmaggioDisp(gid); calcSubtotal(gid); calcGrandTotal(); return; }
+    const qty  = parseInt(document.getElementById(`confez-qty-${gid}`)?.value) || 0;
+    const cost = parseFloat(document.getElementById(`confez-cost-inp-${gid}`)?.value.replace('€','').replace(',','.').trim()) || 0;
+    if (totEl) totEl.textContent = itFmt(qty * cost);
+    calcOmaggioDisp(gid); calcSubtotal(gid); calcGrandTotal();
+}
+function calcOmaggioDisp(gid) {
+    const qty   = parseInt(document.getElementById(`omaggio-qty-${gid}`)?.value) || 0;
+    const sum   = ['pronta','forn','emp','altri'].reduce((a,k) => a + (parseInt(document.getElementById(`omaggio-${k}-${gid}`)?.value)||0), 0);
+    const el = document.getElementById(`omaggio-daord-${gid}`); if (el) el.textContent = Math.max(0, qty - sum);
+}
+function toggleConfezOptions(gid) {
+    const checked = document.getElementById(`check-conf-${gid}`)?.checked;
+    const optsRow = document.getElementById(`confez-opts-${gid}`);
+    const cartRow = document.getElementById(`cartoncino-${gid}`);
+    if (optsRow) optsRow.style.display = checked ? 'table-row' : 'none';
+    if (!checked && cartRow) cartRow.style.display = 'none';
+    if (checked) toggleConfezTipo(gid); else calcConfezOmaggio(gid);
+}
+function toggleConfezTipo(gid) {
+    const tipo     = document.querySelector(`input[name="confez-tipo-${gid}"]:checked`)?.value;
+    const gustoGrp = document.getElementById(`confez-gusto-grp-${gid}`);
+    const cartRow  = document.getElementById(`cartoncino-${gid}`);
+    const costInp  = document.getElementById(`confez-cost-inp-${gid}`);
+    const flag     = document.getElementById(`check-conf-${gid}`)?.checked;
+    if (tipo === 'senza_confetti') {
+        if (gustoGrp) gustoGrp.style.display = 'none';
+        if (cartRow)  cartRow.style.display   = 'none';
+        if (costInp)  { const c = parseFloat(costInp.value.replace('€','').replace(',','.').trim()); if (!isNaN(c) && c !== 2) costInp.dataset.prevPrice = c; costInp.value = '€ 2,00'; }
+    } else {
+        if (gustoGrp) gustoGrp.style.display = 'flex';
+        if (flag && cartRow) cartRow.style.display = 'table-row';
+        if (costInp) { const prev = parseFloat(costInp.dataset.prevPrice) || 3; costInp.value = '€ ' + itFmt(prev); }
+    }
+    calcConfezOmaggio(gid);
+}
+function toggleGusto(gid) {
+    const sel = document.getElementById(`confez-gusto-${gid}`);
+    const alt = document.getElementById(`confez-gusto-altro-${gid}`);
+    if (alt) alt.style.display = sel?.value === 'altro' ? 'inline-block' : 'none';
+}
+
+/* ────────────────── RUBRICA ────────────────── */
+let clientiResults = [], acTimer = null, _crResults = [], _crTimer = null, _selectedClienteId = null;
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function searchClienti(q) {
+    try {
+        const { data } = await _supabase.from('clienti').select('*').or(`cognome.ilike.%${q}%,nome.ilike.%${q}%`).order('cognome').limit(8);
+        clientiResults = data || [];
+        const dd = document.getElementById('cognome-ac-dropdown');
+        if (!clientiResults.length) { dd.classList.add('hidden'); return; }
+        dd.innerHTML = clientiResults.map((c,i) => `<div class="px-4 py-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0" onclick="selectCliente(${i})">
+            <div style="font-weight:700;color:#334155">${escHtml(c.cliente||c.cognome+' '+c.nome)}</div>
+            ${c.telefono ? `<div style="font-size:11px;color:#94a3b8">${escHtml(c.telefono)}${c.wa ? ' <i class="fab fa-whatsapp" style="color:#25D366"></i>' : ''}</div>` : ''}
+        </div>`).join('');
+        dd.classList.remove('hidden');
+    } catch(e) { console.error(e); }
+}
+function setSelectedCliente(c) {
+    _selectedClienteId = c ? c.id : null;
+    document.getElementById('rubrica-actions')?.classList.toggle('hidden', !_selectedClienteId);
+    document.getElementById('salva-rubrica-bar')?.classList.toggle('hidden', !!_selectedClienteId);
+}
+function clearSelectedCliente() {
+    if (!_selectedClienteId) return;
+    _selectedClienteId = null;
+    document.getElementById('rubrica-actions')?.classList.add('hidden');
+    document.getElementById('salva-rubrica-bar')?.classList.remove('hidden');
+}
+function onCustFieldInput() {
+    clearSelectedCliente();
+    const nome = document.getElementById('cust-nome')?.value.trim();
+    const cog  = document.getElementById('cust-cognome')?.value.trim();
+    const bar  = document.getElementById('salva-rubrica-bar');
+    if (bar) bar.classList.toggle('hidden', !(nome && cog));
+}
+function selectCliente(idx) {
+    const c = clientiResults[idx]; if (!c) return;
+    document.getElementById('cust-nome').value    = c.nome     || '';
+    document.getElementById('cust-cognome').value = c.cognome  || '';
+    document.getElementById('cust-cel').value     = c.telefono || '';
+    const emailEl = document.getElementById('cust-email'); if (emailEl) emailEl.value = c.email || '';
+    document.getElementById('cognome-ac-dropdown').classList.add('hidden');
+    setSelectedCliente(c); refreshNumeroOrdinePreview();
+}
+function toggleCercaRubrica() {
+    const panel = document.getElementById('cerca-rubrica-panel');
+    document.getElementById('nuovo-cliente-form').classList.add('hidden');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) { document.getElementById('cr-search').value = ''; cercaInRubrica(''); setTimeout(() => document.getElementById('cr-search').focus(), 50); }
+}
+async function cercaInRubrica(q) {
+    clearTimeout(_crTimer);
+    _crTimer = setTimeout(async () => {
+        const el = document.getElementById('cr-results');
+        el.innerHTML = '<div class="text-xs text-slate-400 text-center py-3">Caricamento…</div>';
+        let query = _supabase.from('clienti').select('*').order('cognome').limit(15);
+        if (q.trim()) query = query.or(`cognome.ilike.%${q}%,nome.ilike.%${q}%`);
+        const { data } = await query;
+        _crResults = data || [];
+        if (!_crResults.length) { el.innerHTML = '<div class="text-sm text-slate-400 text-center py-3">Nessun cliente trovato</div>'; return; }
+        el.innerHTML = _crResults.map((c,i) => `<div class="px-3 py-2 cursor-pointer hover:bg-white rounded-lg flex items-center justify-between gap-2 transition-colors" onclick="selectClienteFromRubrica(${i})">
+            <div><span style="font-weight:700;color:#334155;font-size:13px">${escHtml(c.cliente||c.cognome+' '+c.nome)}</span>${c.telefono ? `<span style="font-size:11px;color:#94a3b8;margin-left:8px">${escHtml(c.telefono)}</span>` : ''}</div>
+            ${c.wa ? '<i class="fab fa-whatsapp text-green-500" style="font-size:14px;flex-shrink:0"></i>' : ''}
+        </div>`).join('');
+    }, q.trim() ? 300 : 0);
+}
+function selectClienteFromRubrica(idx) {
+    const c = _crResults[idx]; if (!c) return;
+    document.getElementById('cust-nome').value    = c.nome     || '';
+    document.getElementById('cust-cognome').value = c.cognome  || '';
+    document.getElementById('cust-cel').value     = c.telefono || '';
+    const emailEl = document.getElementById('cust-email'); if (emailEl) emailEl.value = c.email || '';
+    document.getElementById('cerca-rubrica-panel').classList.add('hidden');
+    setSelectedCliente(c); refreshNumeroOrdinePreview();
+}
+function toggleNuovoClienteForm() {
+    const form  = document.getElementById('nuovo-cliente-form');
+    const cerca = document.getElementById('cerca-rubrica-panel');
+    cerca.classList.add('hidden');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) {
+        document.getElementById('nc-wa').value = 'true';
+        const icon = document.querySelector('#nc-wa-btn i'); if (icon) icon.className = 'fab fa-whatsapp fa-lg text-green-500';
+        const fill = { 'nc-nome':'cust-nome','nc-cognome':'cust-cognome','nc-tel':'cust-cel','nc-email':'cust-email' };
+        Object.entries(fill).forEach(([t,s]) => { const v = document.getElementById(s)?.value.trim(); if (v) document.getElementById(t).value = v; });
+    }
+}
+function toggleNcWa() {
+    const inp  = document.getElementById('nc-wa');
+    const icon = document.querySelector('#nc-wa-btn i');
+    const isWa = inp.value === 'true';
+    inp.value = isWa ? 'false' : 'true';
+    icon.className = isWa ? 'fab fa-whatsapp fa-lg text-slate-300' : 'fab fa-whatsapp fa-lg text-green-500';
+}
+async function saveNuovoCliente() {
+    const nome = document.getElementById('nc-nome').value.trim();
+    const cog  = document.getElementById('nc-cognome').value.trim();
+    if (!nome || !cog) { await m361Alert('Nome e cognome obbligatori','','warning'); return; }
+    const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome',nome).ilike('cognome',cog);
+    const cnt  = (ex||[]).length;
+    const cVal = cnt === 0 ? `${nome} ${cog}` : `${nome} ${cog} ${cnt}`;
+    try {
+        const { data: ins, error } = await _supabase.from('clienti').insert([{ nome, cognome:cog, cliente:cVal, telefono:document.getElementById('nc-tel').value.trim()||null, wa:document.getElementById('nc-wa').value==='true', email:document.getElementById('nc-email').value.trim()||null }]).select().single();
+        if (error) throw error;
+        document.getElementById('cust-nome').value    = nome;
+        document.getElementById('cust-cognome').value = cog;
+        document.getElementById('cust-cel').value     = document.getElementById('nc-tel').value;
+        ['nc-nome','nc-cognome','nc-tel','nc-email'].forEach(id => document.getElementById(id).value='');
+        toggleNuovoClienteForm();
+        if (ins) setSelectedCliente(ins);
+        M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
+    } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+}
+async function salvaBozzaInRubrica() {
+    const nome = document.getElementById('cust-nome').value.trim();
+    const cog  = document.getElementById('cust-cognome').value.trim();
+    if (!nome || !cog) { await m361Alert('Inserisci nome e cognome prima di salvare in rubrica','','warning'); return; }
+    const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome',nome).ilike('cognome',cog);
+    const cVal = (ex||[]).length === 0 ? `${nome} ${cog}` : `${nome} ${cog} ${(ex||[]).length}`;
+    try {
+        const { data: ins, error } = await _supabase.from('clienti').insert([{ nome, cognome:cog, cliente:cVal, telefono:document.getElementById('cust-cel').value.trim()||null, wa:document.getElementById('btn-wa')?.classList.contains('wa-active')??true, email:document.getElementById('cust-email')?.value.trim()||null }]).select().single();
+        if (error) throw error;
+        setSelectedCliente(ins);
+        M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
+    } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+}
+async function aggiornaRubrica() {
+    if (!_selectedClienteId) return;
+    const nome = document.getElementById('cust-nome').value.trim();
+    const cog  = document.getElementById('cust-cognome').value.trim();
+    if (!nome || !cog) { await m361Alert('Nome e cognome obbligatori','','warning'); return; }
+    const { error } = await _supabase.from('clienti').update({ nome, cognome:cog, telefono:document.getElementById('cust-cel').value.trim()||null, email:document.getElementById('cust-email')?.value.trim()||null }).eq('id',_selectedClienteId);
+    if (error) await m361Alert('Errore: '+error.message,'Errore','error'); else M361.toast('Rubrica aggiornata','ok');
+}
+async function eliminaClienteRubrica() {
+    if (!_selectedClienteId) return;
+    const nome = document.getElementById('cust-nome').value.trim();
+    const cog  = document.getElementById('cust-cognome').value.trim();
+    if (!await m361Confirm(`Eliminare ${nome} ${cog} dalla rubrica?`,'Elimina cliente','Elimina','Annulla','error')) return;
+    const { error } = await _supabase.from('clienti').delete().eq('id',_selectedClienteId);
+    if (error) await m361Alert('Errore: '+error.message,'Errore','error');
+    else { _selectedClienteId = null; document.getElementById('rubrica-actions').classList.add('hidden'); M361.toast(`${nome} ${cog} eliminato dalla rubrica`,'err'); }
+}
+
+/* ────────────────── HELPERS FORM ────────────────── */
+function getValueSafe(id, def='') { const el = document.getElementById(id); return el ? el.value : def; }
+function getCheckedValueSafe(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : ''; }
+
+/* ────────────────── SALVA PREVENTIVO ────────────────── */
+async function savePreventivo(event) {
+    event.preventDefault();
+
+    const campi = [
+        { id:'select-emporio', label:'Emporio' },
+        { id:'cust-nome',      label:'Nome cliente' },
+        { id:'cust-cognome',   label:'Cognome cliente' },
+        { id:'cust-cel',       label:'Cellulare cliente' },
+    ];
+    for (const c of campi) {
+        const el = document.getElementById(c.id);
+        if (!el?.value.trim()) { el?.focus(); el?.classList.add('campo-errore'); await m361Alert('Campo obbligatorio: ' + c.label,'','warning'); return; }
+        el.classList.remove('campo-errore');
+    }
+    if (!document.querySelectorAll('.product-row').length) { await m361Alert('Aggiungi almeno un prodotto','','warning'); return; }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio…';
+
+    try {
+        const articoli = [];
+        const groupsSavedOmaggio = new Set();
+        document.querySelectorAll('.product-row').forEach(row => {
+            const gid = parseInt(row.closest('[id^="group-"]').id.replace('group-',''));
+            const confezTipo  = document.querySelector(`input[name="confez-tipo-${gid}"]:checked`)?.value || 'completo';
+            const isConfez    = document.getElementById(`check-conf-${gid}`)?.checked || false;
+            const confezCosto = parseFloat(document.getElementById(`confez-cost-inp-${gid}`)?.value.replace('€','').replace(',','.').trim()) || 0;
+            const qta = parseInt(row.querySelector('.qty-input').value) || 0;
+            const _now = new Date().toISOString();
+            const daForn = parseInt(row.querySelector('.forn-input').value)||0;
+            const daEmpQ = parseInt(row.querySelector('.emp-q-input').value)||0;
+            const daAltQ = parseInt(row.querySelector('.altri-q-input').value)||0;
+            articoli.push({
+                gruppo_id: gid,
+                tipologia: document.getElementById(`tipologia-name-${gid}`)?.value || '',
+                codice:    row.querySelector('.codice-input').value,
+                descrizione: row.querySelector('.desc-input').value,
+                prezzo:    parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim())||0,
+                qta, merce_pronta: parseInt(row.querySelector('.pronta-input').value)||0,
+                da_forn: daForn, da_forn_at: daForn>0 ? _now : null,
+                da_emporio_qta: daEmpQ, da_emporio_at: daEmpQ>0 ? _now : null,
+                da_emporio_nome: row.querySelector('.emporio-dropdown').value,
+                da_altri_qta: daAltQ, da_altri_at: daAltQ>0 ? _now : null,
+                da_altri_spec: row.querySelector('.altri-spec-input').value,
+                totale: itParse(row.querySelector('.row-total').textContent),
+                confezionamento: isConfez, confez_tipo: confezTipo, confez_costo: confezCosto,
+                cartoncino_fronte: document.getElementById(`cart-fronte-${gid}`)?.value||'',
+                cartoncino_interno: document.getElementById(`cart-interno-${gid}`)?.value||''
+            });
+            if (currentType === 'bomboniere' && !groupsSavedOmaggio.has(gid)) {
+                groupsSavedOmaggio.add(gid);
+                articoli.push({
+                    gruppo_id: gid, tipologia: document.getElementById(`tipologia-name-${gid}`)?.value||'',
+                    codice: 'CARTONCINI-OMAGGIO', descrizione: 'Cartoncini omaggio', prezzo: 0,
+                    qta: parseInt(document.getElementById(`omaggio-qty-${gid}`)?.value)||qta,
+                    merce_pronta: parseInt(document.getElementById(`omaggio-pronta-${gid}`)?.value)||0,
+                    da_forn: parseInt(document.getElementById(`omaggio-forn-${gid}`)?.value)||0,
+                    da_emporio_qta: parseInt(document.getElementById(`omaggio-emp-${gid}`)?.value)||0,
+                    da_emporio_nome: '', da_altri_qta: parseInt(document.getElementById(`omaggio-altri-${gid}`)?.value)||0,
+                    da_altri_spec: '', totale: 0, is_omaggio: true
+                });
+            }
+        });
+
+        const payload = {
+            numero_preventivo: getValueSafe('numero-ordine-preview'),
+            tipo_ordine:       currentType,
+            emporio:           getValueSafe('select-emporio'),
+            canale:            document.getElementById('select-canale')?.value || null,
+            operatore:         getValueSafe('select-operatore'),
+            data_preventivo:   document.getElementById('order-date').value,
+            cliente_nome:      getValueSafe('cust-nome'),
+            cliente_cognome:   getValueSafe('cust-cognome'),
+            cliente_cellulare: getValueSafe('cust-cel'),
+            cliente_email:     getValueSafe('cust-email'),
+            wa_attivo:         document.getElementById('btn-wa').classList.contains('wa-active'),
+            modalita_consegna: getCheckedValueSafe('mod_consegna'),
+            totale:            itParse(document.getElementById('grand-total')?.textContent),
+            acconto:           itParse(getValueSafe('acconto')),
+            da_pagare:         itParse(document.getElementById('saldo-finale')?.textContent),
+            note:              getValueSafe('order-notes'),
+            articoli,
+            titolo:            getValueSafe('titolo-ordine'),
+            data_modifica:     new Date().toISOString()
+        };
+
+        let error;
+        if (editingId) {
+            ({ error } = await _supabase.from('preventivi').update(payload).eq('id', editingId));
+        } else {
+            payload.stato = 'bozza';
+            ({ error } = await _supabase.from('preventivi').insert([payload]));
+        }
+        if (error) throw error;
+
+        modificheNonSalvate = false;
+        M361.toast(editingId ? 'Preventivo aggiornato!' : 'Preventivo salvato!', 'ok');
+        setTimeout(() => backToLista(), 800);
+    } catch(e) {
+        console.error(e);
+        await m361Alert('Errore nel salvataggio: ' + e.message,'Errore','error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Preventivo';
+    }
+}
+
+/* ────────────────── MODAL USCITA ────────────────── */
+function apriModalUscita(cb) { _uscitaCallback = cb; document.getElementById('modal-uscita').classList.remove('hidden'); }
+function chiudiModalUscita() { document.getElementById('modal-uscita').classList.add('hidden'); _uscitaCallback = null; }
+function confermUscita() { modificheNonSalvate = false; chiudiModalUscita(); if (_uscitaCallback) { _uscitaCallback(); _uscitaCallback = null; } }
+
+/* ────────────────── INIT ────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('select-emporio').addEventListener('change', handleCittaChange);
+    document.getElementById('select-canale').addEventListener('change', refreshNumeroOrdinePreview);
+    document.getElementById('select-operatore').addEventListener('change', refreshNumeroOrdinePreview);
+    document.getElementById('order-date').addEventListener('change', refreshNumeroOrdinePreview);
+    document.getElementById('btn-add-city').addEventListener('click', addNewCityPrompt);
+    document.getElementById('btn-remove-city').addEventListener('click', removeCurrentCity);
+    document.getElementById('btn-add-operator').addEventListener('click', addNewOperatorPrompt);
+    document.getElementById('btn-remove-operator').addEventListener('click', removeCurrentOperator);
+    document.getElementById('cust-nome').addEventListener('input', refreshNumeroOrdinePreview);
+    document.getElementById('btn-wa').addEventListener('click', toggleWA);
+    document.getElementById('cust-cognome').addEventListener('input', function() {
+        refreshNumeroOrdinePreview();
+        clearTimeout(acTimer);
+        const q = this.value.trim();
+        if (q.length < 2) { document.getElementById('cognome-ac-dropdown').classList.add('hidden'); return; }
+        acTimer = setTimeout(() => searchClienti(q), 300);
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#cognome-ac-dropdown') && e.target.id !== 'cust-cognome')
+            document.getElementById('cognome-ac-dropdown').classList.add('hidden');
+    });
+    const accontoEl = document.getElementById('acconto');
+    accontoEl.addEventListener('focus',  () => clearCurrency(accontoEl));
+    accontoEl.addEventListener('blur',   () => formatCurrency(accontoEl));
+    accontoEl.addEventListener('input',  calcGrandTotal);
+    document.getElementById('btn-add-group').addEventListener('click', async () => {
+        const nome = await m361Prompt('Nome tipologia bomboniera:');
+        if (nome !== null) addGroup(nome.trim() || undefined);
+    });
+    document.getElementById('prevForm').addEventListener('submit', savePreventivo);
+    document.getElementById('prevForm').addEventListener('input',  () => { if (!document.getElementById('form-view').classList.contains('hidden')) modificheNonSalvate = true; }, true);
+    document.getElementById('prevForm').addEventListener('change', () => { if (!document.getElementById('form-view').classList.contains('hidden')) modificheNonSalvate = true; }, true);
+
+    if (typeof inizializzaSelectEmporio === 'function') {
+        inizializzaSelectEmporio('select-emporio');
+        if (typeof isAdmin === 'function' && !isAdmin()) handleCittaChange();
+    }
+
+    loadPreventivi();
+});
+</script>
+<script src="../../scripts/auth.js"></script>
+<script src="../../scripts/ui-helpers.js"></script>
+<script src="../../scripts/nav-script.js"></script>
+</body>
+</html>
