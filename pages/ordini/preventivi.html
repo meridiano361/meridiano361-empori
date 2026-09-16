@@ -308,9 +308,9 @@
 
             <!-- PRODOTTI -->
             <div id="groups-container" class="space-y-8"></div>
-            <div id="add-group-container" class="hidden flex justify-center">
+            <div id="add-group-container" class="flex justify-center">
                 <button type="button" id="btn-add-group" class="add-group-btn">
-                    <i class="fas fa-plus mr-2"></i> Aggiungi Tipologia Bomboniera
+                    <i class="fas fa-plus mr-2"></i> Aggiungi Confezione / Strenna
                 </button>
             </div>
 
@@ -570,7 +570,6 @@ function resetForm() {
     document.getElementById('grand-total').textContent = '€ 0,00';
     document.getElementById('saldo-finale').textContent = '€ 0,00';
     document.getElementById('breakdown-container')?.classList.add('hidden');
-    document.getElementById('add-group-container')?.classList.add('hidden');
     document.getElementById('cerca-rubrica-panel')?.classList.add('hidden');
     document.getElementById('nuovo-cliente-form')?.classList.add('hidden');
     document.getElementById('rubrica-actions')?.classList.add('hidden');
@@ -590,7 +589,7 @@ function cambioTipo(tipo) {
     document.getElementById('btn-tipo-bomboniere').className = tipo === 'bomboniere'
         ? 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]'
         : 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50';
-    document.getElementById('add-group-container')?.classList.toggle('hidden', tipo !== 'bomboniere');
+    document.getElementById('add-group-container')?.classList.remove('hidden');
     document.getElementById('breakdown-container')?.classList.toggle('hidden', tipo !== 'bomboniere');
     // Ricostruisce gruppo se già presenti righe
     if (document.getElementById('groups-container').children.length === 0) addGroup();
@@ -641,8 +640,9 @@ async function apriPreventivo(id) {
             gruppiMap[gid].push(a);
         });
         Object.entries(gruppiMap).forEach(([gid, righe]) => {
-            const tipName = righe[0]?.tipologia || '';
-            addGroup(tipName);
+            const tipName   = righe[0]?.tipologia  || '';
+            const tipoGruppo = righe[0]?.tipo_gruppo || 'confezione';
+            addGroup(tipName, tipoGruppo);
             const curGid = groupCount;
             // rimuovi riga vuota aggiunta da addGroup
             const tbody = document.getElementById(`rows-container-${curGid}`);
@@ -750,24 +750,36 @@ function toggleWA() {
 }
 
 /* ────────────────── GRUPPI PRODOTTI ────────────────── */
-function addGroup(tipologiaName) {
+function addGroup(tipologiaName, tipoGruppo) {
     groupCount++;
     const gid = groupCount;
+    const tipo = tipoGruppo || 'confezione';
     const container = document.getElementById('groups-container');
-    const subtotalSection = currentType === 'bomboniere' ? `
+    const subtotalSection = `
         <div class="mt-4 flex justify-end border-t pt-4">
             <div class="text-right">
-                <span class="text-[10px] font-bold text-slate-400 uppercase block">Subtotale Tipologia</span>
-                <span id="subtotal-${gid}" class="text-xl font-bold text-slate-600">€ 0,00</span>
+                <span class="text-[10px] font-bold text-slate-400 uppercase block" id="subtotal-label-${gid}">Subtotale ${tipo === 'strenna' ? 'Strenna' : 'Confezione'} ${gid}</span>
+                <span id="subtotal-${gid}" class="text-xl font-bold text-[#B5453A]">€ 0,00</span>
             </div>
-        </div>` : '';
-    const titleHtml = currentType === 'bomboniere'
-        ? `<div class="flex items-center gap-2 flex-wrap">
-               <span class="section-title" style="margin-bottom:0;white-space:nowrap;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8">Tipologia Bomboniera ${gid}</span>
-               <input type="text" value="${tipologiaName||''}" placeholder="es. per invitati…" class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 focus:outline-none focus:border-[#B5453A]" style="min-width:220px;max-width:340px" id="tipologia-name-${gid}">
-               <button type="button" onclick="removeGroup(${gid})" class="ml-2 text-xs text-slate-400 hover:text-red-500 border border-slate-200 rounded-lg px-2 py-1 transition-colors"><i class="fas fa-trash-can"></i></button>
-           </div>`
-        : `<h3 class="section-title">Prodotti</h3>`;
+        </div>`;
+    const trashBtn = gid > 1 ? `<button type="button" onclick="removeGroup(${gid})" class="ml-2 text-xs text-slate-400 hover:text-red-500 border border-slate-200 rounded-lg px-2 py-1 transition-colors"><i class="fas fa-trash-can"></i></button>` : '';
+    const titleHtml = `<div class="flex items-center gap-2 flex-wrap">
+        <div class="flex gap-1 bg-slate-100 rounded-lg p-1">
+            <button type="button" onclick="setGroupType(${gid},'confezione')" id="gtype-btn-confezione-${gid}"
+                class="text-xs font-bold px-3 py-1.5 rounded-md transition-all ${tipo==='confezione'?'bg-white shadow-sm text-[#B5453A]':'text-slate-400'}">
+                <i class="fas fa-box-open mr-1"></i>Confezione
+            </button>
+            <button type="button" onclick="setGroupType(${gid},'strenna')" id="gtype-btn-strenna-${gid}"
+                class="text-xs font-bold px-3 py-1.5 rounded-md transition-all ${tipo==='strenna'?'bg-white shadow-sm text-[#B5453A]':'text-slate-400'}">
+                <i class="fas fa-star mr-1"></i>Strenna
+            </button>
+        </div>
+        <input type="hidden" id="gtype-${gid}" value="${tipo}">
+        <input type="text" value="${tipologiaName||''}" placeholder="Descrizione (facoltativa)…"
+            class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 focus:outline-none focus:border-[#B5453A]"
+            style="min-width:180px;max-width:320px" id="tipologia-name-${gid}">
+        ${trashBtn}
+    </div>`;
     const div = document.createElement('div');
     div.id = `group-${gid}`; div.className = 'section-card';
     div.innerHTML = `
@@ -799,7 +811,18 @@ function addGroup(tipologiaName) {
     addRow(gid);
     if (currentType === 'bomboniere') addBomboniereSubRows(document.getElementById(`rows-container-${gid}`), gid);
 }
-function removeGroup(gid) { document.getElementById(`group-${gid}`)?.remove(); calcGrandTotal(); }
+function removeGroup(gid) { document.getElementById(`group-${gid}`)?.remove(); calcGrandTotal(); updateBreakdown(); }
+
+function setGroupType(gid, tipo) {
+    const inp = document.getElementById(`gtype-${gid}`);
+    if (inp) inp.value = tipo;
+    ['confezione','strenna'].forEach(t => {
+        const btn = document.getElementById(`gtype-btn-${t}-${gid}`);
+        if (btn) btn.className = `text-xs font-bold px-3 py-1.5 rounded-md transition-all ${t===tipo?'bg-white shadow-sm text-[#B5453A]':'text-slate-400'}`;
+    });
+    const lbl = document.getElementById(`subtotal-label-${gid}`);
+    if (lbl) lbl.textContent = `Subtotale ${tipo==='strenna'?'Strenna':'Confezione'} ${gid}`;
+}
 
 function addRow(gid) {
     const tbody = document.getElementById(`rows-container-${gid}`);
@@ -850,7 +873,8 @@ function calcRow(rowId, gid) {
     row.classList.toggle('row-error', sum > qty);
     row.querySelector('.do-value').textContent = Math.max(0, qty - sum);
     row.querySelector('.row-total').textContent = itFmt(qty * price);
-    if (currentType === 'bomboniere') { calcConfezOmaggio(gid); calcSubtotal(gid); }
+    if (currentType === 'bomboniere') calcConfezOmaggio(gid);
+    calcSubtotal(gid);
     calcGrandTotal(); validateGlobal();
 }
 
@@ -861,9 +885,11 @@ function validateGlobal() {
 function calcSubtotal(gid) {
     let sub = 0;
     document.getElementById(`rows-container-${gid}`)?.querySelectorAll('.row-total').forEach(el => sub += itParse(el.textContent));
-    const confezOn  = document.getElementById(`check-conf-${gid}`)?.checked;
-    const confezTot = document.getElementById(`confez-total-${gid}`);
-    if (confezTot && confezOn) sub += itParse(confezTot.textContent);
+    if (currentType === 'bomboniere') {
+        const confezOn  = document.getElementById(`check-conf-${gid}`)?.checked;
+        const confezTot = document.getElementById(`confez-total-${gid}`);
+        if (confezTot && confezOn) sub += itParse(confezTot.textContent);
+    }
     const el = document.getElementById(`subtotal-${gid}`); if (el) el.textContent = '€ ' + itFmt(sub);
 }
 
@@ -878,6 +904,32 @@ function calcGrandTotal() {
     const acconto = itParse(document.getElementById('acconto').value);
     document.getElementById('saldo-finale').textContent = '€ ' + itFmt(Math.max(0, grand - acconto));
     if (currentType === 'bomboniere') calcBomboniereBreakdown();
+    updateBreakdown();
+}
+
+function updateBreakdown() {
+    const bc = document.getElementById('breakdown-container');
+    if (!bc) return;
+    const gcont = document.getElementById('groups-container');
+    const groups = gcont ? [...gcont.querySelectorAll('[id^="group-"]')] : [];
+    if (groups.length <= 1) { bc.classList.add('hidden'); return; }
+    if (currentType === 'bomboniere') return; // bomboniere has its own breakdown
+    bc.classList.remove('hidden');
+    const bs = bc.querySelector('.breakdown-section');
+    if (!bs) return;
+    let html = '';
+    let grand = 0;
+    groups.forEach(g => {
+        const gid = g.id.replace('group-','');
+        const tipo = document.getElementById(`gtype-${gid}`)?.value || 'confezione';
+        const nome = document.getElementById(`tipologia-name-${gid}`)?.value?.trim();
+        const sub  = itParse(document.getElementById(`subtotal-${gid}`)?.textContent || '0');
+        grand += sub;
+        const label = (tipo === 'strenna' ? 'Strenna' : 'Confezione') + (nome ? ` — ${nome}` : ` ${gid}`);
+        html += `<div class="breakdown-row"><span class="lbl">${label}</span><span class="val">€ ${itFmt(sub)}</span></div>`;
+    });
+    html += `<div class="breakdown-row bd-total"><span class="lbl">TOTALE PREVENTIVO</span><span class="val">€ ${itFmt(grand)}</span></div>`;
+    bs.innerHTML = html;
 }
 
 function calcBomboniereBreakdown() {
@@ -901,7 +953,7 @@ function formatCurrency(inp) { inp.value = '€ ' + itFmt(itParse(inp.value)); }
 function removeRow(rowId, gid) {
     document.getElementById(`row-${rowId}`)?.remove();
     ['confez','cartoncino','omaggio'].forEach(p => document.getElementById(`${p}-${rowId}`)?.remove());
-    if (currentType === 'bomboniere') calcSubtotal(gid);
+    calcSubtotal(gid);
     calcGrandTotal(); validateGlobal();
 }
 
@@ -1226,6 +1278,7 @@ async function savePreventivo(event) {
             const confezTipo  = document.querySelector(`input[name="confez-tipo-${gid}"]:checked`)?.value || 'completo';
             const isConfez    = document.getElementById(`check-conf-${gid}`)?.checked || false;
             const confezCosto = parseFloat(document.getElementById(`confez-cost-inp-${gid}`)?.value.replace('€','').replace(',','.').trim()) || 0;
+            const tipoGruppo  = document.getElementById(`gtype-${gid}`)?.value || 'confezione';
             const qta = parseInt(row.querySelector('.qty-input').value) || 0;
             const _now = new Date().toISOString();
             const daForn = parseInt(row.querySelector('.forn-input').value)||0;
@@ -1233,6 +1286,7 @@ async function savePreventivo(event) {
             const daAltQ = parseInt(row.querySelector('.altri-q-input').value)||0;
             articoli.push({
                 gruppo_id: gid,
+                tipo_gruppo: tipoGruppo,
                 tipologia: document.getElementById(`tipologia-name-${gid}`)?.value || '',
                 codice:    row.querySelector('.codice-input').value,
                 descrizione: row.querySelector('.desc-input').value,
@@ -1337,10 +1391,7 @@ document.addEventListener('DOMContentLoaded', () => {
     accontoEl.addEventListener('focus',  () => clearCurrency(accontoEl));
     accontoEl.addEventListener('blur',   () => formatCurrency(accontoEl));
     accontoEl.addEventListener('input',  calcGrandTotal);
-    document.getElementById('btn-add-group').addEventListener('click', async () => {
-        const nome = await m361Prompt('Nome tipologia bomboniera:');
-        if (nome !== null) addGroup(nome.trim() || undefined);
-    });
+    document.getElementById('btn-add-group').addEventListener('click', () => addGroup());
     document.getElementById('prevForm').addEventListener('submit', savePreventivo);
     document.getElementById('prevForm').addEventListener('input',  () => { if (!document.getElementById('form-view').classList.contains('hidden')) modificheNonSalvate = true; }, true);
     document.getElementById('prevForm').addEventListener('change', () => { if (!document.getElementById('form-view').classList.contains('hidden')) modificheNonSalvate = true; }, true);
