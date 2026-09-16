@@ -2603,9 +2603,47 @@ function getIndicatoreStato(stato) {
   return 'parziale';
 }
 
+function buildNomeBreveMap(nomi) {
+  const byFirst = {};
+  nomi.forEach(n => {
+    const parts = n.trim().split(/\s+/);
+    if (!byFirst[parts[0]]) byFirst[parts[0]] = [];
+    byFirst[parts[0]].push(n);
+  });
+  const map = {};
+  Object.entries(byFirst).forEach(([first, lista]) => {
+    if (lista.length === 1) {
+      map[lista[0]] = first;
+    } else {
+      const cognomi = lista.map(n => n.trim().split(/\s+/).slice(1).join(' '));
+      lista.forEach((n, i) => {
+        const cog = cognomi[i];
+        const others = cognomi.filter((_, j) => j !== i);
+        let len = 1;
+        while (len < cog.length) {
+          const pref = cog.substring(0, len).toLowerCase();
+          if (!others.some(c => c.substring(0, len).toLowerCase() === pref)) break;
+          len++;
+        }
+        map[n] = `${first} ${len >= cog.length ? cog : cog.substring(0, len) + '.'}`;
+      });
+    }
+  });
+  return map;
+}
+
 function renderMonth() {
   const days = new Date(currentAnno, currentMese+1, 0).getDate();
   let rows = [];
+  // Collect all operator names for same-first-name disambiguation
+  const _allNomiInMese = new Set();
+  for (let _d=1; _d<=days; _d++) {
+    ['mattina','pomeriggio','sera'].forEach(f => {
+      const _k = `${currentEmporio}|${currentAnno}|${currentMese+1}|${_d}|${f}`;
+      ((turniData[_k]||{}).operatori||[]).forEach(o => { if (!o.rimosso) _allNomiInMese.add(o.nome); });
+    });
+  }
+  const _nomeBreveMap = buildNomeBreveMap([..._allNomiInMese]);
   for (let d=1; d<=days; d++) {
     const dow = new Date(currentAnno, currentMese, d).getDay();
     const isFestivo = isGiornoFestivo(currentAnno, currentMese+1, d);
@@ -2639,7 +2677,7 @@ function renderMonth() {
         const partialStr = isPartial ? `<span title="Orario parziale" style="font-size:9px;opacity:.65;margin-left:1px">◐</span>` : '';
         // chip-self: classe per il chip del proprio nome (usata da CSS turni-own-only)
         const selfCls = canInsertOwnNameOnly() && isCurrentUser(o.nome) ? ' chip-self' : '';
-        return `<span class="chip-nome-cal${selfCls}" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${o.nome.split(' ')[0]}${partialStr}` +
+        return `<span class="chip-nome-cal${selfCls}" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${_nomeBreveMap[o.nome]||o.nome.split(' ')[0]}${partialStr}` +
           `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`;
       }).join('')+(canInsertOwnNameOnly()
         ? `<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)" style="color:#B5453A!important;font-weight:700!important;font-size:13px!important;border:1px solid #fca5a5!important;background:#fff5f5!important;padding:3px 9px!important;border-radius:6px!important">+ Io</span>`
