@@ -108,6 +108,11 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .conta-result-lbl{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;}
 .conta-result-val{font-size:18px;font-weight:900;color:#334155;font-family:'Nunito', sans-serif;}
 .conta-ok{color:#059669;} .conta-err{color:#e11d48;}
+.conta-ini-badge{font-size:10px;font-weight:700;color:#059669;background:#dcfce7;border-radius:6px;padding:2px 7px;margin-left:6px;white-space:nowrap;}
+.btn-conta-save{background:#B5453A;color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:6px;}
+.btn-conta-save:hover{background:#8c362d;}
+.btn-conta-save:disabled{opacity:.5;cursor:not-allowed;}
+.conta-save-feedback{font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;}
 
 /* ── COIN ── */
 .coin-section-lbl{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:8px;}
@@ -676,7 +681,10 @@ input[type=month].btn-export{min-width:160px;}
 
           <!-- Conta contanti opzionale -->
           <div class="conta-toggle" id="conta-toggle-mat" onclick="toggleContaContanti('mat')">
-            <span class="conta-toggle-lbl"><i class="fas fa-calculator"></i> Conta contanti inizio turno</span>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+              <span class="conta-toggle-lbl"><i class="fas fa-calculator"></i> Conta contanti inizio turno</span>
+              <span class="conta-ini-badge" id="conta-mat-saved-badge" style="display:none"></span>
+            </div>
             <i class="fas fa-chevron-down conta-toggle-icon"></i>
           </div>
           <div class="conta-section" id="conta-section-mat">
@@ -692,6 +700,12 @@ input[type=month].btn-export{min-width:160px;}
             <div class="conta-result">
               <span class="conta-result-lbl">Differenza</span>
               <span class="conta-result-val" id="conta-mat-diff">€ 0,00</span>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+              <button class="btn-conta-save" id="btn-conta-mat-save" onclick="saveContaContanti('mat')">
+                <i class="fas fa-floppy-disk"></i> Salva conteggio
+              </button>
+              <span class="conta-save-feedback" id="conta-mat-feedback"></span>
             </div>
           </div>
 
@@ -817,7 +831,10 @@ input[type=month].btn-export{min-width:160px;}
 
           <!-- Conta contanti opzionale -->
           <div class="conta-toggle" id="conta-toggle-pom" onclick="toggleContaContanti('pom')">
-            <span class="conta-toggle-lbl"><i class="fas fa-calculator"></i> Conta contanti inizio turno</span>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+              <span class="conta-toggle-lbl"><i class="fas fa-calculator"></i> Conta contanti inizio turno</span>
+              <span class="conta-ini-badge" id="conta-pom-saved-badge" style="display:none"></span>
+            </div>
             <i class="fas fa-chevron-down conta-toggle-icon"></i>
           </div>
           <div class="conta-section" id="conta-section-pom">
@@ -833,6 +850,12 @@ input[type=month].btn-export{min-width:160px;}
             <div class="conta-result">
               <span class="conta-result-lbl">Differenza</span>
               <span class="conta-result-val" id="conta-pom-diff">€ 0,00</span>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+              <button class="btn-conta-save" id="btn-conta-pom-save" onclick="saveContaContanti('pom')">
+                <i class="fas fa-floppy-disk"></i> Salva conteggio
+              </button>
+              <span class="conta-save-feedback" id="conta-pom-feedback"></span>
             </div>
           </div>
 
@@ -1990,6 +2013,41 @@ function calcConta(turno) {
   const diffEl = document.getElementById('conta-'+turno+'-diff');
   diffEl.textContent = euro(diff);
   diffEl.className = 'conta-result-val ' + (Math.abs(diff) < 0.01 ? 'conta-ok' : 'conta-err');
+}
+
+/* ── SALVA CONTEGGIO INIZIO TURNO ── */
+function updateContaBadge(turno, total) {
+  const badge = document.getElementById('conta-'+turno+'-saved-badge');
+  if (!badge) return;
+  if (total > 0) {
+    badge.textContent = euro(total) + ' salvato';
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function saveContaContanti(turno) {
+  if (!currentKey) { alert('Apri prima un foglio di giornata'); return; }
+  const totEl   = document.getElementById('conta-'+turno+'-total');
+  const total   = parseEuro(totEl?.textContent || '');
+  const field   = turno === 'mat' ? 'mat_ini_contanti' : 'pom_ini_contanti';
+  const btn      = document.getElementById('btn-conta-'+turno+'-save');
+  const feedback = document.getElementById('conta-'+turno+'-feedback');
+  if (btn) btn.disabled = true;
+  if (feedback) { feedback.textContent = ''; feedback.style.color = ''; }
+  const err = await dbUpsert({ chiave: currentKey, emporio: currentEmp, [field]: total });
+  if (btn) btn.disabled = false;
+  if (err) {
+    if (feedback) { feedback.textContent = '✗ Errore: ' + (err.message || err); feedback.style.color = '#e11d48'; }
+  } else {
+    if (feedback) {
+      feedback.textContent = '✓ Salvato';
+      feedback.style.color = '#059669';
+      setTimeout(() => { if (feedback) feedback.textContent = ''; }, 3000);
+    }
+    updateContaBadge(turno, total);
+  }
 }
 
 /* ── BUILD PAYMENTS ── */
@@ -3167,6 +3225,9 @@ function fillForm(data) {
   }
   pomOraChiusura = data.pom_ora_chiusura || null;
   if (pomOraChiusura) showChiusuraBadge('pom', pomOraChiusura);
+  // Ripristina badge conteggio inizio turno
+  if (data.mat_ini_contanti != null && data.mat_ini_contanti > 0) updateContaBadge('mat', data.mat_ini_contanti);
+  if (data.pom_ini_contanti != null && data.pom_ini_contanti > 0) updateContaBadge('pom', data.pom_ini_contanti);
   syncWeatherIcon(); calcIva();
 }
 
@@ -3374,6 +3435,8 @@ function resetDayForm() {
   });
   const btn = document.getElementById('btn-save-mat');
   if (btn) btn.innerHTML = '<i class="fas fa-check-circle"></i> Salva chiusura mattino';
+  // Reset badge conteggio inizio turno
+  ['mat','pom'].forEach(t => updateContaBadge(t, 0));
 }
 
 /* ── OPEN DAY ── */
