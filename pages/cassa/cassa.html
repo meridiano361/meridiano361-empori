@@ -409,6 +409,12 @@ input[type=month].btn-export{min-width:160px;}
 #com-table td:last-child,#com-table th:last-child{border-right:none;}
 #com-table td{border-bottom:1px solid #e8ecf0;}
 #com-table tr.total-row td{border-top:2px solid #cbd5e1;border-bottom:none;}
+/* densità variabile */
+#com-table td,#com-table th{font-size:var(--com-fs,12px);padding:var(--com-pad,10px 12px);}
+#com-table th{background:#f8fafc;color:#64748b;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
+.com-density-bar{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.com-density-btn{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;}
+.com-density-btn:hover,.com-density-btn.active{background:#B5453A;color:#fff;border-color:#B5453A;}
 .cf-vers-link{cursor:pointer;color:#1d4ed8;font-weight:600;text-decoration:underline dotted;font-variant-numeric:tabular-nums;}
 .cf-vers-link:hover{color:#1e40af;}
 #cf-vers-modal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;}
@@ -1492,6 +1498,13 @@ input[type=month].btn-export{min-width:160px;}
       <div class="kpi-card"><div class="kpi-label">Scontrino medio</div><div class="kpi-value" id="kpi-scontrino-medio">–</div><div class="kpi-sub">media mensile</div></div>
       <div class="kpi-card"><div class="kpi-label">Giorni aperti</div><div class="kpi-value" id="kpi-giorni-aperti">–</div><div class="kpi-sub">nel mese selezionato</div></div>
       <div class="kpi-card"><div class="kpi-label">Ore apertura</div><div class="kpi-value" id="kpi-ore-apertura">–</div><div class="kpi-sub">totale mensile</div></div>
+    </div>
+
+    <div class="com-density-bar">
+      <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">Densità:</span>
+      <button class="com-density-btn" onclick="setComDensity('compact')">Compatto</button>
+      <button class="com-density-btn active" id="com-dens-normal" onclick="setComDensity('normal')">Normale</button>
+      <button class="com-density-btn" onclick="setComDensity('expanded')">Espanso</button>
     </div>
 
     <div id="com-table-wrap" style="overflow:auto;max-height:75vh">
@@ -5097,6 +5110,25 @@ const METEO_EMOJI = {
 };
 
 // ── Sub-tab commerciale ──────────────────────────────────────────────────────
+const COM_DENSITY = {
+  compact:  { fs:'10px', pad:'5px 8px'  },
+  normal:   { fs:'12px', pad:'10px 12px'},
+  expanded: { fs:'14px', pad:'15px 16px'}
+};
+function setComDensity(level) {
+  const d = COM_DENSITY[level] || COM_DENSITY.normal;
+  const tbl = document.getElementById('com-table');
+  if (tbl) { tbl.style.setProperty('--com-fs', d.fs); tbl.style.setProperty('--com-pad', d.pad); }
+  document.querySelectorAll('.com-density-btn').forEach(b => b.classList.remove('active'));
+  const active = document.querySelector(`.com-density-btn[onclick="setComDensity('${level}')"]`);
+  if (active) active.classList.add('active');
+  localStorage.setItem('cassa_com_density', level);
+}
+(function initComDensity() {
+  const saved = localStorage.getItem('cassa_com_density') || 'normal';
+  window.addEventListener('load', () => setComDensity(saved));
+})();
+
 function showComSubtab(tab) {
   document.getElementById('com-giorn-section').style.display = tab === 'giorn' ? '' : 'none';
   document.getElementById('com-sett-section').style.display  = tab === 'sett'  ? '' : 'none';
@@ -5411,7 +5443,7 @@ async function loadCommercialeData() {
         <td class="number">${medII}</td>
         <td class="number">${incP != null ? fmt(incP) : '–'}</td>
         <td class="number">${fmtPct(delta)}</td>
-        <td style="font-size:11px">${arrivoMerciCell}</td>
+        <td style="text-align:center;font-size:16px">${arrivoMerciCell}</td>
         <td style="font-size:11px;color:#64748b;max-width:180px">${r.note || '–'}</td>
       </tr>`;
     }).join('');
