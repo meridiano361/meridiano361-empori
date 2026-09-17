@@ -188,6 +188,10 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .turno-scontrini-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;}
 .turno-scontrini-inp{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Nunito',sans-serif;color:#1e293b;width:110px;text-align:right;transition:border-color .15s;}
 .turno-scontrini-inp:focus{outline:none;border-color:#B5453A;}
+/* salva in corso (bozza intraday) */
+.btn-save-draft{background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:background .15s;white-space:nowrap;}
+.btn-save-draft:hover{background:#1d4ed8;}
+.btn-save-draft:disabled{opacity:.6;cursor:not-allowed;}
 /* save mattino */
 .save-mat-section{margin-top:14px;border-top:1.5px solid #f1f5f9;padding-top:12px;}
 .btn-save-mat{width:100%;height:44px;background:#1e293b;border:none;border-radius:12px;font-size:13px;font-weight:800;color:#fff;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;}
@@ -682,7 +686,12 @@ input[type=month].btn-export{min-width:160px;}
 
     <!-- ── SEZIONE 1: Foglio di giornata ── -->
     <div class="card card-pad">
-      <div class="sec-title">Foglio di giornata</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="sec-title" style="margin-bottom:0">Foglio di giornata</div>
+        <button id="btn-save-draft" class="btn-save-draft" onclick="saveDraft()">
+          <i class="fas fa-floppy-disk"></i> Salva in corso
+        </button>
+      </div>
       <div class="turno-grid">
 
         <!-- MATTINO -->
@@ -3671,6 +3680,86 @@ function checkNoteObbligatorie(turni, errors) {
 }
 
 /* ── SALVA CHIUSURA MATTINO (solo modalità "entrambi") ── */
+/* ── SALVA IN CORSO (bozza intraday, nessuna validazione) ── */
+async function saveDraft() {
+  if (!currentKey) { alert('Apri prima un foglio di giornata'); return; }
+  const tipo = document.querySelector('input[name="turno_type"]:checked').value;
+  const btn = document.getElementById('btn-save-draft');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio…'; }
+
+  calcIva();
+
+  const payload = {
+    chiave:           currentKey,
+    emporio:          currentEmp,
+    fondo_cassa:      fondoCassa,
+    turno_type:       tipo,
+    note_mattino:     getVal('nota-mattino')     || null,
+    note_pomeriggio:  getVal('nota-pomeriggio')  || null,
+    meteo_mattino:    getVal('meteo-mattino')     || null,
+    meteo_pomeriggio: getVal('meteo-pomeriggio') || null,
+    temp_mattino:     _tempMat,
+    temp_pomeriggio:  _tempPom,
+    arrivo_merci:     document.getElementById('arrivo-merci').checked,
+    note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci') || null) : null,
+  };
+
+  if (selectedOps.mat.length) payload.chiuso_da_mat = selectedOps.mat.join(' e ');
+  if (selectedOps.pom.length) payload.chiuso_da_pom = selectedOps.pom.join(' e ');
+
+  const mc = getNum('mat-corrispettivi'); if (mc) payload.mat_corrispettivi = mc;
+  const pc = getNum('pom-corrispettivi'); if (pc) payload.pom_corrispettivi = pc;
+
+  const cfKey = tipo === 'solo_mattino' ? 'mat-cassaforte' : 'cassaforte';
+  const cf = getNum(cfKey); if (cf) payload[cfKey === 'mat-cassaforte' ? 'mat_cassaforte' : 'cassaforte'] = cf;
+
+  const nMat = parseInt(document.getElementById('mat-scontrini')?.value) || 0;
+  const nPom = parseInt(document.getElementById('pom-scontrini')?.value) || 0;
+  if (nMat) payload.mat_scontrini = nMat;
+  if (nPom) payload.pom_scontrini = nPom;
+  if (nMat || nPom) payload.global_scontrini = nMat + nPom;
+
+  const iva22 = getNum('iva-22'), iva10 = getNum('iva-10'), iva4 = getNum('iva-4');
+  if (iva22) payload.iva_22 = iva22;
+  if (iva10) payload.iva_10 = iva10;
+  if (iva4)  payload.iva_4  = iva4;
+
+  TAGLI.forEach(t => {
+    const k = String(t).replace('.', '_');
+    const vm = parseFloat(document.getElementById('mat_coin_' + k)?.value || 0) || 0;
+    const vp = parseFloat(document.getElementById('pom_coin_' + k)?.value || 0) || 0;
+    if (vm) payload['mat_coin_' + k] = vm;
+    if (vp) payload['pom_coin_' + k] = vp;
+  });
+
+  PAGAMENTI.forEach(p => {
+    const vm = parseEuro(document.getElementById('mat_pay_' + p.id)?.value);
+    const vp = parseEuro(document.getElementById('pom_pay_' + p.id)?.value);
+    if (vm) payload['mat_pay_' + p.id] = vm;
+    if (vp) payload['pom_pay_' + p.id] = vp;
+    ['mat', 'pom'].forEach(t => {
+      const note = noteMap[t + '_' + p.id];
+      if (note) payload['note_' + t + '_pay_' + p.id] = note;
+    });
+  });
+
+  const error = await dbUpsert(payload);
+  if (btn) { btn.disabled = false; }
+
+  if (error) {
+    if (btn) btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Salva in corso';
+    alert('Errore salvataggio: ' + error.message);
+  } else {
+    clearDirty();
+    clearBackup();
+    if (btn) {
+      btn.innerHTML = '<i class="fas fa-check"></i> Salvato';
+      btn.style.background = '#16a34a';
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Salva in corso'; btn.style.background = ''; }, 2500);
+    }
+  }
+}
+
 async function saveMat() {
   if (!document.getElementById('arrivo-merci').checked) {
     const ans = await showConfirmDialog('È arrivata della merce oggi?', [
