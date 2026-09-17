@@ -3191,10 +3191,12 @@ function fillForm(data) {
   if(data.chiuso_da_pom) { selectedOps.pom=data.chiuso_da_pom.split(' e ').map(s=>s.trim()).filter(Boolean); renderShiftOps('pom'); }
   if(data.note_mattino)   document.getElementById('nota-mattino').value=data.note_mattino;
   if(data.note_pomeriggio)document.getElementById('nota-pomeriggio').value=data.note_pomeriggio;
-  if(data.meteo_mattino)  { document.getElementById('meteo-mattino').value=data.meteo_mattino; setMeteoConfirmed('mat', true); }
-  else if(data.meteo)     { document.getElementById('meteo-mattino').value=data.meteo; setMeteoConfirmed('mat', true); }
-  if(data.meteo_pomeriggio) { document.getElementById('meteo-pomeriggio').value=data.meteo_pomeriggio; setMeteoConfirmed('pom', true); }
-  else if(data.meteo)     { document.getElementById('meteo-pomeriggio').value=data.meteo; setMeteoConfirmed('pom', true); }
+  const _meteoNorm = {'sole':'sereno','soleggiato':'sereno','misto':'variabile','nuvoloso':'coperto','pioggia leggera':'pioviggine','vento':'variabile'};
+  const _nm = v => (v && _meteoNorm[v.toLowerCase()]) ? _meteoNorm[v.toLowerCase()] : v;
+  if(data.meteo_mattino)  { document.getElementById('meteo-mattino').value=_nm(data.meteo_mattino); setMeteoConfirmed('mat', true); }
+  else if(data.meteo)     { document.getElementById('meteo-mattino').value=_nm(data.meteo); setMeteoConfirmed('mat', true); }
+  if(data.meteo_pomeriggio) { document.getElementById('meteo-pomeriggio').value=_nm(data.meteo_pomeriggio); setMeteoConfirmed('pom', true); }
+  else if(data.meteo)     { document.getElementById('meteo-pomeriggio').value=_nm(data.meteo); setMeteoConfirmed('pom', true); }
   if(data.temp_mattino != null) { _tempMat = data.temp_mattino; const el=document.getElementById('temp-mat'); if(el) el.textContent = data.temp_mattino+'°C'; }
   if(data.temp_pomeriggio != null) { _tempPom = data.temp_pomeriggio; const el=document.getElementById('temp-pom'); if(el) el.textContent = data.temp_pomeriggio+'°C'; }
   if(data.arrivo_merci) {
@@ -4090,8 +4092,12 @@ async function findLatestMeseConDati(emporio, richiedeCorr = false) {
 
 const fmt = v => (v != null && v !== '' && !isNaN(v)) ? '€ ' + numIT(parseFloat(v)) : '–';
 
-const fmtPct = v => {
+const fmtPct = (v, baseAmt) => {
   if (v == null || isNaN(v)) return '<span class="trend-zero">–</span>';
+  if (baseAmt != null && baseAmt < 80) {
+    const sign = v > 0 ? '+' : '';
+    return `<span class="trend-zero" title="Base anno precedente molto bassa (€${Math.round(baseAmt)}) — variazione % poco significativa">~${sign}${Math.round(v)}%</span>`;
+  }
   const cls = v > 0 ? 'trend-pos' : v < 0 ? 'trend-neg' : 'trend-zero';
   const sign = v > 0 ? '+' : '';
   return `<span class="${cls}">${sign}${v.toFixed(1)}%</span>`;
@@ -5040,11 +5046,11 @@ async function loadVistaMensileData() {
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${dl}</strong></td>
         <td class="number">${c26 > 0 ? fmt(c26) : '–'}</td>
         <td class="number">${c25 > 0 ? fmt(c25) : '–'}</td>
-        <td class="number">${fmtPct(deltaPct)}</td>
+        <td class="number">${fmtPct(deltaPct, c25)}</td>
         <td style="text-align:center">${trendDay}</td>
         <td class="number">${progr26 > 0 ? fmt(progr26) : '–'}</td>
         <td class="number">${progr25 > 0 ? fmt(progr25) : '–'}</td>
-        <td class="number">${fmtPct(dProgPct)}</td>
+        <td class="number">${fmtPct(dProgPct, progr25)}</td>
         <td style="text-align:center">${trendProg}</td>
         <td class="number">${nsf   != null ? nsf   : '–'}</td>
         <td class="number">${scMedio   != null ? fmt(scMedio)   : '–'}</td>
