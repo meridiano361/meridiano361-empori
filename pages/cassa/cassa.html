@@ -3689,20 +3689,18 @@ async function saveDraft() {
 
   calcIva();
 
-  const payload = {
-    chiave:           currentKey,
-    emporio:          currentEmp,
-    fondo_cassa:      fondoCassa,
-    turno_type:       tipo,
-    note_mattino:     getVal('nota-mattino')     || null,
-    note_pomeriggio:  getVal('nota-pomeriggio')  || null,
-    meteo_mattino:    getVal('meteo-mattino')     || null,
-    meteo_pomeriggio: getVal('meteo-pomeriggio') || null,
-    temp_mattino:     _tempMat,
-    temp_pomeriggio:  _tempPom,
-    arrivo_merci:     document.getElementById('arrivo-merci').checked,
-    note_arrivo_merci: document.getElementById('arrivo-merci').checked ? (getVal('note-arrivo-merci') || null) : null,
-  };
+  // Regola: includi un campo solo se ha un valore reale — mai sovrascrivere con null/false/default
+  const payload = { chiave: currentKey, emporio: currentEmp, fondo_cassa: fondoCassa, turno_type: tipo };
+  const _nm = getVal('nota-mattino');    if (_nm)  payload.note_mattino     = _nm;
+  const _np = getVal('nota-pomeriggio'); if (_np)  payload.note_pomeriggio  = _np;
+  const _mm = getVal('meteo-mattino');   if (_mm)  payload.meteo_mattino    = _mm;
+  const _mp = getVal('meteo-pomeriggio');if (_mp)  payload.meteo_pomeriggio = _mp;
+  if (_tempMat  != null) payload.temp_mattino    = _tempMat;
+  if (_tempPom  != null) payload.temp_pomeriggio = _tempPom;
+  if (document.getElementById('arrivo-merci').checked) {
+    payload.arrivo_merci = true;
+    const _na = getVal('note-arrivo-merci'); if (_na) payload.note_arrivo_merci = _na;
+  }
 
   if (selectedOps.mat.length) payload.chiuso_da_mat = selectedOps.mat.join(' e ');
   if (selectedOps.pom.length) payload.chiuso_da_pom = selectedOps.pom.join(' e ');
