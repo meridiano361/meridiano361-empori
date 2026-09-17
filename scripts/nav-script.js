@@ -538,7 +538,7 @@ function buildNav() {
 
   const currentId = typeof getCurrentId === 'function' ? getCurrentId() : '';
   const userSections = typeof getUserSections === 'function' ? getUserSections() : [];
-  const user = JSON.parse(localStorage.getItem('m361_user'));
+  const user = getUserProfile();
 
   const nav = document.createElement('nav');
   nav.id = 'm361-nav';
@@ -618,7 +618,7 @@ function buildNav() {
     if (window.location.pathname.includes('login.html')) return;
 
     // 2. Recupero utente dal localStorage
-    let user = JSON.parse(localStorage.getItem('m361_user'));
+    let user = getUserProfile();
 
     // 3. PROTEZIONE: Se l'utente non esiste, spediscilo al login immediatamente
     if (!user || !user.email) {
@@ -1036,6 +1036,7 @@ function buildNav() {
 
     setTimeout(() => {
       document.addEventListener('click', function _close(ev) {
+        if (!document.body.contains(panel)) { document.removeEventListener('click', _close); return; }
         if (!panel.contains(ev.target) && ev.target !== document.getElementById('m361-bell-btn')) {
           panel.remove();
           document.removeEventListener('click', _close);
