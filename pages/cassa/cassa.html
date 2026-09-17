@@ -5301,15 +5301,11 @@ async function loadCommercialeData() {
 
     tbody.innerHTML = data.map(r => {
       const _n = v => parseFloat(v || 0);
-      const ie_raw = _n(r.iva_esente);
-      const ii_raw = _n(r.iva_22) + _n(r.iva_10) + _n(r.iva_4);
       const inc = r.totale_corrispettivi;
-      // Auto-derive la parte mancante dal totale corrispettivi
-      let ie, ii;
-      if (ie_raw > 0 && ii_raw > 0) { ie = ie_raw; ii = ii_raw; }
-      else if (ie_raw > 0)           { ie = ie_raw; ii = Math.max(0, inc - ie_raw); }
-      else if (ii_raw > 0)           { ii = ii_raw; ie = Math.max(0, inc - ii_raw); }
-      else                           { ie = 0; ii = 0; }
+      const _22 = _n(r.iva_22), _10 = _n(r.iva_10), _4 = _n(r.iva_4), _es = _n(r.iva_esente);
+      // I.E. = imponibile (IVA esclusa), I.I. = totale corrispettivi (IVA inclusa)
+      const ie = (_22 + _10 + _4 + _es) > 0 ? _22/1.22 + _10/1.10 + _4/1.04 + _es : 0;
+      const ii = inc;
       const nSc = parseInt(r.global_scontrini || 0);
       const key = r._day + '||' + (r.emporio || '');
       const rP  = dPrec[key];
@@ -5334,9 +5330,9 @@ async function loadCommercialeData() {
       tOre += ore;
       const oreStr = ore > 0 ? ore.toFixed(2)+'h' : '–';
       const aperturaCell = `<span title="${_ttLbl[ttKey]||''}" style="white-space:nowrap;font-size:12px;font-weight:700">${_ttSym[ttKey]||'●'} ${oreStr}</span>`;
-      const arrivoMerciCell = r.arrivo_merci ? '✓' : '–';
+      const arrivoMerciCell = r.arrivo_merci ? '<i class="fas fa-box" style="font-size:14px;color:#475569"></i>' : '–';
       const medIE = nSc > 0 && ie > 0 ? fmt(ie / nSc) : '–';
-      const medII = nSc > 0 && ii > 0 ? fmt(ii / nSc) : '–';
+      const medII = nSc > 0 && inc > 0 ? fmt(inc / nSc) : '–';
       return `<tr>
         <td class="date-link" onclick="goToDay('${r.data}','${r.emporio}')" title="Apri foglio di giornata"><strong>${fmtData(r.data, {weekday:'short', day:'2-digit', month:'short'})}</strong></td>
         <td style="text-align:center">${aperturaCell}</td>
