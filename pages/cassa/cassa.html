@@ -5310,7 +5310,7 @@ const BUDGET_RE_2026 = {
 };
 
 // ── Helper: badge campagne/eventi del calendario commerciale ─────────────────
-function _renderCalBadges(records, periodoStart, periodoEnd, type) {
+function _renderCalBadges(records, periodoStart, periodoEnd, type, currentEmporio) {
   const TIPO_C = {
     Promo:{color:'#059669',bg:'#ecfdf5'},Focus:{color:'#2563eb',bg:'#eff6ff'},
     Prenotazione:{color:'#d97706',bg:'#fffbeb'},Saldi:{color:'#dc2626',bg:'#fef2f2'},
@@ -5321,13 +5321,14 @@ function _renderCalBadges(records, periodoStart, periodoEnd, type) {
     const isEvento = c.record_type === 'evento';
     if (type === 'evento' && !isEvento) return false;
     if (type === 'campagna' && isEvento) return false;
+    if (isEvento && c.emporio_scope && currentEmporio && c.emporio_scope !== currentEmporio) return false;
     const cEnd = c.data_fine || c.data_inizio;
     return c.data_inizio <= periodoEnd && cEnd >= periodoStart;
   });
   if (!matches.length) return '–';
   return matches.map(c => {
     if (type === 'evento') {
-      return `<div style="line-height:1.7;font-size:10px"><span style="padding:1px 4px;border-radius:3px;background:#f0f9ff;color:#0ea5e9;font-weight:700;font-size:9px">Ev.</span> ${(c.titolo||'').slice(0,20)}</div>`;
+      return `<div style="line-height:1.7;font-size:10px"><span style="padding:1px 4px;border-radius:3px;background:#ccfbf1;color:#0d9488;font-weight:700;font-size:9px">Ev.</span> ${(c.titolo||'').slice(0,20)}</div>`;
     }
     const tc = TIPO_C[c.tipologia];
     const badge = tc ? `<span style="padding:1px 4px;border-radius:3px;background:${tc.bg};color:${tc.color};font-weight:700;font-size:9px;white-space:nowrap">${c.tipologia}</span> ` : '';
@@ -5368,7 +5369,7 @@ async function loadSettimanaleData() {
         .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,corrispettivi_25,num_scontrini_25')
         .in('chiave', chiavi),
       db.from('campagne_commerciali')
-        .select('titolo,tipologia,data_inizio,data_fine,settore,record_type')
+        .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
         .eq('anno', +anno),
       db.from('cassa_settimane_categorie')
         .select('*').eq('emporio', emporio).eq('iso_year', +anno)
@@ -5485,8 +5486,8 @@ async function loadSettimanaleData() {
       html += `<tr>
         <td class="number" style="color:#64748b;font-weight:700">${w.isoWeek}</td>
         <td style="font-size:11px;white-space:nowrap">${per}</td>
-        <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna')}</td>
-        <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento')}</td>
+        <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
+        <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
         <td class="number"><strong>${corrIE}</strong></td>
         <td class="number" style="color:#94a3b8">${corrIE25}</td>
         <td class="number">${w.sc > 0 ? w.sc : '–'}</td>
@@ -5629,7 +5630,7 @@ async function loadMensileData() {
         .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,corrispettivi_25,num_scontrini_25')
         .in('chiave', chiavi),
       db.from('campagne_commerciali')
-        .select('titolo,tipologia,data_inizio,data_fine,settore,record_type')
+        .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
         .eq('anno', +anno)
     ]);
     if (error) throw error;
@@ -5667,8 +5668,8 @@ async function loadMensileData() {
     for (let m = 1; m <= 12; m++) {
       const mStart = `${anno}-${String(m).padStart(2,'0')}-01`;
       const mEnd   = `${anno}-${String(m).padStart(2,'0')}-31`;
-      const campBadge = _renderCalBadges(campagne, mStart, mEnd, 'campagna');
-      const evBadge   = _renderCalBadges(campagne, mStart, mEnd, 'evento');
+      const campBadge = _renderCalBadges(campagne, mStart, mEnd, 'campagna', emporio);
+      const evBadge   = _renderCalBadges(campagne, mStart, mEnd, 'evento',   emporio);
       const w = monthMap.get(m);
       if (!w || w.corr === 0) {
         html += `<tr style="color:#94a3b8">
