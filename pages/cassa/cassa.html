@@ -5350,10 +5350,10 @@ async function loadSettimanaleData() {
   const anno    = document.getElementById('com-sett-anno').value;
   const tbody   = document.getElementById('com-sett-body');
   const thead   = document.getElementById('com-sett-thead');
-  // 4 fissi + 4 sc/pz + 5×5 cat + 2 corr + [2 budget] + 2 delta/saldo = 37 (senza budget), 39 (con budget)
+  // 4 fissi + 2 corr_ie + 4 sc/pz + 5×5 cat + 2 corr + [2 budget] + 2 delta/saldo = 39 (senza budget), 41 (con budget)
   const hasBudget = emporio === 'Reggio Emilia' && anno === '2026';
-  const NCOL_BASE = 37;
-  const ncol = hasBudget ? 39 : NCOL_BASE;
+  const NCOL_BASE = 39;
+  const ncol = hasBudget ? 41 : NCOL_BASE;
 
   if (!emporio) {
     tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio</td></tr>`;
@@ -5413,6 +5413,7 @@ async function loadSettimanaleData() {
       <th rowspan="2" style="text-align:left;width:82px;vertical-align:middle">Periodo</th>
       <th rowspan="2" style="text-align:left;width:82px;vertical-align:middle">Campagne</th>
       <th rowspan="2" style="text-align:left;width:72px;vertical-align:middle">Eventi</th>
+      <th colspan="2" style="text-align:center;border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">Corrispettivi I.E.</th>
       <th rowspan="2" class="number" style="width:46px;vertical-align:middle">N.Sc.<br>${anno}</th>
       <th rowspan="2" class="number" style="width:46px;vertical-align:middle">N.Sc.<br>${+anno-1}</th>
       <th rowspan="2" class="number" style="width:48px;vertical-align:middle;background:#f8fafc">N.Pz.<br>${anno}</th>
@@ -5424,7 +5425,11 @@ async function loadSettimanaleData() {
       ${hasBudget ? `<th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ Bud.</th>` : ''}
       <th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ<br>${+anno-1}</th>
       <th rowspan="2" class="number" style="width:63px;vertical-align:middle">Saldo</th>
-    </tr><tr>${catHdr2}</tr>`;
+    </tr><tr>
+      <th class="number" style="width:68px;font-size:9px;padding:4px 2px">Anno c.<br>I.E.</th>
+      <th class="number" style="width:68px;font-size:9px;padding:4px 2px">Anno p.<br>I.E.</th>
+      ${catHdr2}
+    </tr>`;
 
     let lastMonth = null;
     let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tBudget = 0, tSaldo = 0, tPz = 0, tPz25 = 0;
@@ -5475,11 +5480,15 @@ async function loadSettimanaleData() {
       }).join('');
       tPz += rowPz; tPz25 += rowPz25;
 
+      const corrIE   = w.corr   > 0 ? fmt(w.corr   / 1.22) : '–';
+      const corrIE25 = w.corr25 > 0 ? fmt(w.corr25 / 1.22) : '–';
       html += `<tr>
         <td class="number" style="color:#64748b;font-weight:700">${w.isoWeek}</td>
         <td style="font-size:11px;white-space:nowrap">${per}</td>
         <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna')}</td>
         <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento')}</td>
+        <td class="number"><strong>${corrIE}</strong></td>
+        <td class="number" style="color:#94a3b8">${corrIE25}</td>
         <td class="number">${w.sc > 0 ? w.sc : '–'}</td>
         <td class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
         <td class="number" id="pzt-${sKey}" style="background:#f8fafc">${rowPz > 0 ? rowPz : '–'}</td>
@@ -5513,6 +5522,8 @@ async function loadSettimanaleData() {
 
     html += `<tr class="total-row">
       <td colspan="4"><strong>TOTALE ANNO</strong></td>
+      <td class="number"><strong>${tCorr>0?fmt(tCorr/1.22):'–'}</strong></td>
+      <td class="number"><strong>${tCorr25>0?fmt(tCorr25/1.22):'–'}</strong></td>
       <td class="number"><strong>${tSc||'–'}</strong></td>
       <td class="number"><strong>${tSc25||'–'}</strong></td>
       <td class="number" style="background:#f8fafc"><strong>${tPz>0?tPz:'–'}</strong></td>
