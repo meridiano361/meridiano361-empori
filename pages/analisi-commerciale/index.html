@@ -517,8 +517,8 @@ async function loadSettimanaleData() {
     const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
     const thYears = (w1, w2, bg='', dw=0) => `<th class="number" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
     thead.innerHTML = `<tr>
-      <th rowspan="2" style="position:sticky;left:0;z-index:20;background:#fff;width:28px;text-align:center;vertical-align:middle">Sett.</th>
-      <th rowspan="2" style="position:sticky;left:28px;z-index:20;background:#fff;text-align:left;width:70px;vertical-align:middle;border-right:2px solid #94a3b8">Periodo</th>
+      <th id="sett-iso-col-th" rowspan="2" style="position:sticky;left:0;z-index:20;background:#fff;text-align:center;vertical-align:middle;white-space:normal">Sett.<br>ISO</th>
+      <th rowspan="2" class="sticky-periodo" style="position:sticky;z-index:20;background:#fff;text-align:left;width:70px;vertical-align:middle;border-right:2px solid #94a3b8">Periodo</th>
       ${thMacro('Campagne')}
       ${thMacro('Eventi')}
       ${thMacro('Corr IE', 3)}
@@ -539,6 +539,11 @@ async function loadSettimanaleData() {
         const h1 = rows[0].offsetHeight;
         rows[0].querySelectorAll('th').forEach(th => { th.style.top = '0px'; if (!th.style.background) th.style.background = '#fff'; });
         rows[1].querySelectorAll('th').forEach(th => { th.style.top = h1 + 'px'; th.style.background = '#fff'; });
+      }
+      const settTh = document.getElementById('sett-iso-col-th');
+      if (settTh) {
+        const settW = settTh.offsetWidth;
+        document.querySelectorAll('.sticky-periodo').forEach(el => { el.style.left = settW + 'px'; });
       }
     });
 
@@ -596,7 +601,7 @@ async function loadSettimanaleData() {
       const S = 'border-left:2px solid #94a3b8';
       html += `<tr>
         <td class="number" style="position:sticky;left:0;z-index:3;background:#fff;color:#64748b;font-weight:700">${w.isoWeek}</td>
-        <td style="position:sticky;left:28px;z-index:3;background:#fff;font-size:11px;white-space:nowrap;border-right:2px solid #94a3b8">${perShort}</td>
+        <td class="sticky-periodo" style="position:sticky;z-index:3;background:#fff;font-size:11px;white-space:nowrap;border-right:2px solid #94a3b8">${perShort}</td>
         <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
         <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
         <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
@@ -635,7 +640,7 @@ async function loadSettimanaleData() {
 
     html += `<tr class="total-row">
       <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
-      <td style="position:sticky;left:28px;z-index:3;background:#f8fafc;border-right:2px solid #94a3b8" colspan="5"><strong>TOTALE ANNO</strong></td>
+      <td class="sticky-periodo" style="position:sticky;z-index:3;background:#f8fafc;border-right:2px solid #94a3b8" colspan="5"><strong>TOTALE ANNO</strong></td>
       <td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmtK(tIE26):'–'}</strong></td>
       <td class="number" style="font-size:11px"><strong>${tIE25!=null?fmtK(tIE25):'–'}</strong></td>
       <td class="number" style="font-size:11px">${fD(tIED)}</td>
