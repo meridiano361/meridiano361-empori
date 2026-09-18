@@ -5328,11 +5328,14 @@ function _renderCalBadges(records, periodoStart, periodoEnd, type, currentEmpori
   if (!matches.length) return '–';
   return matches.map(c => {
     if (type === 'evento') {
-      return `<div style="line-height:1.7;font-size:10px"><span style="padding:1px 4px;border-radius:3px;background:#ccfbf1;color:#0d9488;font-weight:700;font-size:9px">Ev.</span> ${(c.titolo||'').slice(0,20)}</div>`;
+      return `<div style="line-height:1.7;font-size:10px" title="${(c.titolo||'').replace(/"/g,'&quot;')}"><span style="padding:1px 4px;border-radius:3px;background:#ccfbf1;color:#0d9488;font-weight:700;font-size:9px;cursor:default">Ev.</span> ${(c.titolo||'').slice(0,18)}</div>`;
     }
     const tc = TIPO_C[c.tipologia];
-    const badge = tc ? `<span style="padding:1px 4px;border-radius:3px;background:${tc.bg};color:${tc.color};font-weight:700;font-size:9px;white-space:nowrap">${c.tipologia}</span> ` : '';
-    return `<div style="line-height:1.7;font-size:10px">${badge}${(c.titolo||'').slice(0,20)}</div>`;
+    const label = c.tipologia || c.titolo?.slice(0,14) || '?';
+    const badgeStyle = tc
+      ? `background:${tc.bg};color:${tc.color}`
+      : `background:#f1f5f9;color:#475569`;
+    return `<div style="line-height:1.7;font-size:10px"><span title="${(c.titolo||'').replace(/"/g,'&quot;')}" style="padding:1px 5px;border-radius:3px;${badgeStyle};font-weight:700;font-size:9px;white-space:nowrap;cursor:default">${label}</span></div>`;
   }).join('');
 }
 
@@ -5351,10 +5354,10 @@ async function loadSettimanaleData() {
   const anno    = document.getElementById('com-sett-anno').value;
   const tbody   = document.getElementById('com-sett-body');
   const thead   = document.getElementById('com-sett-thead');
-  // 4 fissi + 2 corr_ie + 4 sc/pz + 5×5 cat + 2 corr + [2 budget] + 2 delta/saldo = 39 (senza budget), 41 (con budget)
+  // 2 fissi + 2 camp + 2 ev + 2 corr_ie + 2 sc + 2 pz + 5×5 cat + 2 corr + [2 budget] + 2 delta/saldo = 41 (senza budget), 43 (con budget)
   const hasBudget = emporio === 'Reggio Emilia' && anno === '2026';
-  const NCOL_BASE = 39;
-  const ncol = hasBudget ? 41 : NCOL_BASE;
+  const NCOL_BASE = 41;
+  const ncol = hasBudget ? 43 : NCOL_BASE;
 
   if (!emporio) {
     tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio</td></tr>`;
@@ -5364,18 +5367,23 @@ async function loadSettimanaleData() {
 
   try {
     const chiavi = chiaveYear(emporio, anno);
-    const [{ data: raw, error }, camRes, catRes] = await Promise.all([
+    const [{ data: raw, error }, camRes, cam25Res, catRes] = await Promise.all([
       db.from('cassa_giorni')
         .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,corrispettivi_25,num_scontrini_25')
         .in('chiave', chiavi),
       db.from('campagne_commerciali')
         .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
         .eq('anno', +anno),
+      db.from('campagne_commerciali')
+        .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
+        .eq('anno', +anno - 1),
       db.from('cassa_settimane_categorie')
         .select('*').eq('emporio', emporio).eq('iso_year', +anno)
     ]);
     if (error) throw error;
-    const campagne = camRes?.data || [];
+    const campagne   = camRes?.data   || [];
+    const campagne25 = cam25Res?.data || [];
+    const shiftY = d => d ? d.replace(/^\d{4}/, y => String(+y-1)) : null;
     const catMap = new Map();
     (catRes?.data || []).forEach(r => catMap.set(`${emporio}||${r.iso_year}||${r.settimana_iso}`, r));
 
@@ -5409,16 +5417,16 @@ async function loadSettimanaleData() {
       <th class="number" style="width:58px;font-size:9px;padding:4px 2px">V.I.E.<br>${+anno-1}</th>
       <th class="number" style="width:42px;font-size:9px;padding:4px 2px">Δ%</th>`
     ).join('');
+    const thMacro = (label) => `<th colspan="2" style="text-align:center;border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
+    const thYears = (w1, w2, extra='') => `<th class="number" style="width:${w1}px;font-size:9px;padding:4px 2px${extra}">${anno}</th><th class="number" style="width:${w2}px;font-size:9px;padding:4px 2px;color:#94a3b8${extra}">${+anno-1}</th>`;
     thead.innerHTML = `<tr>
       <th rowspan="2" style="width:28px;text-align:center;vertical-align:middle">Sett.</th>
-      <th rowspan="2" style="text-align:left;width:82px;vertical-align:middle">Periodo</th>
-      <th rowspan="2" style="text-align:left;width:82px;vertical-align:middle">Campagne</th>
-      <th rowspan="2" style="text-align:left;width:72px;vertical-align:middle">Eventi</th>
-      <th colspan="2" style="text-align:center;border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">Corrispettivi I.E.</th>
-      <th rowspan="2" class="number" style="width:46px;vertical-align:middle">N.Sc.<br>${anno}</th>
-      <th rowspan="2" class="number" style="width:46px;vertical-align:middle">N.Sc.<br>${+anno-1}</th>
-      <th rowspan="2" class="number" style="width:48px;vertical-align:middle;background:#f8fafc">N.Pz.<br>${anno}</th>
-      <th rowspan="2" class="number" style="width:48px;vertical-align:middle;background:#f8fafc">N.Pz.<br>${+anno-1}</th>
+      <th rowspan="2" style="text-align:left;width:70px;vertical-align:middle">Periodo</th>
+      ${thMacro('Campagne')}
+      ${thMacro('Eventi')}
+      ${thMacro('Corr. I.E.')}
+      ${thMacro('N. Scontrini')}
+      ${thMacro('N. Pezzi')}
       ${catHdr1}
       <th rowspan="2" class="number" style="width:66px;vertical-align:middle">Corr.<br>${+anno-1}</th>
       ${hasBudget ? `<th rowspan="2" class="number" style="color:#7c3aed;width:64px;vertical-align:middle">Budget<br>${anno}</th>` : ''}
@@ -5427,8 +5435,11 @@ async function loadSettimanaleData() {
       <th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ<br>${+anno-1}</th>
       <th rowspan="2" class="number" style="width:63px;vertical-align:middle">Saldo</th>
     </tr><tr>
-      <th class="number" style="width:68px;font-size:9px;padding:4px 2px">Anno c.<br>I.E.</th>
-      <th class="number" style="width:68px;font-size:9px;padding:4px 2px">Anno p.<br>I.E.</th>
+      ${thYears(78, 78)}
+      ${thYears(68, 68)}
+      ${thYears(62, 62, ';border-left:1px solid #e2e8f0')}
+      ${thYears(44, 44)}
+      ${thYears(44, 44, ';background:#f8fafc')}
       ${catHdr2}
     </tr>`;
 
@@ -5483,11 +5494,15 @@ async function loadSettimanaleData() {
 
       const corrIE   = w.corr   > 0 ? fmt(w.corr   / 1.22) : '–';
       const corrIE25 = w.corr25 > 0 ? fmt(w.corr25 / 1.22) : '–';
+      const fmtPer = (d) => { const [,m,g] = d.split('-'); return `${g}/${m}`; };
+      const perShort = `${fmtPer(w.minDate)}-${fmtPer(w.maxDate)}`;
       html += `<tr>
         <td class="number" style="color:#64748b;font-weight:700">${w.isoWeek}</td>
-        <td style="font-size:11px;white-space:nowrap">${per}</td>
+        <td style="font-size:11px;white-space:nowrap">${perShort}</td>
         <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
+        <td style="vertical-align:top;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
         <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
+        <td style="vertical-align:top;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'evento',emporio)}</td>
         <td class="number"><strong>${corrIE}</strong></td>
         <td class="number" style="color:#94a3b8">${corrIE25}</td>
         <td class="number">${w.sc > 0 ? w.sc : '–'}</td>
@@ -5522,7 +5537,7 @@ async function loadSettimanaleData() {
     }).join('');
 
     html += `<tr class="total-row">
-      <td colspan="4"><strong>TOTALE ANNO</strong></td>
+      <td colspan="6"><strong>TOTALE ANNO</strong></td>
       <td class="number"><strong>${tCorr>0?fmt(tCorr/1.22):'–'}</strong></td>
       <td class="number"><strong>${tCorr25>0?fmt(tCorr25/1.22):'–'}</strong></td>
       <td class="number"><strong>${tSc||'–'}</strong></td>
