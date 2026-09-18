@@ -164,6 +164,9 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 .sito-btn{padding:4px 7px;border-radius:6px;border:1.5px solid #d1d5db;background:white;cursor:pointer;font-size:11px;font-weight:700;transition:all .12s;}
 .sito-btn.active-m361{background:#B5453A;color:white;border-color:#B5453A;}
 .sito-btn.active-oe{background:#1d4ed8;color:white;border-color:#1d4ed8;}
+.sito-btns-warn .sito-btn{border-color:#f59e0b;animation:sito-shake .25s ease;}
+@keyframes sito-shake{0%,100%{transform:translateX(0)}33%{transform:translateX(-3px)}66%{transform:translateX(3px)}}
+.online-sito-warn{display:none;font-size:11px;font-weight:700;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:5px 10px;flex:1;line-height:1.4;}
 .online-note-sum-row{font-size:11px;margin:2px 0 6px;font-weight:600;}
 .online-sum-ok{color:#16a34a;}.online-sum-err{color:#dc2626;}
 .online-note-add-btn{width:100%;background:none;border:1.5px dashed #cbd5e1;color:#94a3b8;border-radius:8px;padding:5px;font-size:11px;cursor:pointer;margin-bottom:6px;}
@@ -2309,6 +2312,8 @@ function renderOnlineEditor(turno, id, label, area, btn) {
     ed.append(liberaLbl, liberaTa);
 
     const actRow = document.createElement('div'); actRow.className='online-note-actions';
+    const warnEl = document.createElement('div'); warnEl.className='online-sito-warn';
+    warnEl.innerHTML='<i class="fas fa-triangle-exclamation"></i> Specifica <strong>M361</strong> o <strong>OE</strong> per ogni voce prima di salvare.';
     const saveBtn = document.createElement('button');
     saveBtn.type='button'; saveBtn.className='online-save-btn';
     saveBtn.innerHTML='<i class="fas fa-check"></i> Salva';
@@ -2316,7 +2321,18 @@ function renderOnlineEditor(turno, id, label, area, btn) {
       const filtrate = voci.filter(v=>v.importo||v.nome||v.sito);
       const senzaSito = filtrate.filter(v=>!v.sito);
       if (senzaSito.length) {
-        alert('Seleziona OE o M361 per tutte le voci prima di salvare.');
+        warnEl.style.display = '';
+        area.querySelectorAll('.online-note-voce').forEach((vr, i) => {
+          const sw = vr.querySelector('.sito-btns');
+          if (!sw) return;
+          if (voci[i] && !voci[i].sito && (voci[i].importo || voci[i].nome)) {
+            sw.classList.add('sito-btns-warn');
+            // forza re-trigger animazione
+            void sw.offsetWidth;
+          } else {
+            sw.classList.remove('sito-btns-warn');
+          }
+        });
         return;
       }
       commitOnlineNote(turno,id,{ voci: filtrate, libera },area,btn);
@@ -2324,7 +2340,7 @@ function renderOnlineEditor(turno, id, label, area, btn) {
     const colBtn = document.createElement('button');
     colBtn.type='button'; colBtn.className='note-collapse-btn'; colBtn.textContent='−';
     colBtn.addEventListener('click',()=>area.classList.add('hidden'));
-    actRow.append(saveBtn,colBtn); ed.appendChild(actRow);
+    actRow.append(warnEl, saveBtn, colBtn); ed.appendChild(actRow);
     area.appendChild(ed);
     updateSum();
   }
