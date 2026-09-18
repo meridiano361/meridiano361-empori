@@ -4300,10 +4300,15 @@ function normCassa(rows) {
   return rows.map(r => {
     const p = r.chiave.split('_');
     const day = +p[p.length-1], mon = +p[p.length-2], yr = +p[p.length-3];
+    // Se pom > 0 è la chiusura definitiva del giorno (il mattino era parziale): usa solo pom.
+    // Se pom = 0 (solo mattino o solo pomeriggio senza mattino), usa mat.
+    const hasPom = (parseFloat(r.pom_corrispettivi) || 0) > 0;
     return { ...r,
       _day: day,
       data: `${yr}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`,
-      totale_corrispettivi: n2(r.mat_corrispettivi,      r.pom_corrispettivi),
+      totale_corrispettivi: hasPom
+        ? (parseFloat(r.pom_corrispettivi) || 0)
+        : (parseFloat(r.mat_corrispettivi) || 0),
       contanti:             n2(r.mat_contanti_netti,      r.pom_contanti_netti),
       bancomat:             n2(r.mat_pay_bancomat,        r.pom_pay_bancomat),
       carte_credito:        n2(r.mat_pay_carte,           r.pom_pay_carte),
