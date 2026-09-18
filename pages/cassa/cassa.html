@@ -5332,11 +5332,11 @@ function _renderCalBadges(records, periodoStart, periodoEnd, type, currentEmpori
     }
     const tc = TIPO_C[c.tipologia];
     const letter = (c.tipologia || '?')[0].toUpperCase();
-    const tooltip = [c.tipologia, c.titolo].filter(Boolean).join(' – ').replace(/"/g,'&quot;');
+    const detail = [c.tipologia, c.titolo].filter(Boolean).join(' – ').replace(/'/g,"\\'");
     const badgeStyle = tc
       ? `background:${tc.bg};color:${tc.color}`
       : `background:#f1f5f9;color:#475569`;
-    return `<div style="line-height:1.7;font-size:10px"><span title="${tooltip}" style="padding:1px 5px;border-radius:3px;${badgeStyle};font-weight:800;font-size:10px;cursor:default">${letter}</span></div>`;
+    return `<div style="line-height:1.7;font-size:10px"><span onclick="showToastM361('${detail}','info',4000)" style="padding:1px 5px;border-radius:3px;${badgeStyle};font-weight:800;font-size:10px;cursor:pointer">${letter}</span></div>`;
   }).join('');
 }
 
@@ -5445,6 +5445,15 @@ async function loadSettimanaleData() {
       ${thYears(44, 44, ';background:#f8fafc')}
       ${catHdr2}
     </tr>`;
+    // Sticky header a 2 righe: riga 2 deve avere top = altezza riga 1
+    requestAnimationFrame(() => {
+      const rows = thead.querySelectorAll('tr');
+      if (rows.length >= 2) {
+        const h1 = rows[0].offsetHeight;
+        rows[0].querySelectorAll('th').forEach(th => { th.style.top = '0px'; th.style.background = '#fff'; });
+        rows[1].querySelectorAll('th').forEach(th => { th.style.top = h1 + 'px'; th.style.background = '#fff'; });
+      }
+    });
 
     let lastMonth = null;
     let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tBudget = 0, tSaldo = 0, tPz = 0, tPz25 = 0;
