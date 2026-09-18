@@ -228,7 +228,7 @@ select.btn-export{cursor:pointer;}
         Nessun dato per il periodo selezionato
       </div>
 
-      <div class="charts-grid" id="grf-charts">
+      <div class="charts-grid" id="grf-charts" style="display:none">
         <div class="chart-card">
           <div class="chart-title"><i class="fas fa-box-open" style="color:#B5453A"></i> Pezzi venduti per categoria</div>
           <div class="chart-canvas-wrap"><canvas id="chart-pezzi"></canvas></div>
@@ -1051,13 +1051,15 @@ async function loadGraficiData() {
 
     let filtered = rows || [];
 
-    // Filtra per mese: converti monday della settimana e controlla il mese
+    // Filtra per mese: includi la settimana se il giovedì (giorno centrale) cade nel mese target.
+    // Questo è coerente con lo standard ISO (che usa il giovedì per assegnare l'anno alla settimana)
+    // e con la vista Settimanale che raggruppa per primo giorno aperto (tipicamente il lunedì).
     if (granularita === 'mese') {
       const meseTarget = parseInt(meseEl.value);
       filtered = filtered.filter(r => {
-        const monday = isoWeekStart(r.iso_year, r.settimana_iso);
-        const m = parseInt(monday.split('-')[1]);
-        return m === meseTarget;
+        const monday = new Date(isoWeekStart(r.iso_year, r.settimana_iso) + 'T00:00:00');
+        const thursday = new Date(monday); thursday.setDate(monday.getDate() + 3);
+        return thursday.getMonth() + 1 === meseTarget;
       });
     }
 
@@ -1159,10 +1161,21 @@ window.addEventListener('load', () => {
   if (meseM) meseM.value = String(oggi.getMonth()+1).padStart(2,'0');
   if (annoM) annoM.value = String(oggi.getFullYear());
 
+  // Anno grafici: forza anno corrente (il browser potrebbe ripristinare un anno precedente)
+  const grfAnno = document.getElementById('grf-anno');
+  if (grfAnno) grfAnno.value = String(oggi.getFullYear());
+
   const grfMese = document.getElementById('grf-mese');
   if (grfMese) grfMese.value = String(oggi.getMonth()+1);
   const grfSett = document.getElementById('grf-settimana');
   if (grfSett) grfSett.value = String(isoWeekNum(oggi.toISOString().slice(0,10)));
+
+  // Applica la visibilità corretta di mese/settimana in base alla granularità
+  // (il browser può ripristinare il valore del select ma i display rimangono 'none')
+  const grfGran = document.getElementById('grf-granularita');
+  const granVal = grfGran ? grfGran.value : 'anno';
+  if (grfMese) grfMese.style.display = granVal === 'mese'      ? '' : 'none';
+  if (grfSett) grfSett.style.display = granVal === 'settimana' ? '' : 'none';
 
   // Filtro emporio per operatori non-admin
   if (typeof isAdmin === 'function' && !isAdmin()) {
