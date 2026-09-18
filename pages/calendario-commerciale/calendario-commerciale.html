@@ -92,6 +92,33 @@
     /* Spinner */
     .spinner { width:24px; height:24px; border:3px solid #e2e8f0; border-top-color:#B5453A; border-radius:50%; animation:spin .8s linear infinite; margin:32px auto; display:block; }
     @keyframes spin { to{transform:rotate(360deg)} }
+
+    /* Admin action buttons */
+    .cc-admin-bar { display:none; gap:8px; padding:8px 18px 10px; border-top:1.5px solid #f1f5f9; }
+    .cc-admin-bar.visible { display:flex; }
+    .cc-admin-btn { padding:7px 14px; border-radius:10px; font-size:12px; font-weight:800; cursor:pointer; border:1.5px solid; font-family:'Nunito',sans-serif; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
+    .cc-admin-btn.campagna { background:#fdf1f0; border-color:#B5453A; color:#B5453A; }
+    .cc-admin-btn.campagna:hover { background:#B5453A; color:#fff; }
+    .cc-admin-btn.evento { background:#f0f9ff; border-color:#0ea5e9; color:#0ea5e9; }
+    .cc-admin-btn.evento:hover { background:#0ea5e9; color:#fff; }
+
+    /* Modal */
+    .cc-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:500; align-items:center; justify-content:center; padding:16px; }
+    .cc-modal-overlay.open { display:flex; }
+    .cc-modal { background:#fff; border-radius:18px; padding:22px 20px 20px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
+    .cc-modal-title { font-size:16px; font-weight:900; color:#1e293b; margin-bottom:18px; display:flex; align-items:center; gap:8px; }
+    .cc-field { margin-bottom:14px; }
+    .cc-field label { display:block; font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px; }
+    .cc-field input,.cc-field select,.cc-field textarea { width:100%; border:1.5px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:13px; font-family:'Nunito',sans-serif; font-weight:600; outline:none; box-sizing:border-box; }
+    .cc-field input:focus,.cc-field select:focus,.cc-field textarea:focus { border-color:#B5453A; }
+    .cc-field textarea { resize:vertical; min-height:70px; }
+    .cc-modal-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .cc-modal-actions { display:flex; gap:8px; margin-top:18px; }
+    .cc-modal-save { flex:1; background:#B5453A; color:#fff; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; }
+    .cc-modal-save:hover { background:#9e3a2f; }
+    .cc-modal-cancel { background:#f1f5f9; color:#64748b; border:none; border-radius:10px; padding:12px 16px; font-size:13px; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; }
+    .cc-modal-cancel:hover { background:#e2e8f0; }
+    .cc-modal-msg { font-size:12px; font-weight:700; margin-top:10px; min-height:18px; }
   </style>
 </head>
 <body>
@@ -110,6 +137,23 @@
   <div class="cc-filters" id="settore-filters"></div>
 
   <div class="cc-stats" id="cc-stats"></div>
+  <div class="cc-admin-bar" id="cc-admin-bar">
+    <button class="cc-admin-btn campagna" onclick="openCCModal('campagna')"><i class="fas fa-plus"></i> Nuova campagna</button>
+    <button class="cc-admin-btn evento" onclick="openCCModal('evento')"><i class="fas fa-plus"></i> Nuovo evento</button>
+  </div>
+</div>
+
+<!-- Modal nuova campagna / nuovo evento -->
+<div class="cc-modal-overlay" id="cc-modal">
+  <div class="cc-modal">
+    <div class="cc-modal-title" id="cc-modal-title"></div>
+    <div id="cc-modal-body"></div>
+    <div class="cc-modal-actions">
+      <button class="cc-modal-cancel" onclick="closeCCModal()">Annulla</button>
+      <button class="cc-modal-save" onclick="saveCCRecord()">Salva</button>
+    </div>
+    <div class="cc-modal-msg" id="cc-modal-msg"></div>
+  </div>
 </div>
 
 <div class="cc-gantt-wrap">
@@ -190,6 +234,7 @@ async function init() {
   if (!u) { window.location.href = '/login.html'; return; }
   _adminUser = ['admin','dipendente'].includes(u.ruolo) || !!(u.is_full_admin);
   _userPdv   = _adminUser ? null : (EMPORIO_TO_PDV[u.emporio] || null);
+  if (_adminUser) document.getElementById('cc-admin-bar').classList.add('visible');
   console.log('[CC] ruolo:', u.ruolo, '| emporio:', u.emporio, '| _userPdv:', _userPdv, '| _adminUser:', _adminUser);
   await loadAvailableYears();
   buildYearTabs();
@@ -461,6 +506,100 @@ function fmtDate(s) {
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ── Modal nuova campagna / nuovo evento ──────────────────────────────────────
+let _ccModalType = null;
+
+function openCCModal(type) {
+  _ccModalType = type;
+  const modal = document.getElementById('cc-modal');
+  const title = document.getElementById('cc-modal-title');
+  const body  = document.getElementById('cc-modal-body');
+  const msg   = document.getElementById('cc-modal-msg');
+  msg.textContent = '';
+  msg.style.color = '';
+
+  if (type === 'campagna') {
+    title.innerHTML = '<i class="fas fa-tag" style="color:#B5453A"></i> Nuova campagna';
+    body.innerHTML = `
+      <div class="cc-field"><label>Titolo *</label><input id="cc-f-titolo" type="text" placeholder="Nome della campagna"></div>
+      <div class="cc-modal-row">
+        <div class="cc-field"><label>Tipologia</label><select id="cc-f-tipo">
+          <option value="">–</option>
+          <option>Promo</option><option>Focus</option><option>Prenotazione</option><option>Saldi</option><option>Flash</option>
+        </select></div>
+        <div class="cc-field"><label>Settore</label><select id="cc-f-settore">
+          <option value="">–</option>
+          <option value="A">Alimentari</option><option value="N">Cosmetica</option><option value="M">Moda</option>
+          <option value="C">Casa</option><option value="G">Generale</option>
+        </select></div>
+      </div>
+      <div class="cc-modal-row">
+        <div class="cc-field"><label>Data inizio</label><input id="cc-f-inizio" type="date"></div>
+        <div class="cc-field"><label>Data fine</label><input id="cc-f-fine" type="date"></div>
+      </div>
+      <div class="cc-field"><label>Meccanica</label><textarea id="cc-f-meccanica" placeholder="Descrizione meccanica promozione…"></textarea></div>`;
+  } else {
+    title.innerHTML = '<i class="fas fa-calendar-star" style="color:#0ea5e9"></i> Nuovo evento';
+    body.innerHTML = `
+      <div class="cc-field"><label>Titolo *</label><input id="cc-f-titolo" type="text" placeholder="Nome dell'evento"></div>
+      <div class="cc-modal-row">
+        <div class="cc-field"><label>Data inizio</label><input id="cc-f-inizio" type="date"></div>
+        <div class="cc-field"><label>Data fine</label><input id="cc-f-fine" type="date"></div>
+      </div>
+      <div class="cc-field"><label>Note</label><textarea id="cc-f-meccanica" placeholder="Descrizione o note sull'evento…"></textarea></div>`;
+  }
+
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('cc-f-titolo')?.focus(), 80);
+}
+
+function closeCCModal() {
+  document.getElementById('cc-modal').classList.remove('open');
+  _ccModalType = null;
+}
+
+async function saveCCRecord() {
+  const msg    = document.getElementById('cc-modal-msg');
+  const titolo = document.getElementById('cc-f-titolo')?.value.trim();
+  if (!titolo) { msg.style.color='#dc2626'; msg.textContent='Il titolo è obbligatorio.'; return; }
+
+  const inizio  = document.getElementById('cc-f-inizio')?.value || null;
+  const fine    = document.getElementById('cc-f-fine')?.value   || null;
+  const mecc    = document.getElementById('cc-f-meccanica')?.value.trim() || null;
+  const annoVal = inizio ? parseInt(inizio.split('-')[0]) : parseInt(currentYear);
+
+  const payload = {
+    titolo,
+    anno: annoVal,
+    data_inizio: inizio,
+    data_fine:   fine,
+    record_type: _ccModalType
+  };
+  if (mecc) payload.meccanica = mecc;
+
+  if (_ccModalType === 'campagna') {
+    const tipo    = document.getElementById('cc-f-tipo')?.value    || null;
+    const settore = document.getElementById('cc-f-settore')?.value || null;
+    if (tipo)    payload.tipologia = tipo;
+    if (settore) payload.settore   = settore;
+  }
+
+  msg.style.color = '#64748b'; msg.textContent = 'Salvataggio…';
+  const { error } = await _sb.from('campagne_commerciali').insert(payload);
+  if (error) {
+    msg.style.color = '#dc2626'; msg.textContent = 'Errore: ' + error.message;
+    return;
+  }
+  msg.style.color = '#16a34a'; msg.textContent = '✓ Salvato!';
+  delete _eventi[String(annoVal)];
+  if (String(annoVal) === currentYear) await loadEventi();
+  setTimeout(closeCCModal, 900);
+}
+
+document.getElementById('cc-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeCCModal();
+});
 
 if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
 else init();
