@@ -277,6 +277,9 @@ function getCurrentPageId(){ return 'calendario'; }
       <button class="view-seg-btn active" id="vs-cal" onclick="setView('cal')"><i class="fas fa-calendar-days"></i> Calendario</button>
       <button class="view-seg-btn" id="vs-tbl" onclick="setView('tbl')"><i class="fas fa-table"></i> Tabella</button>
     </div>
+    <button id="btn-nuova-evento" onclick="openEventoForm()" class="btn-prim" style="display:flex;align-items:center;gap:8px;white-space:nowrap;background:#0ea5e9">
+      <i class="fas fa-plus"></i> Nuovo evento
+    </button>
     <button id="btn-nuova" onclick="openForm()" class="btn-prim" style="display:flex;align-items:center;gap:8px;white-space:nowrap">
       <i class="fas fa-plus"></i> Nuova campagna
     </button>
@@ -494,6 +497,47 @@ function getCurrentPageId(){ return 'calendario'; }
       <div style="display:flex;gap:8px;margin-left:auto">
         <button onclick="closeForm()" class="btn-ghost">Annulla</button>
         <button onclick="saveEvento()" class="btn-prim">Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUOVO EVENTO -->
+<div id="ev-evento-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99997;align-items:center;justify-content:center;padding:16px;font-family:'Nunito',sans-serif" onclick="if(event.target===this)closeEventoForm()">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.22)">
+    <div style="background:#0ea5e9;color:#fff;padding:16px 20px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px">
+      <i class="fas fa-calendar-star"></i>
+      <span>Nuovo evento</span>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:800;color:var(--s400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Titolo *</label>
+        <input id="ev-titolo" type="text" placeholder="Nome dell'evento" autocomplete="off"
+          style="width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font:700 14px 'Nunito',sans-serif;outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='var(--s200)'">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--s400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Data inizio</label>
+          <input id="ev-inizio" type="date" style="width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:9px 10px;font:600 13px 'Nunito',sans-serif;outline:none;box-sizing:border-box"
+            onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='var(--s200)'">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--s400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Data fine</label>
+          <input id="ev-fine" type="date" style="width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:9px 10px;font:600 13px 'Nunito',sans-serif;outline:none;box-sizing:border-box"
+            onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='var(--s200)'">
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:800;color:var(--s400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Note</label>
+        <textarea id="ev-note" rows="3" placeholder="Descrizione o note sull'evento…"
+          style="width:100%;border:1.5px solid var(--s200);border-radius:9px;padding:10px 12px;font:600 13px 'Nunito',sans-serif;outline:none;resize:vertical;box-sizing:border-box"
+          onfocus="this.style.borderColor='#0ea5e9'" onblur="this.style.borderColor='var(--s200)'"></textarea>
+      </div>
+      <div id="ev-evento-msg" style="font-size:12px;font-weight:700;min-height:16px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeEventoForm()" style="background:var(--s100);color:var(--s600);border:none;border-radius:9px;padding:11px 16px;font:800 13px 'Nunito',sans-serif;cursor:pointer">Annulla</button>
+        <button onclick="saveEventoRecord()" style="flex:1;background:#0ea5e9;color:#fff;border:none;border-radius:9px;padding:11px;font:800 14px 'Nunito',sans-serif;cursor:pointer">Salva evento</button>
       </div>
     </div>
   </div>
@@ -1239,6 +1283,40 @@ async function deleteEventoDirect(evId, evt){
   const {error}=await _sb.from('campagne_commerciali').delete().eq('id',evId);
   if(error){ showToastM361('Errore eliminazione','error'); return; }
   showToastM361('Campagna eliminata','success');
+  loadEventi();
+}
+
+/* ── NUOVO EVENTO ── */
+function openEventoForm(){
+  if(!_canEdit){ showToastM361('Non hai i permessi per aggiungere eventi','warning'); return; }
+  document.getElementById('ev-titolo').value = '';
+  document.getElementById('ev-inizio').value = '';
+  document.getElementById('ev-fine').value   = '';
+  document.getElementById('ev-note').value   = '';
+  const m = document.getElementById('ev-evento-modal');
+  m.style.display = 'flex';
+}
+
+function closeEventoForm(){
+  document.getElementById('ev-evento-modal').style.display = 'none';
+}
+
+async function saveEventoRecord(){
+  if(!_canEdit || !_sb) return;
+  const titolo = document.getElementById('ev-titolo').value.trim();
+  if(!titolo){ showToastM361('Inserisci il titolo','warning'); return; }
+  const row = {
+    anno:        _annoAttivo,
+    titolo:      titolo.toUpperCase(),
+    data_inizio: document.getElementById('ev-inizio').value || null,
+    data_fine:   document.getElementById('ev-fine').value   || null,
+    meccanica:   document.getElementById('ev-note').value.trim() || null,
+    record_type: 'evento',
+  };
+  const {error} = await _sb.from('campagne_commerciali').insert([row]);
+  if(error){ showToastM361('Errore salvataggio evento','error'); return; }
+  closeEventoForm();
+  showToastM361('Evento aggiunto','success');
   loadEventi();
 }
 
