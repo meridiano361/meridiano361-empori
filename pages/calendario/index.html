@@ -507,7 +507,7 @@ function getCurrentPageId(){ return 'calendario'; }
   <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.22)">
     <div style="background:#475569;color:#fff;padding:16px 20px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px">
       <i class="fas fa-calendar-star"></i>
-      <span>Nuovo evento</span>
+      <span id="ev-modal-title">Nuovo evento</span>
     </div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
       <div>
@@ -548,6 +548,7 @@ function getCurrentPageId(){ return 'calendario'; }
       </div>
       <div id="ev-evento-msg" style="font-size:12px;font-weight:700;min-height:16px"></div>
       <div style="display:flex;gap:8px">
+        <button id="ev-del-btn" onclick="deleteEventoRecord()" style="display:none;background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:9px;padding:11px 14px;font:800 13px 'Nunito',sans-serif;cursor:pointer"><i class="fas fa-trash" style="margin-right:5px"></i>Elimina</button>
         <button onclick="closeEventoForm()" style="background:var(--s100);color:var(--s600);border:none;border-radius:9px;padding:11px 16px;font:800 13px 'Nunito',sans-serif;cursor:pointer">Annulla</button>
         <button onclick="saveEventoRecord()" style="flex:1;background:#475569;color:#fff;border:none;border-radius:9px;padding:11px;font:800 14px 'Nunito',sans-serif;cursor:pointer">Salva evento</button>
       </div>
@@ -1170,8 +1171,9 @@ function closeDetail(){
 
 function openForm(evId){
   if(!_canEdit){ showToastM361('Non hai i permessi per modificare campagne','warning'); return; }
-  _editId=evId||null;
   const ev=evId?_eventi.find(e=>e.id===evId):null;
+  if(ev?.record_type==='evento'){ openEventoEditForm(ev); return; }
+  _editId=evId||null;
   document.getElementById('modal-title').textContent=evId?'Modifica campagna':'Nuova campagna';
   document.getElementById('f-del-btn').style.display=(evId&&_canEdit)?'block':'none';
 
@@ -1307,21 +1309,37 @@ async function deleteEventoDirect(evId, evt){
   loadEventi();
 }
 
-/* ── NUOVO EVENTO ── */
+/* ── EVENTO: crea / modifica / elimina ── */
+let _editEventoId = null;
+
+function _openEventoModal(ev){
+  document.getElementById('ev-titolo').value = ev?.titolo||'';
+  document.getElementById('ev-inizio').value = ev?.data_inizio||'';
+  document.getElementById('ev-fine').value   = ev?.data_fine||'';
+  document.getElementById('ev-note').value   = ev?.meccanica||'';
+  document.getElementById('ev-scope').value  = ev?.emporio_scope||'';
+  document.getElementById('ev-modal-title').textContent = ev ? 'Modifica evento' : 'Nuovo evento';
+  document.getElementById('ev-del-btn').style.display = ev ? 'block' : 'none';
+  document.getElementById('ev-evento-modal').style.display = 'flex';
+}
+
 function openEventoForm(){
   if(!_canEdit){ showToastM361('Non hai i permessi per aggiungere eventi','warning'); return; }
-  document.getElementById('ev-titolo').value = '';
-  document.getElementById('ev-inizio').value = '';
-  document.getElementById('ev-fine').value   = '';
-  document.getElementById('ev-note').value   = '';
+  _editEventoId = null;
   const u = JSON.parse(localStorage.getItem('m361_user')||'null');
-  document.getElementById('ev-scope').value  = u?.emporio || '';
-  const m = document.getElementById('ev-evento-modal');
-  m.style.display = 'flex';
+  _openEventoModal(null);
+  document.getElementById('ev-scope').value = u?.emporio || '';
+}
+
+function openEventoEditForm(ev){
+  if(!_canEdit){ showToastM361('Non hai i permessi per modificare eventi','warning'); return; }
+  _editEventoId = ev.id;
+  _openEventoModal(ev);
 }
 
 function closeEventoForm(){
   document.getElementById('ev-evento-modal').style.display = 'none';
+  _editEventoId = null;
 }
 
 async function saveEventoRecord(){
@@ -1338,10 +1356,27 @@ async function saveEventoRecord(){
     record_type:    'evento',
     emporio_scope:  scope || null,
   };
-  const {error} = await _sb.from('campagne_commerciali').insert([row]);
+  let error;
+  if(_editEventoId){
+    ({error} = await _sb.from('campagne_commerciali').update(row).eq('id',_editEventoId));
+  } else {
+    ({error} = await _sb.from('campagne_commerciali').insert([row]));
+  }
   if(error){ showToastM361('Errore salvataggio evento','error'); return; }
   closeEventoForm();
-  showToastM361('Evento aggiunto','success');
+  showToastM361(_editEventoId ? 'Evento aggiornato' : 'Evento aggiunto','success');
+  loadEventi();
+}
+
+async function deleteEventoRecord(){
+  if(!_canEdit || !_editEventoId || !_sb) return;
+  const ev = _eventi.find(e=>e.id===_editEventoId);
+  const ok = await m361Confirm(`Eliminare "${ev?.titolo}"?`,'Elimina evento','Elimina','Annulla','error');
+  if(!ok) return;
+  const {error} = await _sb.from('campagne_commerciali').delete().eq('id',_editEventoId);
+  if(error){ showToastM361('Errore eliminazione','error'); return; }
+  closeEventoForm();
+  showToastM361('Evento eliminato','success');
   loadEventi();
 }
 
