@@ -5356,10 +5356,9 @@ async function loadSettimanaleData() {
   const anno    = document.getElementById('com-sett-anno').value;
   const tbody   = document.getElementById('com-sett-body');
   const thead   = document.getElementById('com-sett-thead');
-  // 2 fissi + 2 camp + 2 ev + 2 corr_ie + 2 sc + 2 pz + 5×5 cat + 2 corr + [2 budget] + 2 delta/saldo = 41 (senza budget), 43 (con budget)
-  const hasBudget = emporio === 'Reggio Emilia' && anno === '2026';
-  const NCOL_BASE = 41;
-  const ncol = hasBudget ? 43 : NCOL_BASE;
+  // 2 fissi + 2 camp + 2 ev + 3 corrIE + 3 sc + 3 pz + 5×5 cat = 40
+  const NCOL_BASE = 40;
+  const ncol = NCOL_BASE;
 
   if (!emporio) {
     tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio</td></tr>`;
@@ -5422,29 +5421,23 @@ async function loadSettimanaleData() {
       <th class="number" style="width:48px;font-size:9px;padding:4px 2px">IE<br>${a1}</th>
       <th class="number" style="width:42px;font-size:9px;padding:4px 2px">Δ%</th>`
     ).join('');
-    const thMacro = (label) => `<th colspan="2" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
-    const thYears = (w1, w2, bg='') => `<th class="number" style="width:${w1}px;font-size:9px;padding:4px 2px;${SEP}${bg}">${a2}</th><th class="number" style="width:${w2}px;font-size:9px;padding:4px 2px;color:#94a3b8${bg}">${a1}</th>`;
+    const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
+    const thYears = (w1, w2, bg='', delta=false) => `<th class="number" style="width:${w1}px;font-size:9px;padding:4px 2px;${SEP}${bg}">${a2}</th><th class="number" style="width:${w2}px;font-size:9px;padding:4px 2px;color:#94a3b8${bg}">${a1}</th>${delta?`<th class="number" style="width:40px;font-size:9px;padding:4px 2px">Δ%</th>`:''}`;
     thead.innerHTML = `<tr>
       <th rowspan="2" style="width:28px;text-align:center;vertical-align:middle">Sett.</th>
       <th rowspan="2" style="text-align:left;width:70px;vertical-align:middle">Periodo</th>
       ${thMacro('Campagne')}
       ${thMacro('Eventi')}
-      ${thMacro('Corr IE')}
-      ${thMacro('N SF')}
-      ${thMacro('N Pz')}
+      ${thMacro('Corr IE', 3)}
+      ${thMacro('N SF', 3)}
+      ${thMacro('N Pz', 3)}
       ${catHdr1}
-      <th rowspan="2" class="number" style="width:66px;vertical-align:middle;${SEP}">Corr<br>${a1}</th>
-      ${hasBudget ? `<th rowspan="2" class="number" style="color:#7c3aed;width:64px;vertical-align:middle">Budget<br>${a2}</th>` : ''}
-      <th rowspan="2" class="number" style="width:66px;vertical-align:middle">Eff<br>${a2}</th>
-      ${hasBudget ? `<th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ Bud.</th>` : ''}
-      <th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ<br>${a1}</th>
-      <th rowspan="2" class="number" style="width:63px;vertical-align:middle">Saldo</th>
     </tr><tr>
       ${thYears(78, 78)}
       ${thYears(68, 68)}
-      ${thYears(62, 62)}
-      ${thYears(44, 44)}
-      ${thYears(44, 44, ';background:#f8fafc')}
+      ${thYears(62, 62, '', true)}
+      ${thYears(44, 44, '', true)}
+      ${thYears(44, 44, ';background:#f8fafc', true)}
       ${catHdr2}
     </tr>`;
     // Sticky header a 2 righe: riga 2 deve avere top = altezza riga 1
@@ -5457,8 +5450,9 @@ async function loadSettimanaleData() {
       }
     });
 
+    const fD = v => v != null ? `<span style="color:${v>=0?'#16a34a':'#dc2626'};font-weight:600">${(v>0?'+':'')+v.toFixed(1)}%</span>` : '<span style="color:#94a3b8">–</span>';
     let lastMonth = null;
-    let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tBudget = 0, tSaldo = 0, tPz = 0, tPz25 = 0;
+    let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tPz = 0, tPz25 = 0;
     const catTot = {};
     _CAT_KEYS.forEach(k => { catTot[k] = {pz:0,pz25:0,vie:0,vie25:0}; });
     let html = '';
@@ -5471,17 +5465,11 @@ async function loadSettimanaleData() {
         lastMonth = meseName;
       }
 
-      const budget   = hasBudget ? (BUDGET_RE_2026[w.isoWeek] ?? null) : null;
-      const saldo    = (budget != null) ? w.corr - budget : null;
-      const deltaBud = (budget && budget > 0) ? (w.corr - budget) / budget * 100 : null;
-      const deltaAnno= w.corr25 > 0 ? (w.corr - w.corr25) / w.corr25 * 100 : null;
       tCorr += w.corr; tSc += w.sc; tCorr25 += w.corr25; tSc25 += w.sc25;
-      if (budget) { tBudget += budget; tSaldo += (saldo ?? 0); }
-
-      const cDB = deltaBud  != null ? (deltaBud  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-      const cDA = deltaAnno != null ? (deltaAnno >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-      const cSaldo = saldo != null ? (saldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-      const per    = `${fmtData(w.minDate,{day:'2-digit',month:'short'})} – ${fmtData(w.maxDate,{day:'2-digit',month:'short'})}`;
+      const ie26 = w.corr   > 0 ? w.corr   / 1.22 : null;
+      const ie25 = w.corr25 > 0 ? w.corr25 / 1.22 : null;
+      const ieD  = (ie26 != null && ie25 != null && ie25 > 0) ? (ie26 - ie25) / ie25 * 100 : null;
+      const scD  = (w.sc > 0 && w.sc25 > 0) ? (w.sc - w.sc25) / w.sc25 * 100 : null;
       const wkey   = `${emporio}||${w.isoYear}||${w.isoWeek}`;
       const sKey   = wkey.replace(/\|/g,'_');
       const cat    = catMap.get(wkey);
@@ -5506,9 +5494,8 @@ async function loadSettimanaleData() {
           `<td class="number" style="font-size:11px;color:${dCls};font-weight:600">${delta!=null?(delta>0?'+':'')+delta.toFixed(1)+'%':'–'}</td>`;
       }).join('');
       tPz += rowPz; tPz25 += rowPz25;
+      const pzD  = (rowPz > 0 && rowPz25 > 0) ? (rowPz - rowPz25) / rowPz25 * 100 : null;
 
-      const corrIE   = w.corr   > 0 ? fmt(w.corr   / 1.22) : '–';
-      const corrIE25 = w.corr25 > 0 ? fmt(w.corr25 / 1.22) : '–';
       const fmtPer = (d) => { const [,m,g] = d.split('-'); return `${g}/${m}`; };
       const perShort = `${fmtPer(w.minDate)}-${fmtPer(w.maxDate)}`;
       const S = 'border-left:2px solid #94a3b8';
@@ -5519,28 +5506,25 @@ async function loadSettimanaleData() {
         <td style="vertical-align:top;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
         <td style="vertical-align:top;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
         <td style="vertical-align:top;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'evento',emporio)}</td>
-        <td class="number" style="${S}"><strong>${corrIE}</strong></td>
-        <td class="number" style="color:#94a3b8">${corrIE25}</td>
+        <td class="number" style="${S}"><strong>${ie26!=null?fmt(ie26):'–'}</strong></td>
+        <td class="number" style="color:#94a3b8">${ie25!=null?fmt(ie25):'–'}</td>
+        <td class="number" style="font-size:11px">${fD(ieD)}</td>
         <td class="number" style="${S}">${w.sc > 0 ? w.sc : '–'}</td>
         <td class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
+        <td class="number" style="font-size:11px">${fD(scD)}</td>
         <td class="number" id="pzt-${sKey}" style="background:#f8fafc;${S}">${rowPz > 0 ? rowPz : '–'}</td>
         <td class="number" id="pz25t-${sKey}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
+        <td class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
         ${catCells}
-        <td class="number" style="color:#94a3b8">${w.corr25 > 0 ? fmt(w.corr25) : '–'}</td>
-        ${hasBudget ? `<td class="number" style="color:#7c3aed">${budget!=null?fmt(budget):'–'}</td>` : ''}
-        <td class="number"><strong>${fmt(w.corr)}</strong></td>
-        ${hasBudget ? `<td class="number" style="color:${cDB};font-weight:600">${deltaBud!=null?fmtPct(deltaBud):'–'}</td>` : ''}
-        <td class="number" style="color:${cDA};font-weight:600">${deltaAnno!=null?fmtPct(deltaAnno):'–'}</td>
-        <td class="number" style="color:${cSaldo};font-weight:600">${saldo!=null?fmt(saldo):'–'}</td>
       </tr>`;
     });
 
     // Riga totali
-    const totDB = tBudget > 0 ? (tCorr-tBudget)/tBudget*100 : null;
-    const totDA = tCorr25 > 0 ? (tCorr-tCorr25)/tCorr25*100 : null;
-    const cTDB  = totDB  != null ? (totDB  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-    const cTDA  = totDA  != null ? (totDA  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-    const cTSaldo = tBudget > 0 ? (tSaldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+    const tIE26 = tCorr   > 0 ? tCorr   / 1.22 : null;
+    const tIE25 = tCorr25 > 0 ? tCorr25 / 1.22 : null;
+    const tIED  = (tIE26 != null && tIE25 != null && tIE25 > 0) ? (tIE26 - tIE25) / tIE25 * 100 : null;
+    const tScD  = (tSc > 0 && tSc25 > 0) ? (tSc - tSc25) / tSc25 * 100 : null;
+    const tPzD  = (tPz > 0 && tPz25 > 0) ? (tPz - tPz25) / tPz25 * 100 : null;
     const catTotCells = _CAT_KEYS.map(k => {
       const {pz,pz25,vie,vie25} = catTot[k];
       const d = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
@@ -5554,19 +5538,16 @@ async function loadSettimanaleData() {
 
     html += `<tr class="total-row">
       <td colspan="6"><strong>TOTALE ANNO</strong></td>
-      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tCorr>0?fmt(tCorr/1.22):'–'}</strong></td>
-      <td class="number"><strong>${tCorr25>0?fmt(tCorr25/1.22):'–'}</strong></td>
+      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmt(tIE26):'–'}</strong></td>
+      <td class="number"><strong>${tIE25!=null?fmt(tIE25):'–'}</strong></td>
+      <td class="number" style="font-size:11px">${fD(tIED)}</td>
       <td class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
       <td class="number"><strong>${tSc25||'–'}</strong></td>
+      <td class="number" style="font-size:11px">${fD(tScD)}</td>
       <td class="number" style="background:#f8fafc;border-left:2px solid #94a3b8"><strong>${tPz>0?tPz:'–'}</strong></td>
       <td class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
+      <td class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
       ${catTotCells}
-      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tCorr25>0?fmt(tCorr25):'–'}</strong></td>
-      ${hasBudget ? `<td class="number" style="color:#7c3aed"><strong>${fmt(tBudget)}</strong></td>` : ''}
-      <td class="number"><strong>${fmt(tCorr)}</strong></td>
-      ${hasBudget ? `<td class="number" style="color:${cTDB};font-weight:700">${totDB!=null?fmtPct(totDB):'–'}</td>` : ''}
-      <td class="number" style="color:${cTDA};font-weight:700">${totDA!=null?fmtPct(totDA):'–'}</td>
-      <td class="number" style="color:${cTSaldo};font-weight:700">${tBudget>0?fmt(tSaldo):'–'}</td>
     </tr>`;
 
     tbody.innerHTML = html;
