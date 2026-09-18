@@ -326,6 +326,8 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 #com-sett-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;padding:6px 4px;border-right:1px solid #e2e8f0;}
 #com-sett-table td{padding:5px 4px;border-right:1px solid #f0f4f8;}
 #com-sett-table th:last-child,#com-sett-table td:last-child{border-right:none;}
+#com-sett-table .cat-cell:hover{background:#fffbeb!important;outline:1px dashed #f59e0b;}
+#com-sett-table .cat-cell input{width:100%;border:1.5px solid #B5453A;border-radius:4px;padding:2px 3px;font-size:10px;text-align:right;font-family:inherit;background:#fffbeb;box-sizing:border-box;}
 .sett-month-hdr td{background:#f1f5f9!important;font-size:10px;font-weight:800;letter-spacing:.1em;color:#475569;padding:5px 12px;border-top:2px solid #e2e8f0;}
 .pag-has-note{cursor:pointer;text-decoration:underline dotted #f59e0b;color:inherit;}
 .pag-has-note:hover{color:#d97706;}
@@ -5334,14 +5336,24 @@ function _renderCalBadges(records, periodoStart, periodoEnd, type) {
 }
 
 // ── Settimane ────────────────────────────────────────────────────────────────
+const _CAT_KEYS = ['ali','ben','cas','mod','alt'];
+const _CAT_HDR = {
+  ali:{ label:'🛒 Alimentari', bg:'#f0fdf4', color:'#16a34a', br:'#86efac' },
+  ben:{ label:'💄 Benessere',  bg:'#fdf4ff', color:'#9333ea', br:'#d8b4fe' },
+  cas:{ label:'🏠 Casa',       bg:'#fffbeb', color:'#d97706', br:'#fcd34d' },
+  mod:{ label:'👗 Moda',       bg:'#eff6ff', color:'#2563eb', br:'#93c5fd' },
+  alt:{ label:'✦ Altro',       bg:'#f8fafc', color:'#475569', br:'#cbd5e1' },
+};
+
 async function loadSettimanaleData() {
   const emporio = document.getElementById('com-sett-emporio').value;
   const anno    = document.getElementById('com-sett-anno').value;
   const tbody   = document.getElementById('com-sett-body');
   const thead   = document.getElementById('com-sett-thead');
-  const NCOL_BASE = 10;
+  // 4 fissi + 4 sc/pz + 5×5 cat + 2 corr + [2 budget] + 2 delta/saldo = 37 (senza budget), 39 (con budget)
   const hasBudget = emporio === 'Reggio Emilia' && anno === '2026';
-  const ncol = hasBudget ? 12 : NCOL_BASE;
+  const NCOL_BASE = 37;
+  const ncol = hasBudget ? 39 : NCOL_BASE;
 
   if (!emporio) {
     tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio</td></tr>`;
@@ -5351,16 +5363,20 @@ async function loadSettimanaleData() {
 
   try {
     const chiavi = chiaveYear(emporio, anno);
-    const [{ data: raw, error }, camRes] = await Promise.all([
+    const [{ data: raw, error }, camRes, catRes] = await Promise.all([
       db.from('cassa_giorni')
         .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,corrispettivi_25,num_scontrini_25')
         .in('chiave', chiavi),
       db.from('campagne_commerciali')
         .select('titolo,tipologia,data_inizio,data_fine,settore,record_type')
-        .eq('anno', +anno)
+        .eq('anno', +anno),
+      db.from('cassa_settimane_categorie')
+        .select('*').eq('emporio', emporio).eq('iso_year', +anno)
     ]);
     if (error) throw error;
     const campagne = camRes?.data || [];
+    const catMap = new Map();
+    (catRes?.data || []).forEach(r => catMap.set(`${emporio}||${r.iso_year}||${r.settimana_iso}`, r));
 
     // Raggruppa per settimana ISO
     const weekMap = new Map();
@@ -5381,29 +5397,44 @@ async function loadSettimanaleData() {
     const MESI = ['','Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
     const weeks = [...weekMap.values()].sort((a, b) => (a.isoYear - b.isoYear) || (a.isoWeek - b.isoWeek));
 
-    // Header
+    // Header (2 righe): fissi con rowspan=2, macrocolonne con colspan=5
+    const catHdr1 = _CAT_KEYS.map(k =>
+      `<th colspan="5" style="text-align:center;background:${_CAT_HDR[k].bg};color:${_CAT_HDR[k].color};border-bottom:2px solid ${_CAT_HDR[k].br};padding:5px 4px;font-size:11px">${_CAT_HDR[k].label}</th>`
+    ).join('');
+    const catHdr2 = _CAT_KEYS.map(() => `
+      <th class="number" style="width:40px;font-size:9px;padding:4px 2px">Pz.<br>${anno}</th>
+      <th class="number" style="width:40px;font-size:9px;padding:4px 2px">Pz.<br>${+anno-1}</th>
+      <th class="number" style="width:58px;font-size:9px;padding:4px 2px">V.I.E.<br>${anno}</th>
+      <th class="number" style="width:58px;font-size:9px;padding:4px 2px">V.I.E.<br>${+anno-1}</th>
+      <th class="number" style="width:42px;font-size:9px;padding:4px 2px">Δ%</th>`
+    ).join('');
     thead.innerHTML = `<tr>
-      <th style="width:30px;text-align:center">Sett.</th>
-      <th style="text-align:left;width:90px">Periodo</th>
-      <th style="text-align:left;width:90px">Campagne</th>
-      <th style="text-align:left;width:80px">Eventi</th>
-      <th class="number" style="width:50px">N.Sc.<br>${anno}</th>
-      <th class="number" style="width:50px">N.Sc.<br>${+anno-1}</th>
-      <th class="number" style="width:70px">Corr.<br>${+anno-1}</th>
-      ${hasBudget ? `<th class="number" style="color:#7c3aed;width:68px">Budget<br>${anno}</th>` : ''}
-      <th class="number" style="width:70px">Eff.<br>${anno}</th>
-      ${hasBudget ? `<th class="number" style="width:52px">Δ Bud.</th>` : ''}
-      <th class="number" style="width:52px">Δ<br>${+anno-1}</th>
-      <th class="number" style="width:65px">Saldo</th>
-    </tr>`;
+      <th rowspan="2" style="width:28px;text-align:center;vertical-align:middle">Sett.</th>
+      <th rowspan="2" style="text-align:left;width:82px;vertical-align:middle">Periodo</th>
+      <th rowspan="2" style="text-align:left;width:82px;vertical-align:middle">Campagne</th>
+      <th rowspan="2" style="text-align:left;width:72px;vertical-align:middle">Eventi</th>
+      <th rowspan="2" class="number" style="width:46px;vertical-align:middle">N.Sc.<br>${anno}</th>
+      <th rowspan="2" class="number" style="width:46px;vertical-align:middle">N.Sc.<br>${+anno-1}</th>
+      <th rowspan="2" class="number" style="width:48px;vertical-align:middle;background:#f8fafc">N.Pz.<br>${anno}</th>
+      <th rowspan="2" class="number" style="width:48px;vertical-align:middle;background:#f8fafc">N.Pz.<br>${+anno-1}</th>
+      ${catHdr1}
+      <th rowspan="2" class="number" style="width:66px;vertical-align:middle">Corr.<br>${+anno-1}</th>
+      ${hasBudget ? `<th rowspan="2" class="number" style="color:#7c3aed;width:64px;vertical-align:middle">Budget<br>${anno}</th>` : ''}
+      <th rowspan="2" class="number" style="width:66px;vertical-align:middle">Eff.<br>${anno}</th>
+      ${hasBudget ? `<th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ Bud.</th>` : ''}
+      <th rowspan="2" class="number" style="width:50px;vertical-align:middle">Δ<br>${+anno-1}</th>
+      <th rowspan="2" class="number" style="width:63px;vertical-align:middle">Saldo</th>
+    </tr><tr>${catHdr2}</tr>`;
 
     let lastMonth = null;
-    let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tBudget = 0, tSaldo = 0;
+    let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tBudget = 0, tSaldo = 0, tPz = 0, tPz25 = 0;
+    const catTot = {};
+    _CAT_KEYS.forEach(k => { catTot[k] = {pz:0,pz25:0,vie:0,vie25:0}; });
     let html = '';
 
     weeks.forEach(w => {
-      const monthNum  = parseInt(w.minDate.split('-')[1]);
-      const meseName  = MESI[monthNum];
+      const monthNum = parseInt(w.minDate.split('-')[1]);
+      const meseName = MESI[monthNum];
       if (meseName !== lastMonth) {
         html += `<tr class="sett-month-hdr"><td colspan="${ncol}">${meseName.toUpperCase()}</td></tr>`;
         lastMonth = meseName;
@@ -5413,52 +5444,156 @@ async function loadSettimanaleData() {
       const saldo    = (budget != null) ? w.corr - budget : null;
       const deltaBud = (budget && budget > 0) ? (w.corr - budget) / budget * 100 : null;
       const deltaAnno= w.corr25 > 0 ? (w.corr - w.corr25) / w.corr25 * 100 : null;
-
       tCorr += w.corr; tSc += w.sc; tCorr25 += w.corr25; tSc25 += w.sc25;
       if (budget) { tBudget += budget; tSaldo += (saldo ?? 0); }
 
       const cDB = deltaBud  != null ? (deltaBud  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
       const cDA = deltaAnno != null ? (deltaAnno >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-      const cSaldo = (saldo != null) ? (saldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const cSaldo = saldo != null ? (saldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const per    = `${fmtData(w.minDate,{day:'2-digit',month:'short'})} – ${fmtData(w.maxDate,{day:'2-digit',month:'short'})}`;
+      const wkey   = `${emporio}||${w.isoYear}||${w.isoWeek}`;
+      const sKey   = wkey.replace(/\|/g,'_');
+      const cat    = catMap.get(wkey);
 
-      const per = `${fmtData(w.minDate, {day:'2-digit',month:'short'})} – ${fmtData(w.maxDate, {day:'2-digit',month:'short'})}`;
+      let rowPz = 0, rowPz25 = 0;
+      const catCells = _CAT_KEYS.map(k => {
+        const pz   = cat && cat[`${k}_pezzi`]         != null ? parseInt(cat[`${k}_pezzi`])          : null;
+        const pz25 = cat && cat[`${k}_pezzi_25`]      != null ? parseInt(cat[`${k}_pezzi_25`])       : null;
+        const vie  = cat && cat[`${k}_venduto_ie`]    != null ? parseFloat(cat[`${k}_venduto_ie`])   : null;
+        const vie25= cat && cat[`${k}_venduto_ie_25`] != null ? parseFloat(cat[`${k}_venduto_ie_25`]): null;
+        rowPz  += pz   ?? 0; rowPz25 += pz25  ?? 0;
+        catTot[k].pz += pz ?? 0; catTot[k].pz25 += pz25 ?? 0;
+        catTot[k].vie += vie ?? 0; catTot[k].vie25 += vie25 ?? 0;
+        const delta = (vie != null && vie25 != null && vie25 > 0) ? (vie-vie25)/vie25*100 : null;
+        const dCls  = delta != null ? (delta >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+        const ec = (f, v, isCurr) => {
+          const dis = v != null ? (f.includes('venduto') ? fmt(v) : v) : '<span style="color:#d1d5db">–</span>';
+          return `<td class="number cat-cell" data-wkey="${wkey}" data-field="${k}_${f}" data-val="${v??''}" onclick="startCatEdit(this)" title="Clicca per modificare" style="cursor:pointer;font-size:11px${isCurr?'':';color:#94a3b8'}">${dis}</td>`;
+        };
+        return ec('pezzi',pz,true)+ec('pezzi_25',pz25,false)+ec('venduto_ie',vie,true)+ec('venduto_ie_25',vie25,false)+
+          `<td class="number" style="font-size:11px;color:${dCls};font-weight:600">${delta!=null?(delta>0?'+':'')+delta.toFixed(1)+'%':'–'}</td>`;
+      }).join('');
+      tPz += rowPz; tPz25 += rowPz25;
+
       html += `<tr>
         <td class="number" style="color:#64748b;font-weight:700">${w.isoWeek}</td>
         <td style="font-size:11px;white-space:nowrap">${per}</td>
-        <td style="vertical-align:top">${_renderCalBadges(campagne, w.minDate, w.maxDate, 'campagna')}</td>
-        <td style="vertical-align:top">${_renderCalBadges(campagne, w.minDate, w.maxDate, 'evento')}</td>
+        <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna')}</td>
+        <td style="vertical-align:top">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento')}</td>
         <td class="number">${w.sc > 0 ? w.sc : '–'}</td>
         <td class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
+        <td class="number" id="pzt-${sKey}" style="background:#f8fafc">${rowPz > 0 ? rowPz : '–'}</td>
+        <td class="number" id="pz25t-${sKey}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
+        ${catCells}
         <td class="number" style="color:#94a3b8">${w.corr25 > 0 ? fmt(w.corr25) : '–'}</td>
-        ${hasBudget ? `<td class="number" style="color:#7c3aed">${budget != null ? fmt(budget) : '–'}</td>` : ''}
+        ${hasBudget ? `<td class="number" style="color:#7c3aed">${budget!=null?fmt(budget):'–'}</td>` : ''}
         <td class="number"><strong>${fmt(w.corr)}</strong></td>
-        ${hasBudget ? `<td class="number" style="color:${cDB};font-weight:600">${deltaBud  != null ? fmtPct(deltaBud)   : '–'}</td>` : ''}
-        <td class="number" style="color:${cDA};font-weight:600">${deltaAnno != null ? fmtPct(deltaAnno) : '–'}</td>
-        <td class="number" style="color:${cSaldo};font-weight:600">${saldo != null ? fmt(saldo) : '–'}</td>
+        ${hasBudget ? `<td class="number" style="color:${cDB};font-weight:600">${deltaBud!=null?fmtPct(deltaBud):'–'}</td>` : ''}
+        <td class="number" style="color:${cDA};font-weight:600">${deltaAnno!=null?fmtPct(deltaAnno):'–'}</td>
+        <td class="number" style="color:${cSaldo};font-weight:600">${saldo!=null?fmt(saldo):'–'}</td>
       </tr>`;
     });
 
     // Riga totali
-    const totDB = tBudget > 0 ? (tCorr - tBudget) / tBudget * 100 : null;
-    const totDA = tCorr25 > 0 ? (tCorr - tCorr25) / tCorr25 * 100 : null;
+    const totDB = tBudget > 0 ? (tCorr-tBudget)/tBudget*100 : null;
+    const totDA = tCorr25 > 0 ? (tCorr-tCorr25)/tCorr25*100 : null;
     const cTDB  = totDB  != null ? (totDB  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
     const cTDA  = totDA  != null ? (totDA  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
     const cTSaldo = tBudget > 0 ? (tSaldo >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+    const catTotCells = _CAT_KEYS.map(k => {
+      const {pz,pz25,vie,vie25} = catTot[k];
+      const d = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
+      const dc = d != null ? (d>=0?'#16a34a':'#dc2626') : '#94a3b8';
+      return `<td class="number" style="font-size:11px"><strong>${pz>0?pz:'–'}</strong></td>` +
+             `<td class="number" style="font-size:11px;color:#94a3b8"><strong>${pz25>0?pz25:'–'}</strong></td>` +
+             `<td class="number" style="font-size:11px"><strong>${vie>0?fmt(vie):'–'}</strong></td>` +
+             `<td class="number" style="font-size:11px;color:#94a3b8"><strong>${vie25>0?fmt(vie25):'–'}</strong></td>` +
+             `<td class="number" style="font-size:11px;color:${dc};font-weight:700">${d!=null?(d>0?'+':'')+d.toFixed(1)+'%':'–'}</td>`;
+    }).join('');
+
     html += `<tr class="total-row">
       <td colspan="4"><strong>TOTALE ANNO</strong></td>
-      <td class="number"><strong>${tSc || '–'}</strong></td>
-      <td class="number"><strong>${tSc25 || '–'}</strong></td>
-      <td class="number"><strong>${tCorr25 > 0 ? fmt(tCorr25) : '–'}</strong></td>
+      <td class="number"><strong>${tSc||'–'}</strong></td>
+      <td class="number"><strong>${tSc25||'–'}</strong></td>
+      <td class="number" style="background:#f8fafc"><strong>${tPz>0?tPz:'–'}</strong></td>
+      <td class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
+      ${catTotCells}
+      <td class="number"><strong>${tCorr25>0?fmt(tCorr25):'–'}</strong></td>
       ${hasBudget ? `<td class="number" style="color:#7c3aed"><strong>${fmt(tBudget)}</strong></td>` : ''}
       <td class="number"><strong>${fmt(tCorr)}</strong></td>
-      ${hasBudget ? `<td class="number" style="color:${cTDB};font-weight:700">${totDB != null ? fmtPct(totDB) : '–'}</td>` : ''}
-      <td class="number" style="color:${cTDA};font-weight:700">${totDA != null ? fmtPct(totDA) : '–'}</td>
-      <td class="number" style="color:${cTSaldo};font-weight:700">${tBudget > 0 ? fmt(tSaldo) : '–'}</td>
+      ${hasBudget ? `<td class="number" style="color:${cTDB};font-weight:700">${totDB!=null?fmtPct(totDB):'–'}</td>` : ''}
+      <td class="number" style="color:${cTDA};font-weight:700">${totDA!=null?fmtPct(totDA):'–'}</td>
+      <td class="number" style="color:${cTSaldo};font-weight:700">${tBudget>0?fmt(tSaldo):'–'}</td>
     </tr>`;
 
     tbody.innerHTML = html;
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
+  }
+}
+
+// ── Inline edit celle categoria ───────────────────────────────────────────────
+function startCatEdit(td) {
+  if (td.querySelector('input')) return;
+  const val = td.dataset.val;
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.value = val;
+  inp.onblur    = () => { if (!td._skip) saveCatEdit(td, inp); delete td._skip; };
+  inp.onkeydown = e => { if (e.key==='Enter') inp.blur(); if (e.key==='Escape') { td._skip=true; inp.blur(); _restoreCatCell(td, val); } };
+  td.innerHTML = ''; td.appendChild(inp); inp.focus(); inp.select();
+}
+function _restoreCatCell(td, val) {
+  const f = td.dataset.field; const isMon = f.includes('venduto'); const isCurr = !f.endsWith('_25');
+  td.innerHTML = val ? (isMon ? fmt(parseFloat(val)) : val) : '<span style="color:#d1d5db">–</span>';
+  td.style.color = (!isCurr && val) ? '#94a3b8' : '';
+}
+async function saveCatEdit(td, inp) {
+  const raw = inp.value.trim().replace(',','.');
+  const num = raw==='' ? null : (isNaN(+raw) ? null : +raw);
+  const wkey = td.dataset.wkey; const field = td.dataset.field;
+  td.dataset.val = num!=null ? String(num) : '';
+  _restoreCatCell(td, td.dataset.val);
+  const [emp, iy, sw] = wkey.split('||');
+  try {
+    const {error} = await db.from('cassa_settimane_categorie').upsert(
+      {emporio:emp, iso_year:parseInt(iy), settimana_iso:parseInt(sw), [field]:num},
+      {onConflict:'emporio,iso_year,settimana_iso'}
+    );
+    if (!error) { updateCatRowTotals(wkey); updateCatRowDelta(wkey, field); }
+    else console.error('[cat]', error);
+  } catch(e) { console.error('[cat]', e); }
+}
+function updateCatRowTotals(wkey) {
+  const sKey = wkey.replace(/\|/g,'_');
+  let tPz=0, tPz25=0;
+  document.querySelectorAll('.cat-cell').forEach(c => {
+    if (c.dataset.wkey!==wkey) return;
+    const v = parseFloat(c.dataset.val)||0;
+    if (c.dataset.field.match(/^(ali|ben|cas|mod|alt)_pezzi$/))    tPz  += v;
+    if (c.dataset.field.match(/^(ali|ben|cas|mod|alt)_pezzi_25$/)) tPz25 += v;
+  });
+  const p   = document.getElementById(`pzt-${sKey}`);
+  const p25 = document.getElementById(`pz25t-${sKey}`);
+  if (p)   p.textContent   = tPz  > 0 ? tPz  : '–';
+  if (p25) p25.textContent = tPz25 > 0 ? tPz25 : '–';
+}
+function updateCatRowDelta(wkey, changedField) {
+  const catK = _CAT_KEYS.find(k => changedField.startsWith(k)); if (!catK) return;
+  let vie=0, vie25=0;
+  document.querySelectorAll('.cat-cell').forEach(c => {
+    if (c.dataset.wkey!==wkey) return;
+    if (c.dataset.field===`${catK}_venduto_ie`)    vie   = parseFloat(c.dataset.val)||0;
+    if (c.dataset.field===`${catK}_venduto_ie_25`) vie25 = parseFloat(c.dataset.val)||0;
+  });
+  const delta = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
+  // Trova il td Δ% = la cella immediatamente dopo le 4 cat-cell di questa categoria
+  const catCells = [...document.querySelectorAll(`.cat-cell[data-wkey="${wkey}"][data-field^="${catK}_"]`)];
+  if (catCells.length===4) {
+    const dEl = catCells[3].nextElementSibling;
+    if (dEl && !dEl.classList.contains('cat-cell')) {
+      const cls = delta!=null?(delta>=0?'#16a34a':'#dc2626'):'#94a3b8';
+      dEl.innerHTML = delta!=null?`<span style="color:${cls};font-weight:600">${delta>0?'+':''}${delta.toFixed(1)}%</span>`:'–';
+    }
   }
 }
 
