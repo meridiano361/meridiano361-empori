@@ -5358,8 +5358,8 @@ async function loadSettimanaleData() {
   const anno    = document.getElementById('com-sett-anno').value;
   const tbody   = document.getElementById('com-sett-body');
   const thead   = document.getElementById('com-sett-thead');
-  // 2 fissi + 2 camp + 2 ev + 3 corrIE + 3 sc + 3 pz + 5×5 cat = 40
-  const NCOL_BASE = 40;
+  // 2 fissi + 2 camp + 2 ev + 3 corrIE + 3 sc + 3 pz + 5×6 cat = 45
+  const NCOL_BASE = 45;
   const ncol = NCOL_BASE;
 
   if (!emporio) {
@@ -5412,22 +5412,23 @@ async function loadSettimanaleData() {
     // Header (2 righe): fissi con rowspan=2, macrocolonne con colspan=5
     const SEP = 'border-left:2px solid #94a3b8';
     const catHdr1 = _CAT_KEYS.map(k =>
-      `<th colspan="5" style="text-align:center;${SEP};border-bottom:2px solid ${_CAT_HDR[k].br};padding:5px 4px;font-size:11px">${_CAT_HDR[k].label}</th>`
+      `<th colspan="6" style="text-align:center;${SEP};border-bottom:2px solid ${_CAT_HDR[k].br};padding:5px 4px;font-size:11px">${_CAT_HDR[k].label}</th>`
     ).join('');
     const a2 = String(anno).slice(-2);
     const a1 = String(+anno-1).slice(-2);
     const catHdr2 = _CAT_KEYS.map(() => `
-      <th class="number" style="width:40px;font-size:9px;padding:4px 2px;${SEP}">Pz<br>${a2}</th>
-      <th class="number" style="width:40px;font-size:9px;padding:4px 2px">Pz<br>${a1}</th>
-      <th class="number" style="width:48px;font-size:9px;padding:4px 2px">IE<br>${a2}</th>
-      <th class="number" style="width:48px;font-size:9px;padding:4px 2px">IE<br>${a1}</th>
-      <th class="number" style="width:42px;font-size:9px;padding:4px 2px">Δ%</th>`
+      <th class="number" style="width:38px;font-size:9px;padding:4px 2px;${SEP}">Pz<br>${a2}</th>
+      <th class="number" style="width:36px;font-size:9px;padding:4px 2px">Pz<br>${a1}</th>
+      <th class="number" style="width:46px;font-size:9px;padding:4px 2px">ΔPz%</th>
+      <th class="number" style="width:46px;font-size:9px;padding:4px 2px">IE<br>${a2}</th>
+      <th class="number" style="width:46px;font-size:9px;padding:4px 2px">IE<br>${a1}</th>
+      <th class="number" style="width:46px;font-size:9px;padding:4px 2px">ΔIE%</th>`
     ).join('');
     const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
-    const thYears = (w1, w2, bg='', delta=false) => `<th class="number" style="width:${w1}px;font-size:9px;padding:4px 2px;${SEP}${bg}">${a2}</th><th class="number" style="width:${w2}px;font-size:9px;padding:4px 2px;color:#94a3b8${bg}">${a1}</th>${delta?`<th class="number" style="width:40px;font-size:9px;padding:4px 2px">Δ%</th>`:''}`;
+    const thYears = (w1, w2, bg='', delta=false) => `<th class="number" style="width:${w1}px;font-size:9px;padding:4px 2px;${SEP}${bg}">${a2}</th><th class="number" style="width:${w2}px;font-size:9px;padding:4px 2px;color:#94a3b8${bg}">${a1}</th>${delta?`<th class="number" style="width:50px;font-size:9px;padding:4px 2px">Δ%</th>`:''}`;
     thead.innerHTML = `<tr>
-      <th rowspan="2" style="width:28px;text-align:center;vertical-align:middle">Sett.</th>
-      <th rowspan="2" style="text-align:left;width:70px;vertical-align:middle">Periodo</th>
+      <th rowspan="2" style="position:sticky;left:0;z-index:20;background:#fff;width:28px;text-align:center;vertical-align:middle">Sett.</th>
+      <th rowspan="2" style="position:sticky;left:28px;z-index:20;background:#fff;text-align:left;width:70px;vertical-align:middle;border-right:2px solid #94a3b8">Periodo</th>
       ${thMacro('Campagne')}
       ${thMacro('Eventi')}
       ${thMacro('Corr IE', 3)}
@@ -5435,11 +5436,11 @@ async function loadSettimanaleData() {
       ${thMacro('N Pz', 3)}
       ${catHdr1}
     </tr><tr>
-      ${thYears(78, 78)}
-      ${thYears(68, 68)}
-      ${thYears(62, 62, '', true)}
-      ${thYears(44, 44, '', true)}
-      ${thYears(44, 44, ';background:#f8fafc', true)}
+      ${thYears(45, 42)}
+      ${thYears(38, 34)}
+      ${thYears(84, 78, '', true)}
+      ${thYears(42, 36, '', true)}
+      ${thYears(42, 36, ';background:#f8fafc', true)}
       ${catHdr2}
     </tr>`;
     // Sticky header a 2 righe: riga 2 deve avere top = altezza riga 1
@@ -5447,7 +5448,7 @@ async function loadSettimanaleData() {
       const rows = thead.querySelectorAll('tr');
       if (rows.length >= 2) {
         const h1 = rows[0].offsetHeight;
-        rows[0].querySelectorAll('th').forEach(th => { th.style.top = '0px'; th.style.background = '#fff'; });
+        rows[0].querySelectorAll('th').forEach(th => { th.style.top = '0px'; if (!th.style.background) th.style.background = '#fff'; });
         rows[1].querySelectorAll('th').forEach(th => { th.style.top = h1 + 'px'; th.style.background = '#fff'; });
       }
     });
@@ -5485,15 +5486,19 @@ async function loadSettimanaleData() {
         rowPz  += pz   ?? 0; rowPz25 += pz25  ?? 0;
         catTot[k].pz += pz ?? 0; catTot[k].pz25 += pz25 ?? 0;
         catTot[k].vie += vie ?? 0; catTot[k].vie25 += vie25 ?? 0;
-        const delta = (vie != null && vie25 != null && vie25 > 0) ? (vie-vie25)/vie25*100 : null;
-        const dCls  = delta != null ? (delta >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+        const deltaPz  = (pz  != null && pz25  != null && pz25  > 0) ? (pz -pz25 )/pz25 *100 : null;
+        const deltaIE  = (vie != null && vie25 != null && vie25 > 0) ? (vie-vie25)/vie25*100 : null;
+        const dPzCls   = deltaPz  != null ? (deltaPz  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+        const dIECls   = deltaIE  != null ? (deltaIE  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
         const ec = (f, v, isCurr, isFirst=false) => {
           const dis = v != null ? (f.includes('venduto') ? fmt(v) : v) : '<span style="color:#d1d5db">–</span>';
           const bl = isFirst ? ';border-left:2px solid #94a3b8' : '';
           return `<td class="number cat-cell" data-wkey="${wkey}" data-field="${k}_${f}" data-val="${v??''}" onclick="startCatEdit(this)" title="Clicca per modificare" style="cursor:pointer;font-size:11px${isCurr?'':';color:#94a3b8'}${bl}">${dis}</td>`;
         };
-        return ec('pezzi',pz,true,true)+ec('pezzi_25',pz25,false)+ec('venduto_ie',vie,true)+ec('venduto_ie_25',vie25,false)+
-          `<td class="number" style="font-size:11px;color:${dCls};font-weight:600">${delta!=null?(delta>0?'+':'')+delta.toFixed(1)+'%':'–'}</td>`;
+        return ec('pezzi',pz,true,true)+ec('pezzi_25',pz25,false)+
+          `<td class="number" style="font-size:11px;color:${dPzCls};font-weight:600">${deltaPz!=null?(deltaPz>0?'+':'')+deltaPz.toFixed(1)+'%':'–'}</td>`+
+          ec('venduto_ie',vie,true)+ec('venduto_ie_25',vie25,false)+
+          `<td class="number" style="font-size:11px;color:${dIECls};font-weight:600">${deltaIE!=null?(deltaIE>0?'+':'')+deltaIE.toFixed(1)+'%':'–'}</td>`;
       }).join('');
       tPz += rowPz; tPz25 += rowPz25;
       const pzD  = (rowPz > 0 && rowPz25 > 0) ? (rowPz - rowPz25) / rowPz25 * 100 : null;
@@ -5502,14 +5507,14 @@ async function loadSettimanaleData() {
       const perShort = `${fmtPer(w.minDate)}-${fmtPer(w.maxDate)}`;
       const S = 'border-left:2px solid #94a3b8';
       html += `<tr>
-        <td class="number" style="color:#64748b;font-weight:700">${w.isoWeek}</td>
-        <td style="font-size:11px;white-space:nowrap">${perShort}</td>
-        <td style="vertical-align:top;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
-        <td style="vertical-align:top;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
-        <td style="vertical-align:top;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
-        <td style="vertical-align:top;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'evento',emporio)}</td>
-        <td class="number" style="${S}"><strong>${ie26!=null?fmt(ie26):'–'}</strong></td>
-        <td class="number" style="color:#94a3b8">${ie25!=null?fmt(ie25):'–'}</td>
+        <td class="number" style="position:sticky;left:0;z-index:3;background:#fff;color:#64748b;font-weight:700">${w.isoWeek}</td>
+        <td style="position:sticky;left:28px;z-index:3;background:#fff;font-size:11px;white-space:nowrap;border-right:2px solid #94a3b8">${perShort}</td>
+        <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
+        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
+        <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
+        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'evento',emporio)}</td>
+        <td class="number" style="font-size:11px;${S}"><strong>${ie26!=null?fmt(ie26):'–'}</strong></td>
+        <td class="number" style="font-size:11px;color:#94a3b8">${ie25!=null?fmt(ie25):'–'}</td>
         <td class="number" style="font-size:11px">${fD(ieD)}</td>
         <td class="number" style="${S}">${w.sc > 0 ? w.sc : '–'}</td>
         <td class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
@@ -5529,19 +5534,23 @@ async function loadSettimanaleData() {
     const tPzD  = (tPz > 0 && tPz25 > 0) ? (tPz - tPz25) / tPz25 * 100 : null;
     const catTotCells = _CAT_KEYS.map(k => {
       const {pz,pz25,vie,vie25} = catTot[k];
-      const d = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
-      const dc = d != null ? (d>=0?'#16a34a':'#dc2626') : '#94a3b8';
+      const dPz = pz25 > 0 ? (pz -pz25 )/pz25 *100 : null;
+      const dIE = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
+      const dcPz = dPz != null ? (dPz>=0?'#16a34a':'#dc2626') : '#94a3b8';
+      const dcIE = dIE != null ? (dIE>=0?'#16a34a':'#dc2626') : '#94a3b8';
       return `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${pz>0?pz:'–'}</strong></td>` +
              `<td class="number" style="font-size:11px;color:#94a3b8"><strong>${pz25>0?pz25:'–'}</strong></td>` +
+             `<td class="number" style="font-size:11px;color:${dcPz};font-weight:700">${dPz!=null?(dPz>0?'+':'')+dPz.toFixed(1)+'%':'–'}</td>` +
              `<td class="number" style="font-size:11px"><strong>${vie>0?fmt(vie):'–'}</strong></td>` +
              `<td class="number" style="font-size:11px;color:#94a3b8"><strong>${vie25>0?fmt(vie25):'–'}</strong></td>` +
-             `<td class="number" style="font-size:11px;color:${dc};font-weight:700">${d!=null?(d>0?'+':'')+d.toFixed(1)+'%':'–'}</td>`;
+             `<td class="number" style="font-size:11px;color:${dcIE};font-weight:700">${dIE!=null?(dIE>0?'+':'')+dIE.toFixed(1)+'%':'–'}</td>`;
     }).join('');
 
     html += `<tr class="total-row">
-      <td colspan="6"><strong>TOTALE ANNO</strong></td>
-      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmt(tIE26):'–'}</strong></td>
-      <td class="number"><strong>${tIE25!=null?fmt(tIE25):'–'}</strong></td>
+      <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
+      <td style="position:sticky;left:28px;z-index:3;background:#f8fafc;border-right:2px solid #94a3b8" colspan="5"><strong>TOTALE ANNO</strong></td>
+      <td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmt(tIE26):'–'}</strong></td>
+      <td class="number" style="font-size:11px"><strong>${tIE25!=null?fmt(tIE25):'–'}</strong></td>
       <td class="number" style="font-size:11px">${fD(tIED)}</td>
       <td class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
       <td class="number"><strong>${tSc25||'–'}</strong></td>
@@ -5973,6 +5982,7 @@ async function quickSaveVersamento() {
   });
 })();
 </script>
+<script src="../../scripts/ui-helpers.js"></script>
 <script src="../../scripts/auth.js"></script>
 <script>
 /* ── Filtro emporio per operatori non-admin ── */
