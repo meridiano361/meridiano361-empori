@@ -1073,11 +1073,15 @@ async function loadGraficiData() {
     const totalPz = _CAT_KEYS.reduce((s,k) => s + totals[k].pz, 0);
     const totalIE = _CAT_KEYS.reduce((s,k) => s + totals[k].ie, 0);
 
-    if (totalPz === 0 && totalIE === 0) {
+    if (filtered.length === 0 || (totalPz === 0 && totalIE === 0)) {
       chartsEl.style.display = 'none';
       emptyEl.style.display  = '';
+      emptyEl.textContent    = filtered.length === 0
+        ? 'Nessun dato per il periodo selezionato. Inserisci pezzi e venduto nel tab Settimanale.'
+        : 'I dati di pezzi e venduto non sono ancora stati inseriti per questo periodo.';
       return;
     }
+    emptyEl.style.display = 'none';
     chartsEl.style.display = '';
     emptyEl.style.display  = 'none';
 
@@ -1147,18 +1151,14 @@ async function loadGraficiData() {
 
 /* ── INIT ── */
 window.addEventListener('load', () => {
-  // Ripristina sub-tab
-  const saved = sessionStorage.getItem('analisi_com_subtab') || 'giorn';
-  showComSubtab(saved);
-
-  // Pre-seleziona mese corrente nel giornaliero
   const oggi = new Date();
+
+  // Imposta filtri PRIMA di ripristinare il tab (così loadGraficiData legge valori corretti)
   const meseM = document.getElementById('com-filter-mese-m');
   const annoM = document.getElementById('com-filter-anno');
   if (meseM) meseM.value = String(oggi.getMonth()+1).padStart(2,'0');
   if (annoM) annoM.value = String(oggi.getFullYear());
 
-  // Pre-seleziona mese corrente nei grafici
   const grfMese = document.getElementById('grf-mese');
   if (grfMese) grfMese.value = String(oggi.getMonth()+1);
   const grfSett = document.getElementById('grf-settimana');
@@ -1170,13 +1170,14 @@ window.addEventListener('load', () => {
     if (emp) {
       ['com-filter-emporio','com-sett-emporio','com-mens-emporio','grf-emporio'].forEach(id => {
         const sel = document.getElementById(id);
-        if (sel) {
-          sel.value = emp;
-          sel.disabled = true;
-        }
+        if (sel) { sel.value = emp; sel.disabled = true; }
       });
     }
   }
+
+  // Ripristina sub-tab (può chiamare loadGraficiData con i filtri già impostati)
+  const saved = sessionStorage.getItem('analisi_com_subtab') || 'giorn';
+  showComSubtab(saved);
 });
 </script>
 <script src="../../scripts/ui-helpers.js"></script>
