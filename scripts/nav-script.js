@@ -751,6 +751,11 @@ function buildNav() {
     }
 
     if (perm.opera === false) {
+      // Gli operatori assegnati a un emporio devono sempre poter operare sulle
+      // prenotazioni del proprio negozio — il sola-lettura non si applica.
+      const _localUser = JSON.parse(localStorage.getItem('m361_user') || 'null');
+      if (_localUser?.emporio && currentId === 'prenotazioni') return;
+
       whenReady(() => {
         applyReadonlyMode();
         if (!document.getElementById('m361-readonly-banner')) {

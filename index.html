@@ -75,7 +75,7 @@
       <div class="nav-card-title">Prezzi da fare</div>
     </a>
 
-    <a href="pages/rifornimento/index.html" class="nav-card wip" data-sezione="rifornimento" data-wip-emilio>
+    <a href="pages/rifornimento/index.html" class="nav-card wip" data-sezione="rifornimento" data-wip-rifornimento>
       <div class="nav-card-icon"><i class="fas fa-boxes-stacked"></i></div>
       <div class="nav-card-title">Rifornimento</div>
       <span class="wip-badge">In costruzione</span>
@@ -123,16 +123,24 @@
   const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
   if (!user || !user.id) return;
 
-  // Card WIP riservate a Emilio Mazzolari
+  const _emporio = (user.emporio || '').toLowerCase();
   const _em = (user.email || '').toLowerCase();
   const isEmilio = _em === 'emilio.mazzolari@gmail.com' || _em === 'e.mazzolari@meridiano361.it';
+
+  // Card WIP riservate a Emilio Mazzolari
   document.querySelectorAll('[data-wip-emilio]').forEach(el => {
     if (isEmilio) el.classList.add('wip-owner');
     else el.style.display = 'none';
   });
 
+  // Card Rifornimento: Emilio + responsabili Casalmaggiore e Viadana
+  const canSeeRifornimento = isEmilio || _emporio === 'casalmaggiore' || _emporio === 'viadana';
+  document.querySelectorAll('[data-wip-rifornimento]').forEach(el => {
+    if (canSeeRifornimento) el.classList.add('wip-owner');
+    else el.style.display = 'none';
+  });
+
   // Card Cassa: visibile a Emilio + tutti gli operatori di Cremona
-  const _emporio = (user.emporio || '').toLowerCase();
   const canSeeCassa = isEmilio || _emporio === 'cremona';
   document.querySelectorAll('[data-wip-cassa]').forEach(el => {
     if (canSeeCassa) el.classList.add('wip-owner');
