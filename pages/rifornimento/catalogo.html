@@ -130,9 +130,19 @@
   </a>
   <span class="font-bold text-slate-700 text-sm flex-shrink-0">Catalogo prodotti</span>
 
-  <input type="text" id="f-cerca" placeholder="Cerca..." autocomplete="new-password"
+  <input type="text" id="f-cerca" placeholder="Cerca prodotto..." autocomplete="new-password"
     class="border border-slate-200 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-0 max-w-xs"
     oninput="renderAll()">
+
+  <select id="f-forn" onchange="refreshCatSelect();renderAll()"
+    class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-700 flex-shrink-0">
+    <option value="">Tutti i fornitori</option>
+  </select>
+
+  <select id="f-cat" onchange="renderAll()"
+    class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-700 flex-shrink-0">
+    <option value="">Tutte le categorie</option>
+  </select>
 
   <div class="flex-1"></div>
 
@@ -258,10 +268,26 @@ async function load() {
 }
 
 function populateDatalist() {
-  const fornitori  = [...new Set(catalogo.map(p => p.fornitore).filter(Boolean))].sort();
-  const categorie  = [...new Set(catalogo.map(p => p.category).filter(Boolean))].sort();
+  const fornitori = [...new Set(catalogo.map(p => p.fornitore).filter(Boolean))].sort();
+  const categorie = [...new Set(catalogo.map(p => p.category).filter(Boolean))].sort();
   document.getElementById('dl-fornitori').innerHTML = fornitori.map(f => `<option value="${escH(f)}">`).join('');
   document.getElementById('dl-categorie').innerHTML = categorie.map(c => `<option value="${escH(c)}">`).join('');
+
+  const fSel = document.getElementById('f-forn');
+  const prev = fSel.value;
+  fSel.innerHTML = '<option value="">Tutti i fornitori</option>' +
+    fornitori.map(f => `<option value="${escH(f)}" ${f === prev ? 'selected' : ''}>${escH(f)}</option>`).join('');
+  refreshCatSelect();
+}
+
+function refreshCatSelect() {
+  const forn = document.getElementById('f-forn').value;
+  const src  = forn ? catalogo.filter(p => p.fornitore === forn) : catalogo;
+  const cats = [...new Set(src.map(p => p.category).filter(Boolean))].sort();
+  const cSel = document.getElementById('f-cat');
+  const prev = cSel.value;
+  cSel.innerHTML = '<option value="">Tutte le categorie</option>' +
+    cats.map(c => `<option value="${escH(c)}" ${c === prev ? 'selected' : ''}>${escH(c)}</option>`).join('');
 }
 
 // ── RENDER ────────────────────────────────────────────────────────
@@ -269,11 +295,15 @@ function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;
 
 function renderAll() {
   const cerca = (document.getElementById('f-cerca')?.value || '').toLowerCase().trim();
+  const forn  = document.getElementById('f-forn')?.value || '';
+  const cat   = document.getElementById('f-cat')?.value  || '';
 
   const filtered = catalogo.filter(p => {
-    if (!cerca) return true;
-    return (p.product_code + ' ' + p.description + ' ' + p.category + ' ' + p.fornitore)
-      .toLowerCase().includes(cerca);
+    if (forn && p.fornitore !== forn) return false;
+    if (cat  && p.category  !== cat)  return false;
+    if (cerca && !(p.product_code + ' ' + p.description + ' ' + p.category + ' ' + p.fornitore)
+      .toLowerCase().includes(cerca)) return false;
+    return true;
   });
 
   // Raggruppa per fornitore → categoria
