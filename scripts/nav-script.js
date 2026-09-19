@@ -1484,6 +1484,58 @@ function buildNav() {
     }, ms);
   };
 
+  /* ═══════════════════════════════════════
+     PREVENZIONE AUTOFILL CHROME (globale)
+     Chrome ignora autocomplete="off" e riempie con le credenziali salvate.
+     Soluzione: honeypot nascosto che assorbe il riempimento + impostazione
+     autocomplete="off" su tutti gli input di ricerca/filtro della pagina.
+  ═══════════════════════════════════════ */
+  function preventAutofill() {
+    if (window.location.pathname.toLowerCase().includes('login.html')) return;
+
+    // Honeypot: Chrome riempie i PRIMI input che trova. Li intercettiamo con
+    // due campi invisibili prima di qualsiasi input reale della pagina.
+    const injectHoneypot = () => {
+      if (document.getElementById('_m361_ac_trap') || !document.body) return;
+      const trap = document.createElement('div');
+      trap.id = '_m361_ac_trap';
+      trap.setAttribute('aria-hidden', 'true');
+      trap.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;';
+      trap.innerHTML =
+        '<input type="text" name="_m361_username" tabindex="-1" autocomplete="username">' +
+        '<input type="password" name="_m361_password" tabindex="-1" autocomplete="current-password">';
+      document.body.insertBefore(trap, document.body.firstChild);
+    };
+
+    // Imposta autocomplete="off" su tutti gli input di testo/ricerca che non
+    // hanno un attributo autocomplete esplicito (esclusi i campi di login).
+    const applyAutocompleteOff = () => {
+      document.querySelectorAll(
+        'input[type="text"]:not([autocomplete]), input[type="search"]:not([autocomplete])'
+      ).forEach(el => {
+        el.setAttribute('autocomplete', 'off');
+      });
+    };
+
+    if (document.body) {
+      injectHoneypot();
+      applyAutocompleteOff();
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        injectHoneypot();
+        applyAutocompleteOff();
+      }, { once: true });
+    }
+
+    // Osserva anche gli input aggiunti dinamicamente dopo il caricamento
+    const observer = new MutationObserver(() => { applyAutocompleteOff(); });
+    const startObs = () => observer.observe(document.body, { childList: true, subtree: true });
+    if (document.body) startObs();
+    else document.addEventListener('DOMContentLoaded', startObs, { once: true });
+  }
+
+  preventAutofill();
+
   // Lancio dello script
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
