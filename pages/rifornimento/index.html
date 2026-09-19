@@ -11,53 +11,76 @@
 </head>
 <body>
 <script src="../../scripts/nav-script.js"></script>
-<main class="main">
+<main class="main" id="main-content" style="display:none">
 
-  <!-- IN COSTRUZIONE -->
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;font-family:'Nunito',sans-serif;text-align:center;padding:24px">
-    <div style="font-size:56px;margin-bottom:20px;line-height:1">🚧</div>
-    <div style="font-size:22px;font-weight:900;color:#1e293b;margin-bottom:8px">Sezione in costruzione</div>
-    <div style="font-size:14px;color:#64748b;font-weight:600">Questa funzione sarà disponibile a breve.</div>
-  </div>
-
-  <div style="display:none">
   <div class="grid-auto">
 
     <a href="proposte.html" class="nav-card">
       <div class="nav-card-icon" style="background:#fef3c7">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#d97706" stroke-width="2" width="24" height="24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-        </svg>
+        <i class="fas fa-clipboard-list" style="color:#d97706;font-size:22px"></i>
       </div>
       <div class="nav-card-title">Proposte Rifornimento</div>
-      <div class="nav-card-sub">Crea e consulta le proposte d'ordine degli empori</div>
+      <div class="nav-card-sub">Crea e consulta le proposte d'ordine</div>
     </a>
 
     <a href="catalogo.html" class="nav-card" id="card-catalogo" style="display:none">
       <div class="nav-card-icon" style="background:#f1f5f9">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#64748b" stroke-width="2" width="24" height="24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-        </svg>
+        <i class="fas fa-boxes-stacked" style="color:#64748b;font-size:22px"></i>
       </div>
       <div class="nav-card-title">Gestione Catalogo</div>
-      <div class="nav-card-sub">Aggiungi, modifica ed elimina prodotti e fornitori</div>
+      <div class="nav-card-sub">Prodotti, prezzi e autorizzazioni</div>
     </a>
 
   </div>
-  </div><!-- /nascosto -->
+
 </main>
+
+<div id="accesso-negato" style="display:none;text-align:center;padding:48px 24px;font-family:Nunito,sans-serif">
+  <div style="font-size:40px;margin-bottom:16px">🔒</div>
+  <div style="font-size:18px;font-weight:800;color:#1e293b;margin-bottom:8px">Accesso non autorizzato</div>
+  <div style="font-size:13px;color:#64748b;max-width:300px;margin:0 auto 20px">
+    Non hai l'autorizzazione per accedere al modulo Rifornimento.<br>
+    Contatta Emilio Mazzolari per richiedere l'accesso.
+  </div>
+  <a href="/" style="color:#d97706;font-weight:700;font-size:13px">← Torna alla home</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="../../scripts/auth.js"></script>
 <script>
-  (function() {
-    const _u = JSON.parse(localStorage.getItem('m361_user') || 'null');
-    const _em = (_u?.email || '').toLowerCase();
-    const _isEmilio = _em === 'emilio.mazzolari@gmail.com' || _em === 'e.mazzolari@meridiano361.it';
-    if (!_isEmilio) { location.replace('/'); }
-  })();
-  const _u = JSON.parse(localStorage.getItem('m361_user') || 'null');
-  if (['admin','dipendente'].includes(_u?.ruolo?.toLowerCase())) {
+(async function() {
+  const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+  const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+  if (!user) { location.replace('/login.html'); return; }
+
+  const em = (user.email || '').toLowerCase();
+  const isEmilio = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
+
+  let authorized = isEmilio;
+
+  if (!authorized) {
+    const emp = (user.emporio || '').toLowerCase();
+    if (emp === 'casalmaggiore' || emp === 'viadana') {
+      const { data } = await db.from('rifornimento_autorizzati')
+        .select('id').eq('operatore_id', user.id).limit(1);
+      authorized = !!(data?.length);
+    }
+  }
+
+  if (!authorized) {
+    document.getElementById('accesso-negato').style.display = '';
+    return;
+  }
+
+  document.getElementById('main-content').style.display = '';
+
+  if (isEmilio) {
     document.getElementById('card-catalogo').style.display = '';
   }
+})();
 </script>
 </body>
 </html>
