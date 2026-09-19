@@ -236,6 +236,10 @@
       <button onclick="closeModalPren()" class="modal-close"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
+      <div class="form-group">
+        <label>Negozio</label>
+        <select id="f-emporio-pren" class="form-input"></select>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>Nome</label>
@@ -720,6 +724,12 @@ function openModalPrenotazione(id) {
   _editingPrenId = id || null;
   const r = id ? _prenotazioni.find(p => p.id === id) : null;
   document.getElementById('modal-pren-title').textContent = r ? 'Modifica prenotazione' : 'Nuova prenotazione';
+
+  const selEmp = document.getElementById('f-emporio-pren');
+  selEmp.innerHTML = EMPORI_LIST.map(e =>
+    `<option value="${e.nome}"${(r?.emporio || _emporio) === e.nome ? ' selected' : ''}>${e.nome}</option>`
+  ).join('');
+
   document.getElementById('f-nome').value = r?.cliente_nome || '';
   document.getElementById('f-cognome').value = r?.cliente_cognome || '';
   document.getElementById('f-telefono').value = r?.cliente_telefono || '';
@@ -776,7 +786,7 @@ async function savePrenotazione() {
 
   const payload = {
     campagna_id: _campagna.id,
-    emporio: _emporio,
+    emporio: document.getElementById('f-emporio-pren').value || _emporio,
     cliente_nome: nome,
     cliente_cognome: cognome,
     cliente_telefono: document.getElementById('f-telefono').value.trim(),
