@@ -694,10 +694,10 @@ function buildNav() {
     const ruolo = (user.ruolo || '').toLowerCase();
     sessionStorage.setItem('ruolo', ruolo);
 
-    // Admin e dipendenti: bypass del sistema permessi DB (accesso completo).
+    // Admin, dipendenti e responsabili negozio: bypass del sistema permessi DB.
     // SCU e altri ruoli contrattualizzati passano invece dal controllo permessi.
     // Questo è INTENZIONALE: dipendente = staff fisso con accesso globale.
-    if (['admin', 'dipendente'].includes(ruolo)) {
+    if (['admin', 'dipendente'].includes(ruolo) || user.is_resp_negozio) {
       sessionStorage.removeItem('permessi');
       return;
     }
