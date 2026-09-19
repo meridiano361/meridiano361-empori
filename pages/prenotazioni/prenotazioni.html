@@ -259,14 +259,31 @@
         <label>Note</label>
         <textarea id="f-note" class="form-input" rows="2" placeholder="Note aggiuntive..."></textarea>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Stato</label>
+          <select id="f-stato" class="form-input">
+            <option value="attesa">In attesa</option>
+            <option value="pronto">Pronto</option>
+            <option value="avvisato">Avvisato</option>
+            <option value="consegnato">Consegnato</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Come ha prenotato</label>
+          <select id="f-canale" class="form-input">
+            <option value="">—</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="sito">Sito web</option>
+            <option value="telefono">Telefono</option>
+            <option value="persona">Di persona in bottega</option>
+          </select>
+        </div>
+      </div>
       <div class="form-group">
-        <label>Stato</label>
-        <select id="f-stato" class="form-input">
-          <option value="attesa">In attesa</option>
-          <option value="pronto">Pronto</option>
-          <option value="avvisato">Avvisato</option>
-          <option value="consegnato">Consegnato</option>
-        </select>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;font-weight:700;letter-spacing:0">
+          <input type="checkbox" id="f-pagato" style="accent-color:#16a34a;width:16px;height:16px"> Ha già pagato
+        </label>
       </div>
     </div>
     <div class="modal-footer">
@@ -568,6 +585,18 @@ async function loadPrenotazioni() {
   renderPrenTable();
 }
 
+function canaleCell(c) {
+  const map = {
+    whatsapp: ['<i class="fas fa-comment" style="color:#25d366"></i>', 'WhatsApp'],
+    sito:     ['<i class="fas fa-globe" style="color:#6366f1"></i>', 'Sito web'],
+    telefono: ['<i class="fas fa-phone" style="color:#3b82f6"></i>', 'Telefono'],
+    persona:  ['<i class="fas fa-store" style="color:#f59e0b"></i>', 'Bottega'],
+  };
+  if (!c || !map[c]) return '<span style="color:#e2e8f0;font-size:11px">—</span>';
+  const [icon, label] = map[c];
+  return `<span title="${label}" style="font-size:13px">${icon}</span>`;
+}
+
 function renderPrenTable() {
   const filtro = (document.getElementById('filtro-cliente')?.value || '').toLowerCase().trim();
   let rows = _prenotazioni;
@@ -590,6 +619,8 @@ function renderPrenTable() {
     </div></th>`).join('')}
     <th style="min-width:60px;text-align:right">Totale</th>
     <th style="min-width:55px">Stato</th>
+    <th style="min-width:50px">Canale</th>
+    <th style="min-width:50px">Pagato</th>
     <th style="min-width:60px">Operatore</th>
     <th style="width:52px"></th>
   </tr>`;
@@ -621,6 +652,8 @@ function renderPrenTable() {
       ${cells}
       <td style="text-align:right;font-weight:700">€ ${total.toFixed(2)}</td>
       <td><span class="stato-badge" style="background:${sc}20;color:${sc}">${sl}</span></td>
+      <td style="text-align:center">${canaleCell(r.canale)}</td>
+      <td style="text-align:center">${r.pagato ? '<span class="stato-badge" style="background:#dcfce7;color:#16a34a">Sì</span>' : '<span style="color:#e2e8f0;font-size:11px">—</span>'}</td>
       <td style="font-size:11px;color:#94a3b8">${escHtml(r.operatore_nome || '—')}</td>
       <td style="text-align:center;white-space:nowrap">
         <button onclick="openModalPrenotazione('${r.id}')" class="icon-btn" title="Modifica"><i class="fas fa-pen" style="font-size:11px"></i></button>
@@ -638,7 +671,7 @@ function renderPrenTable() {
     <td colspan="2" style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#64748b">Totali</td>
     ${colSums.map(s => `<td class="col-total">${s}</td>`).join('')}
     <td class="col-total" style="text-align:right">€ ${grandTotal.toFixed(2)}</td>
-    <td colspan="3"></td>
+    <td colspan="5"></td>
   </tr>`;
 }
 
@@ -735,6 +768,8 @@ function openModalPrenotazione(id) {
   document.getElementById('f-telefono').value = r?.cliente_telefono || '';
   document.getElementById('f-note').value = r?.note || '';
   document.getElementById('f-stato').value = r?.stato || 'attesa';
+  document.getElementById('f-canale').value = r?.canale || '';
+  document.getElementById('f-pagato').checked = r?.pagato || false;
 
   const prod = _campagna.prodotti || [];
   const art = r?.articoli || {};
@@ -793,6 +828,8 @@ async function savePrenotazione() {
     articoli: art,
     note: document.getElementById('f-note').value.trim() || null,
     stato: document.getElementById('f-stato').value,
+    canale: document.getElementById('f-canale').value || null,
+    pagato: document.getElementById('f-pagato').checked,
     operatore_nome: [_u.nome, _u.cognome].filter(Boolean).join(' '),
   };
 
