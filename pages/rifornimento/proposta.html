@@ -219,6 +219,7 @@ let righe    = {};       // { product_code: { qty, notes, id } }
 let isEditable = false;
 let saveTimer  = null;
 let pendingSave = {};    // { product_code: true } prodotti da salvare
+let sortState  = { field: null, dir: 'asc' };  // field: null | 'code' | 'desc' | 'pvp'
 
 // ── INIT ──────────────────────────────────────────────────────────
 async function init() {
@@ -381,6 +382,36 @@ function assLabel(v) {
   return '<span class="td-ass nat">—</span>';
 }
 
+// ── SORT ──────────────────────────────────────────────────────────
+function setSort(field) {
+  if (sortState.field === field) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState = { field, dir: 'asc' };
+  }
+  renderTable();
+}
+
+function sortIcon(field) {
+  if (sortState.field !== field)
+    return '<span style="color:#cbd5e1;font-size:9px;margin-left:2px">↕</span>';
+  return `<span style="font-size:9px;margin-left:2px">${sortState.dir === 'asc' ? '↑' : '↓'}</span>`;
+}
+
+function sortProds(arr) {
+  if (!sortState.field) return arr;
+  return [...arr].sort((a, b) => {
+    let va, vb;
+    if (sortState.field === 'code') { va = a.product_code || ''; vb = b.product_code || ''; }
+    else if (sortState.field === 'desc') { va = a.description || '';  vb = b.description || ''; }
+    else if (sortState.field === 'pvp')  { va = Number(a.pvp) || 0;   vb = Number(b.pvp) || 0; }
+    if (typeof va === 'string') return sortState.dir === 'asc'
+      ? va.localeCompare(vb, 'it', { sensitivity: 'base' })
+      : vb.localeCompare(va, 'it', { sensitivity: 'base' });
+    return sortState.dir === 'asc' ? va - vb : vb - va;
+  });
+}
+
 // ── RENDER TABELLA ────────────────────────────────────────────────
 function getFilteredProducts() {
   const cerca   = document.getElementById('f-cerca').value.toLowerCase().trim();
@@ -432,9 +463,9 @@ function renderTable() {
   // Unica tabella → un solo <thead> sticky, senza overflow:hidden che rompe lo sticky
   html += `<div style="overflow-x:auto"><table class="tabella">
     <thead><tr>
-      <th style="width:11%">Codice</th>
-      <th style="width:26%">Descrizione</th>
-      <th style="width:10%">PVP €</th>
+      <th style="width:11%;cursor:pointer;user-select:none" onclick="setSort('code')">Codice${sortIcon('code')}</th>
+      <th style="width:26%;cursor:pointer;user-select:none" onclick="setSort('desc')">Descrizione${sortIcon('desc')}</th>
+      <th style="width:10%;cursor:pointer;user-select:none" onclick="setSort('pvp')">PVP €${sortIcon('pvp')}</th>
       <th style="width:8%">Conf</th>
       <th style="width:7%">Ass.</th>
       <th style="width:11%">Qtà</th>
@@ -478,7 +509,7 @@ function renderTable() {
         </td>
       </tr>`;
 
-      catProds.forEach(p => {
+      sortProds(catProds).forEach(p => {
         const r      = righe[p.product_code] || { qty: 0, notes: '' };
         const hasQty = r.qty > 0;
         const ass    = getAss(p);
