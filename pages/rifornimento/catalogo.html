@@ -44,12 +44,13 @@
     /* ── PRODOTTO ROW ── */
     .prod-row {
       display: grid;
-      grid-template-columns: 80px 1fr 70px 50px 100px auto;
+      grid-template-columns: 20px 80px 1fr 70px 50px 100px auto;
       align-items: center; gap: 8px;
       padding: 6px 16px; border-bottom: 1px solid #f1f5f9; font-size: 12px;
     }
     .prod-row:last-child { border-bottom: none; }
     .prod-row:hover { background: #f8fafc; }
+    .prod-row.selected { background: #eff6ff; }
     .prod-code { color: #94a3b8; font-family: monospace; font-size: 11px; }
     .prod-desc { font-weight: 500; color: #1e293b; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .prod-pvp  { text-align: right; color: #374151; }
@@ -104,8 +105,26 @@
 
     select.form-input { appearance: auto; }
 
+    /* ── BULK BAR ── */
+    .bulk-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+      background: #1e293b; color: white; padding: 10px 16px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      box-shadow: 0 -3px 16px rgba(0,0,0,.2);
+    }
+    .bulk-btn {
+      padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      cursor: pointer; border: none; transition: all .15s;
+    }
+    .bulk-btn-edit { background: #f59e0b; color: white; }
+    .bulk-btn-edit:hover { background: #d97706; }
+    .bulk-btn-del  { background: #ef4444; color: white; }
+    .bulk-btn-del:hover  { background: #dc2626; }
+    .bulk-btn-clear { background: transparent; color: #94a3b8; border: 1px solid #334155; }
+    .bulk-btn-clear:hover { color: white; border-color: #64748b; }
+
     @media (max-width: 600px) {
-      .prod-row { grid-template-columns: 70px 1fr 60px auto; }
+      .prod-row { grid-template-columns: 20px 70px 1fr 60px auto; }
       .col-conf, .col-ass { display: none; }
     }
   </style>
@@ -144,6 +163,11 @@
     <option value="">Tutte le categorie</option>
   </select>
 
+  <label class="flex items-center gap-1.5 cursor-pointer flex-shrink-0" title="Seleziona/deseleziona tutti i prodotti visibili">
+    <input type="checkbox" id="cb-all" onchange="selectAllVisible(this.checked)" style="accent-color:#f59e0b;width:15px;height:15px">
+    <span class="text-xs text-slate-500 hidden sm:inline">Tutti</span>
+  </label>
+
   <div class="flex-1"></div>
 
   <button onclick="apriModaleProdotto(null)"
@@ -158,6 +182,85 @@
 <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-4" id="main">
   <div class="text-center py-12 text-slate-400 text-sm">Caricamento...</div>
 </main>
+
+<!-- BULK BAR -->
+<div id="bulk-bar" class="bulk-bar hidden">
+  <span id="bulk-count" class="font-bold text-sm mr-2">0 selezionati</span>
+  <button class="bulk-btn bulk-btn-edit" onclick="openBulkEdit()">✏️ Modifica campi</button>
+  <button class="bulk-btn bulk-btn-del"  onclick="deleteSelected()">🗑️ Elimina</button>
+  <button class="bulk-btn bulk-btn-clear" onclick="clearSelection()">✕ Annulla selezione</button>
+</div>
+
+<!-- MODAL MODIFICA IN BLOCCO -->
+<div id="modal-bulk" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h2 class="font-bold text-slate-800 text-lg mb-1">Modifica in blocco</h2>
+    <p class="text-xs text-slate-500 mb-4">Modifica <strong id="bulk-edit-count">0</strong> prodotti — lascia vuoto per non modificare un campo.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
+      <div>
+        <label class="form-label">Fornitore</label>
+        <input list="dl-fornitori" id="be-fornitore" class="form-input" placeholder="lascia vuoto" autocomplete="off">
+      </div>
+      <div>
+        <label class="form-label">Categoria</label>
+        <input list="dl-categorie" id="be-categoria" class="form-input" placeholder="lascia vuoto" autocomplete="off">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
+      <div>
+        <label class="form-label">PVP (€)</label>
+        <input type="number" id="be-pvp" class="form-input" placeholder="lascia vuoto" step="0.01" min="0">
+      </div>
+      <div>
+        <label class="form-label">Confezione (pz)</label>
+        <input type="number" id="be-conf" class="form-input" placeholder="lascia vuoto" min="1">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px" class="form-row">
+      <div>
+        <label class="form-label">Ass. Cremona</label>
+        <select id="be-ass-cr" class="form-input">
+          <option value="">— non toccare</option>
+          <option value="si">SI</option>
+          <option value="no">NO</option>
+          <option value="nat">Stagionale</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Ass. Casalmaggiore</label>
+        <select id="be-ass-cas" class="form-input">
+          <option value="">— non toccare</option>
+          <option value="si">SI</option>
+          <option value="no">NO</option>
+          <option value="nat">Stagionale</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Ass. Viadana</label>
+        <select id="be-ass-via" class="form-input">
+          <option value="">— non toccare</option>
+          <option value="si">SI</option>
+          <option value="no">NO</option>
+          <option value="nat">Stagionale</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="bulk-err" class="text-red-500 text-xs mt-1 hidden"></div>
+
+    <div class="flex gap-3 mt-6">
+      <button onclick="chiudiModaleBulk()"
+        class="flex-1 border border-slate-200 text-slate-600 font-semibold py-2 rounded-xl text-sm hover:bg-slate-50">
+        Annulla
+      </button>
+      <button id="bulk-save" onclick="saveBulkEdit()"
+        class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-xl text-sm transition-colors">
+        Applica modifiche
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL PRODOTTO -->
 <div id="modal" class="modal-overlay hidden">
@@ -250,6 +353,7 @@ const admin = ['admin','dipendente'].includes(user?.ruolo?.toLowerCase());
 
 let catalogo = [];
 let editingId = null;
+let selectedIds = new Set();
 
 // ── LOAD ──────────────────────────────────────────────────────────
 async function load() {
@@ -355,6 +459,7 @@ function renderAll() {
       <div class="forn-body">${catsHtml}</div>
     </div>`;
   }).join('');
+  updateBulkBar();
 }
 
 function renderProdRow(p) {
@@ -373,7 +478,10 @@ function renderProdRow(p) {
       <button class="btn-icon btn-del"  onclick="eliminaProdotto(${p.id},'${escH(p.description)}')" title="Elimina">🗑️</button>
     </div>` : '';
 
-  return `<div class="prod-row">
+  const isSel = selectedIds.has(p.id);
+  return `<div class="prod-row${isSel ? ' selected' : ''}">
+    <input type="checkbox" data-id="${p.id}" ${isSel ? 'checked' : ''}
+      onchange="toggleSelect(${p.id},this.checked)" style="cursor:pointer;accent-color:#f59e0b">
     <span class="prod-code">${escH(p.product_code)}</span>
     <span class="prod-desc" title="${escH(p.description)}">${escH(p.description)}</span>
     <span class="prod-pvp">${pvp}</span>
@@ -537,6 +645,118 @@ async function eliminaProdotto(id, desc) {
   if (!confirm(`Eliminare "${desc}"?`)) return;
   const { error } = await db.from('rifornimento_catalogo').delete().eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
+  await load();
+}
+
+// ── SELEZIONE MULTIPLA ────────────────────────────────────────────
+function toggleSelect(id, checked) {
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  const row = document.querySelector(`input[data-id="${id}"]`)?.closest('.prod-row');
+  if (row) row.classList.toggle('selected', checked);
+  updateBulkBar();
+}
+
+function getVisibleIds() {
+  return [...document.querySelectorAll('input[data-id]')].map(cb => Number(cb.dataset.id));
+}
+
+function selectAllVisible(checked) {
+  getVisibleIds().forEach(id => checked ? selectedIds.add(id) : selectedIds.delete(id));
+  document.querySelectorAll('input[data-id]').forEach(cb => {
+    cb.checked = checked;
+    cb.closest('.prod-row').classList.toggle('selected', checked);
+  });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('input[data-id]').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.prod-row').classList.remove('selected');
+  });
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const n = selectedIds.size;
+  const bar = document.getElementById('bulk-bar');
+  if (n === 0) { bar.classList.add('hidden'); }
+  else {
+    bar.classList.remove('hidden');
+    document.getElementById('bulk-count').textContent = `${n} selezionat${n === 1 ? 'o' : 'i'}`;
+  }
+  const cbAll = document.getElementById('cb-all');
+  if (!cbAll) return;
+  const vis = getVisibleIds();
+  if (!vis.length) { cbAll.checked = false; cbAll.indeterminate = false; return; }
+  const selCount = vis.filter(id => selectedIds.has(id)).length;
+  cbAll.indeterminate = selCount > 0 && selCount < vis.length;
+  cbAll.checked = selCount === vis.length;
+}
+
+// ── MODIFICA IN BLOCCO ────────────────────────────────────────────
+function openBulkEdit() {
+  document.getElementById('bulk-edit-count').textContent = selectedIds.size;
+  ['be-fornitore','be-categoria','be-pvp','be-conf'].forEach(id => document.getElementById(id).value = '');
+  ['be-ass-cr','be-ass-cas','be-ass-via'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('bulk-err').classList.add('hidden');
+  document.getElementById('modal-bulk').classList.remove('hidden');
+}
+
+function chiudiModaleBulk() {
+  document.getElementById('modal-bulk').classList.add('hidden');
+}
+document.getElementById('modal-bulk').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-bulk')) chiudiModaleBulk();
+});
+
+async function saveBulkEdit() {
+  const patch = {};
+  const forn = document.getElementById('be-fornitore').value.trim();
+  const cat  = document.getElementById('be-categoria').value.trim();
+  const pvp  = document.getElementById('be-pvp').value.trim();
+  const conf = document.getElementById('be-conf').value.trim();
+  const cr   = document.getElementById('be-ass-cr').value;
+  const cas  = document.getElementById('be-ass-cas').value;
+  const via  = document.getElementById('be-ass-via').value;
+
+  if (forn) patch.fornitore = forn;
+  if (cat)  patch.category  = cat;
+  if (pvp)  patch.pvp       = parseFloat(pvp);
+  if (conf) patch.pack_size = parseInt(conf);
+  const assMap = { si: true, no: false, nat: null };
+  if (cr)  patch.assortment_cremona       = assMap[cr];
+  if (cas) patch.assortment_casalmaggiore = assMap[cas];
+  if (via) patch.assortment_viadana       = assMap[via];
+
+  const errEl = document.getElementById('bulk-err');
+  if (!Object.keys(patch).length) {
+    errEl.textContent = 'Nessun campo compilato.';
+    errEl.classList.remove('hidden'); return;
+  }
+  errEl.classList.add('hidden');
+
+  const btn = document.getElementById('bulk-save');
+  btn.disabled = true; btn.textContent = 'Salvataggio…';
+
+  const { error } = await db.from('rifornimento_catalogo').update(patch).in('id', [...selectedIds]);
+
+  btn.disabled = false; btn.textContent = 'Applica modifiche';
+  if (error) { errEl.textContent = 'Errore: ' + error.message; errEl.classList.remove('hidden'); return; }
+
+  chiudiModaleBulk();
+  selectedIds.clear();
+  await load();
+}
+
+async function deleteSelected() {
+  const n = selectedIds.size;
+  if (!confirm(`Eliminare ${n} prodott${n === 1 ? 'o' : 'i'} selezionat${n === 1 ? 'o' : 'i'}?`)) return;
+  const { error } = await db.from('rifornimento_catalogo').delete().in('id', [...selectedIds]);
+  if (error) { alert('Errore: ' + error.message); return; }
+  selectedIds.clear();
+  updateBulkBar();
   await load();
 }
 
