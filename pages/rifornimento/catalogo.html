@@ -371,6 +371,8 @@ let catalogo = [];
 let editingId = null;
 let selectedIds = new Set();
 let sortState = { field: null, dir: 'asc' };
+let expandedForn = new Set();
+let expandedCat  = new Set();
 
 function setSort(field) {
   if (sortState.field === field) {
@@ -473,9 +475,13 @@ function renderAll() {
 
   main.innerHTML = Object.entries(byForn).map(([forn, byCat]) => {
     const totProd = Object.values(byCat).reduce((s, arr) => s + arr.length, 0);
-    const catsHtml = Object.entries(byCat).map(([cat, prods]) => `
-      <div class="cat-header" onclick="toggleCat(this)">
-        <svg class="w-3 h-3 cat-chev transition-transform" style="transform:rotate(-90deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    const fornOpen = expandedForn.has(forn);
+    const catsHtml = Object.entries(byCat).map(([cat, prods]) => {
+      const catKey = forn + '|' + cat;
+      const catOpen = expandedCat.has(catKey);
+      return `
+      <div class="cat-header" data-key="${escH(catKey)}" onclick="toggleCat(this)">
+        <svg class="w-3 h-3 cat-chev transition-transform" style="transform:rotate(${catOpen ? '0' : '-90'}deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
         </svg>
         ${escH(cat)}
@@ -483,15 +489,15 @@ function renderAll() {
         ${admin ? `<button onclick="event.stopPropagation();apriModaleProdotto(null,'${escH(forn)}','${escH(cat)}')"
           class="ml-2 text-xs text-amber-500 hover:text-amber-700 font-semibold">+ prodotto</button>` : ''}
       </div>
-      <div class="cat-body" style="display:none">
+      <div class="cat-body" style="${catOpen ? '' : 'display:none'}">
         ${sortProds(prods).map(p => renderProdRow(p)).join('')}
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
     return `
     <div class="forn-card">
-      <div class="forn-header" onclick="toggleForn(this)">
-        <svg class="w-4 h-4 forn-chev transition-transform" style="transform:rotate(-90deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="forn-header" data-forn="${escH(forn)}" onclick="toggleForn(this)">
+        <svg class="w-4 h-4 forn-chev transition-transform" style="transform:rotate(${fornOpen ? '0' : '-90'}deg)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/>
         </svg>
         <span class="forn-title">${escH(forn)}</span>
@@ -501,7 +507,7 @@ function renderAll() {
           + prodotto
         </button>` : ''}
       </div>
-      <div class="forn-body" style="display:none">${catsHtml}</div>
+      <div class="forn-body" style="${fornOpen ? '' : 'display:none'}">${catsHtml}</div>
     </div>`;
   }).join('');
   updateBulkBar();
@@ -545,16 +551,20 @@ function assDot(v, label) {
 function toggleForn(header) {
   const body = header.closest('.forn-card').querySelector('.forn-body');
   const chev = header.querySelector('.forn-chev');
-  const hidden = body.style.display === 'none';
-  body.style.display = hidden ? '' : 'none';
-  chev.style.transform = hidden ? '' : 'rotate(-90deg)';
+  const forn = header.dataset.forn;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  chev.style.transform = isOpen ? 'rotate(-90deg)' : '';
+  if (isOpen) expandedForn.delete(forn); else expandedForn.add(forn);
 }
 function toggleCat(header) {
   const body = header.nextElementSibling;
   const chev = header.querySelector('.cat-chev');
-  const hidden = body.style.display === 'none';
-  body.style.display = hidden ? '' : 'none';
-  chev.style.transform = hidden ? '' : 'rotate(-90deg)';
+  const key = header.dataset.key;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  chev.style.transform = isOpen ? 'rotate(-90deg)' : '';
+  if (isOpen) expandedCat.delete(key); else expandedCat.add(key);
 }
 
 // ── ASSORTIMENTO TOGGLE ───────────────────────────────────────────
