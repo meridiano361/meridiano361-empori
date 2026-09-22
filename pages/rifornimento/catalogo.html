@@ -206,6 +206,18 @@
     Nuovo prodotto
   </button>
 
+  <!-- UNDO TOAST — appare dopo ogni modifica/toggle -->
+  <div id="undo-toast" style="display:none;width:100%;align-items:center;gap:10px;flex-wrap:wrap;
+    background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:8px 12px">
+    <span id="undo-msg" style="font-size:13px;font-weight:600;color:#166534;flex:1"></span>
+    <button onclick="undoLastAction()"
+      style="background:#16a34a;color:white;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
+      ↩ Torna indietro
+    </button>
+    <button onclick="clearUndo()"
+      style="background:transparent;color:#4ade80;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0 4px">×</button>
+  </div>
+
   <!-- BULK BAR — appare qui sotto quando ci sono selezioni -->
   <div id="bulk-bar" class="bulk-bar" style="display:none">
     <span class="text-sm font-bold text-amber-800">
@@ -386,6 +398,41 @@ let catalogo = [];
 let editingId = null;
 let selectedIds = new Set();
 let bypassValidation = false;
+let lastAction = null;
+let undoTimer  = null;
+
+function setUndoAction(action) {
+  lastAction = action;
+  clearTimeout(undoTimer);
+  document.getElementById('undo-msg').textContent = action.msg;
+  document.getElementById('undo-toast').style.display = 'flex';
+  undoTimer = setTimeout(clearUndo, 7000);
+}
+function clearUndo() {
+  lastAction = null;
+  clearTimeout(undoTimer);
+  document.getElementById('undo-toast').style.display = 'none';
+}
+async function undoLastAction() {
+  if (!lastAction) return;
+  const a = lastAction;
+  clearUndo();
+  if (a.type === 'edit') {
+    const { error } = await db.from('rifornimento_catalogo').update(a.prev).eq('id', a.id);
+    if (error) { alert('Errore ripristino: ' + error.message); return; }
+    await load();
+  } else if (a.type === 'insert') {
+    const { error } = await db.from('rifornimento_catalogo').delete().eq('id', a.id);
+    if (error) { alert('Errore ripristino: ' + error.message); return; }
+    await load();
+  } else if (a.type === 'toggle_active') {
+    const { error } = await db.from('rifornimento_catalogo').update({ active: a.prevActive }).eq('id', a.id);
+    if (error) { alert('Errore ripristino: ' + error.message); return; }
+    const p = catalogo.find(x => x.id === a.id);
+    if (p) p.active = a.prevActive;
+    renderAll();
+  }
+}
 let sortState = { field: null, dir: 'asc' };
 let expandedForn = new Set();
 let expandedCat  = new Set();
@@ -718,6 +765,9 @@ async function salvaProdotto() {
   errEl.classList.add('hidden');
   btn.disabled = true; btn.textContent = 'Salvataggio…';
 
+  // cattura stato precedente per undo
+  const prevData = editingId ? { ...catalogo.find(x => x.id === editingId) } : null;
+
   const payload = {
     fornitore, category, product_code: code, description: desc,
     pvp, pack_size: conf, sort_order: sort,
@@ -727,11 +777,13 @@ async function salvaProdotto() {
     source_sheet: '', active: true,
   };
 
-  let error;
+  let error, newId;
   if (editingId) {
     ({ error } = await db.from('rifornimento_catalogo').update(payload).eq('id', editingId));
   } else {
-    ({ error } = await db.from('rifornimento_catalogo').insert(payload));
+    let newRow;
+    ({ data: newRow, error } = await db.from('rifornimento_catalogo').insert(payload).select('id').single());
+    if (!error) newId = newRow?.id;
   }
 
   btn.disabled = false;
@@ -740,6 +792,13 @@ async function salvaProdotto() {
     btn.textContent = 'Salva';
     errEl.textContent = 'Errore: ' + error.message;
     errEl.classList.remove('hidden'); return;
+  }
+
+  if (editingId && prevData) {
+    const { id: _id, ...prev } = prevData;
+    setUndoAction({ type: 'edit', id: editingId, prev, msg: `"${prevData.description || 'Prodotto'}" modificato.` });
+  } else if (newId) {
+    setUndoAction({ type: 'insert', id: newId, msg: `Prodotto aggiunto. Puoi annullare l'inserimento.` });
   }
 
   chiudiModale();
@@ -770,6 +829,10 @@ async function toggleActive(id, currentlyActive) {
   if (error) { alert('Errore: ' + error.message); return; }
   const p = catalogo.find(x => x.id === id);
   if (p) p.active = newVal;
+  setUndoAction({
+    type: 'toggle_active', id, prevActive: currentlyActive,
+    msg: `"${p?.description || 'Prodotto'}" ${newVal ? 'ripristinato' : 'nascosto'}.`,
+  });
   renderAll();
 }
 
