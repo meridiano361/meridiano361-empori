@@ -71,6 +71,17 @@
     .btn-edit:hover { background: #eff6ff; border-color: #bfdbfe; }
     .btn-del  { color: #ef4444; }
     .btn-del:hover { background: #fef2f2; border-color: #fecaca; }
+    .btn-eye  { color: #94a3b8; }
+    .btn-eye:hover  { background: #fef2f2; border-color: #fecaca; color: #ef4444; }
+    .btn-eye.inactive { color: #ef4444; background: #fef2f2; border-color: #fecaca; }
+    .btn-eye.inactive:hover { background: #fee2e2; }
+
+    /* ── PRODOTTO NASCOSTO ── */
+    .prod-row.inactive { background: #fff5f5 !important; }
+    .prod-row.inactive .prod-desc { text-decoration: line-through; color: #cbd5e1; }
+    .prod-row.inactive .prod-code,
+    .prod-row.inactive .prod-pvp,
+    .prod-row.inactive .prod-conf { opacity: 0.4; }
 
     /* ── MODAL ── */
     .modal-overlay {
@@ -523,14 +534,26 @@ function renderProdRow(p) {
     ${assDot(p.assortment_viadana, 'VI')}
   </div>`;
 
+  const isActive = p.active !== false;
+  const eyeBtn = admin ? `
+    <button class="btn-icon btn-eye${isActive ? '' : ' inactive'}"
+      onclick="toggleActive(${p.id},${isActive})"
+      title="${isActive ? 'Nascondi dalla proposta' : 'Ripristina nel catalogo'}">
+      ${isActive
+        ? `<svg style="width:13px;height:13px" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`
+        : `<svg style="width:13px;height:13px" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>`
+      }
+    </button>` : '';
+
   const btns = admin ? `
     <div style="display:flex;gap:4px">
+      ${eyeBtn}
       <button class="btn-icon btn-edit" onclick="apriModaleProdotto(${p.id})" title="Modifica">✏️</button>
       <button class="btn-icon btn-del"  onclick="eliminaProdotto(${p.id},'${escH(p.description)}')" title="Elimina">🗑️</button>
     </div>` : '';
 
   const isSel = selectedIds.has(p.id);
-  return `<div class="prod-row${isSel ? ' selected' : ''}">
+  return `<div class="prod-row${isSel ? ' selected' : ''}${!isActive ? ' inactive' : ''}">
     <input type="checkbox" data-id="${p.id}" ${isSel ? 'checked' : ''}
       onchange="toggleSelect(${p.id},this.checked)" style="cursor:pointer;accent-color:#f59e0b">
     <span class="prod-code">${escH(p.product_code)}</span>
@@ -693,6 +716,16 @@ async function salvaProdotto() {
 
   chiudiModale();
   await load();
+}
+
+// ── ATTIVA / NASCONDI ─────────────────────────────────────────────
+async function toggleActive(id, currentlyActive) {
+  const newVal = !currentlyActive;
+  const { error } = await db.from('rifornimento_catalogo').update({ active: newVal }).eq('id', id);
+  if (error) { alert('Errore: ' + error.message); return; }
+  const p = catalogo.find(x => x.id === id);
+  if (p) p.active = newVal;
+  renderAll();
 }
 
 // ── ELIMINA ───────────────────────────────────────────────────────
