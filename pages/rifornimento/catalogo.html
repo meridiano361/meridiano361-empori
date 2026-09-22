@@ -71,6 +71,8 @@
     .btn-edit:hover { background: #eff6ff; border-color: #bfdbfe; }
     .btn-del  { color: #ef4444; }
     .btn-del:hover { background: #fef2f2; border-color: #fecaca; }
+    .btn-dup  { color: #8b5cf6; }
+    .btn-dup:hover  { background: #f5f3ff; border-color: #ddd6fe; }
     .btn-eye  { color: #94a3b8; }
     .btn-eye:hover  { background: #fef2f2; border-color: #fecaca; color: #ef4444; }
     .btn-eye.inactive { color: #ef4444; background: #fef2f2; border-color: #fecaca; }
@@ -381,6 +383,7 @@ const admin = ['admin','dipendente'].includes(user?.ruolo?.toLowerCase());
 let catalogo = [];
 let editingId = null;
 let selectedIds = new Set();
+let bypassValidation = false;
 let sortState = { field: null, dir: 'asc' };
 let expandedForn = new Set();
 let expandedCat  = new Set();
@@ -548,6 +551,7 @@ function renderProdRow(p) {
   const btns = admin ? `
     <div style="display:flex;gap:4px">
       ${eyeBtn}
+      <button class="btn-icon btn-dup"  onclick="duplicaProdotto(${p.id})" title="Duplica">⧉</button>
       <button class="btn-icon btn-edit" onclick="apriModaleProdotto(${p.id})" title="Modifica">✏️</button>
       <button class="btn-icon btn-del"  onclick="eliminaProdotto(${p.id},'${escH(p.description)}')" title="Elimina">🗑️</button>
     </div>` : '';
@@ -620,9 +624,11 @@ function setAssValue(campo, val) {
 // ── MODAL ─────────────────────────────────────────────────────────
 function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
   editingId = id;
+  bypassValidation = false;
   const modal = document.getElementById('modal');
   const title = document.getElementById('modal-title');
   document.getElementById('modal-err').classList.add('hidden');
+  document.getElementById('modal-save').textContent = 'Salva';
 
   if (id) {
     const p = catalogo.find(x => x.id === id);
@@ -658,6 +664,8 @@ function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
 function chiudiModale() {
   document.getElementById('modal').classList.add('hidden');
   editingId = null;
+  bypassValidation = false;
+  document.getElementById('modal-save').textContent = 'Salva';
 }
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modal')) chiudiModale();
@@ -674,21 +682,38 @@ async function salvaProdotto() {
   const category  = document.getElementById('m-categoria').value.trim();
   const code      = document.getElementById('m-codice').value.trim();
   const desc      = document.getElementById('m-desc').value.trim();
-  const pvp       = parseFloat(document.getElementById('m-pvp').value) || null;
-  const conf      = parseInt(document.getElementById('m-conf').value)  || null;
+  const pvpRaw    = document.getElementById('m-pvp').value.trim();
+  const confRaw   = document.getElementById('m-conf').value.trim();
+  const pvp       = parseFloat(pvpRaw) || null;
+  const conf      = parseInt(confRaw)  || null;
   const sort      = parseInt(document.getElementById('m-sort').value)  || 0;
   const ass_cr    = assValToDb(document.getElementById('m-ass-cr').value);
   const ass_cas   = assValToDb(document.getElementById('m-ass-cas').value);
   const ass_via   = assValToDb(document.getElementById('m-ass-via').value);
 
   const errEl = document.getElementById('modal-err');
-  if (!code || !desc) {
-    errEl.textContent = 'Codice e descrizione sono obbligatori.';
-    errEl.classList.remove('hidden'); return;
-  }
-  errEl.classList.add('hidden');
+  const btn   = document.getElementById('modal-save');
 
-  const btn = document.getElementById('modal-save');
+  if (!bypassValidation) {
+    const missing = [];
+    if (!fornitore) missing.push('Fornitore');
+    if (!category)  missing.push('Categoria');
+    if (!code)      missing.push('Codice');
+    if (!desc)      missing.push('Descrizione');
+    if (!pvpRaw)    missing.push('PVP');
+    if (!confRaw)   missing.push('Confezione');
+    if (missing.length) {
+      errEl.innerHTML = `Campi mancanti: <strong>${missing.join(', ')}</strong>.<br>
+        <span style="font-weight:400">Clicca <em>Salva comunque</em> per procedere lo stesso.</span>`;
+      errEl.classList.remove('hidden');
+      btn.textContent = 'Salva comunque';
+      bypassValidation = true;
+      return;
+    }
+  }
+
+  bypassValidation = false;
+  errEl.classList.add('hidden');
   btn.disabled = true; btn.textContent = 'Salvataggio…';
 
   const payload = {
@@ -707,15 +732,33 @@ async function salvaProdotto() {
     ({ error } = await db.from('rifornimento_catalogo').insert(payload));
   }
 
-  btn.disabled = false; btn.textContent = 'Salva';
+  btn.disabled = false;
 
   if (error) {
+    btn.textContent = 'Salva';
     errEl.textContent = 'Errore: ' + error.message;
     errEl.classList.remove('hidden'); return;
   }
 
   chiudiModale();
   await load();
+}
+
+// ── DUPLICA ───────────────────────────────────────────────────────
+function duplicaProdotto(id) {
+  const p = catalogo.find(x => x.id === id);
+  if (!p) return;
+  apriModaleProdotto(null);
+  document.getElementById('modal-title').textContent = 'Duplica prodotto';
+  document.getElementById('m-fornitore').value = p.fornitore || '';
+  document.getElementById('m-categoria').value = p.category  || '';
+  document.getElementById('m-codice').value    = p.product_code || '';
+  document.getElementById('m-desc').value      = p.description  || '';
+  document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
+  document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
+  setAssValue('cr',  p.assortment_cremona);
+  setAssValue('cas', p.assortment_casalmaggiore);
+  setAssValue('via', p.assortment_viadana);
 }
 
 // ── ATTIVA / NASCONDI ─────────────────────────────────────────────
