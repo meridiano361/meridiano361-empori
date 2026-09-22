@@ -335,6 +335,17 @@ function renderToolbar() {
         Stampa
       </button>`;
   }
+
+  actions.innerHTML += `
+    <div style="display:flex;align-items:center;gap:3px;margin-left:2px">
+      <span style="font-size:11px;color:#94a3b8;font-weight:600;padding-right:1px">Esporta:</span>
+      <button onclick="exportTxt()"
+        class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-2.5 py-2 rounded-lg transition-colors">TXT</button>
+      <button onclick="exportCsv()"
+        class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-2.5 py-2 rounded-lg transition-colors">CSV</button>
+      <button onclick="exportXls()"
+        class="bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold px-2.5 py-2 rounded-lg transition-colors border border-green-200">XLS</button>
+    </div>`;
 }
 
 // ── FILTRI ────────────────────────────────────────────────────────
@@ -820,6 +831,94 @@ function stampa() {
   </body></html>`);
   win.document.close();
   win.print();
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────
+function getExportData() {
+  const flat = [];
+  const byForn = {};
+  catalogo.forEach(p => {
+    const r = righe[p.product_code];
+    if (!r?.qty || r.qty <= 0) return;
+    const forn = p.fornitore || 'Altro';
+    const cat  = p.category  || 'Altro';
+    if (!byForn[forn]) byForn[forn] = {};
+    if (!byForn[forn][cat]) byForn[forn][cat] = [];
+    const row = { fornitore: forn, categoria: cat, codice: p.product_code || '',
+      descrizione: p.description || '', pvp: p.pvp != null ? Number(p.pvp) : null,
+      confezione: p.pack_size || null, qty: r.qty, note: r.notes || '' };
+    byForn[forn][cat].push(row);
+    flat.push(row);
+  });
+  return { flat, byForn };
+}
+
+function exportFilename(ext) {
+  const emp = (proposta.emporio || 'proposta').replace(/[^a-zA-Z0-9]/g, '_');
+  const d = new Date(proposta.created_at || Date.now());
+  const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  return `proposta_${emp}_${ds}.${ext}`;
+}
+
+function downloadBlob(content, filename, mime) {
+  const a = Object.assign(document.createElement('a'),
+    { href: URL.createObjectURL(new Blob([content], { type: mime })), download: filename });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function exportTxt() {
+  const { flat, byForn } = getExportData();
+  if (!flat.length) { alert('Nessuna quantità compilata.'); return; }
+  const SEP = '═'.repeat(52);
+  let t = `PROPOSTA DI ORDINE\nNegozio : ${proposta.emporio || '—'}\nData    : ${fmtDate(proposta.created_at)}\nCreata da: ${proposta.created_by || '—'}\nStato   : ${statusLabel(proposta.status)}\n`;
+  let totConf = 0;
+  Object.entries(byForn).forEach(([forn, byCat]) => {
+    t += `\n${SEP}\n${forn.toUpperCase()}\n${SEP}\n`;
+    Object.entries(byCat).forEach(([cat, prods]) => {
+      t += `\n  ── ${cat} ──\n`;
+      prods.forEach(p => {
+        const code = p.codice.padEnd(8);
+        const desc = p.descrizione.substring(0, 38).padEnd(39);
+        const pvp  = (p.pvp != null ? `€${p.pvp.toFixed(2)}` : '—').padEnd(9);
+        const conf = (p.confezione ? `×${p.confezione}` : '—').padEnd(5);
+        t += `  ${code}${desc}${pvp}${conf}qtà: ${p.qty}${p.note ? '  [' + p.note + ']' : ''}\n`;
+        totConf += p.qty;
+      });
+    });
+  });
+  t += `\n${'─'.repeat(52)}\nTotale confezioni ordinate: ${totConf}\n`;
+  downloadBlob(t, exportFilename('txt'), 'text/plain;charset=utf-8');
+}
+
+function exportCsv() {
+  const { flat } = getExportData();
+  if (!flat.length) { alert('Nessuna quantità compilata.'); return; }
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  let csv = 'Fornitore,Categoria,Codice,Descrizione,"PVP (€)",Confezione,Quantità,Note\r\n';
+  flat.forEach(p => {
+    csv += [q(p.fornitore), q(p.categoria), q(p.codice), q(p.descrizione),
+      p.pvp != null ? p.pvp.toFixed(2) : '', p.confezione ?? '', p.qty, q(p.note)].join(',') + '\r\n';
+  });
+  downloadBlob('﻿' + csv, exportFilename('csv'), 'text/csv;charset=utf-8');
+}
+
+function exportXls() {
+  const go = () => {
+    const { flat } = getExportData();
+    if (!flat.length) { alert('Nessuna quantità compilata.'); return; }
+    const wsData = [['Fornitore','Categoria','Codice','Descrizione','PVP (€)','Confezione','Quantità','Note']];
+    flat.forEach(p => wsData.push([p.fornitore, p.categoria, p.codice, p.descrizione,
+      p.pvp ?? '', p.confezione ?? '', p.qty, p.note]));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:20},{wch:25},{wch:10},{wch:40},{wch:10},{wch:12},{wch:10},{wch:25}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Proposta');
+    XLSX.writeFile(wb, exportFilename('xlsx'));
+  };
+  if (window.XLSX) { go(); return; }
+  const s = Object.assign(document.createElement('script'),
+    { src: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', onload: go });
+  document.head.appendChild(s);
 }
 
 // ── SOMMARIO ──────────────────────────────────────────────────────
