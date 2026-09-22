@@ -105,6 +105,15 @@
 
     select.form-input { appearance: auto; }
 
+    /* ── SORT PILLS ── */
+    .sort-pill {
+      padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700;
+      border: 1px solid #e2e8f0; background: white; color: #64748b;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .sort-pill:hover { border-color: #94a3b8; color: #334155; }
+    .sort-pill.active { background: #1e293b; color: white; border-color: #1e293b; }
+
     /* ── BULK BAR ── */
     .bulk-bar {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
@@ -162,6 +171,13 @@
     class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-700 flex-shrink-0">
     <option value="">Tutte le categorie</option>
   </select>
+
+  <div class="flex items-center gap-1 flex-shrink-0">
+    <span class="text-xs text-slate-400">Ord.:</span>
+    <button id="sort-codice"  data-label="Codice"       class="sort-pill" onclick="setSort('codice')">Codice</button>
+    <button id="sort-desc"    data-label="Descrizione"  class="sort-pill" onclick="setSort('desc')">Descrizione</button>
+    <button id="sort-pvp"     data-label="Prezzo"       class="sort-pill" onclick="setSort('pvp')">Prezzo</button>
+  </div>
 
   <label class="flex items-center gap-1.5 cursor-pointer flex-shrink-0" title="Seleziona/deseleziona tutti i prodotti visibili">
     <input type="checkbox" id="cb-all" onchange="selectAllVisible(this.checked)" style="accent-color:#f59e0b;width:15px;height:15px">
@@ -354,6 +370,35 @@ const admin = ['admin','dipendente'].includes(user?.ruolo?.toLowerCase());
 let catalogo = [];
 let editingId = null;
 let selectedIds = new Set();
+let sortState = { field: null, dir: 'asc' };
+
+function setSort(field) {
+  if (sortState.field === field) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState.field = field;
+    sortState.dir = 'asc';
+  }
+  document.querySelectorAll('.sort-pill').forEach(b => {
+    b.classList.remove('active');
+    b.textContent = b.dataset.label;
+  });
+  const btn = document.getElementById('sort-' + field);
+  if (btn) { btn.classList.add('active'); btn.textContent = btn.dataset.label + (sortState.dir === 'asc' ? ' ↑' : ' ↓'); }
+  renderAll();
+}
+
+function sortProds(arr) {
+  if (!sortState.field) return arr;
+  return [...arr].sort((a, b) => {
+    let va, vb;
+    if      (sortState.field === 'codice') { va = a.product_code || ''; vb = b.product_code || ''; }
+    else if (sortState.field === 'desc')   { va = a.description  || ''; vb = b.description  || ''; }
+    else if (sortState.field === 'pvp')    { va = a.pvp ?? 0;           vb = b.pvp ?? 0; }
+    const cmp = typeof va === 'string' ? va.localeCompare(vb, 'it') : va - vb;
+    return sortState.dir === 'asc' ? cmp : -cmp;
+  });
+}
 
 // ── LOAD ──────────────────────────────────────────────────────────
 async function load() {
@@ -439,7 +484,7 @@ function renderAll() {
           class="ml-2 text-xs text-amber-500 hover:text-amber-700 font-semibold">+ prodotto</button>` : ''}
       </div>
       <div class="cat-body">
-        ${prods.map(p => renderProdRow(p)).join('')}
+        ${sortProds(prods).map(p => renderProdRow(p)).join('')}
       </div>
     `).join('');
 
