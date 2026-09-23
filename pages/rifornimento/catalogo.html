@@ -44,17 +44,19 @@
     /* ── PRODOTTO ROW ── */
     .prod-row {
       display: grid;
-      grid-template-columns: 20px 80px 1fr 70px 50px 100px auto;
+      grid-template-columns: 20px 80px 1fr 100px 80px 70px 50px 100px auto;
       align-items: center; gap: 8px;
       padding: 6px 16px; border-bottom: 1px solid #f1f5f9; font-size: 12px;
     }
     .prod-row:last-child { border-bottom: none; }
     .prod-row:hover { background: #f8fafc; }
     .prod-row.selected { background: #eff6ff; }
-    .prod-code { color: #94a3b8; font-family: monospace; font-size: 11px; }
-    .prod-desc { font-weight: 500; color: #1e293b; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .prod-pvp  { text-align: right; color: #374151; }
-    .prod-conf { text-align: center; color: #6b7280; }
+    .prod-code    { color: #94a3b8; font-family: monospace; font-size: 11px; }
+    .prod-desc    { font-weight: 500; color: #1e293b; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prod-marchio { color: #2563eb; font-size: 11px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prod-linea   { color: #7c3aed; font-size: 11px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prod-pvp     { text-align: right; color: #374151; }
+    .prod-conf    { text-align: center; color: #6b7280; }
     .ass-dots  { display: flex; gap: 3px; align-items: center; }
     .ass-dot   { width: 10px; height: 10px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center; }
     .ass-si    { background: #dcfce7; color: #16a34a; }
@@ -146,7 +148,7 @@
 
     @media (max-width: 600px) {
       .prod-row { grid-template-columns: 20px 70px 1fr 60px auto; }
-      .col-conf, .col-ass { display: none; }
+      .col-conf, .col-ass, .col-marchio, .col-linea { display: none; }
     }
   </style>
 </head>
@@ -182,6 +184,16 @@
   <select id="f-cat" onchange="renderAll()"
     class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-700 flex-shrink-0">
     <option value="">Tutte le categorie</option>
+  </select>
+
+  <select id="f-marchio" onchange="refreshLineaSelect();renderAll()"
+    class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-700 flex-shrink-0">
+    <option value="">Tutti i marchi</option>
+  </select>
+
+  <select id="f-linea" onchange="renderAll()"
+    class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-700 flex-shrink-0">
+    <option value="">Tutte le linee</option>
   </select>
 
   <div class="flex items-center gap-1 flex-shrink-0">
@@ -244,6 +256,16 @@
       <div>
         <label class="form-label">Fornitore</label>
         <input list="dl-fornitori" id="be-fornitore" class="form-input" placeholder="lascia vuoto" autocomplete="off">
+      </div>
+      <div>
+        <label class="form-label">Marchio</label>
+        <input list="dl-marchi" id="be-marchio" class="form-input" placeholder="lascia vuoto" autocomplete="off">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
+      <div>
+        <label class="form-label">Linea</label>
+        <input list="dl-linee" id="be-linea" class="form-input" placeholder="lascia vuoto" autocomplete="off">
       </div>
       <div>
         <label class="form-label">Categoria</label>
@@ -310,15 +332,29 @@
   <div class="modal-box">
     <h2 id="modal-title" class="font-bold text-slate-800 text-lg mb-5">Nuovo prodotto</h2>
 
-    <div class="form-row">
-      <label class="form-label">Fornitore / Marchio</label>
-      <input list="dl-fornitori" id="m-fornitore" class="form-input" placeholder="es. Altromercato" autocomplete="off">
-      <datalist id="dl-fornitori"></datalist>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
+      <div>
+        <label class="form-label">Fornitore</label>
+        <input list="dl-fornitori" id="m-fornitore" class="form-input" placeholder="es. Altromercato" autocomplete="off">
+        <datalist id="dl-fornitori"></datalist>
+      </div>
+      <div>
+        <label class="form-label">Marchio</label>
+        <input list="dl-marchi" id="m-marchio" class="form-input" placeholder="es. Libera Terra" autocomplete="off">
+        <datalist id="dl-marchi"></datalist>
+      </div>
     </div>
-    <div class="form-row">
-      <label class="form-label">Categoria</label>
-      <input list="dl-categorie" id="m-categoria" class="form-input" placeholder="es. BEVANDE ALCOLICHE" autocomplete="off">
-      <datalist id="dl-categorie"></datalist>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
+      <div>
+        <label class="form-label">Linea</label>
+        <input list="dl-linee" id="m-linea" class="form-input" placeholder="es. Snaction" autocomplete="off">
+        <datalist id="dl-linee"></datalist>
+      </div>
+      <div>
+        <label class="form-label">Categoria</label>
+        <input list="dl-categorie" id="m-categoria" class="form-input" placeholder="es. BEVANDE ALCOLICHE" autocomplete="off">
+        <datalist id="dl-categorie"></datalist>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
       <div>
@@ -484,14 +520,25 @@ async function load() {
 function populateDatalist() {
   const fornitori = [...new Set(catalogo.map(p => p.fornitore).filter(Boolean))].sort();
   const categorie = [...new Set(catalogo.map(p => p.category).filter(Boolean))].sort();
+  const marchi    = [...new Set(catalogo.map(p => p.marchio).filter(Boolean))].sort();
+  const linee     = [...new Set(catalogo.map(p => p.linea).filter(Boolean))].sort();
   document.getElementById('dl-fornitori').innerHTML = fornitori.map(f => `<option value="${escH(f)}">`).join('');
   document.getElementById('dl-categorie').innerHTML = categorie.map(c => `<option value="${escH(c)}">`).join('');
+  document.getElementById('dl-marchi').innerHTML    = marchi.map(m => `<option value="${escH(m)}">`).join('');
+  document.getElementById('dl-linee').innerHTML     = linee.map(l => `<option value="${escH(l)}">`).join('');
 
   const fSel = document.getElementById('f-forn');
   const prev = fSel.value;
   fSel.innerHTML = '<option value="">Tutti i fornitori</option>' +
     fornitori.map(f => `<option value="${escH(f)}" ${f === prev ? 'selected' : ''}>${escH(f)}</option>`).join('');
+
+  const mSel = document.getElementById('f-marchio');
+  const prevM = mSel.value;
+  mSel.innerHTML = '<option value="">Tutti i marchi</option>' +
+    marchi.map(m => `<option value="${escH(m)}" ${m === prevM ? 'selected' : ''}>${escH(m)}</option>`).join('');
+
   refreshCatSelect();
+  refreshLineaSelect();
 }
 
 function refreshCatSelect() {
@@ -504,18 +551,32 @@ function refreshCatSelect() {
     cats.map(c => `<option value="${escH(c)}" ${c === prev ? 'selected' : ''}>${escH(c)}</option>`).join('');
 }
 
+function refreshLineaSelect() {
+  const marchio = document.getElementById('f-marchio').value;
+  const src     = marchio ? catalogo.filter(p => p.marchio === marchio) : catalogo;
+  const linee   = [...new Set(src.map(p => p.linea).filter(Boolean))].sort();
+  const lSel    = document.getElementById('f-linea');
+  const prev    = lSel.value;
+  lSel.innerHTML = '<option value="">Tutte le linee</option>' +
+    linee.map(l => `<option value="${escH(l)}" ${l === prev ? 'selected' : ''}>${escH(l)}</option>`).join('');
+}
+
 // ── RENDER ────────────────────────────────────────────────────────
 function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function renderAll() {
-  const cerca = (document.getElementById('f-cerca')?.value || '').toLowerCase().trim();
-  const forn  = document.getElementById('f-forn')?.value || '';
-  const cat   = document.getElementById('f-cat')?.value  || '';
+  const cerca   = (document.getElementById('f-cerca')?.value || '').toLowerCase().trim();
+  const forn    = document.getElementById('f-forn')?.value    || '';
+  const cat     = document.getElementById('f-cat')?.value     || '';
+  const marchio = document.getElementById('f-marchio')?.value || '';
+  const linea   = document.getElementById('f-linea')?.value   || '';
 
   const filtered = catalogo.filter(p => {
-    if (forn && p.fornitore !== forn) return false;
-    if (cat  && p.category  !== cat)  return false;
-    if (cerca && !(p.product_code + ' ' + p.description + ' ' + p.category + ' ' + p.fornitore)
+    if (forn    && p.fornitore !== forn)    return false;
+    if (cat     && p.category  !== cat)     return false;
+    if (marchio && p.marchio   !== marchio) return false;
+    if (linea   && p.linea     !== linea)   return false;
+    if (cerca && !(p.product_code + ' ' + p.description + ' ' + p.category + ' ' + p.fornitore + ' ' + (p.marchio||'') + ' ' + (p.linea||''))
       .toLowerCase().includes(cerca)) return false;
     return true;
   });
@@ -611,6 +672,8 @@ function renderProdRow(p) {
       onchange="toggleSelect(${p.id},this.checked)" style="cursor:pointer;accent-color:#f59e0b">
     <span class="prod-code">${escH(p.product_code)}</span>
     <span class="prod-desc" title="${escH(p.description)}">${escH(p.description)}</span>
+    <span class="prod-marchio col-marchio" title="${escH(p.marchio||'')}">${escH(p.marchio||'—')}</span>
+    <span class="prod-linea col-linea"     title="${escH(p.linea||'')}">${escH(p.linea||'—')}</span>
     <span class="prod-pvp">${pvp}</span>
     <span class="prod-conf col-conf">${conf}</span>
     <span class="col-ass">${assHtml}</span>
@@ -690,6 +753,8 @@ function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
     document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
     document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
     document.getElementById('m-sort').value      = p.sort_order ?? '';
+    document.getElementById('m-marchio').value   = p.marchio || '';
+    document.getElementById('m-linea').value     = p.linea   || '';
     setAssValue('cr',  p.assortment_cremona);
     setAssValue('cas', p.assortment_casalmaggiore);
     setAssValue('via', p.assortment_viadana);
@@ -702,6 +767,8 @@ function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
     document.getElementById('m-pvp').value       = '';
     document.getElementById('m-conf').value      = '';
     document.getElementById('m-sort').value      = catalogo.length + 1;
+    document.getElementById('m-marchio').value   = '';
+    document.getElementById('m-linea').value     = '';
     setAssValue('cr',  true);
     setAssValue('cas', true);
     setAssValue('via', true);
@@ -768,9 +835,13 @@ async function salvaProdotto() {
   // cattura stato precedente per undo
   const prevData = editingId ? { ...catalogo.find(x => x.id === editingId) } : null;
 
+  const marchio = document.getElementById('m-marchio').value.trim() || null;
+  const linea   = document.getElementById('m-linea').value.trim()   || null;
+
   const payload = {
     fornitore, category, product_code: code, description: desc,
     pvp, pack_size: conf, sort_order: sort,
+    marchio, linea,
     assortment_cremona: ass_cr,
     assortment_casalmaggiore: ass_cas,
     assortment_viadana: ass_via,
@@ -817,6 +888,8 @@ function duplicaProdotto(id) {
   document.getElementById('m-desc').value      = p.description  || '';
   document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
   document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
+  document.getElementById('m-marchio').value   = p.marchio || '';
+  document.getElementById('m-linea').value     = p.linea   || '';
   setAssValue('cr',  p.assortment_cremona);
   setAssValue('cas', p.assortment_casalmaggiore);
   setAssValue('via', p.assortment_viadana);
@@ -911,18 +984,22 @@ document.getElementById('modal-bulk').addEventListener('click', e => {
 
 async function saveBulkEdit() {
   const patch = {};
-  const forn = document.getElementById('be-fornitore').value.trim();
-  const cat  = document.getElementById('be-categoria').value.trim();
-  const pvp  = document.getElementById('be-pvp').value.trim();
-  const conf = document.getElementById('be-conf').value.trim();
-  const cr   = document.getElementById('be-ass-cr').value;
-  const cas  = document.getElementById('be-ass-cas').value;
-  const via  = document.getElementById('be-ass-via').value;
+  const forn    = document.getElementById('be-fornitore').value.trim();
+  const cat     = document.getElementById('be-categoria').value.trim();
+  const marchio = document.getElementById('be-marchio').value.trim();
+  const linea   = document.getElementById('be-linea').value.trim();
+  const pvp     = document.getElementById('be-pvp').value.trim();
+  const conf    = document.getElementById('be-conf').value.trim();
+  const cr      = document.getElementById('be-ass-cr').value;
+  const cas     = document.getElementById('be-ass-cas').value;
+  const via     = document.getElementById('be-ass-via').value;
 
-  if (forn) patch.fornitore = forn;
-  if (cat)  patch.category  = cat;
-  if (pvp)  patch.pvp       = parseFloat(pvp);
-  if (conf) patch.pack_size = parseInt(conf);
+  if (forn)    patch.fornitore = forn;
+  if (cat)     patch.category  = cat;
+  if (marchio) patch.marchio   = marchio;
+  if (linea)   patch.linea     = linea;
+  if (pvp)     patch.pvp       = parseFloat(pvp);
+  if (conf)    patch.pack_size = parseInt(conf);
   const assMap = { si: true, no: false, nat: null };
   if (cr)  patch.assortment_cremona       = assMap[cr];
   if (cas) patch.assortment_casalmaggiore = assMap[cas];
