@@ -602,7 +602,7 @@ function renderProdRow(p) {
       ${eyeBtn}
       <button class="btn-icon btn-dup"  onclick="duplicaProdotto(${p.id})" title="Duplica">⧉</button>
       <button class="btn-icon btn-edit" onclick="apriModaleProdotto(${p.id})" title="Modifica">✏️</button>
-      <button class="btn-icon btn-del"  onclick="eliminaProdotto(${p.id},'${escH(p.description)}')" title="Elimina">🗑️</button>
+      <button class="btn-icon btn-del"  onclick="eliminaProdotto(${p.id})" title="Elimina">🗑️</button>
     </div>` : '';
 
   const isSel = selectedIds.has(p.id);
@@ -837,7 +837,9 @@ async function toggleActive(id, currentlyActive) {
 }
 
 // ── ELIMINA ───────────────────────────────────────────────────────
-async function eliminaProdotto(id, desc) {
+async function eliminaProdotto(id) {
+  const prod = catalogo.find(p => p.id === id);
+  const desc = prod?.description || `prodotto #${id}`;
   if (!confirm(`Eliminare "${desc}"?`)) return;
   const { error } = await db.from('rifornimento_catalogo').delete().eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
