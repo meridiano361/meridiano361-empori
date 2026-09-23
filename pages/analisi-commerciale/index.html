@@ -391,6 +391,7 @@ function allIsoWeeksOfYear(year) {
 
 /* ── CATEGORY CONSTANTS ── */
 const _CAT_KEYS = ['ali','ben','cas','mod','alt'];
+const _settCollapsed = new Set();
 const _CAT_HDR  = {
   ali:{ label:'Alimentari', bg:'', color:'inherit', br:'#cbd5e1' },
   ben:{ label:'Benessere',  bg:'', color:'inherit', br:'#cbd5e1' },
@@ -466,7 +467,7 @@ async function loadSettimanaleData() {
   const anno    = document.getElementById('com-sett-anno').value;
   const tbody   = document.getElementById('com-sett-body');
   const thead   = document.getElementById('com-sett-thead');
-  const NCOL_BASE = 45;
+  const NCOL_BASE = 51;
   const ncol = NCOL_BASE;
 
   if (!emporio) {
@@ -523,19 +524,27 @@ async function loadSettimanaleData() {
     const weeks = [...weekMap.values()].sort((a, b) => (a.isoYear - b.isoYear) || (a.isoWeek - b.isoWeek));
 
     const SEP = 'border-left:2px solid #94a3b8';
-    const catHdr1 = _CAT_KEYS.map(k =>
-      `<th colspan="6" style="text-align:center;${SEP};border-bottom:2px solid ${_CAT_HDR[k].br};padding:5px 4px;font-size:11px">${_CAT_HDR[k].label}</th>`
-    ).join('');
+    const _catToggleBtn = (k, label, extra='') =>
+      `<th colspan="6" data-cat-hdr="${k}" onclick="toggleSettCat('${k}')" style="text-align:center;${SEP};border-bottom:2px solid ${k==='tot'?'#1e293b':_CAT_HDR[k]?.br||'#cbd5e1'};padding:5px 4px;font-size:11px;cursor:pointer;user-select:none${extra}">`+
+      `<span style="display:inline-flex;align-items:center;gap:4px">${label}<span class="cat-toggle-btn" style="font-size:9px;opacity:.5;margin-left:2px">▾</span></span></th>`;
+    const catHdr1 = _CAT_KEYS.map(k => _catToggleBtn(k, _CAT_HDR[k].label)).join('') +
+      _catToggleBtn('tot', 'Totale', ';font-weight:800;background:#f8fafc');
     const a2 = String(anno).slice(-2);
     const a1 = String(+anno-1).slice(-2);
-    const catHdr2 = _CAT_KEYS.map(() => `
-      <th class="number" style="min-width:40px;font-size:9px;padding:4px 6px;${SEP}">Pz<br>${a2}</th>
-      <th class="number" style="min-width:40px;font-size:9px;padding:4px 6px">Pz<br>${a1}</th>
-      <th class="number" style="min-width:56px;font-size:9px;padding:4px 6px">Δ<br>Pz%</th>
-      <th class="number" style="min-width:70px;font-size:9px;padding:4px 6px">IE<br>${a2}</th>
-      <th class="number" style="min-width:65px;font-size:9px;padding:4px 6px">IE<br>${a1}</th>
-      <th class="number" style="min-width:56px;font-size:9px;padding:4px 6px">Δ<br>IE%</th>`
-    ).join('');
+    const catHdr2 = _CAT_KEYS.map(k => `
+      <th class="number" data-cat-sub="${k}" style="min-width:40px;font-size:9px;padding:4px 6px;${SEP}">Pz<br>${a2}</th>
+      <th class="number" data-cat-sub="${k}" style="min-width:40px;font-size:9px;padding:4px 6px">Pz<br>${a1}</th>
+      <th class="number" data-cat-sub="${k}" style="min-width:56px;font-size:9px;padding:4px 6px">Δ<br>Pz%</th>
+      <th class="number" style="min-width:70px;font-size:9px;padding:4px 6px;${SEP}">IE<br>${a2}</th>
+      <th class="number" data-cat-sub="${k}" style="min-width:65px;font-size:9px;padding:4px 6px">IE<br>${a1}</th>
+      <th class="number" data-cat-sub="${k}" style="min-width:56px;font-size:9px;padding:4px 6px">Δ<br>IE%</th>`
+    ).join('') + `
+      <th class="number" data-cat-sub="tot" style="min-width:50px;font-size:9px;padding:4px 6px;${SEP};background:#f8fafc;font-weight:800">Pz<br>${a2}</th>
+      <th class="number" data-cat-sub="tot" style="min-width:50px;font-size:9px;padding:4px 6px;background:#f8fafc;color:#94a3b8">Pz<br>${a1}</th>
+      <th class="number" data-cat-sub="tot" style="min-width:56px;font-size:9px;padding:4px 6px;background:#f8fafc">Δ<br>Pz%</th>
+      <th class="number" style="min-width:80px;font-size:9px;padding:4px 6px;${SEP};background:#f8fafc;font-weight:800">IE<br>${a2}</th>
+      <th class="number" data-cat-sub="tot" style="min-width:75px;font-size:9px;padding:4px 6px;background:#f8fafc;color:#94a3b8">IE<br>${a1}</th>
+      <th class="number" data-cat-sub="tot" style="min-width:56px;font-size:9px;padding:4px 6px;background:#f8fafc">Δ<br>IE%</th>`;
     const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
     const thYears = (w1, w2, bg='', dw=0) => `<th class="number" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
     thead.innerHTML = `<tr>
@@ -592,13 +601,14 @@ async function loadSettimanaleData() {
       const sKey   = wkey.replace(/\|/g,'_');
       const cat    = catMap.get(wkey);
 
-      let rowPz = 0, rowPz25 = 0;
+      let rowPz = 0, rowPz25 = 0, rowVie = 0, rowVie25 = 0;
       const catCells = _CAT_KEYS.map(k => {
         const pz   = cat && cat[`${k}_pezzi`]         != null ? parseInt(cat[`${k}_pezzi`])          : null;
         const pz25 = cat && cat[`${k}_pezzi_25`]      != null ? parseInt(cat[`${k}_pezzi_25`])       : null;
         const vie  = cat && cat[`${k}_venduto_ie`]    != null ? parseFloat(cat[`${k}_venduto_ie`])   : null;
         const vie25= cat && cat[`${k}_venduto_ie_25`] != null ? parseFloat(cat[`${k}_venduto_ie_25`]): null;
         rowPz  += pz   ?? 0; rowPz25 += pz25  ?? 0;
+        rowVie += vie  ?? 0; rowVie25 += vie25 ?? 0;
         catTot[k].pz += pz ?? 0; catTot[k].pz25 += pz25 ?? 0;
         catTot[k].vie += vie ?? 0; catTot[k].vie25 += vie25 ?? 0;
         const deltaPz  = (pz  != null && pz25  != null && pz25  > 0) ? (pz -pz25 )/pz25 *100 : null;
@@ -607,16 +617,29 @@ async function loadSettimanaleData() {
         const dIECls   = deltaIE  != null ? (deltaIE  >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
         const ec = (f, v, isCurr, isFirst=false) => {
           const dis = v != null ? (f.includes('venduto') ? fmtK(v) : v) : '<span style="color:#d1d5db">–</span>';
-          const bl = isFirst ? ';border-left:2px solid #94a3b8' : '';
-          return `<td class="number cat-cell" data-wkey="${wkey}" data-field="${k}_${f}" data-val="${v??''}" onclick="startCatEdit(this)" title="Clicca per modificare" style="cursor:pointer;font-size:11px${isCurr?'':';color:#94a3b8'}${bl}">${dis}</td>`;
+          const isMain = f === 'venduto_ie';
+          const bl = (isFirst || isMain) ? ';border-left:2px solid #94a3b8' : '';
+          const sub = isMain ? '' : ` data-cat-sub="${k}"`;
+          return `<td class="number cat-cell"${sub} data-wkey="${wkey}" data-field="${k}_${f}" data-val="${v??''}" onclick="startCatEdit(this)" title="Clicca per modificare" style="cursor:pointer;font-size:11px${isCurr?'':';color:#94a3b8'}${bl}">${dis}</td>`;
         };
         return ec('pezzi',pz,true,true)+ec('pezzi_25',pz25,false)+
-          `<td class="number" style="font-size:11px;color:${dPzCls};font-weight:600">${deltaPz!=null?(deltaPz>0?'+':'')+deltaPz.toFixed(1)+'%':'–'}</td>`+
+          `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:${dPzCls};font-weight:600">${deltaPz!=null?(deltaPz>0?'+':'')+deltaPz.toFixed(1)+'%':'–'}</td>`+
           ec('venduto_ie',vie,true)+ec('venduto_ie_25',vie25,false)+
-          `<td class="number" style="font-size:11px;color:${dIECls};font-weight:600">${deltaIE!=null?(deltaIE>0?'+':'')+deltaIE.toFixed(1)+'%':'–'}</td>`;
+          `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:${dIECls};font-weight:600">${deltaIE!=null?(deltaIE>0?'+':'')+deltaIE.toFixed(1)+'%':'–'}</td>`;
       }).join('');
       tPz += rowPz; tPz25 += rowPz25;
       const pzD  = (rowPz > 0 && rowPz25 > 0) ? (rowPz - rowPz25) / rowPz25 * 100 : null;
+      const totDPz   = (rowPz > 0 && rowPz25 > 0) ? (rowPz - rowPz25) / rowPz25 * 100 : null;
+      const totDIE   = (rowVie > 0 && rowVie25 > 0) ? (rowVie - rowVie25) / rowVie25 * 100 : null;
+      const totDPzCls = totDPz != null ? (totDPz >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const totDIECls = totDIE != null ? (totDIE >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const totaleCells =
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;border-left:2px solid #94a3b8;background:#f8fafc"><strong>${rowPz > 0 ? rowPz : '–'}</strong></td>` +
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#f8fafc">${rowPz25 > 0 ? rowPz25 : '–'}</td>` +
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${totDPzCls};font-weight:600;background:#f8fafc">${totDPz!=null?(totDPz>0?'+':'')+totDPz.toFixed(1)+'%':'–'}</td>` +
+        `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#f8fafc"><strong>${rowVie > 0 ? fmtK(rowVie) : '–'}</strong></td>` +
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#f8fafc">${rowVie25 > 0 ? fmtK(rowVie25) : '–'}</td>` +
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${totDIECls};font-weight:600;background:#f8fafc">${totDIE!=null?(totDIE>0?'+':'')+totDIE.toFixed(1)+'%':'–'}</td>`;
 
       const fmtPer = (d) => { const [,m,g] = d.split('-'); return `${g}/${m}`; };
       const perShort = `${fmtPer(w.minDate)}-${fmtPer(w.maxDate)}`;
@@ -641,6 +664,7 @@ async function loadSettimanaleData() {
         <td class="number" id="pz25t-${sKey}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
         <td class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
         ${catCells}
+        ${totaleCells}
       </tr>`;
     });
 
@@ -655,13 +679,28 @@ async function loadSettimanaleData() {
       const dIE = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
       const dcPz = dPz != null ? (dPz>=0?'#16a34a':'#dc2626') : '#94a3b8';
       const dcIE = dIE != null ? (dIE>=0?'#16a34a':'#dc2626') : '#94a3b8';
-      return `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${pz>0?pz:'–'}</strong></td>` +
-             `<td class="number" style="font-size:11px;color:#94a3b8"><strong>${pz25>0?pz25:'–'}</strong></td>` +
-             `<td class="number" style="font-size:11px;color:${dcPz};font-weight:700">${dPz!=null?(dPz>0?'+':'')+dPz.toFixed(1)+'%':'–'}</td>` +
-             `<td class="number" style="font-size:11px"><strong>${vie>0?fmtK(vie):'–'}</strong></td>` +
-             `<td class="number" style="font-size:11px;color:#94a3b8"><strong>${vie25>0?fmtK(vie25):'–'}</strong></td>` +
-             `<td class="number" style="font-size:11px;color:${dcIE};font-weight:700">${dIE!=null?(dIE>0?'+':'')+dIE.toFixed(1)+'%':'–'}</td>`;
+      return `<td class="number" data-cat-sub="${k}" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${pz>0?pz:'–'}</strong></td>` +
+             `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:#94a3b8"><strong>${pz25>0?pz25:'–'}</strong></td>` +
+             `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:${dcPz};font-weight:700">${dPz!=null?(dPz>0?'+':'')+dPz.toFixed(1)+'%':'–'}</td>` +
+             `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${vie>0?fmtK(vie):'–'}</strong></td>` +
+             `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:#94a3b8"><strong>${vie25>0?fmtK(vie25):'–'}</strong></td>` +
+             `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:${dcIE};font-weight:700">${dIE!=null?(dIE>0?'+':'')+dIE.toFixed(1)+'%':'–'}</td>`;
     }).join('');
+    const gTotPz    = _CAT_KEYS.reduce((s,k) => s + catTot[k].pz,   0);
+    const gTotPz25  = _CAT_KEYS.reduce((s,k) => s + catTot[k].pz25, 0);
+    const gTotVie   = _CAT_KEYS.reduce((s,k) => s + catTot[k].vie,  0);
+    const gTotVie25 = _CAT_KEYS.reduce((s,k) => s + catTot[k].vie25,0);
+    const gDPz = gTotPz25 > 0 ? (gTotPz  - gTotPz25)  / gTotPz25  * 100 : null;
+    const gDIE = gTotVie25> 0 ? (gTotVie - gTotVie25) / gTotVie25 * 100 : null;
+    const gcDPz = gDPz != null ? (gDPz>=0?'#16a34a':'#dc2626') : '#94a3b8';
+    const gcDIE = gDIE != null ? (gDIE>=0?'#16a34a':'#dc2626') : '#94a3b8';
+    const totTotaleCells =
+      `<td class="number" data-cat-sub="tot" style="font-size:11px;border-left:2px solid #94a3b8;background:#eef2f7"><strong>${gTotPz>0?gTotPz:'–'}</strong></td>` +
+      `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotPz25>0?gTotPz25:'–'}</strong></td>` +
+      `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${gcDPz};font-weight:700;background:#eef2f7">${gDPz!=null?(gDPz>0?'+':'')+gDPz.toFixed(1)+'%':'–'}</td>` +
+      `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#eef2f7"><strong>${gTotVie>0?fmtK(gTotVie):'–'}</strong></td>` +
+      `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotVie25>0?fmtK(gTotVie25):'–'}</strong></td>` +
+      `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${gcDIE};font-weight:700;background:#eef2f7">${gDIE!=null?(gDIE>0?'+':'')+gDIE.toFixed(1)+'%':'–'}</td>`;
 
     html += `<tr class="total-row">
       <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
@@ -676,12 +715,32 @@ async function loadSettimanaleData() {
       <td class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
       <td class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
       ${catTotCells}
+      ${totTotaleCells}
     </tr>`;
 
     tbody.innerHTML = html;
+    _applySettCollapsed();
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${ncol}" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
+}
+
+function toggleSettCat(k) {
+  if (_settCollapsed.has(k)) _settCollapsed.delete(k);
+  else _settCollapsed.add(k);
+  _applySettCollapsed();
+}
+function _applySettCollapsed() {
+  const allKeys = [..._CAT_KEYS, 'tot'];
+  allKeys.forEach(k => {
+    const col = _settCollapsed.has(k);
+    document.querySelectorAll(`[data-cat-sub="${k}"]`).forEach(el => { el.style.display = col ? 'none' : ''; });
+    document.querySelectorAll(`#com-sett-thead [data-cat-hdr="${k}"]`).forEach(hdr => {
+      hdr.setAttribute('colspan', col ? 1 : 6);
+      const btn = hdr.querySelector('.cat-toggle-btn');
+      if (btn) btn.textContent = col ? '▸' : '▾';
+    });
+  });
 }
 
 /* ── INLINE EDIT CELLE CATEGORIA ── */
