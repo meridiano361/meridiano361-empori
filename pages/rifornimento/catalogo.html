@@ -44,7 +44,7 @@
     /* ── PRODOTTO ROW ── */
     .prod-row {
       display: grid;
-      grid-template-columns: 20px 80px 1fr 100px 80px 70px 50px 100px auto;
+      grid-template-columns: 20px 80px 1fr 100px 80px 70px 70px 50px 100px auto;
       align-items: center; gap: 8px;
       padding: 6px 16px; border-bottom: 1px solid #f1f5f9; font-size: 12px;
     }
@@ -55,6 +55,7 @@
     .prod-desc    { font-weight: 500; color: #1e293b; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .prod-marchio { color: #2563eb; font-size: 11px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .prod-linea   { color: #7c3aed; font-size: 11px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prod-formato { color: #64748b; font-size: 11px; white-space: nowrap; }
     .prod-pvp     { text-align: right; color: #374151; }
     .prod-conf    { text-align: center; color: #6b7280; }
     .ass-dots  { display: flex; gap: 3px; align-items: center; }
@@ -148,7 +149,7 @@
 
     @media (max-width: 600px) {
       .prod-row { grid-template-columns: 20px 70px 1fr 60px auto; }
-      .col-conf, .col-ass, .col-marchio, .col-linea { display: none; }
+      .col-conf, .col-ass, .col-marchio, .col-linea, .col-formato { display: none; }
     }
   </style>
 </head>
@@ -370,10 +371,26 @@
       <label class="form-label">Descrizione</label>
       <input type="text" id="m-desc" class="form-input" placeholder="Nome prodotto" autocomplete="off">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="form-row">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px" class="form-row">
       <div>
         <label class="form-label">Confezione (pz)</label>
         <input type="number" id="m-conf" class="form-input" placeholder="es. 6" min="1">
+      </div>
+      <div>
+        <label class="form-label">Quantità</label>
+        <input type="number" id="m-quantita" class="form-input" placeholder="es. 500" min="0" step="any">
+      </div>
+      <div>
+        <label class="form-label">Unità</label>
+        <select id="m-unita" class="form-input">
+          <option value="">—</option>
+          <option value="g">g (grammi)</option>
+          <option value="kg">kg</option>
+          <option value="ml">ml</option>
+          <option value="cl">cl</option>
+          <option value="l">l (litri)</option>
+          <option value="pz">pz (pezzi)</option>
+        </select>
       </div>
       <input type="hidden" id="m-sort" value="0">
     </div>
@@ -674,6 +691,7 @@ function renderProdRow(p) {
     <span class="prod-desc" title="${escH(p.description)}">${escH(p.description)}</span>
     <span class="prod-marchio col-marchio" title="${escH(p.marchio||'')}">${escH(p.marchio||'—')}</span>
     <span class="prod-linea col-linea"     title="${escH(p.linea||'')}">${escH(p.linea||'—')}</span>
+    <span class="prod-formato col-formato">${p.quantita != null ? escH(String(p.quantita)) + (p.unita_misura ? '&nbsp;' + escH(p.unita_misura) : '') : '—'}</span>
     <span class="prod-pvp">${pvp}</span>
     <span class="prod-conf col-conf">${conf}</span>
     <span class="col-ass">${assHtml}</span>
@@ -753,8 +771,10 @@ function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
     document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
     document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
     document.getElementById('m-sort').value      = p.sort_order ?? '';
-    document.getElementById('m-marchio').value   = p.marchio || '';
-    document.getElementById('m-linea').value     = p.linea   || '';
+    document.getElementById('m-marchio').value   = p.marchio       || '';
+    document.getElementById('m-linea').value     = p.linea         || '';
+    document.getElementById('m-quantita').value  = p.quantita != null ? p.quantita : '';
+    document.getElementById('m-unita').value     = p.unita_misura  || '';
     setAssValue('cr',  p.assortment_cremona);
     setAssValue('cas', p.assortment_casalmaggiore);
     setAssValue('via', p.assortment_viadana);
@@ -769,6 +789,8 @@ function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
     document.getElementById('m-sort').value      = catalogo.length + 1;
     document.getElementById('m-marchio').value   = '';
     document.getElementById('m-linea').value     = '';
+    document.getElementById('m-quantita').value  = '';
+    document.getElementById('m-unita').value     = '';
     setAssValue('cr',  true);
     setAssValue('cas', true);
     setAssValue('via', true);
@@ -835,13 +857,16 @@ async function salvaProdotto() {
   // cattura stato precedente per undo
   const prevData = editingId ? { ...catalogo.find(x => x.id === editingId) } : null;
 
-  const marchio = document.getElementById('m-marchio').value.trim() || null;
-  const linea   = document.getElementById('m-linea').value.trim()   || null;
+  const marchio      = document.getElementById('m-marchio').value.trim()  || null;
+  const linea        = document.getElementById('m-linea').value.trim()    || null;
+  const quantitaRaw  = document.getElementById('m-quantita').value.trim();
+  const quantita     = quantitaRaw !== '' ? parseFloat(quantitaRaw) : null;
+  const unita_misura = document.getElementById('m-unita').value           || null;
 
   const payload = {
     fornitore, category, product_code: code, description: desc,
     pvp, pack_size: conf, sort_order: sort,
-    marchio, linea,
+    marchio, linea, quantita, unita_misura,
     assortment_cremona: ass_cr,
     assortment_casalmaggiore: ass_cas,
     assortment_viadana: ass_via,
@@ -888,8 +913,10 @@ function duplicaProdotto(id) {
   document.getElementById('m-desc').value      = p.description  || '';
   document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
   document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
-  document.getElementById('m-marchio').value   = p.marchio || '';
-  document.getElementById('m-linea').value     = p.linea   || '';
+  document.getElementById('m-marchio').value   = p.marchio      || '';
+  document.getElementById('m-linea').value     = p.linea        || '';
+  document.getElementById('m-quantita').value  = p.quantita != null ? p.quantita : '';
+  document.getElementById('m-unita').value     = p.unita_misura || '';
   setAssValue('cr',  p.assortment_cremona);
   setAssValue('cas', p.assortment_casalmaggiore);
   setAssValue('via', p.assortment_viadana);
