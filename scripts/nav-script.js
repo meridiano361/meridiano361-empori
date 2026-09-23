@@ -1305,7 +1305,16 @@ function buildNav() {
             inDb = !!(data?.length);
           }
           if (inDb) {
-            await _upsertSubscription(user, sub);
+            // Rotazione giornaliera: rigenera il token una volta al giorno per
+            // prevenire token "zombie" che FCM accetta ma non consegna più.
+            const rotKey = 'm361_push_rotated';
+            const today  = new Date().toISOString().slice(0, 10);
+            if (localStorage.getItem(rotKey) !== today) {
+              localStorage.setItem(rotKey, today);
+              await _pushSubscribe(user); // unsubscribe + nuovo token
+            } else {
+              await _upsertSubscription(user, sub); // aggiorna solo last_seen_at
+            }
           } else {
             // Token non nel DB: era scaduto (410) e rimosso. Forza rinnovo.
             const err = await _pushSubscribe(user);

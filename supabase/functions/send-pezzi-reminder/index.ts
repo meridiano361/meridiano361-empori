@@ -58,8 +58,13 @@ Deno.serve(async (req) => {
           }));
           results.push_sent++;
         } catch (e: unknown) {
-          results.push_failed++;
-          results.errors.push(String(e).slice(0, 100));
+          const status = (e as { statusCode?: number })?.statusCode;
+          if (status === 404 || status === 410) {
+            await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+          } else {
+            results.push_failed++;
+            results.errors.push(String(e).slice(0, 100));
+          }
         }
       }
     } catch (e: unknown) {
