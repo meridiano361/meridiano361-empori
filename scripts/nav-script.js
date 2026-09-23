@@ -1222,7 +1222,12 @@ function buildNav() {
       try {
         // Prima rimuovi eventuale subscription vecchia (chiavi VAPID cambiate)
         const old = await reg.pushManager.getSubscription();
-        if (old) await old.unsubscribe();
+        if (old) {
+          const oldEndpoint = old.endpoint;
+          await old.unsubscribe();
+          const _sb = getSupabase();
+          if (_sb) await _sb.from('push_subscriptions').delete().eq('endpoint', oldEndpoint);
+        }
 
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
