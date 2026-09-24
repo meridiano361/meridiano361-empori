@@ -112,7 +112,7 @@
       { id: 'turni',        label: 'Turni',        icon: 'fa-users',          href: 'pages/turni/turni.html',        section: 'turni',   active: true  },
       { id: 'cassa',        label: 'Cassa',        icon: 'fa-cash-register',  href: 'pages/cassa/cassa.html',        section: 'cassa',   active: true  },
       { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: true },
-      { id: 'rifornimento', label: 'Rifornimento', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: false },
+      { id: 'rifornimento', label: 'Fornitura', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: false },
       { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/prezzi.html',          section: null,      active: true  },
       { id: 'preordini',   label: 'Preordini',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: false },
       { id: 'materiali',   label: 'Materiali',   icon: 'fa-folder-open',    href: 'pages/materiali/materiali.html',    section: null,      active: true  },
