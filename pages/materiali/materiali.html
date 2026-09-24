@@ -12,6 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
   <style>
     body { font-family: 'Nunito', sans-serif; background: #f0f2f5; }
     * { box-sizing: border-box; }
@@ -89,16 +90,34 @@
     /* ── Text editor modal ── */
     #testo-modal { visibility:hidden;opacity:0;pointer-events:none;position:fixed;inset:0;z-index:9996;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.65);transition:opacity .2s; }
     #testo-modal.open { visibility:visible;opacity:1;pointer-events:auto; }
-    .testo-sheet { background:#fff;border-radius:20px;max-width:700px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.25);transform:scale(.97);transition:transform .2s; }
+    .testo-sheet { background:#fff;border-radius:20px;max-width:860px;width:100%;max-height:93vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.25);transform:scale(.97);transition:transform .2s; }
     #testo-modal.open .testo-sheet { transform:scale(1); }
     .testo-hd { display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #e2e8f0;flex-shrink:0;gap:12px; }
     .testo-hd-title { font-size:15px;font-weight:800;color:#1e293b; }
-    .testo-body { flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px; }
+    .testo-body { flex:1;overflow:hidden;padding:16px 20px 0;display:flex;flex-direction:column;gap:10px;min-height:0; }
     .testo-label { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:4px; }
     #testo-nome { width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:14px;font-family:'Nunito',sans-serif;color:#1e293b;outline:none;transition:border .15s; }
     #testo-nome:focus { border-color:#B5453A; }
-    #testo-content { width:100%;flex:1;min-height:280px;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:13px;font-family:'Courier New',Courier,monospace;color:#1e293b;line-height:1.6;resize:vertical;outline:none;transition:border .15s;background:#fafafa; }
-    #testo-content:focus { border-color:#B5453A;background:#fff; }
+    #testo-editor-wrap { flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden; }
+    #testo-editor { flex:1;display:flex;flex-direction:column;min-height:0;border:1.5px solid #e2e8f0;border-radius:9px;overflow:hidden;transition:border-color .15s; }
+    #testo-editor:focus-within { border-color:#B5453A; }
+    #testo-editor .ql-toolbar.ql-snow { border:none;border-bottom:1px solid #e2e8f0;background:#f8fafc;border-radius:9px 9px 0 0;flex-shrink:0;padding:6px 10px; }
+    #testo-editor .ql-container.ql-snow { border:none;flex:1;overflow:auto;font-family:'Nunito',sans-serif;font-size:14px;min-height:0; }
+    #testo-editor .ql-editor { min-height:180px;padding:14px 18px;line-height:1.7;color:#1e293b; }
+    #testo-editor .ql-editor.ql-blank::before { color:#94a3b8;font-style:normal; }
+    /* Fix Tailwind preflight vs Quill list bullets */
+    #testo-editor .ql-editor ul { list-style-type:disc;padding-left:1.5em; }
+    #testo-editor .ql-editor ol { list-style-type:decimal;padding-left:1.5em; }
+    #testo-editor .ql-editor li { list-style:inherit; }
+    /* Preview HTML docs */
+    .html-preview { width:100%;height:65vh;overflow:auto;padding:24px 28px;background:#fff;font-family:'Nunito',sans-serif;font-size:14px;line-height:1.7;color:#1e293b; }
+    .html-preview ul { list-style-type:disc;padding-left:1.5em; }
+    .html-preview ol { list-style-type:decimal;padding-left:1.5em; }
+    .html-preview li { list-style:inherit; }
+    .html-preview strong { font-weight:800; }
+    .html-preview h1 { font-size:22px;font-weight:900;margin:12px 0 6px; }
+    .html-preview h2 { font-size:18px;font-weight:800;margin:10px 0 4px; }
+    .html-preview h3 { font-size:15px;font-weight:800;margin:8px 0 4px; }
     .testo-ft { padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0; }
 
     /* ── Empty state ── */
@@ -207,11 +226,11 @@
     <div class="testo-body">
       <div>
         <div class="testo-label">Nome file</div>
-        <input type="text" id="testo-nome" placeholder="es. Note riunione.txt" autocomplete="off">
+        <input type="text" id="testo-nome" placeholder="es. Note riunione" autocomplete="off">
       </div>
-      <div style="display:flex;flex-direction:column;flex:1">
+      <div id="testo-editor-wrap">
         <div class="testo-label">Contenuto</div>
-        <textarea id="testo-content" placeholder="Scrivi qui il testo…"></textarea>
+        <div id="testo-editor"></div>
       </div>
     </div>
     <div class="testo-ft">
@@ -236,6 +255,7 @@
   </div>
 </div>
 
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
 const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
@@ -252,6 +272,27 @@ let _testoFileId      = null;
 let _testoStoragePath = null;
 let _dragFileId       = null;
 let _dragFileNome     = '';
+let _quill            = null;
+
+function getQuill() {
+  if (_quill) return _quill;
+  _quill = new Quill('#testo-editor', {
+    theme: 'snow',
+    placeholder: 'Scrivi qui il contenuto…',
+    modules: {
+      toolbar: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ color: [] }, { background: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ align: [] }],
+        ['link'],
+        ['clean']
+      ]
+    }
+  });
+  return _quill;
+}
 
 /* ─── INIT ─── */
 async function init() {
@@ -351,7 +392,7 @@ function fileRowHtml(f, nomeCartella) {
     ? `draggable="true" ondragstart="onFileDragStart(event,'${f.id}','${escJs(f.nome)}')" ondragend="onFileDragEnd(event)"`
     : '';
   const adm = _isAdmin
-    ? `${isTesto ? `<button class="btn-icon" onclick="apriEditorTesto('${f.id}','${escJs(f.nome)}','${escJs(f.storage_path)}')" title="Modifica testo"><i class="fas fa-file-pen"></i></button>` : ''}
+    ? `${isTesto ? `<button class="btn-icon" onclick="apriEditorTesto('${f.id}','${escJs(f.nome)}','${escJs(f.storage_path)}','${escJs(f.tipo_mime||'')}')" title="Modifica testo"><i class="fas fa-file-pen"></i></button>` : ''}
        <button class="btn-icon" onclick="apriSpostaModal('${f.id}','${escJs(f.nome)}')" title="Sposta in cartella"><i class="fas fa-share"></i></button>
        <button class="btn-icon" onclick="rinominaFile('${f.id}','${escJs(f.nome)}')" title="Rinomina"><i class="fas fa-pen"></i></button>
        <button class="btn-icon" onclick="eliminaFile('${f.id}','${escJs(f.storage_path)}')" title="Elimina"><i class="fas fa-trash"></i></button>`
@@ -550,59 +591,71 @@ async function onFolderDrop(e, cartellaId, cartellaNome) {
   await render();
 }
 
-/* ─── EDITOR TESTO ─── */
+/* ─── EDITOR TESTO (Quill rich text) ─── */
 function nuovoFileTesto() {
   _testoFileId      = null;
   _testoStoragePath = null;
-  document.getElementById('testo-nome').value    = '';
-  document.getElementById('testo-content').value = '';
-  document.getElementById('testo-modal-title').textContent = 'Nuovo documento di testo';
+  document.getElementById('testo-nome').value = '';
+  document.getElementById('testo-modal-title').textContent = 'Nuovo documento';
   document.getElementById('testo-modal').classList.add('open');
+  const q = getQuill();
+  q.setContents([]);
+  q.enable(true);
   setTimeout(() => document.getElementById('testo-nome').focus(), 80);
 }
 
-async function apriEditorTesto(fileId, nome, storagePath) {
+async function apriEditorTesto(fileId, nome, storagePath, tipoMime) {
   _testoFileId      = fileId;
   _testoStoragePath = storagePath;
-  document.getElementById('testo-nome').value    = nome;
-  document.getElementById('testo-content').value = 'Caricamento…';
+  document.getElementById('testo-nome').value = nome;
   document.getElementById('testo-modal-title').textContent = 'Modifica documento';
   document.getElementById('testo-modal').classList.add('open');
+  const q = getQuill();
+  q.setContents([{ insert: 'Caricamento…' }]);
+  q.enable(false);
   try {
     const url  = `${SUPABASE_URL}/storage/v1/object/public/materiali/${storagePath}`;
     const resp = await fetch(url + '?t=' + Date.now());
-    document.getElementById('testo-content').value = await resp.text();
+    const text = await resp.text();
+    q.enable(true);
+    if (tipoMime === 'text/html' || text.trim().startsWith('<')) {
+      q.clipboard.dangerouslyPasteHTML(text);
+    } else {
+      q.setText(text);
+    }
   } catch {
-    document.getElementById('testo-content').value = '';
-    showToast('Errore nel caricamento del testo', 'error');
+    q.setContents([]);
+    q.enable(true);
+    showToast('Errore nel caricamento', 'error');
   }
 }
 
 async function salvaFileTesto() {
   const nomeRaw = document.getElementById('testo-nome').value.trim();
-  const content = document.getElementById('testo-content').value;
   if (!nomeRaw) { showToast('Inserisci un nome per il file', 'error'); document.getElementById('testo-nome').focus(); return; }
 
-  const nome = nomeRaw.includes('.') ? nomeRaw : nomeRaw + '.txt';
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const q    = getQuill();
+  const html = q.root.innerHTML;
+  const nome = nomeRaw;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
 
   if (_testoFileId) {
-    const { error: upErr } = await db.storage.from('materiali').upload(_testoStoragePath, blob, { upsert: true, contentType: 'text/plain' });
+    const { error: upErr } = await db.storage.from('materiali').upload(_testoStoragePath, blob, { upsert: true, contentType: 'text/html' });
     if (upErr) { showToast('Errore upload: ' + upErr.message, 'error'); return; }
-    const { error: dbErr } = await db.from('materiali_file').update({ nome, dimensione: blob.size }).eq('id', _testoFileId);
+    const { error: dbErr } = await db.from('materiali_file').update({ nome, dimensione: blob.size, tipo_mime: 'text/html' }).eq('id', _testoFileId);
     if (dbErr) { showToast('Errore DB: ' + dbErr.message, 'error'); return; }
     showToast('Documento aggiornato', 'success');
   } else {
     const uuid = crypto.randomUUID?.() ?? (Date.now().toString(36) + Math.random().toString(36).slice(2));
     const safe = nome.replace(/[^a-zA-Z0-9._\-À-ÿ]/g, '_');
     const path = `${uuid}_${safe}`;
-    const { error: upErr } = await db.storage.from('materiali').upload(path, blob, { upsert: false, contentType: 'text/plain' });
+    const { error: upErr } = await db.storage.from('materiali').upload(path, blob, { upsert: false, contentType: 'text/html' });
     if (upErr) { showToast('Errore upload: ' + upErr.message, 'error'); return; }
     const { error: dbErr } = await db.from('materiali_file').insert({
       cartella_id: currentCartella || null, nome,
       storage_path: path, dimensione: blob.size,
-      tipo_mime: 'text/plain', created_by: user.nome || null
+      tipo_mime: 'text/html', created_by: user.nome || null
     });
     if (dbErr) { await db.storage.from('materiali').remove([path]); showToast('Errore DB: ' + dbErr.message, 'error'); return; }
     showToast('Documento creato', 'success');
@@ -613,8 +666,9 @@ async function salvaFileTesto() {
 
 function chiudiEditorTesto() {
   document.getElementById('testo-modal').classList.remove('open');
-  _testoFileId = null;
+  _testoFileId      = null;
   _testoStoragePath = null;
+  if (_quill) { _quill.setContents([]); }
 }
 
 /* ─── SPOSTA FILE ─── */
@@ -715,11 +769,15 @@ function apriPreview(url, nome, mime) {
   } else if (mime === 'application/pdf') {
     body.style.padding = '0';
     body.innerHTML = `<iframe src="${escHtml(url)}" style="width:100%;height:65vh;border:none"></iframe>`;
-  } else if (mime && mime.startsWith('text/')) {
+  } else if (mime && (mime === 'text/html' || mime === 'text/plain' || mime.startsWith('text/'))) {
     body.style.padding = '0';
     body.innerHTML = `<div style="width:100%;height:65vh;display:flex;align-items:center;justify-content:center"><div class="spinner"></div></div>`;
-    fetch(url).then(r => r.text()).then(txt => {
-      body.innerHTML = `<pre style="width:100%;height:65vh;margin:0;padding:20px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#1e293b;background:#f8fafc">${escHtml(txt)}</pre>`;
+    fetch(url + '?t=' + Date.now()).then(r => r.text()).then(txt => {
+      if (mime === 'text/html' || txt.trim().startsWith('<')) {
+        body.innerHTML = `<div class="html-preview">${txt}</div>`;
+      } else {
+        body.innerHTML = `<pre style="width:100%;height:65vh;margin:0;padding:20px;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#1e293b;background:#f8fafc">${escHtml(txt)}</pre>`;
+      }
     }).catch(() => {
       body.innerHTML = `<p style="color:#94a3b8;padding:24px;text-align:center">Impossibile caricare il testo.</p>`;
     });
