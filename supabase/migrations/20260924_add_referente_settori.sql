@@ -6,4 +6,5 @@ ALTER TABLE operatori
   ADD COLUMN IF NOT EXISTS referente_casa        boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS referente_moda        boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS referente_cosmesi     boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS referente_ricorrenze  boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS referente_ricorrenze  boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS referente_contabilita boolean NOT NULL DEFAULT false;
