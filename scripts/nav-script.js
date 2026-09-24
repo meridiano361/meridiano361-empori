@@ -540,6 +540,12 @@ function buildNav() {
   const userSections = typeof getUserSections === 'function' ? getUserSections() : [];
   const user = getUserProfile();
 
+  // Referenti settori: abilitano la sezione Rifornimento anche se non admin/dipendente
+  if (user && (user.referente_alimentari || user.referente_casa || user.referente_moda || user.referente_cosmesi || user.referente_ricorrenze)) {
+    const rifItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'rifornimento') : null;
+    if (rifItem) rifItem.active = true;
+  }
+
   const nav = document.createElement('nav');
   nav.id = 'm361-nav';
   nav.setAttribute('role', 'navigation');

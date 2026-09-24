@@ -905,6 +905,17 @@
                     </label>
                 </div>
                 <div class="campo-gruppo">
+                    <label>Referente settori merceologici</label>
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">
+                        <label class="check-flag"><input type="checkbox" id="edit-op-ref-alimentari"><span>alimentari</span></label>
+                        <label class="check-flag"><input type="checkbox" id="edit-op-ref-casa"><span>casa / casalinghi</span></label>
+                        <label class="check-flag"><input type="checkbox" id="edit-op-ref-moda"><span>moda / abbigliamento</span></label>
+                        <label class="check-flag"><input type="checkbox" id="edit-op-ref-cosmesi"><span>cosmesi / cura persona</span></label>
+                        <label class="check-flag"><input type="checkbox" id="edit-op-ref-ricorrenze"><span>ricorrenze / bomboniere</span></label>
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px">I referenti hanno accesso alla sezione Rifornimento.</div>
+                </div>
+                <div class="campo-gruppo">
                     <label>Note</label>
                     <textarea id="edit-op-note" class="campo-input" rows="2" placeholder="Note sull'operatore..."></textarea>
                 </div>
@@ -1478,6 +1489,7 @@
                         ${op.is_resp_emporio   ? '<span style="font-size:10px;background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile emporio">🏪 Resp. Emporio</span>' : ''}
                         ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
                         ${op.attivo === false ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Operatore non attivo — non compare nel controllo cassa">⏸ Non attivo</span>' : ''}
+                        ${(op.referente_alimentari||op.referente_casa||op.referente_moda||op.referente_cosmesi||op.referente_ricorrenze) ? (() => { const settori=[]; if(op.referente_alimentari)settori.push('ali'); if(op.referente_casa)settori.push('casa'); if(op.referente_moda)settori.push('moda'); if(op.referente_cosmesi)settori.push('cos'); if(op.referente_ricorrenze)settori.push('ric'); return `<span style="font-size:10px;background:#fff7ed;color:#c2410c;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Referente: ${settori.join(', ')}">📦 Ref.</span>`; })() : ''}
                     </div>
                 </td>
                 <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
@@ -1488,7 +1500,7 @@
                         <button onclick="apriModalModifica('${safeId}')" title="Modifica anagrafica">✏️</button>
                         <button onclick="apriModalPermessi('${safeId}','${safeName}')" title="Gestisci accessi">🔒</button>
                         <button onclick="inviaInvitoRiga(this)" title="Crea accesso app (non resetta la password se già esiste)" class="btn-invita-op" style="background:#dbeafe;border-color:#93c5fd;color:#1d4ed8;font-size:10px;font-weight:700;width:auto;padding:0 6px">INVITA</button>
-                        <button onclick="reimpostaPasswordRiga(this)" title="Reimposta password" class="btn-invita-op" style="background:#fef9c3;border-color:#fbbf24;color:#92400e;font-size:10px;font-weight:700;width:auto;padding:0 6px">PW</button>
+                        <button onclick="reimpostaPasswordRiga(this)" title="Genera una nuova password temporanea — comunicala all'operatore per il prossimo accesso" class="btn-invita-op" style="background:#fef9c3;border-color:#fbbf24;color:#92400e;font-size:10px;font-weight:700;width:auto;padding:0 6px">PW</button>
                         <button onclick="toggleAttivo('${safeId}',${op.attivo !== false})" title="${op.attivo !== false ? 'Disattiva operatore' : 'Riattiva operatore'}" class="btn-invita-op" style="background:${op.attivo !== false ? '#dcfce7' : '#fef2f2'};border-color:${op.attivo !== false ? '#86efac' : '#fca5a5'};color:${op.attivo !== false ? '#166534' : '#dc2626'};font-size:10px;font-weight:700;width:auto;padding:0 6px">${op.attivo !== false ? 'ATT' : 'INATT'}</button>
                         <button onclick="confermaEliminaOperatore('${safeId}','${safeName}')" title="Elimina operatore" class="btn-elimina-op">🗑</button>
                     </div>
@@ -1640,6 +1652,8 @@
         if (acqCb) acqCb.checked = !!(op.is_resp_acquisti);
         const empCb = document.getElementById('edit-op-resp-emporio');
         if (empCb) empCb.checked = !!(op.is_resp_emporio);
+        const refCbs = { alimentari: 'edit-op-ref-alimentari', casa: 'edit-op-ref-casa', moda: 'edit-op-ref-moda', cosmesi: 'edit-op-ref-cosmesi', ricorrenze: 'edit-op-ref-ricorrenze' };
+        Object.entries(refCbs).forEach(([k, elId]) => { const el = document.getElementById(elId); if (el) el.checked = !!(op['referente_' + k]); });
         document.getElementById('gruppo-resp-personale').style.display = _isAdmin ? '' : 'none';
         document.getElementById('btn-modal-elimina').style.display = _isAdmin ? '' : 'none';
         document.getElementById('edit-op-emporio').disabled = !_isAdmin;
@@ -1714,9 +1728,14 @@
                 email:               document.getElementById('edit-op-email-field').value.trim().toLowerCase() || null,
                 empori_aggiuntivi:   extraDisplay.length > 0 ? extraDisplay : null,
                 note:                document.getElementById('edit-op-note').value.trim() || null,
-                is_resp_personale:   respCb ? respCb.checked : false,
-                is_resp_acquisti:    document.getElementById('edit-op-resp-acquisti')?.checked ?? false,
-                is_resp_emporio:     document.getElementById('edit-op-resp-emporio')?.checked ?? false,
+                is_resp_personale:      respCb ? respCb.checked : false,
+                is_resp_acquisti:       document.getElementById('edit-op-resp-acquisti')?.checked ?? false,
+                is_resp_emporio:        document.getElementById('edit-op-resp-emporio')?.checked ?? false,
+                referente_alimentari:   document.getElementById('edit-op-ref-alimentari')?.checked ?? false,
+                referente_casa:         document.getElementById('edit-op-ref-casa')?.checked ?? false,
+                referente_moda:         document.getElementById('edit-op-ref-moda')?.checked ?? false,
+                referente_cosmesi:      document.getElementById('edit-op-ref-cosmesi')?.checked ?? false,
+                referente_ricorrenze:   document.getElementById('edit-op-ref-ricorrenze')?.checked ?? false,
             },
         };
     }
