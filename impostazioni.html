@@ -346,6 +346,20 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ── Regole notifiche automatiche ───────────────────────────── -->
+            <div class="s-card" style="margin-top:16px">
+                <div class="s-card-body">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                        <div style="font-size:15px;font-weight:700;color:#1e293b">Regole notifiche automatiche</div>
+                        <span style="font-size:11px;color:#94a3b8;font-weight:500">attivate dal sistema</span>
+                    </div>
+                    <p style="font-size:13px;color:#64748b;margin:0 0 16px">Controlla chi riceve cosa, quando e su quale canale. Ogni regola può essere attivata o disattivata indipendentemente.</p>
+                    <div id="regole-notifiche-lista">
+                        <div style="color:#94a3b8;font-size:13px"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento…</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ── SEZIONE: EMPORI ────────────────────────────────────────────── -->
@@ -1186,7 +1200,7 @@
         if (!_sectionLoaded[id]) {
             _sectionLoaded[id] = true;
             if (id === 'operatori')         loadUsers();
-            if (id === 'notifiche')         caricaNotificheInviate(true);
+            if (id === 'notifiche')         { caricaNotificheInviate(true); caricaRegoleNotifiche(); }
             if (id === 'categorie')         caricaCategorie();
             if (id === 'accessi')           caricaAccessi();
             if (id === 'loghi')             caricaLoghi();
@@ -2338,6 +2352,94 @@
         const { error } = await db.from('notifiche').delete().eq('id', id);
         if (error) { showToast('Errore eliminazione', 'err'); return; }
         caricaNotificheInviate();
+    }
+
+    // ── REGOLE NOTIFICHE AUTOMATICHE ─────────────────────────────────────────
+
+    const _EVENTO_LABEL = {
+        campagna:          '📅 Campagne commerciali',
+        scadenza_prodotti: '⚠️ Scadenza prodotti',
+        pezzi:             '📦 Conteggio pezzi',
+        turno:             '🕐 Turni',
+        presenza:          '✅ Presenze',
+        fornitura:         '🛒 Forniture',
+    };
+
+    const _CANALE_ICON = { email: '📧', push: '🔔', entrambi: '📧🔔' };
+
+    let _regoleCache = [];
+
+    async function caricaRegoleNotifiche() {
+        const el = document.getElementById('regole-notifiche-lista');
+        if (!el) return;
+
+        const { data, error } = await db
+            .from('notifiche_config')
+            .select('id, nome, descrizione, attiva, canale, destinatari, evento, giorni_anticipo')
+            .order('evento').order('giorni_anticipo', { ascending: true, nullsFirst: false });
+
+        if (error || !data?.length) {
+            el.innerHTML = '<div style="color:#94a3b8;font-size:13px">Nessuna regola trovata. Assicurati di aver eseguito la migration <code>20260924_notifiche_config.sql</code>.</div>';
+            return;
+        }
+
+        _regoleCache = data;
+
+        // Raggruppa per evento
+        const gruppi = {};
+        for (const r of data) {
+            if (!gruppi[r.evento]) gruppi[r.evento] = [];
+            gruppi[r.evento].push(r);
+        }
+
+        let html = '';
+        for (const [evento, regole] of Object.entries(gruppi)) {
+            html += `<div style="margin-bottom:18px">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${_EVENTO_LABEL[evento] || evento}</div>
+                <div style="display:flex;flex-direction:column;gap:8px">`;
+            for (const r of regole) {
+                const icon = _CANALE_ICON[r.canale] || r.canale;
+                const timing = r.giorni_anticipo != null
+                    ? `<span style="background:#f1f5f9;color:#475569;font-size:11px;padding:2px 7px;border-radius:5px;font-weight:600">${r.giorni_anticipo === 1 ? '1 giorno prima' : r.giorni_anticipo + ' giorni prima'}</span>`
+                    : '';
+                html += `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+                    <div style="flex:1;min-width:0">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+                            <span style="font-size:14px;font-weight:700;color:#1e293b">${escHtml(r.nome)}</span>
+                            <span title="Canale: ${r.canale}" style="font-size:13px">${icon}</span>
+                            ${timing}
+                        </div>
+                        ${r.descrizione ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(r.descrizione)}</div>` : ''}
+                        <div style="font-size:11px;color:#94a3b8">→ ${escHtml(r.destinatari)}</div>
+                    </div>
+                    <button onclick="toggleRegolaNotifica('${r.id}', ${!r.attiva})"
+                            title="${r.attiva ? 'Attiva — clicca per disattivare' : 'Disattiva — clicca per attivare'}"
+                            style="position:relative;display:inline-flex;align-items:center;width:42px;height:24px;flex-shrink:0;margin-top:2px;border:none;border-radius:24px;background:${r.attiva ? '#22c55e' : '#cbd5e1'};cursor:pointer;padding:0;transition:background .2s">
+                        <span style="position:absolute;top:3px;left:${r.attiva ? '21px' : '3px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:left .2s;pointer-events:none"></span>
+                    </button>
+                </div>`;
+            }
+            html += '</div></div>';
+        }
+
+        el.innerHTML = html;
+    }
+
+    async function toggleRegolaNotifica(id, attiva) {
+        const { error } = await db
+            .from('notifiche_config')
+            .update({ attiva, updated_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) {
+            showToast('Errore aggiornamento regola', 'err');
+            caricaRegoleNotifiche(); // ripristina stato visivo
+            return;
+        }
+        const r = _regoleCache.find(x => x.id === id);
+        showToast(`${r?.nome || id}: ${attiva ? 'attivata' : 'disattivata'}`, 'ok');
+        // Aggiorna cache locale senza ricaricare tutto
+        if (r) r.attiva = attiva;
     }
 
     function escHtml(s) {
