@@ -459,6 +459,12 @@
                 </div>
             </div>
 
+            <!-- MARGINE RIEPILOGO (uso interno) -->
+            <div id="margine-riepilogo" class="hidden" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;padding:20px 24px">
+                <div class="section-title" style="color:#166534">Riepilogo margini — uso interno</div>
+                <div id="margine-rows" class="space-y-1 text-sm"></div>
+            </div>
+
             <!-- TOTALI -->
             <div class="section-card">
                 <div id="breakdown-container" class="hidden mb-4">
@@ -1038,6 +1044,7 @@ function resetForm() {
     });
     document.getElementById('grand-total').textContent    = '€ 0,00';
     document.getElementById('grand-total-ie').textContent = '€ 0,00';
+    document.getElementById('margine-riepilogo')?.classList.add('hidden');
     document.getElementById('breakdown-container')?.classList.add('hidden');
     document.getElementById('cerca-rubrica-panel')?.classList.add('hidden');
     document.getElementById('nuovo-cliente-form')?.classList.add('hidden');
@@ -1524,7 +1531,9 @@ function calcRow(rowId, gid) {
     }
 
     row.querySelector('.row-total').textContent = itFmt(qty * effective);
-    row.dataset.totalIe = qty * effectiveIE;
+    row.dataset.totalIe  = qty * effectiveIE;
+    row.dataset.margineIe = margineIE != null ? qty * margineIE : '';
+    row.dataset.margineIi = margineII != null ? qty * margineII : '';
     if (currentType === 'bomboniere') calcConfezOmaggio(gid);
     calcSubtotal(gid);
     calcGrandTotal(); validateGlobal();
@@ -1532,21 +1541,19 @@ function calcRow(rowId, gid) {
 
 function syncCostoFromII(rowId) {
     const ir = document.getElementById(`internal-${rowId}`); if (!ir) return;
-    const iva = parseFloat(document.getElementById(`row-${rowId}`)?.querySelector('.iva-input')?.value) || 0;
-    const costoII = parseFloat(ir.querySelector('.costo-ii-input').value.replace('€','').replace(',','.').trim()) || 0;
-    if (iva > 0 && costoII > 0) {
-        const ieInp = ir.querySelector('.costo-ie-input');
-        if (document.activeElement !== ieInp) ieInp.value = '€ ' + itFmt(costoII / (1 + iva / 100));
-    }
+    const iva    = parseFloat(document.getElementById(`row-${rowId}`)?.querySelector('.iva-input')?.value) || 0;
+    const costoII = itParse(ir.querySelector('.costo-ii-input').value);
+    const ieInp  = ir.querySelector('.costo-ie-input');
+    if (document.activeElement !== ieInp)
+        ieInp.value = '€ ' + itFmt(iva > 0 ? costoII / (1 + iva / 100) : costoII);
 }
 function syncCostoFromIE(rowId) {
     const ir = document.getElementById(`internal-${rowId}`); if (!ir) return;
-    const iva = parseFloat(document.getElementById(`row-${rowId}`)?.querySelector('.iva-input')?.value) || 0;
-    const costoIE = parseFloat(ir.querySelector('.costo-ie-input').value.replace('€','').replace(',','.').trim()) || 0;
-    if (iva > 0 && costoIE > 0) {
-        const iiInp = ir.querySelector('.costo-ii-input');
-        if (document.activeElement !== iiInp) iiInp.value = '€ ' + itFmt(costoIE * (1 + iva / 100));
-    }
+    const iva    = parseFloat(document.getElementById(`row-${rowId}`)?.querySelector('.iva-input')?.value) || 0;
+    const costoIE = itParse(ir.querySelector('.costo-ie-input').value);
+    const iiInp  = ir.querySelector('.costo-ii-input');
+    if (document.activeElement !== iiInp)
+        iiInp.value = '€ ' + itFmt(iva > 0 ? costoIE * (1 + iva / 100) : costoIE);
 }
 function validateGlobal() {
     document.getElementById('submit-btn').disabled = document.querySelectorAll('.row-error').length > 0;
@@ -1585,6 +1592,58 @@ function calcGrandTotal() {
     document.getElementById('grand-total-ie').textContent = '€ ' + itFmt(grandIE);
     if (currentType === 'bomboniere') calcBomboniereBreakdown();
     updateBreakdown();
+    updateMargineRiepilogo(grandIE);
+}
+
+function updateMargineRiepilogo(grandIE) {
+    const container = document.getElementById('margine-riepilogo');
+    const rowsEl    = document.getElementById('margine-rows');
+    if (!container || !rowsEl) return;
+
+    const groups = [...document.querySelectorAll('[id^="group-"]')];
+    let totIE = 0, totII = 0, anyMarg = false;
+    const groupLines = [];
+
+    groups.forEach(grp => {
+        const gid   = grp.id.replace('group-','');
+        const label = document.getElementById(`tipologia-name-${gid}`)?.value || `Gruppo ${gid}`;
+        let mIE = 0, mII = 0, hasMarg = false;
+        grp.querySelectorAll('.product-row').forEach(row => {
+            const rIE = parseFloat(row.dataset.margineIe);
+            const rII = parseFloat(row.dataset.margineIi);
+            if (row.dataset.margineIe !== '') { mIE += isNaN(rIE) ? 0 : rIE; hasMarg = true; }
+            if (row.dataset.margineIi !== '') { mII += isNaN(rII) ? 0 : rII; }
+        });
+        if (hasMarg) {
+            totIE += mIE; totII += mII; anyMarg = true;
+            const percIE = grandIE > 0 ? (mIE / grandIE * 100) : 0;
+            const colIE  = mIE >= 0 ? '#166534' : '#991b1b';
+            const colII  = mII >= 0 ? '#166534' : '#991b1b';
+            groupLines.push(`
+                <div class="flex items-center justify-between py-1 border-b border-green-100">
+                    <span class="text-slate-600 font-medium">${escHtml(label)}</span>
+                    <span class="flex gap-4 text-xs">
+                        <span>i.e.: <strong style="color:${colIE}">${mIE>=0?'+':''}€ ${itFmt(mIE)}</strong> <span style="color:${colIE}">(${percIE.toFixed(1)}%)</span></span>
+                        <span>i.i.: <strong style="color:${colII}">${mII>=0?'+':''}€ ${itFmt(mII)}</strong></span>
+                    </span>
+                </div>`);
+        }
+    });
+
+    if (!anyMarg) { container.classList.add('hidden'); return; }
+    container.classList.remove('hidden');
+
+    const percTotIE = grandIE > 0 ? (totIE / grandIE * 100) : 0;
+    const cTotIE = totIE >= 0 ? '#166534' : '#991b1b';
+    const cTotII = totII >= 0 ? '#166534' : '#991b1b';
+    rowsEl.innerHTML = groupLines.join('') + `
+        <div class="flex items-center justify-between pt-2 mt-1">
+            <span class="font-bold text-slate-700 uppercase tracking-wider" style="font-size:10px">Totale</span>
+            <span class="flex gap-4 text-sm font-bold">
+                <span>i.e.: <strong style="color:${cTotIE}">${totIE>=0?'+':''}€ ${itFmt(totIE)}</strong> <span style="color:${cTotIE};font-size:11px">(${percTotIE.toFixed(1)}%)</span></span>
+                <span>i.i.: <strong style="color:${cTotII}">${totII>=0?'+':''}€ ${itFmt(totII)}</strong></span>
+            </span>
+        </div>`;
 }
 
 function updateBreakdown() {
@@ -2061,8 +2120,11 @@ async function savePreventivo(event) {
         if (error) throw error;
 
         modificheNonSalvate = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Preventivo';
         M361.toast(editingId ? 'Preventivo aggiornato!' : 'Preventivo salvato!', 'ok');
-        setTimeout(() => backToLista(), 800);
+        const esci = await m361Confirm('Preventivo salvato. Vuoi tornare alla lista?', 'Salvato', 'Vai alla lista', 'Rimani qui');
+        if (esci) backToLista();
     } catch(e) {
         console.error(e);
         await m361Alert('Errore nel salvataggio: ' + e.message,'Errore','error');
