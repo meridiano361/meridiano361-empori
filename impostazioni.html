@@ -417,9 +417,10 @@
                         <div style="color:#94a3b8;font-size:13px"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento…</div>
                     </div>
 
-                    <!-- Form nuova regola (nascosto) -->
+                    <!-- Form nuova/modifica regola (nascosto) -->
                     <div id="nuova-regola-form" style="display:none;margin-top:16px;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:16px">
-                        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:12px">Nuova regola</div>
+                        <input type="hidden" id="nr-edit-id">
+                        <div id="nr-form-title" style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:12px">Nuova regola</div>
                         <div style="display:flex;flex-direction:column;gap:10px">
                             <div>
                                 <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Nome *</label>
@@ -2643,7 +2644,8 @@
                                 style="position:relative;display:inline-flex;align-items:center;width:42px;height:24px;border:none;border-radius:24px;background:${r.attiva ? '#22c55e' : '#cbd5e1'};cursor:pointer;padding:0;transition:background .2s">
                             <span style="position:absolute;top:3px;left:${r.attiva ? '21px' : '3px'};width:18px;height:18px;background:#fff;border-radius:50%;transition:left .2s;pointer-events:none"></span>
                         </button>
-                        <button onclick="eliminaRegolaNotifica('${r.id}')" title="Elimina regola" style="background:none;border:none;cursor:pointer;font-size:14px;color:#cbd5e1;padding:0;line-height:1">🗑</button>
+                        <button onclick="modificaRegolaNotifica('${r.id}')" title="Modifica" style="background:none;border:none;cursor:pointer;font-size:13px;color:#94a3b8;padding:0;line-height:1">✏️</button>
+                        <button onclick="eliminaRegolaNotifica('${r.id}')" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:13px;color:#cbd5e1;padding:0;line-height:1">🗑</button>
                     </div>
                 </div>`;
             }
@@ -2678,39 +2680,63 @@
     }
 
     function apriFormRegola() {
+        document.getElementById('nr-edit-id').value = '';
+        document.getElementById('nr-form-title').textContent = 'Nuova regola';
+        ['nr-nome','nr-desc','nr-dest','nr-giorni'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('nr-evento').value = 'campagna';
+        document.getElementById('nr-canale').value = 'push';
         document.getElementById('nuova-regola-form').style.display = 'block';
         document.getElementById('btn-nuova-regola').style.display = 'none';
+        document.getElementById('nuova-regola-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function modificaRegolaNotifica(id) {
+        const r = _regoleCache.find(x => x.id === id);
+        if (!r) return;
+        document.getElementById('nr-edit-id').value        = r.id;
+        document.getElementById('nr-form-title').textContent = `Modifica: ${r.nome}`;
+        document.getElementById('nr-nome').value           = r.nome;
+        document.getElementById('nr-desc').value           = r.descrizione || '';
+        document.getElementById('nr-evento').value         = r.evento;
+        document.getElementById('nr-canale').value         = r.canale;
+        document.getElementById('nr-dest').value           = r.destinatari;
+        document.getElementById('nr-giorni').value         = r.giorni_anticipo ?? '';
+        document.getElementById('nuova-regola-form').style.display = 'block';
+        document.getElementById('btn-nuova-regola').style.display = 'none';
+        document.getElementById('nuova-regola-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function chiudiFormRegola() {
         document.getElementById('nuova-regola-form').style.display = 'none';
         document.getElementById('btn-nuova-regola').style.display = 'flex';
-        ['nr-nome','nr-desc','nr-dest','nr-giorni'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('nr-edit-id').value = '';
     }
 
     async function salvaRegolaNotifica() {
-        const nome  = document.getElementById('nr-nome').value.trim();
-        const desc  = document.getElementById('nr-desc').value.trim();
+        const editId = document.getElementById('nr-edit-id').value.trim();
+        const nome   = document.getElementById('nr-nome').value.trim();
+        const desc   = document.getElementById('nr-desc').value.trim();
         const evento = document.getElementById('nr-evento').value;
         const canale = document.getElementById('nr-canale').value;
-        const dest  = document.getElementById('nr-dest').value.trim();
+        const dest   = document.getElementById('nr-dest').value.trim();
         const giorniVal = document.getElementById('nr-giorni').value.trim();
         const giorni = giorniVal !== '' ? parseInt(giorniVal) : null;
 
         if (!nome || !dest) { showToast('Compila nome e destinatari', 'err'); return; }
 
-        const id = nome.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-                   + '_' + Date.now().toString(36);
+        const payload = { nome, descrizione: desc || null, canale, destinatari: dest, evento, giorni_anticipo: giorni, updated_at: new Date().toISOString() };
 
-        const { error } = await db.from('notifiche_config').insert({
-            id, nome, descrizione: desc || null, attiva: true,
-            canale, destinatari: dest, evento,
-            giorni_anticipo: giorni,
-            updated_at: new Date().toISOString(),
-        });
+        if (editId) {
+            const { error } = await db.from('notifiche_config').update(payload).eq('id', editId);
+            if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+            showToast('Regola aggiornata', 'ok');
+        } else {
+            const id = nome.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now().toString(36);
+            const { error } = await db.from('notifiche_config').insert({ id, attiva: true, ...payload });
+            if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+            showToast('Regola aggiunta', 'ok');
+        }
 
-        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
-        showToast('Regola aggiunta', 'ok');
         chiudiFormRegola();
         caricaRegoleNotifiche();
     }
