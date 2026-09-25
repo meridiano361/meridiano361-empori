@@ -2190,18 +2190,20 @@ function stampaPDFConColonne() {
     const cc      = getCondizioniCommerciali();
     const logoUrl = window.location.origin + '/assets/images/logom361.webp';
 
+    const showTotII = document.getElementById('pdf-show-tot-ii')?.checked ?? true;
+    const showTotIE = document.getElementById('pdf-show-tot-ie')?.checked ?? true;
+
     const colDefs = [
-        { key:'foto',  label:'',           align:'center' },
-        { key:'codice',label:'Codice',     align:'left'   },
-        { key:'desc',  label:'Descrizione',align:'left'   },
-        { key:'pii',   label:'Prezzo i.i.',align:'right'  },
-        { key:'iva',   label:'IVA %',      align:'center' },
-        { key:'pie',   label:'Prezzo i.e.',align:'right'  },
-        { key:'sconto',label:'Sconto %',   align:'center' },
-        { key:'piisc', label:'P.i.i. sc.', align:'right'  },
-        { key:'piesc', label:'P.i.e. sc.', align:'right'  },
-        { key:'qty',   label:'Qtà',        align:'center' },
-        { key:'tot',   label:'Totale',     align:'right'  },
+        { key:'foto',  label:'',               align:'center' },
+        { key:'codice',label:'Codice',         align:'left'   },
+        { key:'desc',  label:'Descrizione',    align:'left'   },
+        { key:'pii',   label:'Prezzo i.i.',    align:'right'  },
+        { key:'iva',   label:'IVA %',          align:'center' },
+        { key:'pie',   label:'Prezzo i.e.',    align:'right'  },
+        { key:'sconto',label:'Sconto %',       align:'center' },
+        { key:'piisc', label:'P.i.i. sc.',     align:'right'  },
+        { key:'piesc', label:'Prezzo i.e. sc.',align:'right'  },
+        { key:'qty',   label:'Qtà',            align:'center' },
     ].filter(c => sel.has(c.key));
 
     const rows = [];
@@ -2244,11 +2246,12 @@ function stampaPDFConColonne() {
         *{box-sizing:border-box}
         body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;margin:0;padding:24px 28px}
         .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #B5453A}
-        .azienda img{height:44px;margin-bottom:6px;display:block}
-        .azienda-nome{font-size:12px;font-weight:700;color:#B5453A;margin-bottom:2px}
+        .azienda-top{display:flex;align-items:flex-end;gap:10px;margin-bottom:3px}
+        .azienda-top img{height:26px;width:auto;display:block}
+        .azienda-nome{font-size:11px;font-weight:700;color:#B5453A;line-height:1.2}
         .azienda-info{font-size:9px;color:#475569;line-height:1.6}
         .prev-info{text-align:right}
-        .prev-numero{font-size:20px;font-weight:900;color:#B5453A}
+        .prev-numero{font-size:11px;font-weight:700;color:#1e293b}
         .prev-sub{font-size:10px;color:#64748b;margin-top:2px;line-height:1.7}
         .cliente-box{background:#f8fafc;border-left:3px solid #B5453A;padding:8px 12px;margin-bottom:16px;font-size:11px}
         .cliente-box strong{display:block;font-size:13px;margin-bottom:2px}
@@ -2270,8 +2273,10 @@ function stampaPDFConColonne() {
     </style></head><body>
     <div class="header">
         <div class="azienda">
-            <img src="${logoUrl}" alt="Meridiano 361">
-            <div class="azienda-nome">Meridiano 361 Impresa Sociale s.r.l. – socio unico</div>
+            <div class="azienda-top">
+                <img src="${logoUrl}" alt="Meridiano 361">
+                <div class="azienda-nome">Meridiano 361 Impresa Sociale s.r.l. – socio unico</div>
+            </div>
             <div class="azienda-info">
                 Via Don Giovanni Verità 8 – 42124 Reggio nell'Emilia (RE)<br>
                 Pec meridiano361@pec.confcooperative.it<br>
@@ -2290,8 +2295,8 @@ function stampaPDFConColonne() {
     ${titolo ? `<div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1e293b">${titolo}</div>` : ''}
     <table><thead><tr>${thRow}</tr></thead><tbody>${tdRows}</tbody></table>
     <div class="totali">
-        <div class="tot-box ii"><span class="tot-lbl">Totale i.i.</span><span class="tot-val">${document.getElementById('grand-total')?.textContent || '€ 0,00'}</span></div>
-        <div class="tot-box ie"><span class="tot-lbl">Totale i.e.</span><span class="tot-val">${document.getElementById('grand-total-ie')?.textContent || '€ 0,00'}</span></div>
+        ${showTotII ? `<div class="tot-box ii"><span class="tot-lbl">Totale i.i.</span><span class="tot-val">${document.getElementById('grand-total')?.textContent || '€ 0,00'}</span></div>` : ''}
+        ${showTotIE ? `<div class="tot-box ie"><span class="tot-lbl">Totale i.e.</span><span class="tot-val">${document.getElementById('grand-total-ie')?.textContent || '€ 0,00'}</span></div>` : ''}
     </div>
     ${ccRows.length ? `<div class="cc" style="margin-top:16px"><div class="cc-title">Condizioni commerciali</div>${ccRows.map(r=>`<div class="cc-row">• ${r}</div>`).join('')}</div>` : ''}
     <script>window.onload=()=>{window.print();}<\/script></body></html>`;
@@ -2420,10 +2425,16 @@ document.addEventListener('DOMContentLoaded', () => {
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="iva" value="iva"> IVA %</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="pie" value="pie"> Prezzo i.e.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="sconto" value="sconto"> Sconto %</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piisс" value="piisc"> P.i.i. sc.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piesc" value="piesc"> P.i.e. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piisc" value="piisc"> P.i.i. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piesc" value="piesc"> Prezzo i.e. sc.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="qty" value="qty" checked> Qtà</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="tot" value="tot" checked> Totale</label>
+    </div>
+    <div class="border-t border-slate-100 pt-3 mt-1 mb-4">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Riquadri totale</div>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ii" checked> Totale i.i.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ie" checked> Totale i.e.</label>
+      </div>
     </div>
     <div class="flex gap-3">
       <button onclick="document.getElementById('pdf-col-modal').classList.add('hidden')" class="flex-1 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">Annulla</button>
