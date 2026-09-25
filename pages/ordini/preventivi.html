@@ -2110,59 +2110,127 @@ function resetCondizioniCommerciali() {
 
 /* ────────────────── ESPORTA PDF ────────────────── */
 function esportaPDF() {
-    const titolo = document.getElementById('titolo-ordine')?.value || 'Preventivo';
-    const numero = document.getElementById('numero-ordine-preview')?.value || '';
+    document.getElementById('pdf-col-modal').classList.remove('hidden');
+}
+
+function stampaPDFConColonne() {
+    document.getElementById('pdf-col-modal').classList.add('hidden');
+    const sel = new Set([...document.querySelectorAll('.pdf-col:checked')].map(c => c.value));
+
+    const titolo  = document.getElementById('titolo-ordine')?.value || 'Preventivo';
+    const numero  = document.getElementById('numero-ordine-preview')?.value || '';
     const cliente = isAziendaNoProfit()
         ? (document.getElementById('az-ragione-sociale')?.value || '')
         : [document.getElementById('cust-nome')?.value, document.getElementById('cust-cognome')?.value].filter(Boolean).join(' ');
     const emporio = document.getElementById('select-emporio')?.value || '';
     const data    = document.getElementById('order-date')?.value || '';
     const cc      = getCondizioniCommerciali();
+    const logoUrl = window.location.origin + '/assets/images/logom361_rosso.jpg';
+
+    const colDefs = [
+        { key:'foto',  label:'',           align:'center' },
+        { key:'codice',label:'Codice',     align:'left'   },
+        { key:'desc',  label:'Descrizione',align:'left'   },
+        { key:'pii',   label:'Prezzo i.i.',align:'right'  },
+        { key:'iva',   label:'IVA %',      align:'center' },
+        { key:'pie',   label:'Prezzo i.e.',align:'right'  },
+        { key:'sconto',label:'Sconto %',   align:'center' },
+        { key:'piisc', label:'P.i.i. sc.', align:'right'  },
+        { key:'piesc', label:'P.i.e. sc.', align:'right'  },
+        { key:'qty',   label:'Qtà',        align:'center' },
+        { key:'tot',   label:'Totale',     align:'right'  },
+    ].filter(c => sel.has(c.key));
 
     const rows = [];
     document.querySelectorAll('.product-row').forEach(row => {
+        const rowId = row.id.replace('row-','');
         const codice = row.querySelector('.codice-input')?.value || '';
         const desc   = row.querySelector('.desc-input')?.value || '';
-        const pii    = row.querySelector('.price-input')?.value || '';
-        const iva    = row.querySelector('.iva-input')?.value || '';
-        const sconto = row.querySelector('.sconto-input')?.value || '';
-        const qty    = row.querySelector('.qty-input')?.value || '';
-        const tot    = '€ ' + (row.querySelector('.row-total')?.textContent || '0,00');
-        if (codice || desc) rows.push({ codice, desc, pii, iva, sconto, qty, tot });
+        if (!codice && !desc) return;
+        const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
+        rows.push({
+            foto:   fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
+            codice, desc,
+            pii:    row.querySelector('.price-input')?.value || '—',
+            iva:    row.querySelector('.iva-input')?.value || '—',
+            pie:    row.querySelector('.ie-value')?.textContent || '—',
+            sconto: row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
+            piisc:  row.querySelector('.ii-sc-value')?.textContent || '—',
+            piesc:  row.querySelector('.ie-sc-value')?.textContent || '—',
+            qty:    row.querySelector('.qty-input')?.value || '',
+            tot:    '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
+        });
     });
 
     const ccRows = [
-        cc.scadenza         ? `Scadenza ordini: ${cc.scadenza}` : '',
-        cc.validita         ? `Validità preventivo: ${cc.validita}` : '',
-        cc.pagamento        ? `Pagamento: ${cc.pagamento}` : '',
-        cc.consegna_gratuita ? `Consegna gratuita${cc.consegna_soglia ? ' ' + cc.consegna_soglia : ''}` : '',
-        cc.omaggio          ? `Omaggio: ${cc.omaggio}` : '',
-        cc.extrasconto_perc ? `Extrasconto: ${cc.extrasconto_perc}%${cc.extrasconto_cond ? ' ' + cc.extrasconto_cond : ''}` : '',
-        cc.note             ? `Note: ${cc.note}` : '',
+        cc.scadenza          ? `Scadenza ordini: ${cc.scadenza}` : '',
+        cc.validita          ? `Validità preventivo: ${cc.validita}` : '',
+        cc.pagamento         ? `Pagamento: ${cc.pagamento}` : '',
+        cc.consegna_gratuita ? `Consegna gratuita${cc.consegna_soglia ? ' sopra ' + cc.consegna_soglia : ''}` : '',
+        cc.omaggio           ? `Omaggio: ${cc.omaggio}` : '',
+        cc.extrasconto_perc  ? `Extrasconto: ${cc.extrasconto_perc}%${cc.extrasconto_cond ? ' – ' + cc.extrasconto_cond : ''}` : '',
+        cc.note              ? `Note: ${cc.note}` : '',
     ].filter(Boolean);
+
+    const thRow = colDefs.map(c => `<th style="text-align:${c.align}">${c.label}</th>`).join('');
+    const tdRows = rows.map(r => `<tr>${colDefs.map(c => `<td style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>`).join('');
 
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
     <title>${numero} — ${cliente}</title>
     <style>
-        body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;margin:0;padding:20px}
-        h1{font-size:18px;color:#B5453A;margin:0 0 4px}
-        .sub{color:#64748b;font-size:10px;margin-bottom:16px}
-        table{width:100%;border-collapse:collapse;margin-bottom:16px}
-        th{background:#f1f5f9;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#64748b}
+        *{box-sizing:border-box}
+        body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;margin:0;padding:24px 28px}
+        .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #B5453A}
+        .azienda img{height:44px;margin-bottom:6px;display:block}
+        .azienda-nome{font-size:12px;font-weight:700;color:#B5453A;margin-bottom:2px}
+        .azienda-info{font-size:9px;color:#475569;line-height:1.6}
+        .prev-info{text-align:right}
+        .prev-numero{font-size:20px;font-weight:900;color:#B5453A}
+        .prev-sub{font-size:10px;color:#64748b;margin-top:2px;line-height:1.7}
+        .cliente-box{background:#f8fafc;border-left:3px solid #B5453A;padding:8px 12px;margin-bottom:16px;font-size:11px}
+        .cliente-box strong{display:block;font-size:13px;margin-bottom:2px}
+        table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10px}
+        thead{background:#1e293b}
+        th{padding:6px 8px;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
         td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
-        .tot{font-weight:700;text-align:right}
-        .cc{background:#fdf8f7;border:1px solid #f5dbd8;border-radius:8px;padding:12px;margin-bottom:16px}
-        .cc h3{color:#B5453A;font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
-        .cc p{margin:3px 0;font-size:10px}
-        .grand{text-align:right;font-size:15px;font-weight:700;color:#B5453A}
-        @media print{body{padding:0}}
+        tr:nth-child(even) td{background:#f8fafc}
+        .cc{background:#fdf8f7;border:1px solid #f5dbd8;border-radius:6px;padding:10px 14px;margin-bottom:14px}
+        .cc-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#B5453A;margin-bottom:6px}
+        .cc-row{font-size:10px;color:#475569;margin:2px 0}
+        .totali{display:flex;justify-content:flex-end;gap:16px;margin-top:8px}
+        .tot-box{text-align:center;padding:10px 16px;border-radius:8px;min-width:130px}
+        .tot-box.ii{background:#f1f5f9}
+        .tot-box.ie{background:#e0f2fe}
+        .tot-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;display:block;margin-bottom:4px}
+        .tot-val{font-size:16px;font-weight:900;color:#B5453A}
+        @media print{body{padding:12px 16px}@page{margin:8mm}}
     </style></head><body>
-    <h1>${titolo || 'Preventivo'}</h1>
-    <div class="sub">${numero} — ${emporio} — ${data} — ${cliente}</div>
-    <table><thead><tr><th>Codice</th><th>Descrizione</th><th>Prezzo i.i.</th><th>IVA%</th><th>Sconto%</th><th>Qtà</th><th>Totale</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td>${r.codice}</td><td>${r.desc}</td><td>${r.pii}</td><td>${r.iva||'—'}</td><td>${r.sconto||'—'}</td><td>${r.qty}</td><td class="tot">${r.tot}</td></tr>`).join('')}</tbody></table>
-    <div class="grand">TOTALE: ${document.getElementById('grand-total')?.textContent || '€ 0,00'}</div>
-    ${ccRows.length ? `<div class="cc"><h3>Condizioni commerciali</h3>${ccRows.map(r=>`<p>• ${r}</p>`).join('')}</div>` : ''}
+    <div class="header">
+        <div class="azienda">
+            <img src="${logoUrl}" alt="Meridiano 361">
+            <div class="azienda-nome">Meridiano 361 Impresa Sociale S.r.l. – Socio Unico</div>
+            <div class="azienda-info">
+                Via Don Giovanni Verità 8 – 42124 Reggio nell'Emilia (RE)<br>
+                Pec meridiano361@pec.confcooperative.it<br>
+                C.F. e P.Iva 02834570356 &nbsp;·&nbsp; Sdi Usal8pv
+            </div>
+        </div>
+        <div class="prev-info">
+            <div class="prev-numero">Preventivo ${numero}</div>
+            <div class="prev-sub">
+                Emporio: <strong style="color:#1e293b">${emporio}</strong><br>
+                Data: <strong style="color:#1e293b">${data}</strong><br>
+                Cliente: <strong style="color:#1e293b">${cliente}</strong>
+            </div>
+        </div>
+    </div>
+    ${titolo ? `<div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1e293b">${titolo}</div>` : ''}
+    <table><thead><tr>${thRow}</tr></thead><tbody>${tdRows}</tbody></table>
+    <div class="totali">
+        <div class="tot-box ii"><span class="tot-lbl">Totale i.i.</span><span class="tot-val">${document.getElementById('grand-total')?.textContent || '€ 0,00'}</span></div>
+        <div class="tot-box ie"><span class="tot-lbl">Totale i.e.</span><span class="tot-val">${document.getElementById('grand-total-ie')?.textContent || '€ 0,00'}</span></div>
+    </div>
+    ${ccRows.length ? `<div class="cc" style="margin-top:16px"><div class="cc-title">Condizioni commerciali</div>${ccRows.map(r=>`<div class="cc-row">• ${r}</div>`).join('')}</div>` : ''}
     <script>window.onload=()=>{window.print();}<\/script></body></html>`;
 
     const win = window.open('', '_blank');
@@ -2277,6 +2345,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script src="../../scripts/auth.js"></script>
+<!-- ═══════ MODALE COLONNE PDF ═══════ -->
+<div id="pdf-col-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,.5)">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+    <div class="section-title mb-4">Seleziona colonne per il PDF</div>
+    <div class="grid grid-cols-2 gap-2 mb-5" id="pdf-col-checks">
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="foto" value="foto"> Foto prodotto</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="codice" value="codice" checked> Codice</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="desc" value="desc" checked> Descrizione</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="pii" value="pii" checked> Prezzo i.i.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="iva" value="iva"> IVA %</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="pie" value="pie"> Prezzo i.e.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="sconto" value="sconto"> Sconto %</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piisс" value="piisc"> P.i.i. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piesc" value="piesc"> P.i.e. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="qty" value="qty" checked> Qtà</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="tot" value="tot" checked> Totale</label>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="document.getElementById('pdf-col-modal').classList.add('hidden')" class="flex-1 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">Annulla</button>
+      <button onclick="stampaPDFConColonne()" class="flex-1 py-3 bg-[#B5453A] text-white rounded-xl text-sm font-bold hover:opacity-90"><i class="fas fa-print mr-2"></i>Stampa PDF</button>
+    </div>
+  </div>
+</div>
+
 <script src="../../scripts/ui-helpers.js"></script>
 <script src="../../scripts/nav-script.js"></script>
 </body>
