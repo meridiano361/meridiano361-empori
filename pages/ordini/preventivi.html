@@ -268,18 +268,25 @@
                     </div>
                     <div id="nuovo-cliente-form" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
                         <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Aggiungi alla rubrica</div>
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            <input type="text" id="nc-nome" placeholder="Nome *" class="form-input">
-                            <input type="text" id="nc-cognome" placeholder="Cognome *" class="form-input">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div class="relative">
-                                <input type="tel" id="nc-tel" placeholder="Cellulare" class="form-input pr-10">
-                                <button type="button" id="nc-wa-btn" onclick="toggleNcWa()" class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors">
-                                    <i class="fab fa-whatsapp fa-lg text-green-500"></i>
-                                </button>
+                        <!-- PERSONA -->
+                        <div id="nc-persona-fields">
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <input type="text" id="nc-nome" placeholder="Nome *" class="form-input">
+                                <input type="text" id="nc-cognome" placeholder="Cognome *" class="form-input">
                             </div>
-                            <input type="email" id="nc-email" placeholder="Email" class="form-input">
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div class="relative">
+                                    <input type="tel" id="nc-tel" placeholder="Cellulare" class="form-input pr-10">
+                                    <button type="button" id="nc-wa-btn" onclick="toggleNcWa()" class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors">
+                                        <i class="fab fa-whatsapp fa-lg text-green-500"></i>
+                                    </button>
+                                </div>
+                                <input type="email" id="nc-email" placeholder="Email" class="form-input">
+                            </div>
+                        </div>
+                        <!-- AZIENDA / NO PROFIT -->
+                        <div id="nc-azienda-fields" class="hidden mb-3">
+                            <input type="text" id="nc-ragione-sociale" placeholder="Ragione sociale *" class="form-input w-full">
                         </div>
                         <input type="hidden" id="nc-wa" value="true">
                         <div class="flex gap-2">
@@ -1762,10 +1769,18 @@ function toggleNuovoClienteForm() {
     cerca.classList.add('hidden');
     form.classList.toggle('hidden');
     if (!form.classList.contains('hidden')) {
+        const azMode = isAziendaNoProfit();
+        document.getElementById('nc-persona-fields')?.classList.toggle('hidden', azMode);
+        document.getElementById('nc-azienda-fields')?.classList.toggle('hidden', !azMode);
         document.getElementById('nc-wa').value = 'true';
         const icon = document.querySelector('#nc-wa-btn i'); if (icon) icon.className = 'fab fa-whatsapp fa-lg text-green-500';
-        const fill = { 'nc-nome':'cust-nome','nc-cognome':'cust-cognome','nc-tel':'cust-cel','nc-email':'cust-email' };
-        Object.entries(fill).forEach(([t,s]) => { const v = document.getElementById(s)?.value.trim(); if (v) document.getElementById(t).value = v; });
+        if (azMode) {
+            const rs = document.getElementById('az-ragione-sociale')?.value.trim();
+            if (rs) document.getElementById('nc-ragione-sociale').value = rs;
+        } else {
+            const fill = { 'nc-nome':'cust-nome','nc-cognome':'cust-cognome','nc-tel':'cust-cel','nc-email':'cust-email' };
+            Object.entries(fill).forEach(([t,s]) => { const v = document.getElementById(s)?.value.trim(); if (v) document.getElementById(t).value = v; });
+        }
     }
 }
 function toggleNcWa() {
@@ -1776,23 +1791,40 @@ function toggleNcWa() {
     icon.className = isWa ? 'fab fa-whatsapp fa-lg text-slate-300' : 'fab fa-whatsapp fa-lg text-green-500';
 }
 async function saveNuovoCliente() {
-    const nome = document.getElementById('nc-nome').value.trim();
-    const cog  = document.getElementById('nc-cognome').value.trim();
-    if (!nome || !cog) { await m361Alert('Nome e cognome obbligatori','','warning'); return; }
-    const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome',nome).ilike('cognome',cog);
-    const cnt  = (ex||[]).length;
-    const cVal = cnt === 0 ? `${nome} ${cog}` : `${nome} ${cog} ${cnt}`;
-    try {
-        const { data: ins, error } = await _supabase.from('clienti').insert([{ nome, cognome:cog, cliente:cVal, telefono:document.getElementById('nc-tel').value.trim()||null, wa:document.getElementById('nc-wa').value==='true', email:document.getElementById('nc-email').value.trim()||null }]).select().single();
-        if (error) throw error;
-        document.getElementById('cust-nome').value    = nome;
-        document.getElementById('cust-cognome').value = cog;
-        document.getElementById('cust-cel').value     = document.getElementById('nc-tel').value;
-        ['nc-nome','nc-cognome','nc-tel','nc-email'].forEach(id => document.getElementById(id).value='');
-        toggleNuovoClienteForm();
-        if (ins) setSelectedCliente(ins);
-        M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
-    } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+    const azMode = isAziendaNoProfit();
+    if (azMode) {
+        const rs = document.getElementById('nc-ragione-sociale').value.trim();
+        if (!rs) { await m361Alert('Ragione sociale obbligatoria','','warning'); return; }
+        const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome', rs);
+        const cVal = (ex||[]).length === 0 ? rs : `${rs} ${(ex||[]).length}`;
+        try {
+            const { data: ins, error } = await _supabase.from('clienti').insert([{ nome: rs, cognome: '', cliente: cVal }]).select().single();
+            if (error) throw error;
+            document.getElementById('nc-ragione-sociale').value = '';
+            document.getElementById('az-ragione-sociale').value = rs;
+            toggleNuovoClienteForm();
+            if (ins) setSelectedCliente(ins);
+            M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
+        } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+    } else {
+        const nome = document.getElementById('nc-nome').value.trim();
+        const cog  = document.getElementById('nc-cognome').value.trim();
+        if (!nome || !cog) { await m361Alert('Nome e cognome obbligatori','','warning'); return; }
+        const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome',nome).ilike('cognome',cog);
+        const cnt  = (ex||[]).length;
+        const cVal = cnt === 0 ? `${nome} ${cog}` : `${nome} ${cog} ${cnt}`;
+        try {
+            const { data: ins, error } = await _supabase.from('clienti').insert([{ nome, cognome:cog, cliente:cVal, telefono:document.getElementById('nc-tel').value.trim()||null, wa:document.getElementById('nc-wa').value==='true', email:document.getElementById('nc-email').value.trim()||null }]).select().single();
+            if (error) throw error;
+            document.getElementById('cust-nome').value    = nome;
+            document.getElementById('cust-cognome').value = cog;
+            document.getElementById('cust-cel').value     = document.getElementById('nc-tel').value;
+            ['nc-nome','nc-cognome','nc-tel','nc-email'].forEach(id => document.getElementById(id).value='');
+            toggleNuovoClienteForm();
+            if (ins) setSelectedCliente(ins);
+            M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
+        } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+    }
 }
 async function salvaBozzaInRubrica() {
     const nome = document.getElementById('cust-nome').value.trim();
