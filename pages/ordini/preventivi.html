@@ -357,13 +357,19 @@
                     </div>
 
                     <!-- MODALITÀ CONSEGNA (sempre visibile) -->
-                    <div class="flex gap-2 p-1 bg-gray-100 rounded-xl h-[46px] items-center" style="width:12rem">
-                        <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
-                            <input type="radio" name="mod_consegna" value="Ritiro" checked class="hidden"> Ritiro
-                        </label>
-                        <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
-                            <input type="radio" name="mod_consegna" value="Spedizione" class="hidden"> Sped.
-                        </label>
+                    <div class="mt-4 space-y-2">
+                        <div class="flex gap-2 p-1 bg-gray-100 rounded-xl h-[46px] items-center" style="width:12rem">
+                            <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
+                                <input type="radio" name="mod_consegna" value="Ritiro" checked class="hidden" onchange="onModConsegnaChange()"> Ritiro
+                            </label>
+                            <label class="flex-1 flex items-center justify-center text-xs font-bold cursor-pointer h-full rounded-lg has-[:checked]:bg-white transition-all">
+                                <input type="radio" name="mod_consegna" value="Spedizione" class="hidden" onchange="onModConsegnaChange()"> Sped.
+                            </label>
+                        </div>
+                        <div id="consegna-datetime" class="hidden flex gap-2 items-center">
+                            <input type="date" id="consegna-data" class="form-input text-sm" style="width:auto">
+                            <input type="time" id="consegna-ora" class="form-input text-sm" style="width:auto">
+                        </div>
                     </div>
                     <div id="salva-rubrica-bar" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                         <button type="button" onclick="salvaBozzaInRubrica()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-emerald-100 transition-colors">
@@ -943,6 +949,7 @@ async function showFormView(tipo, sottotipoNatale) {
         if (sel) { sel.value = currentEmporioPreventivi; sel.disabled = true; }
         await handleCittaChange();
     }
+    onModConsegnaChange();
     refreshNumeroOrdinePreview();
 }
 
@@ -964,7 +971,7 @@ function resetForm() {
     groupCount = 0;
     document.getElementById('groups-container').innerHTML = '';
     document.getElementById('prevForm')?.reset();
-    ['numero-ordine-preview','titolo-ordine','order-notes','acconto'].forEach(id => {
+    ['numero-ordine-preview','titolo-ordine','order-notes','acconto','consegna-data','consegna-ora'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = id === 'acconto' ? '€ 0,00' : '';
     });
@@ -1042,6 +1049,9 @@ async function apriPreventivo(id) {
     }
     const consEl = document.querySelector(`input[name="mod_consegna"][value="${prev.modalita_consegna}"]`);
     if (consEl) consEl.checked = true;
+    setVal('consegna-data', prev.consegna_data);
+    setVal('consegna-ora', prev.consegna_ora);
+    onModConsegnaChange();
 
     // Ricostruisci articoli
     if (Array.isArray(prev.articoli) && prev.articoli.length > 0) {
@@ -1156,17 +1166,41 @@ async function removeCurrentCity() {
     }
 }
 async function addNewOperatorPrompt() {
-    const nome = await m361Prompt('Nuovo operatore:');
-    if (nome?.trim()) {
-        const sel = document.getElementById('select-operatore');
-        const opt = document.createElement('option'); opt.value = nome.trim(); opt.text = nome.trim();
-        sel.add(opt); sel.value = opt.value;
-    }
+    const { data: ops } = await _supabase.from('operatori')
+        .select('nome').or('attivo.eq.true,attivo.is.null').order('nome');
+    const sel = document.getElementById('select-operatore');
+    const existing = new Set([...sel.options].map(o => o.value).filter(Boolean));
+    const available = (ops || []).map(o => o.nome).filter(n => !existing.has(n));
+    if (!available.length) { M361.toast('Tutti gli operatori sono già presenti', 'info'); return; }
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)';
+    overlay.innerHTML = `<div style="background:#fff;border-radius:16px;padding:20px;min-width:260px;box-shadow:0 20px 60px rgba(0,0,0,.18)">
+        <div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:12px">Aggiungi operatore</div>
+        <select id="_op-picker" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;color:#334155;outline:none">
+            ${available.map(n => `<option value="${n}">${n}</option>`).join('')}
+        </select>
+        <div style="display:flex;gap:8px;margin-top:14px">
+            <button onclick="this.closest('div[style*=fixed]').remove()" style="flex:1;padding:9px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:12px;font-weight:700;color:#64748b;cursor:pointer;background:#fff">Annulla</button>
+            <button id="_op-ok" style="flex:1;padding:9px;background:#B5453A;border:none;border-radius:10px;font-size:12px;font-weight:700;color:#fff;cursor:pointer">Aggiungi</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_op-ok').onclick = () => {
+        const nome = overlay.querySelector('#_op-picker').value;
+        if (nome) { const opt = document.createElement('option'); opt.value = nome; opt.text = nome; sel.add(opt); sel.value = nome; }
+        overlay.remove();
+    };
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
 }
 async function removeCurrentOperator() {
     const sel = document.getElementById('select-operatore');
     if (sel.selectedIndex > 0 && await m361Confirm('Rimuovere operatore?','Conferma','Rimuovi')) sel.remove(sel.selectedIndex);
 }
+function onModConsegnaChange() {
+    const val = document.querySelector('input[name="mod_consegna"]:checked')?.value;
+    document.getElementById('consegna-datetime')?.classList.toggle('hidden', !val);
+}
+
 function toggleWA() {
     const btn = document.getElementById('btn-wa');
     btn.classList.toggle('wa-active'); btn.classList.toggle('wa-inactive');
@@ -1781,6 +1815,8 @@ async function savePreventivo(event) {
             wa_attivo:         isAziendaNoProfit() ? false : document.getElementById('btn-wa').classList.contains('wa-active'),
             cliente_extra:     isAziendaNoProfit() ? getAziendaExtra() : null,
             modalita_consegna: getCheckedValueSafe('mod_consegna'),
+            consegna_data:     document.getElementById('consegna-data')?.value || null,
+            consegna_ora:      document.getElementById('consegna-ora')?.value || null,
             totale:            itParse(document.getElementById('grand-total')?.textContent),
             acconto:           itParse(getValueSafe('acconto')),
             da_pagare:         itParse(document.getElementById('saldo-finale')?.textContent),
