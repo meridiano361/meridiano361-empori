@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS campagne_commerciali (
   id          bigserial PRIMARY KEY,
   anno        int  NOT NULL DEFAULT 2026,
   titolo      text NOT NULL,
-  settore     text DEFAULT 'G',   -- M=Moda, C=Casa, G=Generale, A=Alimentare, N=Natyr
+  settore     text DEFAULT 'G',   -- A=Alimentari, N=Cosmesi, C=Casa, M=Moda, G=Generale
   tipologia   text,               -- Saldi, Promo, Prenotazione, Focus, Evento, Altro
   meccanica   text,
   data_inizio date,
