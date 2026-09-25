@@ -408,6 +408,49 @@
                 </button>
             </div>
 
+            <!-- CONDIZIONI COMMERCIALI -->
+            <div class="section-card">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Condizioni commerciali</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Scadenza ordini</label>
+                        <input type="date" id="cc-scadenza" class="form-input w-full">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Modalità di pagamento</label>
+                        <input type="text" id="cc-pagamento" placeholder="es. Bonifico a 30 giorni" class="form-input w-full">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Consegna gratuita</label>
+                        <div class="flex gap-2 items-center">
+                            <input type="checkbox" id="cc-consegna-gratuita" class="rounded">
+                            <input type="text" id="cc-consegna-soglia" placeholder="es. da 6 pezzi per codice" class="form-input flex-1">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Omaggio</label>
+                        <input type="text" id="cc-omaggio" placeholder="es. Shopper con brand natalizio" class="form-input w-full">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Extrasconto (%)</label>
+                        <div class="flex gap-2 items-center">
+                            <input type="number" id="cc-extrasconto-perc" placeholder="%" min="0" max="100" step="0.1" class="form-input" style="width:80px">
+                            <input type="text" id="cc-extrasconto-cond" placeholder="es. per pagamento anticipato" class="form-input flex-1">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Validità preventivo fino al</label>
+                        <input type="date" id="cc-validita" class="form-input w-full">
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide block mb-1">Note condizioni</label>
+                    <textarea id="cc-note" rows="3" placeholder="Altre condizioni o note commerciali..." class="form-input w-full resize-none"></textarea>
+                </div>
+            </div>
+
             <!-- TOTALI -->
             <div class="section-card">
                 <div id="breakdown-container" class="hidden mb-4">
@@ -432,10 +475,20 @@
                 <textarea id="order-notes" rows="2" class="form-input" placeholder="Note per il cliente…"></textarea>
             </div>
 
-            <!-- SALVA -->
-            <button type="submit" id="submit-btn" class="btn-submit">
-                <i class="fas fa-save mr-2"></i> Salva Preventivo
-            </button>
+            <!-- SALVA + ESPORTA -->
+            <div class="flex flex-col gap-3">
+                <button type="submit" id="submit-btn" class="btn-submit">
+                    <i class="fas fa-save mr-2"></i> Salva Preventivo
+                </button>
+                <div class="flex gap-3">
+                    <button type="button" onclick="esportaPDF()" class="flex-1 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-file-pdf text-red-500"></i> Esporta PDF
+                    </button>
+                    <button type="button" onclick="esportaExcel()" class="flex-1 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                        <i class="fas fa-file-excel text-green-600"></i> Esporta Excel
+                    </button>
+                </div>
+            </div>
         </form>
     </main>
 
@@ -984,6 +1037,7 @@ function resetForm() {
     document.getElementById('salva-rubrica-bar')?.classList.add('hidden');
     _selectedClienteId = null;
     resetAziendaFields();
+    resetCondizioniCommerciali();
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('order-date').value = today;
     if (currentEmporioPreventivi) {
@@ -1041,6 +1095,7 @@ async function apriPreventivo(id) {
     setVal('titolo-ordine', prev.titolo);
     setVal('order-notes', prev.note);
     setVal('acconto', '€ ' + itFmt(prev.acconto || 0));
+    setCondizioniCommerciali(prev.condizioni_commerciali);
 
     const waBtn = document.getElementById('btn-wa');
     if (waBtn) {
@@ -1081,7 +1136,17 @@ async function apriPreventivo(id) {
                 setI('.codice-input',  r.codice);
                 setI('.desc-input',    r.descrizione);
                 row.querySelector('.price-input').value = '€ ' + itFmt(r.prezzo || 0);
-                setI('.qty-input',    r.qta);
+                setI('.qty-input',     r.qta);
+                if (r.iva_perc)    setI('.iva-input',    r.iva_perc);
+                if (r.sconto_perc) setI('.sconto-input', r.sconto_perc);
+                if (r.foto_url) {
+                    const fotoInput = row.querySelector('.foto-input');
+                    const fotoImg   = row.querySelector('.foto-img');
+                    const fotoIcon  = row.querySelector('.foto-icon');
+                    if (fotoInput) fotoInput.dataset.foto = r.foto_url;
+                    if (fotoImg)  { fotoImg.src = r.foto_url; fotoImg.classList.remove('hidden'); }
+                    if (fotoIcon) fotoIcon.classList.add('hidden');
+                }
                 const rowId = row.id.replace('row-', '');
                 calcRow(rowId, curGid);
             });
@@ -1161,11 +1226,13 @@ async function removeCurrentCity() {
     }
 }
 async function addNewOperatorPrompt() {
+    const citta = document.getElementById('select-emporio')?.value;
     const { data: ops } = await _supabase.from('operatori')
-        .select('nome').or('attivo.eq.true,attivo.is.null').order('nome');
+        .select('nome, emporio, empori_aggiuntivi').or('attivo.eq.true,attivo.is.null').order('nome');
     const sel = document.getElementById('select-operatore');
     const existing = new Set([...sel.options].map(o => o.value).filter(Boolean));
-    const available = (ops || []).map(o => o.nome).filter(n => !existing.has(n));
+    const filtered = (ops || []).filter(op => !citta || op.emporio === citta || (op.empori_aggiuntivi || []).includes(citta));
+    const available = filtered.map(o => o.nome).filter(n => !existing.has(n));
     if (!available.length) { M361.toast('Tutti gli operatori sono già presenti', 'info'); return; }
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)';
@@ -1191,6 +1258,33 @@ async function removeCurrentOperator() {
     const sel = document.getElementById('select-operatore');
     if (sel.selectedIndex > 0 && await m361Confirm('Rimuovere operatore?','Conferma','Rimuovi')) sel.remove(sel.selectedIndex);
 }
+function onFotoChange(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const tmpImg = new Image();
+        tmpImg.onload = () => {
+            const canvas = document.createElement('canvas');
+            const size = 80;
+            canvas.width = canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const scale = Math.max(size / tmpImg.width, size / tmpImg.height);
+            const w = tmpImg.width * scale, h = tmpImg.height * scale;
+            ctx.drawImage(tmpImg, (size - w) / 2, (size - h) / 2, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            input.dataset.foto = dataUrl;
+            const label = input.closest('label');
+            const img = label.querySelector('.foto-img');
+            const icon = label.querySelector('.foto-icon');
+            img.src = dataUrl;
+            img.classList.remove('hidden');
+            icon.classList.add('hidden');
+        };
+        tmpImg.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 function onModConsegnaChange() {
     const val = document.querySelector('input[name="mod_consegna"]:checked')?.value;
     document.getElementById('consegna-datetime')?.classList.toggle('hidden', !val);
@@ -1256,11 +1350,16 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
             <table class="w-full text-left border-separate border-spacing-y-0 product-table">
                 <thead><tr class="text-gray-400 text-center">
                     <th class="pb-2 w-8"></th>
+                    <th class="pb-2 w-10"></th>
                     <th class="pb-2 pl-2 text-left" style="min-width:80px">Codice *</th>
                     <th class="pb-2 text-left">Descrizione *</th>
-                    <th class="pb-2 w-24 text-right pr-2">Prezzo</th>
+                    <th class="pb-2 w-24 text-right pr-2">Prezzo i.i.</th>
+                    <th class="pb-2 w-14 text-center">IVA %</th>
+                    <th class="pb-2 w-24 text-right">Prezzo i.e.</th>
+                    <th class="pb-2 w-14 text-center">Sconto %</th>
+                    <th class="pb-2 w-24 text-right">P.i.i. sc.</th>
+                    <th class="pb-2 w-24 text-right">P.i.e. sc.</th>
                     <th class="pb-2 w-16">Qtà</th>
-                    <th class="pb-2 w-16 bg-red-50 text-[#B5453A]">Da Ord</th>
                     <th class="pb-2 w-24 text-right pr-4">Totale</th>
                     <th class="pb-2 w-8"></th>
                 </tr></thead>
@@ -1300,11 +1399,22 @@ function addRow(gid) {
             <button type="button" class="btn-sposta" onclick="spostaRiga(this,-1)">▲</button>
             <button type="button" class="btn-sposta" onclick="spostaRiga(this,1)">▼</button>
         </div></td>
-        <td class="p-1 pl-4"><input type="text" placeholder="Codice" class="w-full border-gray-200 border rounded-lg p-2 codice-input"></td>
+        <td class="p-1 w-10">
+            <label class="cursor-pointer flex items-center justify-center w-9 h-9 bg-slate-100 rounded-lg overflow-hidden hover:bg-slate-200 transition-colors relative">
+                <img class="foto-img hidden w-full h-full object-cover absolute inset-0 rounded-lg">
+                <i class="fas fa-camera text-slate-300 text-xs foto-icon"></i>
+                <input type="file" accept="image/*" class="hidden foto-input">
+            </label>
+        </td>
+        <td class="p-1 pl-2"><input type="text" placeholder="Codice" class="w-full border-gray-200 border rounded-lg p-2 codice-input"></td>
         <td class="p-1"><input type="text" placeholder="Descrizione" class="w-full border-gray-200 border rounded-lg p-2 desc-input"></td>
         <td class="p-1"><input type="text" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0,00"></td>
+        <td class="p-1"><input type="number" class="iva-input w-full border-gray-200 border rounded-lg p-2 text-center" placeholder="%" min="0" max="100" step="1" style="min-width:52px"></td>
+        <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ie-value">—</td>
+        <td class="p-1"><input type="number" class="sconto-input w-full border-gray-200 border rounded-lg p-2 text-center" placeholder="%" min="0" max="100" step="0.1" style="min-width:52px"></td>
+        <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ii-sc-value">—</td>
+        <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ie-sc-value">—</td>
         <td class="p-1"><input type="number" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="${parseInt(document.getElementById('group-qty-'+gid)?.value)||1}" min="1"></td>
-        <td class="p-1 bg-red-50 text-center font-bold text-[#B5453A] do-value">0</td>
         <td class="p-1 text-right pr-4 font-bold">€ <span class="row-total">0,00</span></td>
         <td class="p-1 text-center"><button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button></td>`;
     const confezRow = document.getElementById(`confez-${gid}`);
@@ -1313,16 +1423,29 @@ function addRow(gid) {
     row.querySelector('.price-input').addEventListener('blur',  function() { formatCurrency(this); });
     row.querySelector('.price-input').addEventListener('input', () => calcRow(rowId, gid));
     row.querySelector('.qty-input').addEventListener('input',   () => calcRow(rowId, gid));
+    row.querySelector('.iva-input').addEventListener('input',   () => calcRow(rowId, gid));
+    row.querySelector('.sconto-input').addEventListener('input',() => calcRow(rowId, gid));
+    row.querySelector('.foto-input').addEventListener('change', function() { onFotoChange(this); });
     row.querySelector('.delete-row-btn').addEventListener('click', () => removeRow(rowId, gid));
     if (currentType === 'bomboniere') row.querySelector('.qty-input').addEventListener('input', () => syncConfezOmaggio(gid));
 }
 
 function calcRow(rowId, gid) {
     const row = document.getElementById(`row-${rowId}`); if (!row) return;
-    const qty   = parseInt(row.querySelector('.qty-input').value) || 0;
-    const price = parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim()) || 0;
-    row.querySelector('.do-value').textContent = qty;
-    row.querySelector('.row-total').textContent = itFmt(qty * price);
+    const qty     = parseInt(row.querySelector('.qty-input').value) || 0;
+    const priceII = parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim()) || 0;
+    const iva     = parseFloat(row.querySelector('.iva-input')?.value) || 0;
+    const sconto  = parseFloat(row.querySelector('.sconto-input')?.value) || 0;
+
+    const priceIE   = iva > 0 ? priceII / (1 + iva / 100) : null;
+    const priceIISc = sconto > 0 ? priceII * (1 - sconto / 100) : null;
+    const priceIESc = (sconto > 0 && priceIE != null) ? priceIE * (1 - sconto / 100) : null;
+    const effective = priceIISc != null ? priceIISc : priceII;
+
+    row.querySelector('.ie-value').textContent    = priceIE    != null ? '€ ' + itFmt(priceIE)   : '—';
+    row.querySelector('.ii-sc-value').textContent = priceIISc  != null ? '€ ' + itFmt(priceIISc) : '—';
+    row.querySelector('.ie-sc-value').textContent = priceIESc  != null ? '€ ' + itFmt(priceIESc) : '—';
+    row.querySelector('.row-total').textContent = itFmt(qty * effective);
     if (currentType === 'bomboniere') calcConfezOmaggio(gid);
     calcSubtotal(gid);
     calcGrandTotal(); validateGlobal();
@@ -1391,7 +1514,7 @@ function updateBreakdown() {
 function calcBomboniereBreakdown() {
     let subtotBomb = 0, subtotConfez = 0;
     document.querySelectorAll('.product-row').forEach(row => {
-        subtotBomb += (parseInt(row.querySelector('.qty-input')?.value)||0) * (parseFloat(row.querySelector('.price-input')?.value.replace('€','').replace(',','.').trim())||0);
+        subtotBomb += itParse(row.querySelector('.row-total')?.textContent || '0');
     });
     document.querySelectorAll('[id^="confez-total-"]').forEach(el => {
         const gid = el.id.replace('confez-total-','');
@@ -1742,9 +1865,12 @@ async function savePreventivo(event) {
                 tipo_gruppo: tipoGruppo,
                 group_qty:  groupQty,
                 tipologia: document.getElementById(`tipologia-name-${gid}`)?.value || '',
-                codice:    row.querySelector('.codice-input').value,
+                codice:     row.querySelector('.codice-input').value,
                 descrizione: row.querySelector('.desc-input').value,
-                prezzo:    parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim())||0,
+                prezzo:     parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim())||0,
+                iva_perc:   parseFloat(row.querySelector('.iva-input')?.value)||0,
+                sconto_perc: parseFloat(row.querySelector('.sconto-input')?.value)||0,
+                foto_url:   row.querySelector('.foto-input')?.dataset.foto || null,
                 qta,
                 totale: itParse(row.querySelector('.row-total').textContent),
                 confezionamento: isConfez, confez_tipo: confezTipo, confez_costo: confezCosto,
@@ -1785,6 +1911,7 @@ async function savePreventivo(event) {
             note:              getValueSafe('order-notes'),
             articoli,
             titolo:            getValueSafe('titolo-ordine'),
+            condizioni_commerciali: getCondizioniCommerciali(),
             data_modifica:     new Date().toISOString()
         };
 
@@ -1806,6 +1933,158 @@ async function savePreventivo(event) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salva Preventivo';
     }
+}
+
+/* ────────────────── CONDIZIONI COMMERCIALI ────────────────── */
+function getCondizioniCommerciali() {
+    return {
+        scadenza:          document.getElementById('cc-scadenza')?.value || null,
+        validita:          document.getElementById('cc-validita')?.value || null,
+        pagamento:         document.getElementById('cc-pagamento')?.value.trim() || null,
+        consegna_gratuita: document.getElementById('cc-consegna-gratuita')?.checked || false,
+        consegna_soglia:   document.getElementById('cc-consegna-soglia')?.value.trim() || null,
+        omaggio:           document.getElementById('cc-omaggio')?.value.trim() || null,
+        extrasconto_perc:  parseFloat(document.getElementById('cc-extrasconto-perc')?.value) || null,
+        extrasconto_cond:  document.getElementById('cc-extrasconto-cond')?.value.trim() || null,
+        note:              document.getElementById('cc-note')?.value.trim() || null,
+    };
+}
+
+function setCondizioniCommerciali(cc) {
+    if (!cc) return;
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    setVal('cc-scadenza', cc.scadenza);
+    setVal('cc-validita', cc.validita);
+    setVal('cc-pagamento', cc.pagamento);
+    setVal('cc-consegna-soglia', cc.consegna_soglia);
+    setVal('cc-omaggio', cc.omaggio);
+    setVal('cc-extrasconto-perc', cc.extrasconto_perc || '');
+    setVal('cc-extrasconto-cond', cc.extrasconto_cond);
+    setVal('cc-note', cc.note);
+    const chk = document.getElementById('cc-consegna-gratuita');
+    if (chk) chk.checked = !!cc.consegna_gratuita;
+}
+
+function resetCondizioniCommerciali() {
+    ['cc-scadenza','cc-validita','cc-pagamento','cc-consegna-soglia','cc-omaggio','cc-extrasconto-perc','cc-extrasconto-cond','cc-note']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const chk = document.getElementById('cc-consegna-gratuita');
+    if (chk) chk.checked = false;
+}
+
+/* ────────────────── ESPORTA PDF ────────────────── */
+function esportaPDF() {
+    const titolo = document.getElementById('titolo-ordine')?.value || 'Preventivo';
+    const numero = document.getElementById('numero-ordine-preview')?.value || '';
+    const cliente = isAziendaNoProfit()
+        ? (document.getElementById('az-ragione-sociale')?.value || '')
+        : [document.getElementById('cust-nome')?.value, document.getElementById('cust-cognome')?.value].filter(Boolean).join(' ');
+    const emporio = document.getElementById('select-emporio')?.value || '';
+    const data    = document.getElementById('order-date')?.value || '';
+    const cc      = getCondizioniCommerciali();
+
+    const rows = [];
+    document.querySelectorAll('.product-row').forEach(row => {
+        const codice = row.querySelector('.codice-input')?.value || '';
+        const desc   = row.querySelector('.desc-input')?.value || '';
+        const pii    = row.querySelector('.price-input')?.value || '';
+        const iva    = row.querySelector('.iva-input')?.value || '';
+        const sconto = row.querySelector('.sconto-input')?.value || '';
+        const qty    = row.querySelector('.qty-input')?.value || '';
+        const tot    = '€ ' + (row.querySelector('.row-total')?.textContent || '0,00');
+        if (codice || desc) rows.push({ codice, desc, pii, iva, sconto, qty, tot });
+    });
+
+    const ccRows = [
+        cc.scadenza         ? `Scadenza ordini: ${cc.scadenza}` : '',
+        cc.validita         ? `Validità preventivo: ${cc.validita}` : '',
+        cc.pagamento        ? `Pagamento: ${cc.pagamento}` : '',
+        cc.consegna_gratuita ? `Consegna gratuita${cc.consegna_soglia ? ' ' + cc.consegna_soglia : ''}` : '',
+        cc.omaggio          ? `Omaggio: ${cc.omaggio}` : '',
+        cc.extrasconto_perc ? `Extrasconto: ${cc.extrasconto_perc}%${cc.extrasconto_cond ? ' ' + cc.extrasconto_cond : ''}` : '',
+        cc.note             ? `Note: ${cc.note}` : '',
+    ].filter(Boolean);
+
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+    <title>${numero} — ${cliente}</title>
+    <style>
+        body{font-family:Arial,sans-serif;font-size:11px;color:#1e293b;margin:0;padding:20px}
+        h1{font-size:18px;color:#B5453A;margin:0 0 4px}
+        .sub{color:#64748b;font-size:10px;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;margin-bottom:16px}
+        th{background:#f1f5f9;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:#64748b}
+        td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
+        .tot{font-weight:700;text-align:right}
+        .cc{background:#fdf8f7;border:1px solid #f5dbd8;border-radius:8px;padding:12px;margin-bottom:16px}
+        .cc h3{color:#B5453A;font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+        .cc p{margin:3px 0;font-size:10px}
+        .grand{text-align:right;font-size:15px;font-weight:700;color:#B5453A}
+        @media print{body{padding:0}}
+    </style></head><body>
+    <h1>${titolo || 'Preventivo'}</h1>
+    <div class="sub">${numero} — ${emporio} — ${data} — ${cliente}</div>
+    <table><thead><tr><th>Codice</th><th>Descrizione</th><th>Prezzo i.i.</th><th>IVA%</th><th>Sconto%</th><th>Qtà</th><th>Totale</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td>${r.codice}</td><td>${r.desc}</td><td>${r.pii}</td><td>${r.iva||'—'}</td><td>${r.sconto||'—'}</td><td>${r.qty}</td><td class="tot">${r.tot}</td></tr>`).join('')}</tbody></table>
+    <div class="grand">TOTALE: ${document.getElementById('grand-total')?.textContent || '€ 0,00'}</div>
+    ${ccRows.length ? `<div class="cc"><h3>Condizioni commerciali</h3>${ccRows.map(r=>`<p>• ${r}</p>`).join('')}</div>` : ''}
+    <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+}
+
+/* ────────────────── ESPORTA EXCEL ────────────────── */
+function esportaExcel() {
+    const numero  = document.getElementById('numero-ordine-preview')?.value || 'preventivo';
+    const cliente = isAziendaNoProfit()
+        ? (document.getElementById('az-ragione-sociale')?.value || '')
+        : [document.getElementById('cust-nome')?.value, document.getElementById('cust-cognome')?.value].filter(Boolean).join(' ');
+    const emporio = document.getElementById('select-emporio')?.value || '';
+    const data    = document.getElementById('order-date')?.value || '';
+    const titolo  = document.getElementById('titolo-ordine')?.value || '';
+    const cc      = getCondizioniCommerciali();
+
+    const rows = [['Codice','Descrizione','Prezzo i.i.','IVA %','Prezzo i.e.','Sconto %','P.i.i. sc.','P.i.e. sc.','Qtà','Totale']];
+    document.querySelectorAll('.product-row').forEach(row => {
+        const parse = s => parseFloat((s||'').replace('€','').replace(',','.').trim()) || '';
+        rows.push([
+            row.querySelector('.codice-input')?.value || '',
+            row.querySelector('.desc-input')?.value || '',
+            parse(row.querySelector('.price-input')?.value),
+            parseFloat(row.querySelector('.iva-input')?.value) || '',
+            parse(row.querySelector('.ie-value')?.textContent),
+            parseFloat(row.querySelector('.sconto-input')?.value) || '',
+            parse(row.querySelector('.ii-sc-value')?.textContent),
+            parse(row.querySelector('.ie-sc-value')?.textContent),
+            parseInt(row.querySelector('.qty-input')?.value) || '',
+            parse(row.querySelector('.row-total')?.textContent),
+        ]);
+    });
+    rows.push([]);
+    rows.push(['TOTALE','','','','','','','','',parse(document.getElementById('grand-total')?.textContent)]);
+    if (Object.values(cc).some(Boolean)) {
+        rows.push([]);
+        rows.push(['CONDIZIONI COMMERCIALI']);
+        if (cc.scadenza)         rows.push(['Scadenza ordini', cc.scadenza]);
+        if (cc.validita)         rows.push(['Validità preventivo', cc.validita]);
+        if (cc.pagamento)        rows.push(['Pagamento', cc.pagamento]);
+        if (cc.consegna_gratuita) rows.push(['Consegna gratuita', cc.consegna_soglia || '']);
+        if (cc.omaggio)          rows.push(['Omaggio', cc.omaggio]);
+        if (cc.extrasconto_perc) rows.push(['Extrasconto', cc.extrasconto_perc + '%' + (cc.extrasconto_cond ? ' ' + cc.extrasconto_cond : '')]);
+        if (cc.note)             rows.push(['Note', cc.note]);
+    }
+
+    function parse(s) { return parseFloat((s||'').replace('€','').replace(/\./g,'').replace(',','.').trim()) || ''; }
+
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const bom = '﻿';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `${numero}-${cliente}.csv`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 /* ────────────────── MODAL USCITA ────────────────── */
