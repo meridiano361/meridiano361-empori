@@ -3716,6 +3716,22 @@ async function saveMat() {
       if (nota) document.getElementById('note-arrivo-merci').value = nota;
     }
   }
+  // Conferma meteo mattino
+  const _isPassatoMat = (() => {
+    if (!selectedDate) return false;
+    const _o = new Date(); _o.setHours(0,0,0,0);
+    return new Date(selectedDate.y, selectedDate.m, selectedDate.d) < _o;
+  })();
+  if (!_isPassatoMat && !_meteoMatConfirmed) {
+    const _vMat = document.getElementById('meteo-mattino').value;
+    const _ansMat = await showConfirmDialog(`Il meteo del mattino risulta «${_vMat}» — confermi?`, [
+      { label: 'No, modifico', value: 'no' },
+      { label: 'Sì, confermo', value: 'si', primary: true },
+    ]);
+    if (_ansMat === 'si') { setMeteoConfirmed('mat', true); }
+    else { return; }
+  }
+
   const errors = [];
   checkOps('mat', 'Operatore/i mattino', errors);
   checkScontrini('mat-scontrini', 'Numero scontrini mattino', errors);
@@ -3777,16 +3793,38 @@ async function saveDay() {
       if (nota) noteEl.value = nota;
     }
   }
-  const errors = [];
-
-  // Giornate passate: meteo auto-confermato, nessun click necessario
+  // Giornate passate: salta la conferma meteo interattiva
   const _isPassato = (() => {
     if (!selectedDate) return false;
     const _o = new Date(); _o.setHours(0,0,0,0);
     return new Date(selectedDate.y, selectedDate.m, selectedDate.d) < _o;
   })();
-  const _meteoMatOk = _meteoMatConfirmed || _isPassato;
-  const _meteoPomOk = _meteoPomConfirmed || _isPassato;
+
+  // Conferma meteo interattiva prima di procedere
+  if (!_isPassato) {
+    const _needMat = (tipo === 'solo_mattino') && !_meteoMatConfirmed;
+    const _needPom = (tipo === 'solo_pomeriggio' || tipo === 'entrambi') && !_meteoPomConfirmed;
+    if (_needMat) {
+      const _v = document.getElementById('meteo-mattino').value;
+      const _a = await showConfirmDialog(`Il meteo del mattino risulta «${_v}» — confermi?`, [
+        { label: 'No, modifico', value: 'no' },
+        { label: 'Sì, confermo', value: 'si', primary: true },
+      ]);
+      if (_a === 'si') { setMeteoConfirmed('mat', true); }
+      else { return; }
+    }
+    if (_needPom) {
+      const _v = document.getElementById('meteo-pomeriggio').value;
+      const _a = await showConfirmDialog(`Il meteo del pomeriggio risulta «${_v}» — confermi?`, [
+        { label: 'No, modifico', value: 'no' },
+        { label: 'Sì, confermo', value: 'si', primary: true },
+      ]);
+      if (_a === 'si') { setMeteoConfirmed('pom', true); }
+      else { return; }
+    }
+  }
+
+  const errors = [];
 
   // ── Validazione obbligatori per turno ──
   if (tipo === 'entrambi') {
@@ -3798,22 +3836,18 @@ async function saveDay() {
     checkScontrini('pom-scontrini', 'Numero scontrini pomeriggio', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkIva('pom-corrispettivi', errors);
-    if (!_meteoMatOk) errors.push('Meteo mattino: conferma il dato o modificalo');
-    if (!_meteoPomOk) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
     checkNoteObbligatorie(['pom'], errors);
   } else if (tipo === 'solo_mattino') {
     checkOps('mat', 'Operatore/i mattino', errors);
     checkScontrini('mat-scontrini', 'Numero scontrini mattino', errors);
     checkField('mat-corrispettivi','Corrispettivi mattino', errors);
     checkIva('mat-corrispettivi', errors);
-    if (!_meteoMatOk) errors.push('Meteo mattino: conferma il dato o modificalo');
     checkNoteObbligatorie(['mat'], errors);
   } else { // solo_pomeriggio
     checkOps('pom', 'Operatore/i pomeriggio', errors);
     checkScontrini('pom-scontrini', 'Numero scontrini pomeriggio', errors);
     checkField('pom-corrispettivi', 'Corrispettivi pomeriggio', errors);
     checkIva('pom-corrispettivi', errors);
-    if (!_meteoPomOk) errors.push('Meteo pomeriggio: conferma il dato o modificalo');
     checkNoteObbligatorie(['pom'], errors);
   }
   if (errors.length) {
