@@ -1146,6 +1146,7 @@ async function apriPreventivo(id) {
                 setI('.qty-input',     r.qta);
                 if (r.iva_perc)    setI('.iva-input',    r.iva_perc);
                 if (r.sconto_perc) setI('.sconto-input', r.sconto_perc);
+                if (r.costo_ii)    { const el = row.querySelector('.costo-ii-input'); if (el) el.value = '€ ' + itFmt(r.costo_ii); }
                 if (r.foto_url) {
                     const fotoInput = row.querySelector('.foto-input');
                     const fotoImg   = row.querySelector('.foto-img');
@@ -1366,6 +1367,9 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
                     <th class="pb-2 w-14 text-center">Sconto %</th>
                     <th class="pb-2 w-24 text-right">P.i.i. sc.</th>
                     <th class="pb-2 w-24 text-right">P.i.e. sc.</th>
+                    <th class="pb-2 w-24 text-right border-l-2 border-slate-200 pl-2" style="color:#64748b">Costo i.i.</th>
+                    <th class="pb-2 w-24 text-right" style="color:#64748b">Costo i.e.</th>
+                    <th class="pb-2 w-20 text-right" style="color:#64748b">Margine</th>
                     <th class="pb-2 w-16">Qtà</th>
                     <th class="pb-2 w-24 text-right pr-4">Totale</th>
                     <th class="pb-2 w-8"></th>
@@ -1421,6 +1425,9 @@ function addRow(gid) {
         <td class="p-1"><input type="number" class="sconto-input w-full border-gray-200 border rounded-lg p-2 text-center" placeholder="%" min="0" max="100" step="0.1" style="min-width:52px"></td>
         <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ii-sc-value">—</td>
         <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ie-sc-value">—</td>
+        <td class="p-1 border-l-2 border-slate-200 pl-2"><input type="text" class="costo-ii-input w-full border-gray-200 border rounded-lg p-2 text-right text-slate-500" value="€ 0,00" style="min-width:80px;font-size:13px"></td>
+        <td class="p-1 text-right text-xs pr-1 text-slate-400 whitespace-nowrap costo-ie-value">—</td>
+        <td class="p-1 text-right text-xs pr-2 font-bold whitespace-nowrap margine-value" style="min-width:70px">—</td>
         <td class="p-1"><input type="number" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="${parseInt(document.getElementById('group-qty-'+gid)?.value)||1}" min="1"></td>
         <td class="p-1 text-right pr-4 font-bold">€ <span class="row-total">0,00</span></td>
         <td class="p-1 text-center"><button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button></td>`;
@@ -1433,6 +1440,9 @@ function addRow(gid) {
     row.querySelector('.iva-input').addEventListener('input',   () => calcRow(rowId, gid));
     row.querySelector('.sconto-input').addEventListener('input',() => calcRow(rowId, gid));
     row.querySelector('.foto-input').addEventListener('change', function() { onFotoChange(this); });
+    row.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
+    row.querySelector('.costo-ii-input').addEventListener('blur',  function() { formatCurrency(this); });
+    row.querySelector('.costo-ii-input').addEventListener('input', () => calcRow(rowId, gid));
     row.querySelector('.delete-row-btn').addEventListener('click', () => removeRow(rowId, gid));
     if (currentType === 'bomboniere') row.querySelector('.qty-input').addEventListener('input', () => syncConfezOmaggio(gid));
 }
@@ -1444,15 +1454,27 @@ function calcRow(rowId, gid) {
     const iva     = parseFloat(row.querySelector('.iva-input')?.value) || 0;
     const sconto  = parseFloat(row.querySelector('.sconto-input')?.value) || 0;
 
+    const costoII  = parseFloat(row.querySelector('.costo-ii-input')?.value.replace('€','').replace(',','.').trim()) || 0;
+
     const priceIE   = iva > 0 ? priceII / (1 + iva / 100) : null;
     const priceIISc = sconto > 0 ? priceII * (1 - sconto / 100) : null;
     const priceIESc = (sconto > 0 && priceIE != null) ? priceIE * (1 - sconto / 100) : null;
+    const costoIE   = iva > 0 ? costoII / (1 + iva / 100) : null;
     const effective   = priceIISc != null ? priceIISc : priceII;
     const effectiveIE = priceIE != null ? (priceIESc != null ? priceIESc : priceIE) : effective;
+    const costoBase   = costoIE != null ? costoIE : costoII;
+    const margine     = costoII > 0 ? effectiveIE - costoBase : null;
 
-    row.querySelector('.ie-value').textContent    = priceIE    != null ? '€ ' + itFmt(priceIE)   : '—';
-    row.querySelector('.ii-sc-value').textContent = priceIISc  != null ? '€ ' + itFmt(priceIISc) : '—';
-    row.querySelector('.ie-sc-value').textContent = priceIESc  != null ? '€ ' + itFmt(priceIESc) : '—';
+    row.querySelector('.ie-value').textContent    = priceIE  != null ? '€ ' + itFmt(priceIE)   : '—';
+    row.querySelector('.ii-sc-value').textContent = priceIISc != null ? '€ ' + itFmt(priceIISc) : '—';
+    row.querySelector('.ie-sc-value').textContent = priceIESc != null ? '€ ' + itFmt(priceIESc) : '—';
+    row.querySelector('.costo-ie-value').textContent = costoIE != null ? '€ ' + itFmt(costoIE) : '—';
+    const margEl = row.querySelector('.margine-value');
+    if (margine != null) {
+        const margPerc = effectiveIE > 0 ? (margine / effectiveIE * 100) : 0;
+        margEl.textContent = (margine >= 0 ? '+' : '') + '€ ' + itFmt(margine) + ' (' + margPerc.toFixed(1) + '%)';
+        margEl.style.color = margine >= 0 ? '#166534' : '#991b1b';
+    } else { margEl.textContent = '—'; margEl.style.color = ''; }
     row.querySelector('.row-total').textContent = itFmt(qty * effective);
     row.dataset.totalIe = qty * effectiveIE;
     if (currentType === 'bomboniere') calcConfezOmaggio(gid);
@@ -1917,6 +1939,7 @@ async function savePreventivo(event) {
                 prezzo:     parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim())||0,
                 iva_perc:   parseFloat(row.querySelector('.iva-input')?.value)||0,
                 sconto_perc: parseFloat(row.querySelector('.sconto-input')?.value)||0,
+                costo_ii:   parseFloat(row.querySelector('.costo-ii-input')?.value.replace('€','').replace(',','.').trim())||0,
                 foto_url:   row.querySelector('.foto-input')?.dataset.foto || null,
                 qta,
                 totale: itParse(row.querySelector('.row-total').textContent),
