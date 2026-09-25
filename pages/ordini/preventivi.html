@@ -468,12 +468,12 @@
                     </div>
                 </div>
                 <div class="flex flex-col md:flex-row justify-end items-stretch gap-4">
-                    <div class="total-box"><span class="total-box-label">Totale Preventivo</span><span id="grand-total" class="total-box-value">€ 0,00</span></div>
+                    <div class="total-box"><span class="total-box-label">Totale Preventivo i.i.</span><span id="grand-total" class="total-box-value">€ 0,00</span></div>
+                    <div class="total-box"><span class="total-box-label">Totale Preventivo i.e.</span><span id="grand-total-ie" class="total-box-value" style="color:#1e293b">€ 0,00</span></div>
                     <div class="acconto-box">
                         <span class="total-box-label" style="color:#94a3b8">Acconto</span>
                         <input type="text" id="acconto" class="w-full text-center text-slate-800 bg-transparent text-2xl outline-none font-bold" value="€ 0,00" placeholder="€ 0,00">
                     </div>
-                    <div class="saldo-box"><span class="saldo-box-label">Da Pagare</span><span id="saldo-finale" class="saldo-box-value">€ 0,00</span></div>
                 </div>
             </div>
 
@@ -1035,8 +1035,8 @@ function resetForm() {
         const el = document.getElementById(id);
         if (el) el.value = id === 'acconto' ? '€ 0,00' : '';
     });
-    document.getElementById('grand-total').textContent = '€ 0,00';
-    document.getElementById('saldo-finale').textContent = '€ 0,00';
+    document.getElementById('grand-total').textContent    = '€ 0,00';
+    document.getElementById('grand-total-ie').textContent = '€ 0,00';
     document.getElementById('breakdown-container')?.classList.add('hidden');
     document.getElementById('cerca-rubrica-panel')?.classList.add('hidden');
     document.getElementById('nuovo-cliente-form')?.classList.add('hidden');
@@ -1447,12 +1447,14 @@ function calcRow(rowId, gid) {
     const priceIE   = iva > 0 ? priceII / (1 + iva / 100) : null;
     const priceIISc = sconto > 0 ? priceII * (1 - sconto / 100) : null;
     const priceIESc = (sconto > 0 && priceIE != null) ? priceIE * (1 - sconto / 100) : null;
-    const effective = priceIISc != null ? priceIISc : priceII;
+    const effective   = priceIISc != null ? priceIISc : priceII;
+    const effectiveIE = priceIE != null ? (priceIESc != null ? priceIESc : priceIE) : effective;
 
     row.querySelector('.ie-value').textContent    = priceIE    != null ? '€ ' + itFmt(priceIE)   : '—';
     row.querySelector('.ii-sc-value').textContent = priceIISc  != null ? '€ ' + itFmt(priceIISc) : '—';
     row.querySelector('.ie-sc-value').textContent = priceIESc  != null ? '€ ' + itFmt(priceIESc) : '—';
     row.querySelector('.row-total').textContent = itFmt(qty * effective);
+    row.dataset.totalIe = qty * effectiveIE;
     if (currentType === 'bomboniere') calcConfezOmaggio(gid);
     calcSubtotal(gid);
     calcGrandTotal(); validateGlobal();
@@ -1478,15 +1480,21 @@ function calcSubtotal(gid) {
 }
 
 function calcGrandTotal() {
-    let grand = 0;
-    document.querySelectorAll('.row-total').forEach(el => grand += itParse(el.textContent));
+    let grand = 0, grandIE = 0;
+    document.querySelectorAll('.product-row').forEach(row => {
+        grand   += itParse(row.querySelector('.row-total')?.textContent);
+        grandIE += parseFloat(row.dataset.totalIe || 0);
+    });
     document.querySelectorAll('.confez-total-cell').forEach(el => {
         const gid = el.id.replace('confez-total-','');
-        if (document.getElementById(`check-conf-${gid}`)?.checked) grand += itParse(el.textContent);
+        if (document.getElementById(`check-conf-${gid}`)?.checked) {
+            const v = itParse(el.textContent);
+            grand   += v;
+            grandIE += v;
+        }
     });
-    document.getElementById('grand-total').textContent = '€ ' + itFmt(grand);
-    const acconto = itParse(document.getElementById('acconto').value);
-    document.getElementById('saldo-finale').textContent = '€ ' + itFmt(Math.max(0, grand - acconto));
+    document.getElementById('grand-total').textContent    = '€ ' + itFmt(grand);
+    document.getElementById('grand-total-ie').textContent = '€ ' + itFmt(grandIE);
     if (currentType === 'bomboniere') calcBomboniereBreakdown();
     updateBreakdown();
 }
@@ -1941,8 +1949,8 @@ async function savePreventivo(event) {
             consegna_data:     document.getElementById('consegna-data')?.value || null,
             consegna_ora:      document.getElementById('consegna-ora')?.value || null,
             totale:            itParse(document.getElementById('grand-total')?.textContent),
+            totale_ie:         itParse(document.getElementById('grand-total-ie')?.textContent),
             acconto:           itParse(getValueSafe('acconto')),
-            da_pagare:         itParse(document.getElementById('saldo-finale')?.textContent),
             note:              getValueSafe('order-notes'),
             articoli,
             titolo:            getValueSafe('titolo-ordine'),
