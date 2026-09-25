@@ -1082,11 +1082,6 @@ async function apriPreventivo(id) {
                 setI('.desc-input',    r.descrizione);
                 row.querySelector('.price-input').value = '€ ' + itFmt(r.prezzo || 0);
                 setI('.qty-input',    r.qta);
-                setI('.pronta-input', r.merce_pronta);
-                setI('.forn-input',   r.da_forn);
-                setI('.emp-q-input',  r.da_emporio_qta);
-                setI('.altri-q-input',r.da_altri_qta);
-                setI('.altri-spec-input', r.da_altri_spec);
                 const rowId = row.id.replace('row-', '');
                 calcRow(rowId, curGid);
             });
@@ -1265,10 +1260,6 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
                     <th class="pb-2 text-left">Descrizione *</th>
                     <th class="pb-2 w-24 text-right pr-2">Prezzo</th>
                     <th class="pb-2 w-16">Qtà</th>
-                    <th class="pb-2 w-16 bg-green-50 text-green-700">Pronta</th>
-                    <th class="pb-2 w-16 bg-slate-50">Da forn.</th>
-                    <th class="pb-2 w-32 bg-slate-50">Da empori</th>
-                    <th class="pb-2 w-32 bg-slate-50">Da altri</th>
                     <th class="pb-2 w-16 bg-red-50 text-[#B5453A]">Da Ord</th>
                     <th class="pb-2 w-24 text-right pr-4">Totale</th>
                     <th class="pb-2 w-8"></th>
@@ -1313,16 +1304,6 @@ function addRow(gid) {
         <td class="p-1"><input type="text" placeholder="Descrizione" class="w-full border-gray-200 border rounded-lg p-2 desc-input"></td>
         <td class="p-1"><input type="text" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0,00"></td>
         <td class="p-1"><input type="number" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="${parseInt(document.getElementById('group-qty-'+gid)?.value)||1}" min="1"></td>
-        <td class="p-1 bg-green-50"><input type="number" class="pronta-input w-full border-green-200 border rounded-lg p-2 text-center" value="0" min="0"></td>
-        <td class="p-1 bg-slate-50"><input type="number" class="forn-input w-full border-slate-200 border rounded-lg p-2 text-center" value="0" min="0"></td>
-        <td class="p-1 bg-slate-50"><div class="flex flex-col gap-1">
-            <input type="number" class="emp-q-input w-full border-slate-200 border rounded-lg p-1 text-center" value="0" min="0">
-            <select class="emporio-dropdown w-full border-slate-200 border rounded-lg p-1 text-[9px] bg-white">${getEmporioOptions()}</select>
-        </div></td>
-        <td class="p-1 bg-slate-50"><div class="flex flex-col gap-1">
-            <input type="number" class="altri-q-input w-full border-slate-200 border rounded-lg p-1 text-center" value="0" min="0">
-            <input type="text" placeholder="Specifica…" class="altri-spec-input w-full border-slate-200 border rounded-lg p-1 text-[9px] bg-white">
-        </div></td>
         <td class="p-1 bg-red-50 text-center font-bold text-[#B5453A] do-value">0</td>
         <td class="p-1 text-right pr-4 font-bold">€ <span class="row-total">0,00</span></td>
         <td class="p-1 text-center"><button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button></td>`;
@@ -1332,10 +1313,6 @@ function addRow(gid) {
     row.querySelector('.price-input').addEventListener('blur',  function() { formatCurrency(this); });
     row.querySelector('.price-input').addEventListener('input', () => calcRow(rowId, gid));
     row.querySelector('.qty-input').addEventListener('input',   () => calcRow(rowId, gid));
-    row.querySelector('.pronta-input').addEventListener('input',() => calcRow(rowId, gid));
-    row.querySelector('.forn-input').addEventListener('input',  () => calcRow(rowId, gid));
-    row.querySelector('.emp-q-input').addEventListener('input', () => calcRow(rowId, gid));
-    row.querySelector('.altri-q-input').addEventListener('input',() => calcRow(rowId, gid));
     row.querySelector('.delete-row-btn').addEventListener('click', () => removeRow(rowId, gid));
     if (currentType === 'bomboniere') row.querySelector('.qty-input').addEventListener('input', () => syncConfezOmaggio(gid));
 }
@@ -1344,9 +1321,7 @@ function calcRow(rowId, gid) {
     const row = document.getElementById(`row-${rowId}`); if (!row) return;
     const qty   = parseInt(row.querySelector('.qty-input').value) || 0;
     const price = parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim()) || 0;
-    const sum   = (parseInt(row.querySelector('.pronta-input').value)||0)+(parseInt(row.querySelector('.forn-input').value)||0)+(parseInt(row.querySelector('.emp-q-input').value)||0)+(parseInt(row.querySelector('.altri-q-input').value)||0);
-    row.classList.toggle('row-error', sum > qty);
-    row.querySelector('.do-value').textContent = Math.max(0, qty - sum);
+    row.querySelector('.do-value').textContent = qty;
     row.querySelector('.row-total').textContent = itFmt(qty * price);
     if (currentType === 'bomboniere') calcConfezOmaggio(gid);
     calcSubtotal(gid);
@@ -1762,10 +1737,6 @@ async function savePreventivo(event) {
             const tipoGruppo  = document.getElementById(`gtype-${gid}`)?.value || 'confezione';
             const groupQty    = parseInt(document.getElementById(`group-qty-${gid}`)?.value) || 1;
             const qta = parseInt(row.querySelector('.qty-input').value) || 0;
-            const _now = new Date().toISOString();
-            const daForn = parseInt(row.querySelector('.forn-input').value)||0;
-            const daEmpQ = parseInt(row.querySelector('.emp-q-input').value)||0;
-            const daAltQ = parseInt(row.querySelector('.altri-q-input').value)||0;
             articoli.push({
                 gruppo_id: gid,
                 tipo_gruppo: tipoGruppo,
@@ -1774,12 +1745,7 @@ async function savePreventivo(event) {
                 codice:    row.querySelector('.codice-input').value,
                 descrizione: row.querySelector('.desc-input').value,
                 prezzo:    parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim())||0,
-                qta, merce_pronta: parseInt(row.querySelector('.pronta-input').value)||0,
-                da_forn: daForn, da_forn_at: daForn>0 ? _now : null,
-                da_emporio_qta: daEmpQ, da_emporio_at: daEmpQ>0 ? _now : null,
-                da_emporio_nome: row.querySelector('.emporio-dropdown').value,
-                da_altri_qta: daAltQ, da_altri_at: daAltQ>0 ? _now : null,
-                da_altri_spec: row.querySelector('.altri-spec-input').value,
+                qta,
                 totale: itParse(row.querySelector('.row-total').textContent),
                 confezionamento: isConfez, confez_tipo: confezTipo, confez_costo: confezCosto,
                 cartoncino_fronte: document.getElementById(`cart-fronte-${gid}`)?.value||'',
@@ -1791,11 +1757,7 @@ async function savePreventivo(event) {
                     gruppo_id: gid, tipologia: document.getElementById(`tipologia-name-${gid}`)?.value||'',
                     codice: 'CARTONCINI-OMAGGIO', descrizione: 'Cartoncini omaggio', prezzo: 0,
                     qta: parseInt(document.getElementById(`omaggio-qty-${gid}`)?.value)||qta,
-                    merce_pronta: parseInt(document.getElementById(`omaggio-pronta-${gid}`)?.value)||0,
-                    da_forn: parseInt(document.getElementById(`omaggio-forn-${gid}`)?.value)||0,
-                    da_emporio_qta: parseInt(document.getElementById(`omaggio-emp-${gid}`)?.value)||0,
-                    da_emporio_nome: '', da_altri_qta: parseInt(document.getElementById(`omaggio-altri-${gid}`)?.value)||0,
-                    da_altri_spec: '', totale: 0, is_omaggio: true
+                    totale: 0, is_omaggio: true
                 });
             }
         });
