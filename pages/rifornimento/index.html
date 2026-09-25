@@ -62,12 +62,9 @@
   let authorized = isEmilio;
 
   if (!authorized) {
-    const emp = (user.emporio || '').toLowerCase();
-    if (emp === 'casalmaggiore' || emp === 'viadana') {
-      const { data } = await db.from('rifornimento_autorizzati')
-        .select('id').eq('operatore_id', user.id).limit(1);
-      authorized = !!(data?.length);
-    }
+    const { data } = await db.from('operatori')
+      .select('is_resp_acquisti').eq('id', user.id).single();
+    authorized = !!(data?.is_resp_acquisti);
   }
 
   if (!authorized) {
