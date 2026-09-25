@@ -313,6 +313,7 @@
                 </button>
                 <span class="section-page-title">🔔 Notifiche</span>
             </div>
+            <!-- Card: Invia notifica -->
             <div class="s-card">
                 <div onclick="toggleCardCollapse('card-invia-notifiche')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9" id="card-invia-notifiche-header">
                     <span style="font-size:15px;font-weight:700;color:#1e293b">Invia notifica</span>
@@ -320,7 +321,7 @@
                 </div>
                 <div id="card-invia-notifiche" class="s-card-body" style="display:none">
                     <p class="text-sm text-slate-500 mb-4">Invia un avviso a tutti gli operatori o a quelli di un emporio specifico. Apparirà come banner nella loro prossima visita.</p>
-                    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+                    <div style="display:flex;flex-direction:column;gap:12px">
                         <div>
                             <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Destinatari</label>
                             <select id="notif-target" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;background:#fff;outline:none">
@@ -344,8 +345,30 @@
                             <i class="fas fa-paper-plane mr-2"></i> Invia notifica
                         </button>
                     </div>
-                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Ultime inviate</div>
-                    <div id="notif-lista" style="display:flex;flex-direction:column;gap:8px">
+                </div>
+            </div>
+
+            <!-- Card: Notifiche inviate -->
+            <div class="s-card" style="margin-top:16px">
+                <div onclick="toggleCardCollapse('card-notif-inviate')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9" id="card-notif-inviate-header">
+                    <span style="font-size:15px;font-weight:700;color:#1e293b">Notifiche inviate</span>
+                    <i class="fas fa-chevron-down" id="card-notif-inviate-icon" style="font-size:12px;color:#94a3b8;transition:transform .2s;transform:rotate(-90deg)"></i>
+                </div>
+                <div id="card-notif-inviate" class="s-card-body" style="display:none">
+                    <div id="notif-lista-inviate" style="display:flex;flex-direction:column;gap:8px">
+                        <div style="color:#94a3b8;font-size:13px">Caricamento…</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Richieste operatori -->
+            <div class="s-card" style="margin-top:16px">
+                <div onclick="toggleCardCollapse('card-notif-richieste')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9" id="card-notif-richieste-header">
+                    <span style="font-size:15px;font-weight:700;color:#1e293b">Richieste operatori</span>
+                    <i class="fas fa-chevron-down" id="card-notif-richieste-icon" style="font-size:12px;color:#94a3b8;transition:transform .2s;transform:rotate(-90deg)"></i>
+                </div>
+                <div id="card-notif-richieste" class="s-card-body" style="display:none">
+                    <div id="notif-lista-richieste" style="display:flex;flex-direction:column;gap:8px">
                         <div style="color:#94a3b8;font-size:13px">Caricamento…</div>
                     </div>
                 </div>
@@ -413,7 +436,7 @@
                         </div>
                     </div>
 
-                    <button onclick="apriFormRegola()" id="btn-nuova-regola" style="margin-top:14px;background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+                    <button onclick="apriFormRegola()" id="btn-nuova-regola" style="margin-top:14px;background:#7f1d1d;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 1px 4px rgba(127,29,29,.25)">
                         <i class="fas fa-plus"></i> Aggiungi regola
                     </button>
                 </div>
@@ -2359,51 +2382,65 @@
     }
 
     async function caricaNotificheInviate(autoResendUltima = false) {
-        const lista = document.getElementById('notif-lista');
-        if (!lista) return;
-
         const { data, error } = await db
             .from('notifiche')
             .select('id, created_at, titolo, testo, target, mittente, letta_da')
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(20);
 
         if (error || !data?.length) {
-            lista.innerHTML = '<div style="color:#94a3b8;font-size:13px">Nessuna notifica inviata</div>';
+            const liI = document.getElementById('notif-lista-inviate');
+            const liR = document.getElementById('notif-lista-richieste');
+            if (liI) liI.innerHTML = '<div style="color:#94a3b8;font-size:13px">Nessuna notifica inviata</div>';
+            if (liR) liR.innerHTML = '<div style="color:#94a3b8;font-size:13px">Nessuna richiesta ricevuta</div>';
             _notifCache = [];
             return;
         }
 
         _notifCache = data;
 
-        lista.innerHTML = data.map(n => {
-            const dt   = new Date(n.created_at);
+        const adminNome = (JSON.parse(localStorage.getItem('m361_user') || '{}')).nome || 'Admin';
+        const isRichiesta = n => /^[^\w\s]/.test(n.titolo) && n.mittente && n.mittente !== adminNome;
+
+        const inviate   = data.filter(n => !isRichiesta(n));
+        const richieste = data.filter(n =>  isRichiesta(n));
+
+        function renderRiga(n, tipo) {
+            const dt    = new Date(n.created_at);
             const dtFmt = dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) +
                           ' ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
             const dest  = EMPORI_LABEL_NOTIF[n.target] || n.target;
             const lette = (n.letta_da || []).length;
-
-            // Notifiche in entrata dagli operatori: titolo inizia con emoji 📋/🛒/⚠️ + "Nome: Categoria"
-            const isInEntrata = /^[^\w\s]/.test(n.titolo) && n.mittente && n.mittente !== (JSON.parse(localStorage.getItem('m361_user')||'{}').nome || 'Admin');
-            const bg     = isInEntrata ? '#fffbeb' : '#f8fafc';
-            const border = isInEntrata ? '1px solid #fde68a' : '1px solid #e2e8f0';
-            const badge  = isInEntrata
-                ? `<span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">↙ Richiesta operatore</span><br>`
-                : `<span style="display:inline-block;background:#eff6ff;color:#1d4ed8;font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">↗ Inviata</span><br>`;
             const titoloDisplay = escHtml(n.titolo).toUpperCase();
+            if (tipo === 'inviata') {
+                return `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${titoloDisplay}</div>
+                        ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
+                        <div style="font-size:11px;color:#94a3b8">→ ${dest} · ${dtFmt} · letta da ${lette}</div>
+                    </div>
+                    <button onclick="reinviaPushById(${n.id})" title="Reinvia push" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#3b82f6;padding:5px 10px;flex-shrink:0;white-space:nowrap">↺ Push</button>
+                    <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
+                </div>`;
+            } else {
+                return `
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${titoloDisplay}</div>
+                        ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
+                        <div style="font-size:11px;color:#94a3b8">da ${escHtml(n.mittente)} · ${dtFmt} · letta da ${lette}</div>
+                    </div>
+                    <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
+                </div>`;
+            }
+        }
 
-            return `
-            <div style="background:${bg};border:${border};border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
-                <div style="flex:1;min-width:0">
-                    ${badge}
-                    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${titoloDisplay}</div>
-                    ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
-                    <div style="font-size:11px;color:#94a3b8">${isInEntrata ? 'da ' + escHtml(n.mittente) : '→ ' + dest} · ${dtFmt} · letta da ${lette}</div>
-                </div>
-                ${!isInEntrata ? `<button onclick="reinviaPushById(${n.id})" title="Reinvia push" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#3b82f6;padding:5px 10px;flex-shrink:0;white-space:nowrap">↺ Push</button>` : ''}
-                <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
-            </div>`;
-        }).join('');
+        const listaInviate   = document.getElementById('notif-lista-inviate');
+        const listaRichieste = document.getElementById('notif-lista-richieste');
+
+        if (listaInviate)   listaInviate.innerHTML   = inviate.length   ? inviate.map(n => renderRiga(n, 'inviata')).join('')   : '<div style="color:#94a3b8;font-size:13px">Nessuna notifica inviata</div>';
+        if (listaRichieste) listaRichieste.innerHTML = richieste.length ? richieste.map(n => renderRiga(n, 'richiesta')).join('') : '<div style="color:#94a3b8;font-size:13px">Nessuna richiesta ricevuta</div>';
 
         // Auto-reinvia l'ultima notifica una volta per sessione
         if (autoResendUltima) {
@@ -2471,10 +2508,15 @@
         }
 
         let html = '';
+        let gruppoIdx = 0;
         for (const [evento, regole] of Object.entries(gruppi)) {
-            html += `<div style="margin-bottom:18px">
-                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${_EVENTO_LABEL[evento] || evento}</div>
-                <div style="display:flex;flex-direction:column;gap:8px">`;
+            const gId = `regole-gruppo-${evento}`;
+            html += `<div style="margin-bottom:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+                <div onclick="toggleCardCollapse('${gId}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;background:#f8fafc">
+                    <span style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.06em">${_EVENTO_LABEL[evento] || evento}</span>
+                    <i class="fas fa-chevron-down" id="${gId}-icon" style="font-size:11px;color:#94a3b8;transition:transform .2s;transform:rotate(-90deg)"></i>
+                </div>
+                <div id="${gId}" style="display:none;padding:10px 10px 6px;display:none;flex-direction:column;gap:8px">`;
             for (const r of regole) {
                 const icon = _CANALE_ICON[r.canale] || r.canale;
                 const timing = r.giorni_anticipo != null
@@ -2501,7 +2543,7 @@
                     </div>
                 </div>`;
             }
-            html += '</div></div>';
+            html += '</div></div></div>';
         }
 
         el.innerHTML = html;
