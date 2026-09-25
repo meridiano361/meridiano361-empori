@@ -59,25 +59,24 @@
   const em = (user.email || '').toLowerCase();
   const isEmilio = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
 
-  let authorized = isEmilio || !!(user.is_resp_acquisti);
+  let authorized = isEmilio;
 
-  if (!authorized) {
-    const { data } = await db.from('operatori')
-      .select('is_resp_acquisti').eq('id', user.id).single();
-    authorized = !!(data?.is_resp_acquisti);
-  }
-
-  // Aggiorna permessi cached per togliere il blocco sola-lettura
-  if (authorized && !isEmilio) {
-    const permStr = sessionStorage.getItem('permessi');
-    if (permStr) {
-      try {
-        const perm = JSON.parse(permStr);
-        if (perm.rifornimento) {
-          perm.rifornimento.opera = true;
+  if (!authorized && user.id) {
+    const { data } = await db.from('utenti_permessi')
+      .select('può_vedere, può_operare')
+      .eq('utente_id', user.id)
+      .eq('sezione', 'rifornimento')
+      .single();
+    if (data?.['può_vedere']) {
+      authorized = true;
+      // Aggiorna cache permessi così nav-script non applica sola-lettura
+      if (data['può_operare']) {
+        try {
+          const perm = JSON.parse(sessionStorage.getItem('permessi') || '{}');
+          perm.rifornimento = { vede: true, opera: true };
           sessionStorage.setItem('permessi', JSON.stringify(perm));
-        }
-      } catch(e) {}
+        } catch(e) {}
+      }
     }
   }
 
