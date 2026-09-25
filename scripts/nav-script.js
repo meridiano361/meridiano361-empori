@@ -975,7 +975,7 @@ function buildNav() {
         closeBtn.style.cssText =
           'background:none;border:none;cursor:pointer;font-size:16px;' +
           'color:#64748b;padding:0;line-height:1;flex-shrink:0';
-        closeBtn.onclick = async () => {
+        closeBtn.onclick = () => {
           banner.remove();
           // Decrementa badge
           const badge = document.getElementById('m361-bell-badge');
@@ -984,7 +984,11 @@ function buildNav() {
             if (cnt <= 0) { badge.style.display = 'none'; }
             else { badge.textContent = cnt; }
           }
-          // Marca come letta
+        };
+
+        // Marca come letta subito (non aspettare il click su ✕)
+        // così non riappare ad ogni cambio di pagina/sezione
+        (async () => {
           const { data: fresh } = await _supabase
             .from('notifiche').select('letta_da').eq('id', notif.id).limit(1);
           const current = fresh?.[0]?.letta_da || [];
@@ -993,7 +997,7 @@ function buildNav() {
               .update({ letta_da: [...current, nome] })
               .eq('id', notif.id);
           }
-        };
+        })();
 
         banner.appendChild(msgDiv);
         banner.appendChild(closeBtn);
