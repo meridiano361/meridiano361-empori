@@ -454,7 +454,20 @@
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                                 <div>
                                     <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Destinatari *</label>
-                                    <input id="nr-dest" type="text" placeholder="Es. Tutti gli operatori" style="width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;box-sizing:border-box">
+                                    <select id="nr-dest" style="width:100%;padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;background:#fff;outline:none">
+                                        <option value="Tutti gli operatori">Tutti gli operatori</option>
+                                        <option value="Tutti gli operatori (empori aderenti)">Tutti gli operatori (empori aderenti)</option>
+                                        <option value="Solo responsabili emporio">Solo responsabili emporio</option>
+                                        <option value="Responsabili acquisti">Responsabili acquisti</option>
+                                        <option value="Responsabili acquisti + responsabili emporio">Responsabili acquisti + responsabili emporio</option>
+                                        <option value="Responsabili">Responsabili</option>
+                                        <option value="Operatori con turno assegnato">Operatori con turno assegnato</option>
+                                        <option value="Operatori con turno attivo">Operatori con turno attivo</option>
+                                        <option value="Referenti alimentari">Referenti alimentari</option>
+                                        <option value="Referenti casa">Referenti casa</option>
+                                        <option value="Referenti moda">Referenti moda</option>
+                                        <option value="Referenti cosmesi">Referenti cosmesi</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px">Giorni anticipo</label>
@@ -462,7 +475,7 @@
                                 </div>
                             </div>
                             <div style="display:flex;gap:8px;margin-top:4px">
-                                <button onclick="salvaRegolaNotifica()" style="background:#1e293b;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">Salva regola</button>
+                                <button onclick="salvaRegolaNotifica()" id="nr-btn-salva" style="background:#1e293b;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer">Salva regola</button>
                                 <button onclick="chiudiFormRegola()" style="background:#f1f5f9;color:#64748b;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer">Annulla</button>
                             </div>
                         </div>
@@ -2562,18 +2575,18 @@
     const _CANALE_LABEL = { email: 'Email', push: 'Push', entrambi: 'Email + Push' };
 
     const _COSA = {
-        campagna_push_1g:   '"[Nome campagna]" parte domani. Pronti?',
-        campagna_push_3g:   '"[Nome campagna]" inizia tra 3 giorni.',
-        campagna_email_3g:  'Oggetto: "Tra 3 giorni inizia [Nome campagna]". Corpo: promemoria con data inizio e link al calendario.',
-        scadenza_push_30g:  '"[Prodotto]" scade tra 30 giorni.',
-        scadenza_push_14g:  '"[Prodotto]" scade tra 14 giorni.',
-        scadenza_push_1g:   '"[Prodotto]" scade domani!',
-        scadenza_email:     'Oggetto: "Prodotto in scadenza: [Prodotto]". Corpo: elenco prodotti con data scadenza.',
-        pezzi_push:         'Ricorda di inserire il conteggio pezzi settimanale.',
-        turno_push:         'Titolo: "M361 — Il tuo turno oggi". Corpo: "Oggi sei in turno dalle [ora] alle [ora] con [colleghi]" oppure "da solo/a".',
+        campagna_push_1g:   'Titolo: "Campagna domani — [Emporio]". Corpo: "[Nome campagna] parte domani. Pronti?"',
+        campagna_push_3g:   'Titolo: "Campagna fra 3 giorni — [Emporio]". Corpo: "[Nome campagna] inizia il [data]."',
+        campagna_email_3g:  'Oggetto: "Tra 3 giorni inizia [Nome campagna] — Emporio [Emporio]". Corpo: promemoria con data inizio, invito a preparare materiali e link al calendario commerciale.',
+        scadenza_push_30g:  'Titolo: "Prodotto in scadenza — [Emporio]". Corpo: "[Prodotto] ([N] pz) — scade tra 30 giorni."',
+        scadenza_push_14g:  'Titolo: "Prodotto in scadenza — [Emporio]". Corpo: "[Prodotto] ([N] pz) — scade tra 14 giorni."',
+        scadenza_push_1g:   'Titolo: "Prodotto in scadenza — [Emporio]". Corpo: "[Prodotto] ([N] pz) — scade domani!"',
+        scadenza_email:     'Oggetto: "Scadenza prodotto: [Prodotto] — Emporio [Emporio]". Corpo: scheda prodotto con quantità, data scadenza e link alla sezione scadenze.',
+        pezzi_push:         'Titolo: "Compilazione settimanale". Corpo: "Inserisci i pezzi e il venduto della settimana [N] in Commerciale → Settimanale."',
+        turno_push:         'Titolo: "M361 — Il tuo turno oggi". Corpo: "Oggi sei in turno dalle [ora] alle [ora] con [colleghi]" oppure "...da solo/a" se nessun collega.',
         timbra_push:        'Inizio turno: "Turno [fascia] iniziato. Ricorda di timbrare l\'entrata." — Fine turno: "Turno [fascia] terminato. Ricorda di timbrare l\'uscita."',
-        presenza_push:      'Ricorda di compilare le presenze.',
-        fornitura_push:     'È arrivata una nuova richiesta di fornitura.',
+        presenza_push:      'Titolo: "Meridiano 361". Corpo: "Ricordati di compilare il foglio delle presenze di [Mese] entro domani."',
+        fornitura_push:     'Titolo: "Nuova proposta di fornitura — [Emporio]". Corpo: "[Operatore] · [N] prodotti · Totale stimato [€] · v[versione]"',
     };
 
     let _regoleCache = [];
@@ -2685,9 +2698,13 @@
     function apriFormRegola() {
         document.getElementById('nr-edit-id').value = '';
         document.getElementById('nr-form-title').textContent = 'Nuova regola';
-        ['nr-nome','nr-desc','nr-dest','nr-giorni'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('nr-btn-salva').textContent = 'Salva regola';
+        document.getElementById('nr-nome').value  = '';
+        document.getElementById('nr-desc').value  = '';
+        document.getElementById('nr-giorni').value = '';
         document.getElementById('nr-evento').value = 'campagna';
         document.getElementById('nr-canale').value = 'push';
+        document.getElementById('nr-dest').value   = 'Tutti gli operatori';
         document.getElementById('nuova-regola-form').style.display = 'block';
         document.getElementById('btn-nuova-regola').style.display = 'none';
         document.getElementById('nuova-regola-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2696,14 +2713,22 @@
     function modificaRegolaNotifica(id) {
         const r = _regoleCache.find(x => x.id === id);
         if (!r) return;
-        document.getElementById('nr-edit-id').value        = r.id;
+        document.getElementById('nr-edit-id').value          = r.id;
         document.getElementById('nr-form-title').textContent = `Modifica: ${r.nome}`;
-        document.getElementById('nr-nome').value           = r.nome;
-        document.getElementById('nr-desc').value           = r.descrizione || '';
-        document.getElementById('nr-evento').value         = r.evento;
-        document.getElementById('nr-canale').value         = r.canale;
-        document.getElementById('nr-dest').value           = r.destinatari;
-        document.getElementById('nr-giorni').value         = r.giorni_anticipo ?? '';
+        document.getElementById('nr-btn-salva').textContent  = 'Aggiorna regola';
+        document.getElementById('nr-nome').value    = r.nome;
+        document.getElementById('nr-desc').value    = r.descrizione || '';
+        document.getElementById('nr-evento').value  = r.evento;
+        document.getElementById('nr-canale').value  = r.canale;
+        document.getElementById('nr-giorni').value  = r.giorni_anticipo ?? '';
+        // Imposta il select destinatari: se il valore non è tra le opzioni, aggiunge voce temporanea
+        const sel = document.getElementById('nr-dest');
+        const match = Array.from(sel.options).find(o => o.value === r.destinatari);
+        if (!match) {
+            const opt = new Option(r.destinatari, r.destinatari);
+            sel.add(opt);
+        }
+        sel.value = r.destinatari;
         document.getElementById('nuova-regola-form').style.display = 'block';
         document.getElementById('btn-nuova-regola').style.display = 'none';
         document.getElementById('nuova-regola-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2725,7 +2750,7 @@
         const giorniVal = document.getElementById('nr-giorni').value.trim();
         const giorni = giorniVal !== '' ? parseInt(giorniVal) : null;
 
-        if (!nome || !dest) { showToast('Compila nome e destinatari', 'err'); return; }
+        if (!nome) { showToast('Inserisci il nome della regola', 'err'); return; }
 
         const payload = { nome, descrizione: desc || null, canale, destinatari: dest, evento, giorni_anticipo: giorni, updated_at: new Date().toISOString() };
 
