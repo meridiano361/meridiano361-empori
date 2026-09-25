@@ -1132,9 +1132,10 @@ async function apriPreventivo(id) {
             const groupQty   = righe[0]?.group_qty   || 1;
             addGroup(tipName, tipoGruppo, groupQty);
             const curGid = groupCount;
-            // rimuovi riga vuota aggiunta da addGroup
+            // rimuovi riga vuota (e relativa sotto-riga interna) aggiunta da addGroup
             const tbody = document.getElementById(`rows-container-${curGid}`);
             tbody?.querySelector('.product-row')?.remove();
+            tbody?.querySelector('.internal-cost-row')?.remove();
             righe.filter(r => !r.is_omaggio).forEach(r => {
                 addRow(curGid);
                 const rows = tbody?.querySelectorAll('.product-row');
@@ -1437,17 +1438,20 @@ function addRow(gid) {
     internalRow.id = `internal-${rowId}`;
     internalRow.innerHTML = `
         <td colspan="2"></td>
-        <td colspan="3" class="pb-1 pl-2">
-            <div class="flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs" style="background:#f0fdf4;border:1px solid #bbf7d0">
-                <span class="font-bold text-slate-500 uppercase tracking-wider" style="font-size:9px">Uso interno</span>
-                <label class="flex items-center gap-1 text-slate-600">Costo i.i.
-                    <input type="text" class="costo-ii-input border border-slate-200 rounded px-2 py-0.5 text-right bg-white" value="€ 0,00" style="width:90px;font-size:12px">
+        <td colspan="7" class="pb-1 pl-2">
+            <div class="flex items-center gap-4 px-3 py-1.5 rounded-lg text-xs flex-wrap" style="background:#f0fdf4;border:1px solid #bbf7d0">
+                <span class="font-bold text-slate-500 uppercase tracking-wider flex-shrink-0" style="font-size:9px">Uso interno</span>
+                <label class="flex items-center gap-1 text-slate-600 flex-shrink-0">Costo i.i.
+                    <input type="text" class="costo-ii-input border border-slate-200 rounded px-2 py-0.5 text-right bg-white" value="€ 0,00" style="width:82px;font-size:12px">
                 </label>
-                <span class="text-slate-400">Costo i.e.: <span class="font-semibold costo-ie-value">—</span></span>
-                <span class="font-bold margine-value">—</span>
+                <label class="flex items-center gap-1 text-slate-600 flex-shrink-0">Costo i.e.
+                    <input type="text" class="costo-ie-input border border-slate-200 rounded px-2 py-0.5 text-right bg-white" value="€ 0,00" style="width:82px;font-size:12px">
+                </label>
+                <span class="text-slate-500 flex-shrink-0">Margine/pz: <span class="font-bold margine-pz-value">—</span></span>
+                <span class="text-slate-500 flex-shrink-0">Margine tot: <span class="font-bold margine-tot-value">—</span></span>
             </div>
         </td>
-        <td colspan="4"></td>`;
+        <td colspan="2"></td>`;
 
     const confezRow = document.getElementById(`confez-${gid}`);
     if (confezRow) { tbody.insertBefore(row, confezRow); tbody.insertBefore(internalRow, confezRow); }
@@ -1462,7 +1466,10 @@ function addRow(gid) {
     row.querySelector('.foto-input').addEventListener('change', function() { onFotoChange(this); });
     internalRow.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
     internalRow.querySelector('.costo-ii-input').addEventListener('blur',  function() { formatCurrency(this); });
-    internalRow.querySelector('.costo-ii-input').addEventListener('input', () => calcRow(rowId, gid));
+    internalRow.querySelector('.costo-ii-input').addEventListener('input', () => { syncCostoFromII(rowId); calcRow(rowId, gid); });
+    internalRow.querySelector('.costo-ie-input').addEventListener('focus', function() { clearCurrency(this); });
+    internalRow.querySelector('.costo-ie-input').addEventListener('blur',  function() { formatCurrency(this); });
+    internalRow.querySelector('.costo-ie-input').addEventListener('input', () => { syncCostoFromIE(rowId); calcRow(rowId, gid); });
     row.querySelector('.delete-row-btn').addEventListener('click', () => { internalRow.remove(); removeRow(rowId, gid); });
     if (currentType === 'bomboniere') row.querySelector('.qty-input').addEventListener('input', () => syncConfezOmaggio(gid));
 }
@@ -1480,22 +1487,42 @@ function calcRow(rowId, gid) {
     const priceIE   = iva > 0 ? priceII / (1 + iva / 100) : null;
     const priceIISc = sconto > 0 ? priceII * (1 - sconto / 100) : null;
     const priceIESc = (sconto > 0 && priceIE != null) ? priceIE * (1 - sconto / 100) : null;
-    const costoIE   = iva > 0 ? costoII / (1 + iva / 100) : null;
+    const costoIE   = iva > 0 && costoII > 0 ? costoII / (1 + iva / 100) : null;
     const effective   = priceIISc != null ? priceIISc : priceII;
     const effectiveIE = priceIE != null ? (priceIESc != null ? priceIESc : priceIE) : effective;
-    const costoBase   = costoIE != null ? costoIE : costoII;
-    const margine     = costoII > 0 ? effectiveIE - costoBase : null;
+    const effectiveII = priceIISc != null ? priceIISc : priceII;
+    const costoBase   = costoIE != null ? costoIE : (costoII > 0 ? costoII : null);
 
     row.querySelector('.ie-value').textContent    = priceIE  != null ? '€ ' + itFmt(priceIE)   : '—';
     row.querySelector('.ii-sc-value').textContent = priceIISc != null ? '€ ' + itFmt(priceIISc) : '—';
     row.querySelector('.ie-sc-value').textContent = priceIESc != null ? '€ ' + itFmt(priceIESc) : '—';
-    if (internalRow) internalRow.querySelector('.costo-ie-value').textContent = costoIE != null ? '€ ' + itFmt(costoIE) : '—';
-    const margEl = internalRow?.querySelector('.margine-value');
-    if (margine != null) {
-        const margPerc = effectiveIE > 0 ? (margine / effectiveIE * 100) : 0;
-        margEl.textContent = (margine >= 0 ? '+' : '') + '€ ' + itFmt(margine) + ' (' + margPerc.toFixed(1) + '%)';
-        margEl.style.color = margine >= 0 ? '#166534' : '#991b1b';
-    } else { margEl.textContent = '—'; margEl.style.color = ''; }
+
+    if (internalRow && costoIE != null) {
+        const ieInp = internalRow.querySelector('.costo-ie-input');
+        if (ieInp && document.activeElement !== ieInp) ieInp.value = '€ ' + itFmt(costoIE);
+    }
+
+    const margineIE = costoBase != null ? effectiveIE - costoBase : null;
+    const margineII = costoII > 0 ? effectiveII - costoII : null;
+    const margPzEl  = internalRow?.querySelector('.margine-pz-value');
+    const margTotEl = internalRow?.querySelector('.margine-tot-value');
+    if (margineIE != null && margPzEl) {
+        const margPercIE = effectiveIE > 0 ? (margineIE / effectiveIE * 100) : 0;
+        const color = margineIE >= 0 ? '#166534' : '#991b1b';
+        margPzEl.innerHTML = `<span style="color:${color}">${margineIE >= 0?'+':''}€ ${itFmt(margineIE)} i.e.</span>` +
+            (margineII != null ? ` <span style="color:${margineII>=0?'#166534':'#991b1b'};font-weight:normal;font-size:10px">(${margineII>=0?'+':''}€ ${itFmt(margineII)} i.i.)</span>` : '') +
+            ` <span style="color:${color};font-weight:normal">${margPercIE.toFixed(1)}%</span>`;
+        if (margTotEl) {
+            const totIE = margineIE * qty;
+            const totII = margineII != null ? margineII * qty : null;
+            margTotEl.innerHTML = `<span style="color:${totIE>=0?'#166534':'#991b1b'}">${totIE>=0?'+':''}€ ${itFmt(totIE)} i.e.</span>` +
+                (totII != null ? ` <span style="color:${totII>=0?'#166534':'#991b1b'};font-weight:normal;font-size:10px">(${totII>=0?'+':''}€ ${itFmt(totII)} i.i.)</span>` : '');
+        }
+    } else {
+        if (margPzEl)  { margPzEl.textContent = '—'; }
+        if (margTotEl) { margTotEl.textContent = '—'; }
+    }
+
     row.querySelector('.row-total').textContent = itFmt(qty * effective);
     row.dataset.totalIe = qty * effectiveIE;
     if (currentType === 'bomboniere') calcConfezOmaggio(gid);
@@ -1503,6 +1530,24 @@ function calcRow(rowId, gid) {
     calcGrandTotal(); validateGlobal();
 }
 
+function syncCostoFromII(rowId) {
+    const ir = document.getElementById(`internal-${rowId}`); if (!ir) return;
+    const iva = parseFloat(document.getElementById(`row-${rowId}`)?.querySelector('.iva-input')?.value) || 0;
+    const costoII = parseFloat(ir.querySelector('.costo-ii-input').value.replace('€','').replace(',','.').trim()) || 0;
+    if (iva > 0 && costoII > 0) {
+        const ieInp = ir.querySelector('.costo-ie-input');
+        if (document.activeElement !== ieInp) ieInp.value = '€ ' + itFmt(costoII / (1 + iva / 100));
+    }
+}
+function syncCostoFromIE(rowId) {
+    const ir = document.getElementById(`internal-${rowId}`); if (!ir) return;
+    const iva = parseFloat(document.getElementById(`row-${rowId}`)?.querySelector('.iva-input')?.value) || 0;
+    const costoIE = parseFloat(ir.querySelector('.costo-ie-input').value.replace('€','').replace(',','.').trim()) || 0;
+    if (iva > 0 && costoIE > 0) {
+        const iiInp = ir.querySelector('.costo-ii-input');
+        if (document.activeElement !== iiInp) iiInp.value = '€ ' + itFmt(costoIE * (1 + iva / 100));
+    }
+}
 function validateGlobal() {
     document.getElementById('submit-btn').disabled = document.querySelectorAll('.row-error').length > 0;
 }
