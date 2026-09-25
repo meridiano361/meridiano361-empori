@@ -355,6 +355,25 @@
                     <i class="fas fa-chevron-down" id="card-notif-inviate-icon" style="font-size:12px;color:#94a3b8;transition:transform .2s;transform:rotate(-90deg)"></i>
                 </div>
                 <div id="card-notif-inviate" class="s-card-body" style="display:none">
+                    <!-- Filtri notifiche inviate -->
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+                        <select id="filtro-inv-dest" onchange="renderNotifFiltrate()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;background:#fff;outline:none">
+                            <option value="">Tutti i destinatari</option>
+                            <option value="tutti">Tutti gli operatori</option>
+                            <option value="cremona">Cremona</option>
+                            <option value="casalmaggiore">Casalmaggiore</option>
+                            <option value="reggioemilia">Reggio Emilia</option>
+                            <option value="viadana">Viadana</option>
+                            <option value="mantova">Mantova</option>
+                        </select>
+                        <select id="filtro-inv-periodo" onchange="renderNotifFiltrate()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;background:#fff;outline:none">
+                            <option value="">Tutto il periodo</option>
+                            <option value="7">Ultimi 7 giorni</option>
+                            <option value="30">Ultimo mese</option>
+                            <option value="90">Ultimi 3 mesi</option>
+                        </select>
+                        <input id="filtro-inv-testo" oninput="renderNotifFiltrate()" type="text" placeholder="Cerca nel titolo…" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;outline:none;flex:1;min-width:120px">
+                    </div>
                     <div id="notif-lista-inviate" style="display:flex;flex-direction:column;gap:8px">
                         <div style="color:#94a3b8;font-size:13px">Caricamento…</div>
                     </div>
@@ -368,6 +387,19 @@
                     <i class="fas fa-chevron-down" id="card-notif-richieste-icon" style="font-size:12px;color:#94a3b8;transition:transform .2s;transform:rotate(-90deg)"></i>
                 </div>
                 <div id="card-notif-richieste" class="s-card-body" style="display:none">
+                    <!-- Filtri richieste operatori -->
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+                        <select id="filtro-req-mittente" onchange="renderRichiesteFiltrate()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;background:#fff;outline:none">
+                            <option value="">Tutti gli operatori</option>
+                        </select>
+                        <select id="filtro-req-periodo" onchange="renderRichiesteFiltrate()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;background:#fff;outline:none">
+                            <option value="">Tutto il periodo</option>
+                            <option value="7">Ultimi 7 giorni</option>
+                            <option value="30">Ultimo mese</option>
+                            <option value="90">Ultimi 3 mesi</option>
+                        </select>
+                        <input id="filtro-req-testo" oninput="renderRichiesteFiltrate()" type="text" placeholder="Cerca nel testo…" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;outline:none;flex:1;min-width:120px">
+                    </div>
                     <div id="notif-lista-richieste" style="display:flex;flex-direction:column;gap:8px">
                         <div style="color:#94a3b8;font-size:13px">Caricamento…</div>
                     </div>
@@ -381,7 +413,6 @@
                     <i class="fas fa-chevron-down" id="card-regole-notifiche-icon" style="font-size:12px;color:#94a3b8;transition:transform .2s;transform:rotate(-90deg)"></i>
                 </div>
                 <div id="card-regole-notifiche" class="s-card-body" style="display:none">
-                    <p style="font-size:13px;color:#64748b;margin:0 0 16px">Controlla chi riceve cosa, quando e su quale canale. Ogni regola può essere attivata o disattivata indipendentemente.</p>
                     <div id="regole-notifiche-lista">
                         <div style="color:#94a3b8;font-size:13px"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento…</div>
                     </div>
@@ -2402,55 +2433,102 @@
         const adminNome = (JSON.parse(localStorage.getItem('m361_user') || '{}')).nome || 'Admin';
         const isRichiesta = n => /^[^\w\s]/.test(n.titolo) && n.mittente && n.mittente !== adminNome;
 
-        const inviate   = data.filter(n => !isRichiesta(n));
-        const richieste = data.filter(n =>  isRichiesta(n));
+        _notifInviate   = data.filter(n => !isRichiesta(n));
+        _notifRichieste = data.filter(n =>  isRichiesta(n));
 
-        function renderRiga(n, tipo) {
-            const dt    = new Date(n.created_at);
-            const dtFmt = dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) +
-                          ' ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-            const dest  = EMPORI_LABEL_NOTIF[n.target] || n.target;
-            const lette = (n.letta_da || []).length;
-            const titoloDisplay = escHtml(n.titolo).toUpperCase();
-            if (tipo === 'inviata') {
-                return `
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
-                    <div style="flex:1;min-width:0">
-                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${titoloDisplay}</div>
-                        ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
-                        <div style="font-size:11px;color:#94a3b8">→ ${dest} · ${dtFmt} · letta da ${lette}</div>
-                    </div>
-                    <button onclick="reinviaPushById(${n.id})" title="Reinvia push" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#3b82f6;padding:5px 10px;flex-shrink:0;white-space:nowrap">↺ Push</button>
-                    <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
-                </div>`;
-            } else {
-                return `
-                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
-                    <div style="flex:1;min-width:0">
-                        <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${titoloDisplay}</div>
-                        ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
-                        <div style="font-size:11px;color:#94a3b8">da ${escHtml(n.mittente)} · ${dtFmt} · letta da ${lette}</div>
-                    </div>
-                    <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
-                </div>`;
-            }
+        // Popola select mittenti con i valori unici presenti
+        const selMittente = document.getElementById('filtro-req-mittente');
+        if (selMittente) {
+            const mittenti = [...new Set(_notifRichieste.map(n => n.mittente).filter(Boolean))].sort();
+            selMittente.innerHTML = '<option value="">Tutti gli operatori</option>' +
+                mittenti.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
         }
 
-        const listaInviate   = document.getElementById('notif-lista-inviate');
-        const listaRichieste = document.getElementById('notif-lista-richieste');
+        renderNotifFiltrate();
+        renderRichiesteFiltrate();
 
-        if (listaInviate)   listaInviate.innerHTML   = inviate.length   ? inviate.map(n => renderRiga(n, 'inviata')).join('')   : '<div style="color:#94a3b8;font-size:13px">Nessuna notifica inviata</div>';
-        if (listaRichieste) listaRichieste.innerHTML = richieste.length ? richieste.map(n => renderRiga(n, 'richiesta')).join('') : '<div style="color:#94a3b8;font-size:13px">Nessuna richiesta ricevuta</div>';
-
-        // Auto-reinvia l'ultima notifica una volta per sessione
-        if (autoResendUltima) {
-            const last = data[0];
+        // Auto-reinvia l'ultima notifica inviata una volta per sessione
+        if (autoResendUltima && _notifInviate.length) {
+            const last = _notifInviate[0];
             const key = `_notif_resent_${last.id}`;
             if (!sessionStorage.getItem(key)) {
                 sessionStorage.setItem(key, '1');
                 reinviaPushById(last.id);
             }
         }
+    }
+
+    let _notifInviate   = [];
+    let _notifRichieste = [];
+
+    function _filtraPeriodo(lista, giorni) {
+        if (!giorni) return lista;
+        const soglia = Date.now() - giorni * 86400000;
+        return lista.filter(n => new Date(n.created_at).getTime() >= soglia);
+    }
+
+    function _renderRigaInviata(n) {
+        const dt    = new Date(n.created_at);
+        const dtFmt = dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) +
+                      ' ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        const dest  = EMPORI_LABEL_NOTIF[n.target] || n.target;
+        const lette = (n.letta_da || []).length;
+        return `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+            <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(n.titolo).toUpperCase()}</div>
+                ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
+                <div style="font-size:11px;color:#94a3b8">→ ${dest} · ${dtFmt} · letta da ${lette}</div>
+            </div>
+            <button onclick="reinviaPushById(${n.id})" title="Reinvia push" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#3b82f6;padding:5px 10px;flex-shrink:0;white-space:nowrap">↺ Push</button>
+            <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
+        </div>`;
+    }
+
+    function _renderRigaRichiesta(n) {
+        const dt    = new Date(n.created_at);
+        const dtFmt = dt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) +
+                      ' ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        const lette = (n.letta_da || []).length;
+        return `
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start">
+            <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(n.titolo).toUpperCase()}</div>
+                ${n.testo ? `<div style="font-size:12px;color:#64748b;margin-bottom:4px">${escHtml(n.testo)}</div>` : ''}
+                <div style="font-size:11px;color:#94a3b8">da ${escHtml(n.mittente)} · ${dtFmt} · letta da ${lette}</div>
+            </div>
+            <button onclick="eliminaNotifica(${n.id})" title="Elimina" style="background:none;border:none;cursor:pointer;font-size:15px;color:#cbd5e1;padding:0;flex-shrink:0">🗑</button>
+        </div>`;
+    }
+
+    function renderNotifFiltrate() {
+        const dest    = document.getElementById('filtro-inv-dest')?.value    || '';
+        const giorni  = parseInt(document.getElementById('filtro-inv-periodo')?.value) || 0;
+        const testo   = (document.getElementById('filtro-inv-testo')?.value  || '').toLowerCase();
+        const el      = document.getElementById('notif-lista-inviate');
+        if (!el) return;
+
+        let lista = _notifInviate;
+        if (dest)   lista = lista.filter(n => n.target === dest);
+        if (giorni) lista = _filtraPeriodo(lista, giorni);
+        if (testo)  lista = lista.filter(n => n.titolo.toLowerCase().includes(testo) || (n.testo || '').toLowerCase().includes(testo));
+
+        el.innerHTML = lista.length ? lista.map(_renderRigaInviata).join('') : '<div style="color:#94a3b8;font-size:13px">Nessun risultato</div>';
+    }
+
+    function renderRichiesteFiltrate() {
+        const mittente = document.getElementById('filtro-req-mittente')?.value || '';
+        const giorni   = parseInt(document.getElementById('filtro-req-periodo')?.value) || 0;
+        const testo    = (document.getElementById('filtro-req-testo')?.value  || '').toLowerCase();
+        const el       = document.getElementById('notif-lista-richieste');
+        if (!el) return;
+
+        let lista = _notifRichieste;
+        if (mittente) lista = lista.filter(n => n.mittente === mittente);
+        if (giorni)   lista = _filtraPeriodo(lista, giorni);
+        if (testo)    lista = lista.filter(n => n.titolo.toLowerCase().includes(testo) || (n.testo || '').toLowerCase().includes(testo));
+
+        el.innerHTML = lista.length ? lista.map(_renderRigaRichiesta).join('') : '<div style="color:#94a3b8;font-size:13px">Nessun risultato</div>';
     }
 
     async function eliminaNotifica(id) {
