@@ -127,7 +127,7 @@
         <a href="ordini_incorso.html" class="text-xs font-bold text-slate-500 hover:text-[#B5453A] border border-slate-200 rounded-lg px-3 py-2 flex items-center gap-2 transition-colors">
             <i class="fas fa-clock"></i> Ordini in corso
         </a>
-        <button onclick="showFormView('standard')" class="bg-[#B5453A] text-white text-sm font-bold rounded-xl px-4 py-2.5 flex items-center gap-2 hover:bg-[#9c3a30] transition-colors shadow-sm">
+        <button onclick="apriModalTipoPreventivo()" class="bg-[#B5453A] text-white text-sm font-bold rounded-xl px-4 py-2.5 flex items-center gap-2 hover:bg-[#9c3a30] transition-colors shadow-sm">
             <i class="fas fa-plus"></i> Nuovo Preventivo
         </button>
     </div>
@@ -175,7 +175,7 @@
             <div id="lista-empty" class="hidden text-center py-16 text-slate-400">
                 <i class="fas fa-file-invoice text-4xl mb-3 block opacity-30"></i>
                 <p class="font-semibold">Nessun preventivo trovato</p>
-                <button onclick="showFormView('standard')" class="mt-4 text-sm font-bold text-[#B5453A] hover:underline">
+                <button onclick="apriModalTipoPreventivo()" class="mt-4 text-sm font-bold text-[#B5453A] hover:underline">
                     <i class="fas fa-plus mr-1"></i> Crea il primo preventivo
                 </button>
             </div>
@@ -202,6 +202,11 @@
             class="text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50">
             <i class="fas fa-gift"></i> Bomboniere
         </button>
+        <button id="btn-tipo-natale" onclick="cambioTipo('natale')"
+            class="text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50">
+            <i class="fas fa-snowflake"></i> Natale
+        </button>
+        <span id="sottotipo-natale-label" class="hidden text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg"></span>
     </div>
 
     <main class="max-w-[1600px] mx-auto p-4 md:p-6">
@@ -398,6 +403,72 @@
     </div>
 </div>
 
+<!-- Modal scelta tipo preventivo -->
+<div id="modal-tipo-preventivo" class="hidden fixed inset-0 z-[9400] flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+
+        <!-- Step 1: tipo -->
+        <div id="mtp-step1">
+            <h3 class="font-bold text-lg text-slate-800 mb-1">Nuovo Preventivo</h3>
+            <p class="text-sm text-slate-400 mb-5">Che tipo di preventivo vuoi creare?</p>
+            <div class="grid grid-cols-3 gap-3">
+                <button onclick="scegliTipoModal('standard')"
+                    class="flex flex-col items-center justify-center gap-2 border-2 border-slate-200 rounded-xl p-4 hover:border-[#B5453A] hover:bg-red-50 transition-all cursor-pointer text-slate-600 hover:text-[#B5453A] font-bold text-sm">
+                    <i class="fas fa-shopping-bag text-2xl"></i>
+                    Standard
+                </button>
+                <button onclick="scegliTipoModal('bomboniere')"
+                    class="flex flex-col items-center justify-center gap-2 border-2 border-slate-200 rounded-xl p-4 hover:border-[#B5453A] hover:bg-red-50 transition-all cursor-pointer text-slate-600 hover:text-[#B5453A] font-bold text-sm">
+                    <i class="fas fa-gift text-2xl"></i>
+                    Bomboniere
+                </button>
+                <button onclick="scegliTipoModal('natale')"
+                    class="flex flex-col items-center justify-center gap-2 border-2 border-slate-200 rounded-xl p-4 hover:border-[#B5453A] hover:bg-red-50 transition-all cursor-pointer text-slate-600 hover:text-[#B5453A] font-bold text-sm">
+                    <i class="fas fa-snowflake text-2xl"></i>
+                    Natale
+                </button>
+            </div>
+            <button onclick="chiudiModalTipo()" class="mt-5 w-full text-xs text-slate-400 hover:text-slate-600 py-2 transition-colors">Annulla</button>
+        </div>
+
+        <!-- Step 2: sottotipo natale -->
+        <div id="mtp-step2" class="hidden">
+            <button onclick="tornaStep1Modal()" class="text-xs font-bold text-slate-400 hover:text-[#B5453A] flex items-center gap-1 mb-4 transition-colors">
+                <i class="fas fa-arrow-left text-xs"></i> Indietro
+            </button>
+            <h3 class="font-bold text-lg text-slate-800 mb-1">Preventivo Natale</h3>
+            <p class="text-sm text-slate-400 mb-5">Che tipo di cliente?</p>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="scegliSottotipoModal('privato')" id="mst-privato"
+                    class="border-2 border-slate-200 rounded-xl p-3 font-bold text-sm text-slate-600 hover:border-[#B5453A] hover:bg-red-50 hover:text-[#B5453A] transition-all">
+                    Privato
+                </button>
+                <button onclick="scegliSottotipoModal('azienda')" id="mst-azienda"
+                    class="border-2 border-slate-200 rounded-xl p-3 font-bold text-sm text-slate-600 hover:border-[#B5453A] hover:bg-red-50 hover:text-[#B5453A] transition-all">
+                    Azienda
+                </button>
+                <button onclick="scegliSottotipoModal('no profit')" id="mst-no_profit"
+                    class="border-2 border-slate-200 rounded-xl p-3 font-bold text-sm text-slate-600 hover:border-[#B5453A] hover:bg-red-50 hover:text-[#B5453A] transition-all">
+                    No profit
+                </button>
+                <button onclick="scegliSottotipoModal('altro')" id="mst-altro"
+                    class="border-2 border-slate-200 rounded-xl p-3 font-bold text-sm text-slate-600 hover:border-[#B5453A] hover:bg-red-50 hover:text-[#B5453A] transition-all">
+                    Altro
+                </button>
+            </div>
+            <div id="mst-altro-input" class="hidden mt-3">
+                <input id="mst-altro-text" type="text" placeholder="Specifica tipo cliente…"
+                    class="form-input text-sm" oninput="aggiornaConfermaBtn()">
+            </div>
+            <button id="mtp-conferma-btn" onclick="confermaModalTipo()" disabled
+                class="mt-5 w-full py-3 rounded-xl font-bold text-sm bg-[#B5453A] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:enabled:bg-[#9c3a30] transition-colors">
+                Crea preventivo Natale
+            </button>
+            <button onclick="chiudiModalTipo()" class="mt-2 w-full text-xs text-slate-400 hover:text-slate-600 py-2 transition-colors">Annulla</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const itFmt   = n => Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -408,6 +479,7 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 window._supabase = _supabase;
 
 let currentType = 'standard';
+let currentSottotipoNatale = '';
 let groupCount  = 0;
 let editingId   = null;
 let modificheNonSalvate = false;
@@ -571,6 +643,7 @@ async function convertiInOrdine(id) {
     const orderData = {
         numero_ordine:     numeroOrdine,
         tipo_ordine:       prev.tipo_ordine || 'standard',
+        sottotipo_natale:  prev.sottotipo_natale || null,
         emporio:           prev.emporio,
         canale:            prev.canale || null,
         operatore:         prev.operatore || null,
@@ -603,11 +676,89 @@ async function convertiInOrdine(id) {
 }
 
 /* ────────────────── FORM / LISTA SWITCH ────────────────── */
-function showFormView(tipo) {
+/* ── Modal tipo preventivo ─────────────────────────────────────── */
+let _modalSottotipoScelto = '';
+
+function apriModalTipoPreventivo() {
+    _modalSottotipoScelto = '';
+    document.getElementById('mtp-step1').classList.remove('hidden');
+    document.getElementById('mtp-step2').classList.add('hidden');
+    document.getElementById('modal-tipo-preventivo').classList.remove('hidden');
+}
+
+function chiudiModalTipo() {
+    document.getElementById('modal-tipo-preventivo').classList.add('hidden');
+}
+
+function scegliTipoModal(tipo) {
+    if (tipo !== 'natale') {
+        chiudiModalTipo();
+        showFormView(tipo, '');
+        return;
+    }
+    // Vai a step 2
+    _modalSottotipoScelto = '';
+    document.getElementById('mtp-step1').classList.add('hidden');
+    document.getElementById('mtp-step2').classList.remove('hidden');
+    document.getElementById('mtp-conferma-btn').disabled = true;
+    ['privato','azienda','no_profit','altro'].forEach(v => {
+        const btn = document.getElementById('mst-' + v);
+        if (btn) btn.className = 'border-2 border-slate-200 rounded-xl p-3 font-bold text-sm text-slate-600 hover:border-[#B5453A] hover:bg-red-50 hover:text-[#B5453A] transition-all';
+    });
+    document.getElementById('mst-altro-input').classList.add('hidden');
+    document.getElementById('mst-altro-text').value = '';
+}
+
+function tornaStep1Modal() {
+    document.getElementById('mtp-step2').classList.add('hidden');
+    document.getElementById('mtp-step1').classList.remove('hidden');
+}
+
+function scegliSottotipoModal(val) {
+    _modalSottotipoScelto = val;
+    const activeClass  = 'border-2 border-[#B5453A] bg-red-50 rounded-xl p-3 font-bold text-sm text-[#B5453A] transition-all';
+    const normalClass  = 'border-2 border-slate-200 rounded-xl p-3 font-bold text-sm text-slate-600 hover:border-[#B5453A] hover:bg-red-50 hover:text-[#B5453A] transition-all';
+    ['privato','azienda','no_profit','altro'].forEach(v => {
+        const key = v === 'no_profit' ? 'no profit' : v;
+        const btn = document.getElementById('mst-' + v);
+        if (btn) btn.className = (key === val) ? activeClass : normalClass;
+    });
+    document.getElementById('mst-altro-input').classList.toggle('hidden', val !== 'altro');
+    if (val !== 'altro') document.getElementById('mst-altro-text').value = '';
+    aggiornaConfermaBtn();
+}
+
+function aggiornaConfermaBtn() {
+    const ok = _modalSottotipoScelto && (_modalSottotipoScelto !== 'altro' || document.getElementById('mst-altro-text').value.trim());
+    document.getElementById('mtp-conferma-btn').disabled = !ok;
+}
+
+function confermaModalTipo() {
+    const sottotipo = _modalSottotipoScelto === 'altro'
+        ? (document.getElementById('mst-altro-text').value.trim() || 'altro')
+        : _modalSottotipoScelto;
+    chiudiModalTipo();
+    showFormView('natale', sottotipo);
+}
+
+function aggiornaLabelSottotipo() {
+    const lbl = document.getElementById('sottotipo-natale-label');
+    if (!lbl) return;
+    if (currentType === 'natale' && currentSottotipoNatale) {
+        lbl.textContent = currentSottotipoNatale;
+        lbl.classList.remove('hidden');
+    } else {
+        lbl.classList.add('hidden');
+    }
+}
+
+function showFormView(tipo, sottotipoNatale) {
     editingId = null;
     resetForm();
     currentType = tipo || 'standard';
+    currentSottotipoNatale = sottotipoNatale || '';
     cambioTipo(currentType);
+    aggiornaLabelSottotipo();
     document.getElementById('lista-view').classList.add('hidden');
     document.getElementById('form-view').classList.remove('hidden');
     document.getElementById('form-title').textContent = 'Nuovo Preventivo';
@@ -662,14 +813,14 @@ function resetForm() {
 
 function cambioTipo(tipo) {
     currentType = tipo;
-    document.getElementById('btn-tipo-standard').className = tipo === 'standard'
-        ? 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]'
-        : 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50';
-    document.getElementById('btn-tipo-bomboniere').className = tipo === 'bomboniere'
-        ? 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]'
-        : 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50';
+    const active   = 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-[#B5453A] bg-red-50 text-[#B5453A]';
+    const inactive = 'text-sm font-bold px-4 py-2 rounded-lg border-2 flex items-center gap-2 transition-all border-slate-200 text-slate-500 hover:bg-slate-50';
+    document.getElementById('btn-tipo-standard').className   = tipo === 'standard'    ? active : inactive;
+    document.getElementById('btn-tipo-bomboniere').className = tipo === 'bomboniere'  ? active : inactive;
+    document.getElementById('btn-tipo-natale').className     = tipo === 'natale'      ? active : inactive;
     document.getElementById('add-group-container')?.classList.remove('hidden');
     document.getElementById('breakdown-container')?.classList.toggle('hidden', tipo !== 'bomboniere');
+    aggiornaLabelSottotipo();
 }
 
 /* ────────────────── APRI/MODIFICA PREVENTIVO ────────────────── */
@@ -680,7 +831,9 @@ async function apriPreventivo(id) {
     editingId = id;
     resetForm();
     currentType = prev.tipo_ordine || 'standard';
+    currentSottotipoNatale = prev.sottotipo_natale || '';
     cambioTipo(currentType);
+    aggiornaLabelSottotipo();
 
     // Campi base
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
@@ -1424,6 +1577,7 @@ async function savePreventivo(event) {
         const payload = {
             numero_preventivo: getValueSafe('numero-ordine-preview'),
             tipo_ordine:       currentType,
+            sottotipo_natale:  currentType === 'natale' ? (currentSottotipoNatale || null) : null,
             emporio:           getValueSafe('select-emporio'),
             canale:            document.getElementById('select-canale')?.value || null,
             operatore:         getValueSafe('select-operatore'),
