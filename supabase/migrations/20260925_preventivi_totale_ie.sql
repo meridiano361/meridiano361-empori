@@ -1,0 +1,1 @@
+ALTER TABLE preventivi ADD COLUMN IF NOT EXISTS totale_ie NUMERIC;
