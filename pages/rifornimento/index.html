@@ -59,12 +59,26 @@
   const em = (user.email || '').toLowerCase();
   const isEmilio = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
 
-  let authorized = isEmilio;
+  let authorized = isEmilio || !!(user.is_resp_acquisti);
 
   if (!authorized) {
     const { data } = await db.from('operatori')
       .select('is_resp_acquisti').eq('id', user.id).single();
     authorized = !!(data?.is_resp_acquisti);
+  }
+
+  // Aggiorna permessi cached per togliere il blocco sola-lettura
+  if (authorized && !isEmilio) {
+    const permStr = sessionStorage.getItem('permessi');
+    if (permStr) {
+      try {
+        const perm = JSON.parse(permStr);
+        if (perm.rifornimento) {
+          perm.rifornimento.opera = true;
+          sessionStorage.setItem('permessi', JSON.stringify(perm));
+        }
+      } catch(e) {}
+    }
   }
 
   if (!authorized) {
