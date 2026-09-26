@@ -1746,8 +1746,11 @@ const parseEuro = v => {
 };
 function evalMoneyFormula(el) {
   const raw = el.value.trim();
-  if (!raw.startsWith('=')) return;
-  const expr = raw.slice(1).replace(/[^0-9.,+\-*/\s()]/g, '').replace(/,/g, '.');
+  if (!raw) return;
+  const stripped = raw.startsWith('=') ? raw.slice(1) : raw;
+  // Calcola solo se contiene operatori aritmetici (non è un semplice numero)
+  if (!raw.startsWith('=') && !/[+\-*/]/.test(stripped)) return;
+  const expr = stripped.replace(/[^0-9.,+\-*/\s()]/g, '').replace(/,/g, '.');
   try {
     // eslint-disable-next-line no-new-func
     const result = Function('"use strict"; return (' + expr + ')')();
