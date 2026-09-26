@@ -114,7 +114,7 @@
       { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: true },
       { id: 'rifornimento', label: 'Fornitura', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: false },
       { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/prezzi.html',          section: null,      active: true  },
-      { id: 'preordini',   label: 'Preordini',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: false },
+      { id: 'preordini',   label: 'Ordini Fornit.',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: false },
       { id: 'materiali',   label: 'Materiali',   icon: 'fa-folder-open',    href: 'pages/materiali/materiali.html',    section: null,      active: true  },
       { id: 'scadenze',   label: 'Scadenze',    icon: 'fa-clock-rotate-left', href: 'pages/prodotti-scadenza/prodotti-scadenza.html', section: null, active: true },
       { id: 'listino',    label: 'Vetrina',     icon: 'fa-list-ul',           href: 'pages/listino-prezzi/listino-prezzi.html',       section: null, active: true },
@@ -544,6 +544,11 @@ function buildNav() {
   if (user && (user.referente_alimentari || user.referente_casa || user.referente_moda || user.referente_cosmesi || user.referente_ricorrenze)) {
     const rifItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'rifornimento') : null;
     if (rifItem) rifItem.active = true;
+  }
+  // Resp. acquisti: abilitano Ordini a Fornitori
+  if (user && user.is_resp_acquisti) {
+    const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
+    if (preordItem) preordItem.active = true;
   }
 
   const nav = document.createElement('nav');
