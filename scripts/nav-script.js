@@ -545,8 +545,10 @@ function buildNav() {
     const rifItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'rifornimento') : null;
     if (rifItem) rifItem.active = true;
   }
-  // Resp. acquisti: abilitano Ordini a Fornitori
-  if (user && user.is_resp_acquisti) {
+  // Resp. acquisti o admin: abilitano Ordini a Fornitori
+  const _emEm = (user?.email || '').toLowerCase();
+  const _isAdminNav = _emEm === 'emilio.mazzolari@gmail.com' || _emEm === 'e.mazzolari@meridiano361.it';
+  if (user && (user.is_resp_acquisti || _isAdminNav)) {
     const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
     if (preordItem) preordItem.active = true;
   }
