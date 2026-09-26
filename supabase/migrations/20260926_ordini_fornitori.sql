@@ -1,4 +1,5 @@
 -- Tabelle ordini a fornitori (campagne stagionali)
+-- RLS: accesso pubblico (anon key), stesso pattern delle altre tabelle dell'app
 CREATE TABLE IF NOT EXISTS preordini_campagne (
   id          bigserial PRIMARY KEY,
   nome        text      NOT NULL,
@@ -102,3 +103,9 @@ WHERE NOT EXISTS (
   JOIN preordini_campagne pc ON pc.id = pr.campagna_id
   WHERE pc.nome = 'Pasqua 2027' AND pc.anno = 2027 AND pr.codice = p.codice
 );
+
+-- RLS policies
+CREATE POLICY IF NOT EXISTS preordini_campagne_all ON preordini_campagne FOR ALL TO public USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS preordini_empori_all   ON preordini_empori   FOR ALL TO public USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS preordini_righe_all    ON preordini_righe    FOR ALL TO public USING (true) WITH CHECK (true);
+CREATE POLICY IF NOT EXISTS preordini_quantita_all ON preordini_quantita FOR ALL TO public USING (true) WITH CHECK (true);
