@@ -98,8 +98,22 @@
     .tabella-preordini thead .col-s2 { z-index: 16; }
 
     /* ── STORICO CELLS ── */
-    .td-stor { background: #f8fafc; text-align: center; color: #94a3b8; font-size: 12px; min-width: 40px; }
-    .td-stor.last { border-right: 2px solid #94a3b8; }
+    .td-stor { background: #f8fafc; text-align: center; color: #94a3b8; font-size: 12px; min-width: 44px; padding: 2px 3px; }
+    .stor-acq { font-size: 11px; font-weight: 600; color: #475569; line-height: 1.3; }
+    .stor-vnd { font-size: 9px; font-weight: 600; color: #16A34A; line-height: 1.3; }
+
+    /* ── NOTE TOOLTIP ── */
+    .nota-wrap { position: relative; display: inline-block; cursor: pointer; vertical-align: middle; }
+    .nota-icon { font-size: 9px; margin-left: 2px; opacity: .5; }
+    .nota-wrap:hover .nota-icon { opacity: 1; }
+    .nota-tip {
+      display: none; position: absolute; bottom: 100%; left: 0; z-index: 200;
+      background: #1e293b; color: white; border-radius: 6px; pointer-events: none;
+      padding: 7px 10px; font-size: 11px; white-space: pre-wrap; font-weight: 500;
+      max-width: 240px; min-width: 120px; box-shadow: 0 4px 16px rgba(0,0,0,.35);
+      line-height: 1.5; margin-bottom: 4px;
+    }
+    .nota-wrap:hover .nota-tip { display: block; }
 
     /* ── ORDER CELLS ── */
     .td-ord { background: #fff; text-align: center; min-width: 50px; }
@@ -391,6 +405,7 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const DB = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 // ── STORICO CREMONA ────────────────────────────────────────────────────
+// Acquistato storico Cremona (quantità ordinate al fornitore)
 const STORICO_CR = {
   '00000067': { 2023: 23,   2024: 24,   2025: 28,   2026: 24  },
   '00000068': { 2023: 42,   2024: 42,   2025: 45,   2026: 36  },
@@ -408,6 +423,27 @@ const STORICO_CR = {
   '00008096': { 2023: null, 2024: null, 2025: null, 2026: 54  },
   '00001087': { 2023: 47,   2024: 42,   2025: 56,   2026: 56  },
   '00002354': { 2023: 65,   2024: 70,   2025: 86,   2026: 82  },
+  '00008672': { 2023: null, 2024: null, 2025: null, 2026: null },
+};
+
+// Venduto storico Cremona (quantità vendute ai clienti — da popolare)
+const STORICO_CR_VEND = {
+  '00000067': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00000068': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00008092': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00000069': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00000070': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00001207': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00006300': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00008649': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00008675': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00000357': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00002371': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00008094': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00008095': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00008096': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00001087': { 2023: null, 2024: null, 2025: null, 2026: null },
+  '00002354': { 2023: null, 2024: null, 2025: null, 2026: null },
   '00008672': { 2023: null, 2024: null, 2025: null, 2026: null },
 };
 
@@ -741,25 +777,30 @@ function renderTable() {
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
   const nEmp = emporiVis.length;
-  const totalCols = 5 + 4 + nEmp + (_iAmAdmin ? 2 : 1);
+  const hasTotOrd = _iAmAdmin && nEmp > 1;
+  const totalCols = 5 + nEmp + (hasTotOrd ? 1 : 0) + 4 + 1;
 
+  // THEAD ROW 1: fixed cols → order cols → storico header → € IMP
   let h1 = '<tr>';
   h1 += '<th rowspan="2" class="th-info col-s0" style="text-align:left;width:70px;min-width:70px">Codice</th>';
   h1 += '<th rowspan="2" class="th-info col-s1" style="text-align:left;width:110px;min-width:110px">Categoria</th>';
   h1 += '<th rowspan="2" class="th-info col-s2" style="text-align:left;min-width:180px">Prodotto</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:42px">Conf</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:58px">PVP cess.</th>';
-  h1 += '<th colspan="4" class="th-stor">CREMONA STORICO</th>';
   emporiVis.forEach(e => {
     h1 += '<th rowspan="2" class="th-emp" style="min-width:52px">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:600;opacity:.7">ord.' + (campagna?.anno || '') + '</span></th>';
   });
-  if (_iAmAdmin && nEmp > 1) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
+  if (hasTotOrd) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
+  h1 += '<th colspan="4" class="th-stor">CREMONA STORICO<br><span style="font-size:8px;font-weight:500;opacity:.7;text-transform:none;letter-spacing:0">acq / vnd</span></th>';
   h1 += '<th rowspan="2" class="th-tot" style="min-width:74px">€ IMP</th>';
   h1 += '</tr>';
 
+  // THEAD ROW 2: storico years reversed (most recent left)
   let h2 = '<tr>';
-  [2023, 2024, 2025, 2026].forEach((y, i) => {
-    h2 += '<th class="th-stor-year" style="min-width:38px;' + (i===3 ? 'border-right:2px solid #64748b' : '') + '">' + y + '</th>';
+  [2026, 2025, 2024, 2023].forEach((y, i) => {
+    const bL = i === 0 ? 'border-left:2px solid #64748b;' : '';
+    const bR = i === 3 ? 'border-right:2px solid #64748b;' : '';
+    h2 += '<th class="th-stor-year" style="min-width:44px;' + bL + bR + '">' + y + '</th>';
   });
   h2 += '</tr>';
   thead.innerHTML = h1 + h2;
@@ -781,20 +822,24 @@ function renderTable() {
     emporiVis.forEach(e => { subEmpOrd[e.codice] = 0; });
 
     grp.forEach(riga => {
-      const stor = STORICO_CR[riga.codice] || {};
-      const q    = quantitaMap[riga.id] || {};
+      const stor  = STORICO_CR[riga.codice] || {};
+      const storV = STORICO_CR_VEND[riga.codice] || {};
+      const q     = quantitaMap[riga.id] || {};
 
       html += '<tr class="product-row" data-fk="' + fk + '" data-riga-id="' + riga.id + '">';
       html += '<td class="col-s0" style="color:#94a3b8;font-size:10px;padding:3px 4px">' + esc(riga.codice || '') + '</td>';
       html += '<td class="col-s1" style="font-size:11px;color:#64748b;padding:3px 4px">' + esc(riga.categoria || '') + '</td>';
-      html += '<td class="col-s2" style="font-size:12px;font-weight:500;padding:3px 6px">' + esc(riga.prodotto || '') + '</td>';
+
+      // Prodotto con nota tooltip
+      const noteHtml = riga.note
+        ? '<span class="nota-wrap"><span class="nota-icon">📝</span><span class="nota-tip">' + esc(riga.note) + '</span></span>'
+        : '';
+      html += '<td class="col-s2" style="font-size:12px;font-weight:500;padding:3px 6px">' + esc(riga.prodotto || '') + noteHtml + '</td>';
+
       html += '<td style="text-align:center;color:#94a3b8;font-size:11px">' + (riga.conf || '') + '</td>';
       html += '<td style="text-align:right;color:#475569;font-size:11px;padding:2px 6px">' + (riga.pvp_corrente ? fmtEuro(riga.pvp_corrente) : '') + '</td>';
-      [2023, 2024, 2025, 2026].forEach((y, i) => {
-        const v = stor[y];
-        html += '<td class="td-stor' + (i===3 ? ' last' : '') + '">' + (v != null ? v : '') + '</td>';
-      });
 
+      // COLONNE ORDINE (prima dello storico)
       let totOrd = 0;
       emporiVis.forEach((emp, ei) => {
         const qt   = q[emp.codice] || {};
@@ -803,7 +848,6 @@ function renderTable() {
         const conf = parseFloat(riga.conf) || 0;
         const tdCls = oc > 0 ? ((conf > 0 && oc % conf !== 0) ? 'td-ord inv-val' : 'td-ord has-val') : 'td-ord';
         subEmpOrd[emp.codice] += oc;
-
         html += '<td class="' + tdCls + '" id="td-oc-' + riga.id + '-' + emp.codice + '">' +
           '<input class="cella-qty cella-ord" type="number" step="1" min="0" value="' + (oc || '') + '" ' +
           'data-rid="' + riga.id + '" data-col="' + ei + '" ' +
@@ -812,17 +856,31 @@ function renderTable() {
           '</td>';
       });
 
-      const pvp    = parseFloat(riga.pvp_corrente) || 0;
+      const pvp     = parseFloat(riga.pvp_corrente) || 0;
       const euroImp = totOrd * pvp;
-      if (_iAmAdmin && nEmp > 1) {
+      if (hasTotOrd) {
         html += '<td class="td-tot-ord" id="tot-ord-' + riga.id + '">' + (totOrd || '') + '</td>';
       }
+
+      // STORICO (2026→2023, dual: acquistato / venduto)
+      [2026, 2025, 2024, 2023].forEach((y, i) => {
+        const acq = stor[y];
+        const vnd = storV[y];
+        const bL  = i === 0 ? 'border-left:2px solid #94a3b8;' : '';
+        const bR  = i === 3 ? 'border-right:2px solid #94a3b8;' : '';
+        html += '<td class="td-stor" style="' + bL + bR + '">' +
+          '<div class="stor-acq">' + (acq != null ? acq : '—') + '</div>' +
+          '<div class="stor-vnd">' + (vnd != null ? vnd : '—') + '</div>' +
+          '</td>';
+      });
+
       html += '<td class="td-tot-eur" id="tot-eur-' + riga.id + '">' + (euroImp > 0 ? fmtEuro(euroImp) : '') + '</td>';
       html += '</tr>';
     });
 
+    // Riga subtotale
     html += '<tr class="tr-subtotal" data-fk="' + fk + '">';
-    html += '<td colspan="9" style="text-align:right;font-size:9px;text-transform:uppercase;letter-spacing:.04em">TOTALE ' + esc(forn) + '</td>';
+    html += '<td colspan="5" style="text-align:right;font-size:9px;text-transform:uppercase;letter-spacing:.04em">TOTALE ' + esc(forn) + '</td>';
     let subTot = 0, subEur = 0;
     emporiVis.forEach(emp => {
       const so = subEmpOrd[emp.codice] || 0;
@@ -834,16 +892,17 @@ function renderTable() {
         subEur += (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0);
       });
     });
-    if (_iAmAdmin && nEmp > 1) {
+    if (hasTotOrd) {
       html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#16A34A;background:#f0fdf4">' + (subTot || '') + '</td>';
     }
+    for (let i = 0; i < 4; i++) html += '<td style="background:#f1f5f9"></td>';
     html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534;background:#f0fdf4">' + (subEur > 0 ? fmtEuro(subEur) : '') + '</td>';
     html += '</tr>';
   });
 
   tbody.innerHTML = html;
 
-  let foot = '<tr><td colspan="9" style="text-align:right;font-size:10px;letter-spacing:.06em">TOTALE GENERALE →</td>';
+  let foot = '<tr><td colspan="5" style="text-align:right;font-size:10px;letter-spacing:.06em">TOTALE GENERALE →</td>';
   let gTot = 0, gEur = 0;
   emporiVis.forEach(emp => {
     const eo = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
@@ -851,9 +910,10 @@ function renderTable() {
     gTot += eo; gEur += ee;
     foot += '<td style="text-align:center;color:#4ade80;font-family:\'Nunito\',monospace;font-weight:700">' + (eo || '') + '</td>';
   });
-  if (_iAmAdmin && nEmp > 1) {
+  if (hasTotOrd) {
     foot += '<td style="text-align:right;color:#4ade80;font-family:\'Nunito\',monospace;font-size:13px;background:#0f3d1e">' + (gTot || '') + '</td>';
   }
+  for (let i = 0; i < 4; i++) foot += '<td style="background:#1e293b"></td>';
   foot += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80;background:#0f3d1e">' + (gEur > 0 ? fmtEuro(gEur) : '') + '</td>';
   foot += '</tr>';
   tfoot.innerHTML = foot;
@@ -1120,10 +1180,10 @@ function exportCSV() {
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
-  const cols = ['Codice','Categoria','Prodotto','Conf','PVP cess.',
-    'CR 2023','CR 2024','CR 2025','CR 2026'];
+  const cols = ['Codice','Categoria','Prodotto','Conf','PVP cess.'];
   emporiVis.forEach(e => { cols.push('ORD ' + e.codice); });
   if (_iAmAdmin && emporiVis.length > 1) cols.push('TOT ORD');
+  cols.push('CR 2026 Acq','CR 2026 Vnd','CR 2025 Acq','CR 2025 Vnd','CR 2024 Acq','CR 2024 Vnd','CR 2023 Acq','CR 2023 Vnd');
   cols.push('€ IMP');
 
   const rows = [cols.join(';')];
@@ -1137,12 +1197,16 @@ function exportCSV() {
       totEur += oc * (parseFloat(r.pvp_corrente) || 0);
       empData.push(oc || '');
     });
+    const stV = STORICO_CR_VEND[r.codice] || {};
     rows.push([
       csvQ(r.codice), csvQ(r.categoria), csvQ(r.prodotto),
       r.conf || '', r.pvp_corrente || '',
-      stor[2023] ?? '', stor[2024] ?? '', stor[2025] ?? '', stor[2026] ?? '',
       ...empData,
       ...(_iAmAdmin && emporiVis.length > 1 ? [totOrd || ''] : []),
+      stor[2026] ?? '', stV[2026] ?? '',
+      stor[2025] ?? '', stV[2025] ?? '',
+      stor[2024] ?? '', stV[2024] ?? '',
+      stor[2023] ?? '', stV[2023] ?? '',
       totEur > 0 ? totEur.toFixed(2) : '',
     ].join(';'));
   });
