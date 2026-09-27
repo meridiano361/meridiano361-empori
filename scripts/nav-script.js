@@ -114,7 +114,7 @@
       { id: 'calendario',   label: 'Calendario',   icon: 'fa-calendar-days',  href: 'pages/calendario/index.html',   section: null,      active: true },
       { id: 'rifornimento', label: 'Fornitura', icon: 'fa-boxes-stacked',  href: 'pages/rifornimento/index.html', section: null,      active: false },
       { id: 'prezzi',       label: 'Prezzi',       icon: 'fa-tag',            href: 'pages/prezzi/prezzi.html',          section: null,      active: true  },
-      { id: 'preordini',   label: 'Ordini Fornit.',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: false },
+      { id: 'preordini',   label: 'Preordini',   icon: 'fa-clipboard-list', href: 'pages/gestione/preordini.html',     section: null,      active: false },
       { id: 'materiali',   label: 'Materiali',   icon: 'fa-folder-open',    href: 'pages/materiali/materiali.html',    section: null,      active: true  },
       { id: 'scadenze',   label: 'Scadenze',    icon: 'fa-clock-rotate-left', href: 'pages/prodotti-scadenza/prodotti-scadenza.html', section: null, active: true },
       { id: 'listino',    label: 'Vetrina',     icon: 'fa-list-ul',           href: 'pages/listino-prezzi/listino-prezzi.html',       section: null, active: true },
