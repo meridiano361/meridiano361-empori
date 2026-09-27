@@ -299,7 +299,7 @@ const EMP_MAP = {
 
 // ── STATE ──────────────────────────────────────────────────────────────
 let _user         = null;
-let isAdmin       = false;
+let _iAmAdmin     = false;
 let mioEmpCodice  = '';
 let campagna      = null;
 let emporiAttivi  = [];
@@ -313,45 +313,57 @@ const insertLocks = {};
 
 // ── INIT ───────────────────────────────────────────────────────────────
 (async function init() {
-  _user = JSON.parse(localStorage.getItem('m361_user') || 'null');
-  if (!_user) { location.replace('/login.html'); return; }
+  try {
+    _user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+    if (!_user) { location.replace('/login.html'); return; }
 
-  const em = (_user.email || '').toLowerCase();
-  isAdmin = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
+    const em = (_user.email || '').toLowerCase();
+    _iAmAdmin = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
 
-  if (!isAdmin) {
-    let ok = !!_user.is_resp_acquisti;
-    if (!ok && _user.id) {
-      const { data: op } = await DB.from('operatori')
-        .select('is_resp_acquisti').eq('id', _user.id).single();
-      ok = !!(op?.is_resp_acquisti);
+    if (!_iAmAdmin) {
+      let ok = !!_user.is_resp_acquisti;
+      if (!ok && _user.id) {
+        const { data: op } = await DB.from('operatori')
+          .select('is_resp_acquisti').eq('id', _user.id).single();
+        ok = !!(op?.is_resp_acquisti);
+      }
+      if (!ok) { location.replace('/'); return; }
+      mioEmpCodice = EMP_MAP[_user.emporio || ''] || _user.emporio_codice || '';
     }
-    if (!ok) { location.replace('/'); return; }
-    mioEmpCodice = EMP_MAP[_user.emporio || ''] || _user.emporio_codice || '';
-  }
 
-  if (isAdmin) {
-    document.getElementById('emp-filter-wrap').classList.remove('hidden');
-  }
+    if (_iAmAdmin) {
+      document.getElementById('emp-filter-wrap').classList.remove('hidden');
+    }
 
-  await loadCampagna();
+    await loadCampagna();
+  } catch (err) {
+    document.getElementById('loading-state').innerHTML =
+      '<div style="font-size:13px;color:#dc2626">Errore caricamento: ' + err.message + '</div>';
+  }
 })();
 
 // ── LOAD CAMPAGNA ──────────────────────────────────────────────────────
 async function loadCampagna() {
-  const { data: camps } = await DB.from('preordini_campagne')
-    .select('*').order('anno', { ascending: false }).limit(20);
+  try {
+    const { data: camps, error } = await DB.from('preordini_campagne')
+      .select('*').order('anno', { ascending: false }).limit(20);
 
-  const p27 = (camps || []).find(c => c.nome === 'Pasqua 2027' && c.anno === 2027)
-           || (camps || [])[0];
+    if (error) throw new Error(error.message);
 
-  if (!p27) {
-    document.getElementById('loading-state').classList.add('hidden');
-    document.getElementById('empty-state').classList.remove('hidden');
-    return;
+    const p27 = (camps || []).find(c => c.nome === 'Pasqua 2027' && c.anno === 2027)
+             || (camps || [])[0];
+
+    if (!p27) {
+      document.getElementById('loading-state').classList.add('hidden');
+      document.getElementById('empty-state').classList.remove('hidden');
+      return;
+    }
+
+    await selezionaCampagna(p27);
+  } catch (err) {
+    document.getElementById('loading-state').innerHTML =
+      '<div style="font-size:13px;color:#dc2626">Errore caricamento dati: ' + err.message + '</div>';
   }
-
-  await selezionaCampagna(p27);
 }
 
 async function selezionaCampagna(camp) {
@@ -371,14 +383,14 @@ async function selezionaCampagna(camp) {
   righe = rigs || [];
   quantitaMap = {};
 
-  if (isAdmin) {
+  if (_iAmAdmin) {
     filtroEmpori = new Set(emporiAttivi.map(e => e.codice));
     buildFiltroUI();
   }
 
   if (righe.length > 0) {
     let q = DB.from('preordini_quantita').select('*').in('riga_id', righe.map(r => r.id));
-    if (!isAdmin) q = q.eq('emporio_codice', mioEmpCodice);
+    if (!_iAmAdmin) q = q.eq('emporio_codice', mioEmpCodice);
     const { data: qtys } = await q;
     (qtys || []).forEach(qt => {
       if (!quantitaMap[qt.riga_id]) quantitaMap[qt.riga_id] = {};
@@ -455,12 +467,12 @@ function renderTable() {
   const tbody = document.getElementById('tbody');
   const tfoot = document.getElementById('tfoot');
 
-  const emporiVis = isAdmin
+  const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
   const nEmp = emporiVis.length;
-  const totalCols = 5 + 4 + nEmp + (isAdmin ? 2 : 1);
+  const totalCols = 5 + 4 + nEmp + (_iAmAdmin ? 2 : 1);
 
   // ── Header ──
   let h1 = '<tr>';
@@ -473,7 +485,7 @@ function renderTable() {
   emporiVis.forEach(e => {
     h1 += '<th rowspan="2" class="th-emp" style="min-width:52px">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:600;opacity:.7">ord.27</span></th>';
   });
-  if (isAdmin && nEmp > 1) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
+  if (_iAmAdmin && nEmp > 1) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
   h1 += '<th rowspan="2" class="th-tot" style="min-width:74px">€ IMP</th>';
   h1 += '</tr>';
 
@@ -541,7 +553,7 @@ function renderTable() {
       // Totals
       const pvp = parseFloat(riga.pvp_corrente) || 0;
       const euroImp = totOrd * pvp;
-      if (isAdmin && nEmp > 1) {
+      if (_iAmAdmin && nEmp > 1) {
         html += '<td class="td-tot-ord" id="tot-ord-' + riga.id + '">' + (totOrd || '') + '</td>';
       }
       html += '<td class="td-tot-eur" id="tot-eur-' + riga.id + '">' + (euroImp > 0 ? fmtEuro(euroImp) : '') + '</td>';
@@ -562,7 +574,7 @@ function renderTable() {
         subEur += (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0);
       });
     });
-    if (isAdmin && nEmp > 1) {
+    if (_iAmAdmin && nEmp > 1) {
       html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#16A34A;background:#f0fdf4">' + (subTot || '') + '</td>';
     }
     html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534;background:#f0fdf4">' + (subEur > 0 ? fmtEuro(subEur) : '') + '</td>';
@@ -580,7 +592,7 @@ function renderTable() {
     gTot += eo; gEur += ee;
     foot += '<td style="text-align:center;color:#4ade80;font-family:\'Nunito\',monospace;font-weight:700">' + (eo || '') + '</td>';
   });
-  if (isAdmin && nEmp > 1) {
+  if (_iAmAdmin && nEmp > 1) {
     foot += '<td style="text-align:right;color:#4ade80;font-family:\'Nunito\',monospace;font-size:13px;background:#0f3d1e">' + (gTot || '') + '</td>';
   }
   foot += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80;background:#0f3d1e">' + (gEur > 0 ? fmtEuro(gEur) : '') + '</td>';
@@ -594,7 +606,7 @@ function renderTable() {
 function updateRowTotals(rigaId) {
   const riga = righe.find(r => r.id === rigaId);
   const pvp = parseFloat(riga?.pvp_corrente) || 0;
-  const emporiVis = isAdmin
+  const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
@@ -622,7 +634,7 @@ function calcolaSconto(empCodice) {
 
 function aggiornaScontoBanner() {
   const banner = document.getElementById('sconto-banner');
-  const emporiVis = isAdmin
+  const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
@@ -737,7 +749,7 @@ function onQtyKey(e, input) {
 
   const rid  = input.dataset.rid;
   const col  = parseInt(input.dataset.col);
-  const emporiVis = isAdmin
+  const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
   const nCols = emporiVis.length;
@@ -805,14 +817,14 @@ function toggleRiepilogo() {
 }
 
 function renderRiepilogo() {
-  const emporiVis = isAdmin
+  const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
   const categorie = [...new Set(righe.map(r => r.categoria || '—'))].sort();
   let html = '<thead><tr><th>Categoria</th>';
   emporiVis.forEach(e => { html += '<th style="text-align:right">' + esc(e.codice) + '</th>'; });
-  if (isAdmin && emporiVis.length > 1) html += '<th style="text-align:right">TOT</th>';
+  if (_iAmAdmin && emporiVis.length > 1) html += '<th style="text-align:right">TOT</th>';
   html += '<th style="text-align:right">€ IMP</th></tr></thead><tbody>';
 
   let gTot = 0, gEur = 0;
@@ -832,7 +844,7 @@ function renderRiepilogo() {
     gTot += tTot; gEur += tEur;
     html += '<tr><td style="font-weight:600">' + esc(cat) + '</td>';
     emporiVis.forEach(emp => { html += '<td style="text-align:right;font-family:\'Nunito\',monospace">' + (empO[emp.codice] || '—') + '</td>'; });
-    if (isAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;font-weight:700;color:#16A34A">' + (tTot || '—') + '</td>';
+    if (_iAmAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;font-weight:700;color:#16A34A">' + (tTot || '—') + '</td>';
     html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534">' + (tEur > 0 ? fmtEuro(tEur) : '—') + '</td>';
     html += '</tr>';
   });
@@ -844,7 +856,7 @@ function renderRiepilogo() {
     html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (t || '—') +
       (pct > 0 ? '<span style="font-size:9px;color:#86efac;margin-left:3px">-' + pct + '%</span>' : '') + '</td>';
   });
-  if (isAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gTot || '—') + '</td>';
+  if (_iAmAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gTot || '—') + '</td>';
   html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gEur > 0 ? fmtEuro(gEur) : '—') + '</td>';
   html += '</tr></tbody>';
   document.getElementById('summary-table').innerHTML = html;
@@ -852,14 +864,14 @@ function renderRiepilogo() {
 
 // ── EXPORT CSV ────────────────────────────────────────────────────────
 function exportCSV() {
-  const emporiVis = isAdmin
+  const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
   const cols = ['Codice','Categoria','Prodotto','Conf','PVP cess.',
     'CR 2023','CR 2024','CR 2025','CR 2026'];
   emporiVis.forEach(e => { cols.push('ORD ' + e.codice); });
-  if (isAdmin && emporiVis.length > 1) cols.push('TOT ORD');
+  if (_iAmAdmin && emporiVis.length > 1) cols.push('TOT ORD');
   cols.push('€ IMP');
 
   const rows = [cols.join(';')];
@@ -878,7 +890,7 @@ function exportCSV() {
       r.conf || '', r.pvp_corrente || '',
       stor[2023] ?? '', stor[2024] ?? '', stor[2025] ?? '', stor[2026] ?? '',
       ...empData,
-      ...(isAdmin && emporiVis.length > 1 ? [totOrd || ''] : []),
+      ...(_iAmAdmin && emporiVis.length > 1 ? [totOrd || ''] : []),
       totEur > 0 ? totEur.toFixed(2) : '',
     ].join(';'));
   });
