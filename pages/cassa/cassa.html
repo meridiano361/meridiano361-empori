@@ -484,6 +484,16 @@ input[type=month].btn-export{min-width:160px;}
 .kpi-sub{font-size:11px;color:#94a3b8;margin-top:4px;}
 /* ══ PRINT ══ */
 @media print{.main-nav,.export-bar,.btn-export,.save-bar{display:none!important;}.macro-section{display:block!important;}.sub-content{display:block!important;}}
+/* ── FOTO SPESE WARNING ── */
+.spese-foto-warn{background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-top:8px;}
+.spese-foto-warn-msg{font-size:11px;font-weight:700;color:#92400e;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.spese-foto-warn-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.btn-spese-carica{background:#B5453A;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:4px;}
+.btn-spese-carica:hover{background:#8c362d;}
+.btn-spese-dopo{background:#fff;color:#64748b;border:1.5px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:4px;}
+.btn-spese-dopo:hover{background:#f8fafc;}
+.btn-spese-esenta{background:#f0fdf4;color:#166534;border:1.5px solid #bbf7d0;border-radius:8px;padding:6px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:4px;}
+.btn-spese-esenta:hover{background:#dcfce7;}
 </style>
 </head>
 <body>
@@ -1544,6 +1554,7 @@ let calYear, calMonth, selectedDate;
 const noteMap = {};
 const selectedOps = { mat: [], pom: [] };
 const photosMap = { mat_rf: [], mat_pos: [], pom_rf: [], pom_pos: [], mat_spese: [], pom_spese: [] };
+const speseExempt = { mat: false, pom: false };
 const FOTO_BUCKET = 'cassa-foto';
 let _dirty = false;
 const markDirty  = () => { if (!document.getElementById('screen-day').classList.contains('hidden')) { _dirty = true; scheduleBackup(); } };
@@ -2551,6 +2562,26 @@ function renderSpeseSavedView(turno, id, area, btn) {
     wrap.appendChild(fotoDiv);
   }
 
+  // Avviso se spesa presente ma nessuna foto e non esente
+  const hasSpese = data.voci.length > 0 || !!data.legacy;
+  if (hasSpese && fotoSpese.length === 0 && !speseExempt[turno]) {
+    const warn = document.createElement('div'); warn.className='spese-foto-warn';
+    const warnMsg = document.createElement('div'); warnMsg.className='spese-foto-warn-msg';
+    warnMsg.innerHTML='<i class="fas fa-triangle-exclamation"></i> Nessuna foto scontrino allegata';
+    const warnBtns = document.createElement('div'); warnBtns.className='spese-foto-warn-btns';
+    const btnCarica = document.createElement('button'); btnCarica.type='button'; btnCarica.className='btn-spese-carica';
+    btnCarica.innerHTML='<i class="fas fa-camera"></i> Carica ora';
+    btnCarica.addEventListener('click',()=>{ renderSpeseEditor(turno,id,PAGAMENTI.find(p=>p.id===id)?.label||id,area,btn); area.classList.remove('hidden'); });
+    const btnDopo = document.createElement('button'); btnDopo.type='button'; btnDopo.className='btn-spese-dopo';
+    btnDopo.innerHTML='<i class="fas fa-clock"></i> Più tardi';
+    btnDopo.addEventListener('click',()=>warn.remove());
+    const btnEsenta = document.createElement('button'); btnEsenta.type='button'; btnEsenta.className='btn-spese-esenta';
+    btnEsenta.innerHTML='<i class="fas fa-check"></i> Non necessaria';
+    btnEsenta.addEventListener('click',()=>{ speseExempt[turno]=true; markDirty(); warn.remove(); });
+    warnBtns.append(btnCarica,btnDopo,btnEsenta); warn.append(warnMsg,warnBtns);
+    wrap.appendChild(warn);
+  }
+
   const footer=document.createElement('div'); footer.className='note-saved-footer';
   const editBtn=document.createElement('button'); editBtn.className='note-edit-btn'; editBtn.textContent='modifica';
   editBtn.addEventListener('click',()=>{ renderSpeseEditor(turno,id,PAGAMENTI.find(p=>p.id===id)?.label||id,area,btn); area.classList.remove('hidden'); });
@@ -3205,6 +3236,8 @@ function fillForm(data) {
     // Foto scontrini spese (si renderizzano all'apertura dell'editor)
     const colSp = data[t+'_foto_spese'];
     if (colSp) try { photosMap[t+'_spese'] = JSON.parse(colSp); } catch(e) {}
+    // Stato esenzione foto spese
+    if (data[t+'_spese_foto_exempt']) speseExempt[t] = true;
   });
   if (data.mat_scontrini != null)   { const el = document.getElementById('mat-scontrini');   if (el) el.value = data.mat_scontrini; }
   if (data.pom_scontrini != null)   { const el = document.getElementById('pom-scontrini');   if (el) el.value = data.pom_scontrini; }
@@ -3418,6 +3451,7 @@ function resetDayForm() {
   syncWeatherIcon();
   // Reset foto
   Object.keys(photosMap).forEach(k => photosMap[k] = []);
+  speseExempt.mat = false; speseExempt.pom = false;
   ['mat','pom'].forEach(t => ['rf','pos'].forEach(tp => renderFotoWrap(t, tp)));
   // Reset nuovi campi
   const ms = document.getElementById('mat-scontrini'); if (ms) ms.value = '';
@@ -3962,6 +3996,8 @@ async function saveDay() {
     pom_foto_pos:   photosMap.pom_pos.length   ? JSON.stringify(photosMap.pom_pos)   : null,
     mat_foto_spese: photosMap.mat_spese.length ? JSON.stringify(photosMap.mat_spese) : null,
     pom_foto_spese: photosMap.pom_spese.length ? JSON.stringify(photosMap.pom_spese) : null,
+    mat_spese_foto_exempt: speseExempt.mat || null,
+    pom_spese_foto_exempt: speseExempt.pom || null,
     turno_type:      tipo,
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
     iva_esente: getNum('iva-esente'),
