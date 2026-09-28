@@ -1543,7 +1543,7 @@ let fondoCassa = 0;
 let calYear, calMonth, selectedDate;
 const noteMap = {};
 const selectedOps = { mat: [], pom: [] };
-const photosMap = { mat_rf: [], mat_pos: [], pom_rf: [], pom_pos: [] };
+const photosMap = { mat_rf: [], mat_pos: [], pom_rf: [], pom_pos: [], mat_spese: [], pom_spese: [] };
 const FOTO_BUCKET = 'cassa-foto';
 let _dirty = false;
 const markDirty  = () => { if (!document.getElementById('screen-day').classList.contains('hidden')) { _dirty = true; scheduleBackup(); } };
@@ -2475,6 +2475,14 @@ function renderSpeseEditor(turno, id, label, area, btn) {
     liberaTa.addEventListener('input',()=>{ libera=liberaTa.value; });
     ed.append(liberaLbl, liberaTa);
 
+    // Foto scontrino spesa
+    const fotoSpLbl = document.createElement('div'); fotoSpLbl.className='online-note-libera-lbl';
+    fotoSpLbl.innerHTML='<i class="fas fa-camera" style="margin-right:4px"></i>FOTO SCONTRINO';
+    const fotoSpWrap = document.createElement('div');
+    fotoSpWrap.id = turno+'-foto-spese'; fotoSpWrap.className='foto-wrap';
+    fotoSpWrap.style.cssText='margin:4px 0 8px;min-height:44px';
+    ed.append(fotoSpLbl, fotoSpWrap);
+
     const actRow = document.createElement('div'); actRow.className='online-note-actions';
     const saveBtn = document.createElement('button');
     saveBtn.type='button'; saveBtn.className='online-save-btn';
@@ -2489,6 +2497,7 @@ function renderSpeseEditor(turno, id, label, area, btn) {
     actRow.append(saveBtn,colBtn); ed.appendChild(actRow);
     area.appendChild(ed);
     updateSum();
+    renderFotoWrap(turno, 'spese');
   }
 
   function updateSum() {
@@ -2524,6 +2533,22 @@ function renderSpeseSavedView(turno, id, area, btn) {
       const freeDiv=document.createElement('div'); freeDiv.className='note-saved-libera';
       freeDiv.textContent=data.libera; wrap.appendChild(freeDiv);
     }
+  }
+
+  // Foto scontrino spesa salvate
+  const fotoSpese = photosMap[turno+'_spese'] || [];
+  if (fotoSpese.length > 0) {
+    const fotoDiv = document.createElement('div');
+    fotoDiv.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:2px 0';
+    fotoSpese.forEach(path => {
+      const url = getFotoUrl(path);
+      const img = document.createElement('img');
+      img.src=url; img.alt='Scontrino spesa'; img.title='Apri foto scontrino';
+      img.style.cssText='width:40px;height:52px;object-fit:cover;border-radius:6px;border:1.5px solid #e2e8f0;cursor:pointer;flex-shrink:0';
+      img.addEventListener('click',()=>window.open(url,'_blank'));
+      fotoDiv.appendChild(img);
+    });
+    wrap.appendChild(fotoDiv);
   }
 
   const footer=document.createElement('div'); footer.className='note-saved-footer';
@@ -3177,6 +3202,9 @@ function fillForm(data) {
       if (col) try { photosMap[t+'_'+tp] = JSON.parse(col); } catch(e) {}
       renderFotoWrap(t, tp);
     });
+    // Foto scontrini spese (si renderizzano all'apertura dell'editor)
+    const colSp = data[t+'_foto_spese'];
+    if (colSp) try { photosMap[t+'_spese'] = JSON.parse(colSp); } catch(e) {}
   });
   if (data.mat_scontrini != null)   { const el = document.getElementById('mat-scontrini');   if (el) el.value = data.mat_scontrini; }
   if (data.pom_scontrini != null)   { const el = document.getElementById('pom-scontrini');   if (el) el.value = data.pom_scontrini; }
@@ -3928,10 +3956,12 @@ async function saveDay() {
     })(),
     mat_ora_chiusura: tipo === 'solo_mattino' ? new Date().toISOString() : (matOraChiusura||null),
     pom_ora_chiusura: pomOraChiusura || new Date().toISOString(),
-    mat_foto_rf:  photosMap.mat_rf.length  ? JSON.stringify(photosMap.mat_rf)  : null,
-    mat_foto_pos: photosMap.mat_pos.length ? JSON.stringify(photosMap.mat_pos) : null,
-    pom_foto_rf:  photosMap.pom_rf.length  ? JSON.stringify(photosMap.pom_rf)  : null,
-    pom_foto_pos: photosMap.pom_pos.length ? JSON.stringify(photosMap.pom_pos) : null,
+    mat_foto_rf:    photosMap.mat_rf.length    ? JSON.stringify(photosMap.mat_rf)    : null,
+    mat_foto_pos:   photosMap.mat_pos.length   ? JSON.stringify(photosMap.mat_pos)   : null,
+    pom_foto_rf:    photosMap.pom_rf.length    ? JSON.stringify(photosMap.pom_rf)    : null,
+    pom_foto_pos:   photosMap.pom_pos.length   ? JSON.stringify(photosMap.pom_pos)   : null,
+    mat_foto_spese: photosMap.mat_spese.length ? JSON.stringify(photosMap.mat_spese) : null,
+    pom_foto_spese: photosMap.pom_spese.length ? JSON.stringify(photosMap.pom_spese) : null,
     turno_type:      tipo,
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
     iva_esente: getNum('iva-esente'),
