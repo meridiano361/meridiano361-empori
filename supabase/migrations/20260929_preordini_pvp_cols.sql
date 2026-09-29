@@ -1,0 +1,2 @@
+ALTER TABLE preordini_righe ADD COLUMN IF NOT EXISTS pvp_consigliato NUMERIC;
+ALTER TABLE preordini_righe ADD COLUMN IF NOT EXISTS pvp_m361 NUMERIC;
