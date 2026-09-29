@@ -90,6 +90,16 @@
         #lightbox-close:hover{opacity:1;}
         #lightbox-cambia{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.35);border-radius:10px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(8px);transition:all .15s;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:8px;white-space:nowrap;}
         #lightbox-cambia:hover{background:rgba(255,255,255,.28);border-color:rgba(255,255,255,.6);}
+        /* ── SPLIT OVERLAY THUMBNAIL ── */
+        .foto-ov-wrap{display:none;position:absolute;inset:0;}
+        label.has-foto:hover .foto-ov-wrap{display:flex;}
+        .foto-ov-zoom,.foto-ov-change{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:background .12s;}
+        .foto-ov-zoom{background:rgba(30,41,59,.52);border-radius:6px 0 0 6px;}
+        .foto-ov-zoom:hover{background:rgba(30,41,59,.78);}
+        .foto-ov-change{background:rgba(181,69,58,.58);border-radius:0 6px 6px 0;}
+        .foto-ov-change:hover{background:rgba(181,69,58,.88);}
+        .foto-ov-zoom i,.foto-ov-change i{color:#fff;font-size:9px;}
+        .foto-ov-lbl{color:#fff;font-size:6px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1;}
     </style>
 </head>
 <body class="pb-28">
@@ -1175,7 +1185,7 @@ async function apriPreventivo(id) {
                     const fotoImg   = row.querySelector('.foto-img');
                     const fotoIcon  = row.querySelector('.foto-icon');
                     if (fotoInput) fotoInput.dataset.foto = r.foto_url;
-                    if (fotoImg)  { fotoImg.src = r.foto_url; fotoImg.classList.remove('hidden'); fotoImg.style.cursor = 'zoom-in'; }
+                    if (fotoImg)  { fotoImg.src = r.foto_url; fotoImg.classList.remove('hidden'); fotoImg.closest('label').classList.add('has-foto'); }
                     if (fotoIcon) fotoIcon.classList.add('hidden');
                 }
                 const rowId = row.id.replace('row-', '');
@@ -1311,8 +1321,8 @@ function onFotoChange(input) {
             const icon = label.querySelector('.foto-icon');
             img.src = dataUrl;
             img.classList.remove('hidden');
-            img.style.cursor = 'zoom-in';
             icon.classList.add('hidden');
+            label.classList.add('has-foto');
         };
         tmpImg.src = e.target.result;
     };
@@ -1437,6 +1447,10 @@ function addRow(gid) {
             <label class="cursor-pointer flex items-center justify-center w-9 h-9 bg-slate-100 rounded-lg overflow-hidden hover:bg-slate-200 transition-colors relative">
                 <img class="foto-img hidden w-full h-full object-cover absolute inset-0 rounded-lg">
                 <i class="fas fa-camera text-slate-300 text-xs foto-icon"></i>
+                <div class="foto-ov-wrap">
+                    <div class="foto-ov-zoom" title="Ingrandisci"><i class="fas fa-magnifying-glass-plus"></i><span class="foto-ov-lbl">vedi</span></div>
+                    <div class="foto-ov-change" title="Cambia foto"><i class="fas fa-camera"></i><span class="foto-ov-lbl">cambia</span></div>
+                </div>
                 <input type="file" accept="image/*" class="hidden foto-input">
             </label>
         </td>
@@ -1484,10 +1498,10 @@ function addRow(gid) {
     row.querySelector('.iva-input').addEventListener('input',   () => calcRow(rowId, gid));
     row.querySelector('.sconto-input').addEventListener('input',() => calcRow(rowId, gid));
     row.querySelector('.foto-input').addEventListener('change', function() { onFotoChange(this); });
-    row.querySelector('.foto-img').addEventListener('click', function(e) {
-        if (this.classList.contains('hidden') || !this.src) return;
+    row.querySelector('.foto-ov-zoom').addEventListener('click', function(e) {
         e.preventDefault(); e.stopPropagation();
-        apriLightbox(this.src, this.closest('label').querySelector('.foto-input'));
+        const lbl = this.closest('label');
+        apriLightbox(lbl.querySelector('.foto-img').src, lbl.querySelector('.foto-input'));
     });
     row.querySelector('.desc-input').addEventListener('input', function() { if (this.value) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1); });
     internalRow.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
