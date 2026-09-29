@@ -80,6 +80,14 @@
         .breakdown-row .val { font-weight: 700; }
         .breakdown-row.bd-total { border-top: 2px solid #e2e8f0; margin-top: 8px; padding-top: 10px; font-size: 15px; font-weight: 900; color: #1e293b; }
         @media print { .no-print { display: none !important; } }
+        /* ── LIGHTBOX ── */
+        #lightbox-overlay{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);align-items:center;justify-content:center;cursor:zoom-out;animation:lb-in .15s ease;}
+        #lightbox-overlay.active{display:flex;}
+        @keyframes lb-in{from{opacity:0}to{opacity:1}}
+        #lightbox-img{max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.6);object-fit:contain;cursor:default;animation:lb-zoom .15s ease;}
+        @keyframes lb-zoom{from{transform:scale(.92)}to{transform:scale(1)}}
+        #lightbox-close{position:fixed;top:18px;right:22px;color:#fff;font-size:28px;cursor:pointer;opacity:.7;transition:opacity .15s;line-height:1;background:none;border:none;}
+        #lightbox-close:hover{opacity:1;}
     </style>
 </head>
 <body class="pb-28">
@@ -1165,7 +1173,7 @@ async function apriPreventivo(id) {
                     const fotoImg   = row.querySelector('.foto-img');
                     const fotoIcon  = row.querySelector('.foto-icon');
                     if (fotoInput) fotoInput.dataset.foto = r.foto_url;
-                    if (fotoImg)  { fotoImg.src = r.foto_url; fotoImg.classList.remove('hidden'); }
+                    if (fotoImg)  { fotoImg.src = r.foto_url; fotoImg.classList.remove('hidden'); fotoImg.style.cursor = 'zoom-in'; }
                     if (fotoIcon) fotoIcon.classList.add('hidden');
                 }
                 const rowId = row.id.replace('row-', '');
@@ -1299,6 +1307,7 @@ function onFotoChange(input) {
             const icon = label.querySelector('.foto-icon');
             img.src = dataUrl;
             img.classList.remove('hidden');
+            img.style.cursor = 'zoom-in';
             icon.classList.add('hidden');
         };
         tmpImg.src = e.target.result;
@@ -1471,6 +1480,11 @@ function addRow(gid) {
     row.querySelector('.iva-input').addEventListener('input',   () => calcRow(rowId, gid));
     row.querySelector('.sconto-input').addEventListener('input',() => calcRow(rowId, gid));
     row.querySelector('.foto-input').addEventListener('change', function() { onFotoChange(this); });
+    row.querySelector('.foto-img').addEventListener('click', function(e) {
+        if (this.classList.contains('hidden') || !this.src) return;
+        e.preventDefault(); e.stopPropagation();
+        apriLightbox(this.src);
+    });
     row.querySelector('.desc-input').addEventListener('input', function() { if (this.value) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1); });
     internalRow.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
     internalRow.querySelector('.costo-ii-input').addEventListener('blur',  function() { formatCurrency(this); });
@@ -2442,6 +2456,21 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<div id="lightbox-overlay" onclick="chiudiLightbox()">
+  <button id="lightbox-close" onclick="chiudiLightbox()" title="Chiudi">×</button>
+  <img id="lightbox-img" src="" alt="Foto prodotto" onclick="event.stopPropagation()">
+</div>
+<script>
+function apriLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox-overlay').classList.add('active');
+}
+function chiudiLightbox() {
+  document.getElementById('lightbox-overlay').classList.remove('active');
+  document.getElementById('lightbox-img').src = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') chiudiLightbox(); });
+</script>
 <script src="../../scripts/ui-helpers.js"></script>
 <script src="../../scripts/nav-script.js"></script>
 </body>
