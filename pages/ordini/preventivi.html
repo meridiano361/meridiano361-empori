@@ -622,6 +622,7 @@
 <script>
 const itFmt   = n => Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:true});
 const itParse = s => parseFloat(String(s||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.')) || 0;
+const fmtData = v => { if(!v) return '—'; const p=String(v).split('T')[0].split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:v; };
 const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -699,7 +700,7 @@ async function loadPreventivi() {
     const tbody = document.getElementById('lista-body');
     tbody.innerHTML = data.map(p => {
         const cliente = [p.cliente_nome, p.cliente_cognome].filter(Boolean).join(' ') || '—';
-        const data_fmt = p.data_preventivo ? new Date(p.data_preventivo).toLocaleDateString('it-IT') : '—';
+        const data_fmt = fmtData(p.data_preventivo);
         const totale   = '€ ' + itFmt(p.totale || 0);
         const badge    = `<span class="stato-badge ${STATO_CSS[p.stato]||'stato-bozza'}">${STATO_LABELS[p.stato]||p.stato}</span>`;
         const puo_convertire = p.stato !== 'convertito' && p.stato !== 'rifiutato';
@@ -2219,7 +2220,7 @@ function stampaPDFConColonne() {
         : [document.getElementById('cust-nome')?.value, document.getElementById('cust-cognome')?.value].filter(Boolean).join(' ');
     const emporio = document.getElementById('select-emporio')?.value || '';
     const dataRaw = document.getElementById('order-date')?.value || '';
-    const data    = dataRaw ? dataRaw.split('-').reverse().join('/') : '';
+    const data    = fmtData(dataRaw);
     const cc      = getCondizioniCommerciali();
     const logoUrl = window.location.origin + '/assets/images/logom361.webp';
 
@@ -2261,8 +2262,8 @@ function stampaPDFConColonne() {
     });
 
     const ccRows = [
-        cc.scadenza          ? `Scadenza ordini: ${cc.scadenza}` : '',
-        cc.validita          ? `Validità preventivo: ${cc.validita.split('-').reverse().join('/')}` : '',
+        cc.scadenza          ? `Scadenza ordini: ${fmtData(cc.scadenza)}` : '',
+        cc.validita          ? `Validità preventivo: ${fmtData(cc.validita)}` : '',
         cc.pagamento         ? `Pagamento: ${cc.pagamento}` : '',
         cc.consegna_gratuita ? `Consegna gratuita${cc.consegna_soglia ? ' sopra ' + cc.consegna_soglia : ''}` : '',
         cc.omaggio           ? `Omaggio: ${cc.omaggio}` : '',
@@ -2369,8 +2370,8 @@ function esportaExcel() {
     if (Object.values(cc).some(Boolean)) {
         rows.push([]);
         rows.push(['CONDIZIONI COMMERCIALI']);
-        if (cc.scadenza)         rows.push(['Scadenza ordini', cc.scadenza]);
-        if (cc.validita)         rows.push(['Validità preventivo', cc.validita.split('-').reverse().join('/')]);
+        if (cc.scadenza)         rows.push(['Scadenza ordini', fmtData(cc.scadenza)]);
+        if (cc.validita)         rows.push(['Validità preventivo', fmtData(cc.validita)]);
         if (cc.pagamento)        rows.push(['Pagamento', cc.pagamento]);
         if (cc.consegna_gratuita) rows.push(['Consegna gratuita', cc.consegna_soglia || '']);
         if (cc.omaggio)          rows.push(['Omaggio', cc.omaggio]);
