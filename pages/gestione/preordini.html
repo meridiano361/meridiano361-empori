@@ -918,9 +918,9 @@ function renderTable() {
 
   let h1 = '<tr>';
   h1 += '<th rowspan="2" class="th-info col-s-foto" style="text-align:center;width:36px;min-width:36px">📷</th>';
-  h1 += '<th rowspan="2" class="th-info col-s0 th-sortable' + (sortRigheBy==='codice'?' sort-active':'') + '" style="text-align:left;width:70px;min-width:70px" onclick="sortTabella('codice')">Codice' + sarr('codice') + '</th>';
-  h1 += '<th rowspan="2" class="th-info col-s1 th-sortable' + (sortRigheBy==='categoria'?' sort-active':'') + '" style="text-align:left;width:110px;min-width:110px" onclick="sortTabella('categoria')">Categoria' + sarr('categoria') + '</th>';
-  h1 += '<th rowspan="2" class="th-info col-s2 th-sortable' + (sortRigheBy==='prodotto'?' sort-active':'') + '" style="text-align:left;min-width:180px" onclick="sortTabella('prodotto')">Prodotto' + sarr('prodotto') + '</th>';
+  h1 += '<th rowspan="2" class="th-info col-s0 th-sortable' + (sortRigheBy==='codice'?' sort-active':'') + '" style="text-align:left;width:70px;min-width:70px" data-s="codice" onclick="sortTabella(this.dataset.s)">Codice' + sarr('codice') + '</th>';
+  h1 += '<th rowspan="2" class="th-info col-s1 th-sortable' + (sortRigheBy==='categoria'?' sort-active':'') + '" style="text-align:left;width:110px;min-width:110px" data-s="categoria" onclick="sortTabella(this.dataset.s)">Categoria' + sarr('categoria') + '</th>';
+  h1 += '<th rowspan="2" class="th-info col-s2 th-sortable' + (sortRigheBy==='prodotto'?' sort-active':'') + '" style="text-align:left;min-width:180px" data-s="prodotto" onclick="sortTabella(this.dataset.s)">Prodotto' + sarr('prodotto') + '</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:42px">Conf</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:58px">PVP cess.</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:64px">PVP cons.</th>';
@@ -977,7 +977,7 @@ function renderTable() {
       const fotoSrc = FOTO_PRODOTTI[riga.codice] || null;
       html += '<tr class="product-row" data-fk="' + fk + '" data-riga-id="' + riga.id + '">';
       html += '<td class="col-s-foto" style="padding:2px;text-align:center">' + (fotoSrc ? '<img src="' + fotoSrc + '" class="foto-prod-thumb" title="' + esc(riga.prodotto||"") + '">' : '') + '</td>';
-      html += '<td class="col-s0" style="color:#94a3b8;font-size:10px;padding:3px 4px;position:relative">' + esc(riga.codice || '') + (_iAmAdmin ? '<button class="admin-edit-btn" onclick="event.stopPropagation();openEditRiga(\"' + riga.id + '\")">✎</button>' : '') + '</td>';
+      html += '<td class="col-s0" style="color:#94a3b8;font-size:10px;padding:3px 4px;position:relative">' + esc(riga.codice || '') + (_iAmAdmin ? '<button class="admin-edit-btn" data-rid="' + riga.id + '" onclick="event.stopPropagation();openEditRiga(this.dataset.rid)">✎</button>' : '') + '</td>';
       html += '<td class="col-s1" style="font-size:11px;color:#64748b;padding:3px 4px">' + esc(riga.categoria || '') + '</td>';
 
       // Prodotto con nota tooltip
@@ -1420,6 +1420,12 @@ async function modalSave() {
   btn.disabled = true;
   btn.textContent = 'Salvataggio...';
   try {
+    if (_modalMode === 'riga-edit' || _modalMode === 'riga-add') {
+      await saveRiga();
+      closeModal();
+      await selezionaCampagna(campagna);
+      return;
+    }
     if (_modalMode === 'sezione-add' || _modalMode === 'sezione-edit') {
       await saveSezione();
     } else {
@@ -1432,6 +1438,31 @@ async function modalSave() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Salva';
+  }
+}
+
+async function saveRiga() {
+  const codice       = document.getElementById('mf-codice').value.trim();
+  const prodotto     = document.getElementById('mf-prodotto').value.trim();
+  const categoria    = document.getElementById('mf-categoria').value.trim() || null;
+  const fornitore    = document.getElementById('mf-fornitore').value.trim() || null;
+  const conf         = parseFloat(document.getElementById('mf-conf').value) || null;
+  const pvp_corrente = parseFloat(document.getElementById('mf-pvp').value) || null;
+  const pvp_consigliato = parseFloat(document.getElementById('mf-pvpcons').value) || null;
+  const note         = document.getElementById('mf-note').value.trim() || null;
+  if (!codice || !prodotto) throw new Error('Codice e Prodotto sono obbligatori');
+  if (_modalMode === 'riga-add') {
+    const maxOrd = righe.reduce((m, r) => Math.max(m, r.ordine || 0), -1);
+    const { error } = await DB.from('preordini_righe').insert({
+      campagna_id: _modalCtx.campagnaId, codice, prodotto, categoria, fornitore,
+      conf, pvp_corrente, pvp_consigliato, note, ordine: maxOrd + 1
+    });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await DB.from('preordini_righe').update({
+      codice, prodotto, categoria, fornitore, conf, pvp_corrente, pvp_consigliato, note
+    }).eq('id', _modalCtx.rigaId);
+    if (error) throw new Error(error.message);
   }
 }
 
