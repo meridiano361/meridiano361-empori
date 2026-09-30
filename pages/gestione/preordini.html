@@ -186,6 +186,8 @@
 
     /* ── SUBTOTAL ── */
     .tr-subtotal td { background: #f1f5f9; font-size: 10px; font-weight: 700; color: #475569; padding: 3px 6px; }
+    .tr-archivio-sep td { background: #e2e8f0; font-size: 9px; font-weight: 700; color: #64748b; text-align: center; padding: 4px; text-transform: uppercase; letter-spacing: .06em; }
+    .tr-archivio td { background: #f8fafc !important; opacity: .65; }
 
     /* ── TFOOT ── */
     .tabella-preordini tfoot td {
@@ -234,6 +236,7 @@
     }
     .emp-cb-label:has(input:checked) { background: #1e293b; color: white; border-color: #1e293b; }
     .emp-cb-label input { display: none; }
+    .emp-cb-label-on { background: #1e293b !important; color: white !important; border-color: #1e293b !important; }
 
     /* ── DEADLINE CHIP ── */
     .deadline-chip {
@@ -585,6 +588,8 @@
     <select id="filtro-cat" class="filtro-input" onchange="onFiltroCat(this.value)">
       <option value="">Tutte le categorie</option>
     </select>
+    <div id="anni-stor-filter" class="emp-filter-wrap" style="border-left:1px solid #e2e8f0;padding-left:8px;gap:4px" title="Anni storico visibili"></div>
+    <button id="btn-storico-prod" class="emp-cb-label" onclick="toggleStoricoProd()" title="Mostra prodotti degli anni precedenti non inclusi in questo preordine" style="flex-shrink:0;border-left:1px solid #e2e8f0;margin-left:2px">± Storico</button>
     <button id="filtri-reset" class="filtri-reset-btn hidden" onclick="resetFiltri()">✕ Azzera</button>
     <span id="filtri-count"></span>
   </div>
@@ -1036,6 +1041,10 @@ let sortRigheBy  = null;   // 'codice' | 'prodotto' | 'categoria' | 'pvp_corrent
 let sortRigheDir = 1;      // 1=asc, -1=desc
 let filtroTesto     = '';
 let filtroCategoria = '';
+const ALL_STOR_ANNI = [2026, 2025, 2024];
+let filtroAnniStor  = new Set(ALL_STOR_ANNI);
+let mostraStoricoProd = false;
+let righeArchiviati   = [];
 
 const SORT_NUMERIC = new Set(['pvp_corrente', 'pvp_consigliato', 'pvp_m361']);
 
@@ -1073,6 +1082,50 @@ function _aggiornaResetBtn() {
   if (btn) btn.classList.toggle('hidden', !filtroTesto && !filtroCategoria);
 }
 
+async function toggleStoricoProd() {
+  mostraStoricoProd = !mostraStoricoProd;
+  const btn = document.getElementById('btn-storico-prod');
+  if (btn) btn.classList.toggle('emp-cb-label-on', mostraStoricoProd);
+  if (mostraStoricoProd && righeArchiviati.length === 0) await loadRigheArchiviati();
+  renderTable();
+}
+
+async function loadRigheArchiviati() {
+  if (!campagna) return;
+  const codiciAttuali = new Set(righe.map(r => r.codice));
+  const { data } = await DB.from('preordini_righe')
+    .select('codice,prodotto,categoria,fornitore,conf,pvp_corrente,pvp_consigliato,pvp_m361')
+    .neq('campagna_id', campagna.id)
+    .order('codice');
+  if (!data) return;
+  const seen = new Set();
+  righeArchiviati = [];
+  for (const r of data) {
+    if (!codiciAttuali.has(r.codice) && !seen.has(r.codice)) {
+      seen.add(r.codice);
+      righeArchiviati.push({ ...r, id: 'arch_' + r.codice, _archivio: true });
+    }
+  }
+}
+
+function toggleAnnoStor(anno) {
+  if (filtroAnniStor.has(anno)) {
+    if (filtroAnniStor.size > 1) filtroAnniStor.delete(anno);
+  } else {
+    filtroAnniStor.add(anno);
+  }
+  _updateAnniPills();
+  renderTable();
+}
+
+function _updateAnniPills() {
+  ALL_STOR_ANNI.forEach(y => {
+    const el = document.getElementById('stor-pill-' + y);
+    if (!el) return;
+    el.classList.toggle('emp-cb-label-on', filtroAnniStor.has(y));
+  });
+}
+
 function buildFiltriBar() {
   const sel = document.getElementById('filtro-cat');
   if (!sel) return;
@@ -1080,6 +1133,19 @@ function buildFiltriBar() {
   const prev = sel.value;
   sel.innerHTML = '<option value="">Tutte le categorie</option>' +
     cats.map(c => '<option value="' + esc(c) + '"' + (c === prev ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+  // Anni storico pills
+  const wrap = document.getElementById('anni-stor-filter');
+  if (wrap && !wrap.dataset.built) {
+    wrap.dataset.built = '1';
+    ALL_STOR_ANNI.forEach(y => {
+      const btn = document.createElement('button');
+      btn.id = 'stor-pill-' + y;
+      btn.className = 'emp-cb-label emp-cb-label-on';
+      btn.textContent = '\'' + String(y).slice(2);
+      btn.onclick = () => toggleAnnoStor(y);
+      wrap.appendChild(btn);
+    });
+  }
   document.getElementById('filtri-bar').classList.remove('hidden');
   _scheduleAjust();
 }
@@ -1391,6 +1457,10 @@ async function selezionaCampagna(camp) {
     emporiAttivi = emps || [];
     righe = rigs || [];
     quantitaMap = {};
+    righeArchiviati = [];
+    mostraStoricoProd = false;
+    const btnSP = document.getElementById('btn-storico-prod');
+    if (btnSP) btnSP.classList.remove('emp-cb-label-on');
 
     if (_iAmAdmin) {
       filtroEmpori = new Set(emporiAttivi.map(e => e.codice));
@@ -1547,7 +1617,9 @@ function renderTable() {
 
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
-  const nStorCols = _iAmAdmin ? 9 : 3; // admin: 3 sedi × 3 anni; resp: 1 sede × 3 anni
+  const STOR_ANNI_VIS = ALL_STOR_ANNI.filter(y => filtroAnniStor.has(y));
+  const nStorSedi = _iAmAdmin ? 3 : 1;
+  const nStorCols = STOR_ANNI_VIS.length * nStorSedi; // sedi × anni visibili
   const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 2; // +2: € IMP + % inc.
 
   // Pre-calcola totale generale per incidenza
@@ -1582,7 +1654,7 @@ function renderTable() {
   h1 += '</tr>';
 
   // THEAD ROW 2: anni × sedi
-  const STOR_ANNI = [2026, 2025, 2024];
+  const STOR_ANNI = STOR_ANNI_VIS;
   const STOR_SEDI = _iAmAdmin
     ? [{ lbl:'CR', bdr:'border-left:2px solid #64748b;' }, { lbl:'CA', bdr:'' }, { lbl:'VI', bdr:'' }]
     : [{ lbl: mioEmpCodice, bdr:'border-left:2px solid #64748b;' }];
@@ -1590,7 +1662,7 @@ function renderTable() {
   STOR_ANNI.forEach((y, yi) => {
     STOR_SEDI.forEach((s, si) => {
       const bL = s.bdr;
-      const bR = (yi === 2 && si === STOR_SEDI.length - 1) ? 'border-right:2px solid #64748b;' : '';
+      const bR = (yi === STOR_ANNI.length - 1 && si === STOR_SEDI.length - 1) ? 'border-right:2px solid #64748b;' : '';
       h2 += '<th class="th-stor-year" style="min-width:' + (_iAmAdmin ? 38 : 52) + 'px;' + bL + bR + '">' + s.lbl + ' <span style="opacity:.6;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
     });
   });
@@ -1731,7 +1803,7 @@ function renderTable() {
             const acq = s.a[y];
             const vnd = s.v[y];
             const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
-            const bR  = (yi === 2 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
+            const bR  = (yi === STOR_ANNI.length - 1 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
             html += '<td class="td-stor" style="' + bL + bR + '">' +
               '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
               '<div class="stor-div"></div>' +
@@ -1747,7 +1819,7 @@ function renderTable() {
           const acq = stored.a != null ? stored.a : null;
           const vnd = stored.v != null ? stored.v : null;
           const bL = (yi === 0) ? 'border-left:2px solid #94a3b8;' : '';
-          const bR = (yi === 2)  ? 'border-right:2px solid #94a3b8;' : '';
+          const bR = (yi === STOR_ANNI.length - 1) ? 'border-right:2px solid #94a3b8;' : '';
           html += '<td class="td-stor" style="' + bL + bR + ';min-width:52px">' +
             '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span>' +
             '<input class="stor-input" type="number" min="0" value="' + (acq ?? '') + '" ' +
@@ -1789,6 +1861,64 @@ function renderTable() {
     html += '<td style="text-align:right;font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe">' + subIncPct + '</td>';
     html += '</tr>';
   });
+
+  // Righe archiviati (prodotti non in questo preordine)
+  if (mostraStoricoProd && righeArchiviati.length > 0) {
+    html += '<tr class="tr-archivio-sep"><td colspan="' + totalCols + '">Prodotti non inclusi in questo preordine</td></tr>';
+    righeArchiviati.forEach(riga => {
+      const storBySede = {
+        CR: { a: STORICO_CR[riga.codice] || {}, v: STORICO_CR_VEND[riga.codice] || {} },
+        CA: { a: STORICO_CA[riga.codice] || {}, v: STORICO_CA_VEND[riga.codice] || {} },
+        VI: { a: STORICO_VI[riga.codice] || {}, v: STORICO_VI_VEND[riga.codice] || {} },
+      };
+      const fotoSrc = getFotoSrc(riga.codice);
+      const fotoPos = getFotoPos(riga.codice);
+      html += '<tr class="tr-archivio">';
+      html += '<td class="td-info col-s0" style="text-align:left">' +
+        (fotoSrc ? '<img src="' + fotoSrc + '" style="width:32px;height:32px;object-fit:cover;object-position:' + fotoPos + ';border-radius:4px;vertical-align:middle;margin-right:4px">' : '') +
+        '<span style="font-size:10px;font-family:monospace">' + esc(riga.codice) + '</span></td>';
+      html += '<td class="td-info col-s1" style="text-align:left;font-size:10px">' + esc(riga.categoria || '') + '</td>';
+      html += '<td class="td-info col-s2" style="text-align:left;font-size:10px">' + esc(riga.prodotto || '') + '</td>';
+      html += '<td class="td-info" style="text-align:center;font-size:10px">' + (riga.conf || '') + '</td>';
+      html += '<td class="td-info" style="text-align:center;font-size:10px">' + (riga.pvp_corrente ? fmtEuro(riga.pvp_corrente) : '') + '</td>';
+      html += '<td class="td-info" style="text-align:center;font-size:10px">' + (riga.pvp_consigliato ? fmtEuro(riga.pvp_consigliato) : '') + '</td>';
+      html += '<td class="td-info" style="text-align:center;font-size:10px">' + (riga.pvp_m361 ? fmtEuro(riga.pvp_m361) : '') + '</td>';
+      for (let i = 0; i < nEmp; i++) html += '<td></td>';
+      if (hasTotOrd) html += '<td></td>';
+      if (_iAmAdmin) {
+        STOR_ANNI.forEach((y, yi) => {
+          ['CR','CA','VI'].forEach((sede, si) => {
+            const s   = storBySede[sede];
+            const acq = s.a[y];
+            const vnd = s.v[y];
+            const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
+            const bR  = (yi === STOR_ANNI.length - 1 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
+            html += '<td class="td-stor" style="' + bL + bR + '">' +
+              '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
+              '<div class="stor-div"></div>' +
+              '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd">' + (vnd != null ? vnd : '—') + '</span></div>' +
+              '</td>';
+          });
+        });
+      } else {
+        const emp = mioEmpCodice;
+        STOR_ANNI.forEach((y, yi) => {
+          const stored = storicoManuale[riga.codice]?.[emp]?.[y] || {};
+          const acq = stored.a != null ? stored.a : null;
+          const vnd = stored.v != null ? stored.v : null;
+          const bL = (yi === 0) ? 'border-left:2px solid #94a3b8;' : '';
+          const bR = (yi === STOR_ANNI.length - 1) ? 'border-right:2px solid #94a3b8;' : '';
+          html += '<td class="td-stor" style="' + bL + bR + '">' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
+            '<div class="stor-div"></div>' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd">' + (vnd != null ? vnd : '—') + '</span></div>' +
+            '</td>';
+        });
+      }
+      html += '<td></td><td></td>';
+      html += '</tr>';
+    });
+  }
 
   tbody.innerHTML = html;
 
