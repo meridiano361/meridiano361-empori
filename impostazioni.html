@@ -2894,7 +2894,9 @@
         _gruppoEmporioIds   = null;
     }
 
-    // ── RESTRIZIONI DI SISTEMA (replica logica index.html) ───────────────
+    // ── RESTRIZIONI DI SISTEMA ────────────────────────────────────────────
+    // Replica le restrizioni hardcoded di index.html e delle singole pagine.
+    // Una sezione è "sistema" se non è sbloccabile tramite utenti_permessi.
     function _sistemaSezioniNascoste(op) {
         if (!op) return new Set();
         const email   = (op.email || '').toLowerCase();
@@ -2902,13 +2904,19 @@
         const ruolo   = (op.ruolo || '').toLowerCase();
         const isEmilio  = email === 'emilio.mazzolari@gmail.com' || email === 'e.mazzolari@meridiano361.it';
         const isAdminOp = ruolo === 'admin' || ruolo === 'dipendente';
+        const isRespAcq = !!(op.is_resp_acquisti);
         const hidden = new Set();
-        // Lista Spesa e Analisi Commerciale: solo Emilio
+        // Lista Spesa e Analisi Commerciale: solo Emilio (wip in index.html)
         if (!isEmilio) { hidden.add('lista-spesa'); hidden.add('analisi-commerciale'); }
-        // Cassa: solo Emilio o Cremona
+        // Cassa: card visibile solo a Emilio e Cremona (index.html)
         if (!isEmilio && emporio !== 'cremona') hidden.add('cassa');
-        // Rifornimento: admin/dipendente + casalmaggiore + viadana
-        if (!isAdminOp && emporio !== 'casalmaggiore' && emporio !== 'viadana') hidden.add('rifornimento');
+        // Preordini: la pagina redirige se non Emilio e non is_resp_acquisti
+        if (!isEmilio && !isRespAcq) hidden.add('preordini');
+        // Rifornimento: la pagina mostra "accesso negato" se non Emilio e non is_resp_acquisti
+        //               E la card in home è nascosta se non admin e non CA/VI
+        if ((!isEmilio && !isRespAcq) || (!isAdminOp && emporio !== 'casalmaggiore' && emporio !== 'viadana')) {
+            hidden.add('rifornimento');
+        }
         return hidden;
     }
 
