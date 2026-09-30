@@ -2658,27 +2658,80 @@ function exportCSV() {
 }
 
 function exportDemetra() {
-  // Per ogni emporio visibile: esporta codice + quantità (solo righe con qtà > 0)
   const emporiVis = _iAmAdmin
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
   if (emporiVis.length === 0) { alert('Nessun emporio selezionato.'); return; }
 
-  const baseName = (campagna?.nome || 'preordine').replace(/\s+/g,'_').toLowerCase();
+  if (emporiVis.length === 1) {
+    _doExportDemetra(emporiVis, false);
+    return;
+  }
 
-  emporiVis.forEach(emp => {
+  // Più empori → mostra dialogo
+  document.getElementById('demetra-dialog')?.remove();
+  const empHtml = emporiVis.map(e =>
+    '<label style="display:flex;align-items:center;gap:7px;margin-bottom:5px;cursor:pointer;font-size:13px">' +
+    '<input type="checkbox" class="demetra-emp-cb" value="' + e.codice + '" checked style="width:15px;height:15px">' +
+    e.nome + '</label>'
+  ).join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div id="demetra-dialog" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">' +
+    '<div style="background:#fff;border-radius:12px;padding:24px;min-width:290px;max-width:380px;box-shadow:0 20px 40px rgba(0,0,0,.25)">' +
+    '<div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:14px">Esporta Demetra</div>' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Per quali empori?</div>' +
+    empHtml +
+    '<div style="height:1px;background:#f1f5f9;margin:12px 0"></div>' +
+    '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;margin-bottom:16px">' +
+    '<input type="checkbox" id="demetra-cb-totale" style="width:15px;height:15px">' +
+    'Includi file totale (somma empori selezionati)</label>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button onclick="document.getElementById(\'demetra-dialog\').remove()" style="padding:7px 16px;border:1px solid #e2e8f0;border-radius:7px;background:#fff;cursor:pointer;font-size:13px;font-family:\'Nunito\',sans-serif">Annulla</button>' +
+    '<button onclick="_confirmDemetra()" style="padding:7px 16px;border:none;border-radius:7px;background:#166534;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:\'Nunito\',sans-serif">Scarica</button>' +
+    '</div></div></div>'
+  );
+  window._demetraEmporiVis = emporiVis;
+}
+
+function _confirmDemetra() {
+  const emporiVis = window._demetraEmporiVis || [];
+  const selezionati = emporiVis.filter(e =>
+    document.querySelector('.demetra-emp-cb[value="' + e.codice + '"]')?.checked
+  );
+  const conTotale = document.getElementById('demetra-cb-totale')?.checked || false;
+  document.getElementById('demetra-dialog')?.remove();
+  if (!selezionati.length) { alert('Seleziona almeno un emporio.'); return; }
+  _doExportDemetra(selezionati, conTotale);
+}
+
+function _doExportDemetra(selezionati, conTotale) {
+  const baseName = (campagna?.nome || 'preordine').replace(/\s+/g,'_').toLowerCase();
+  selezionati.forEach(emp => {
     const rows = ['Codice;Quantita'];
     righe.forEach(r => {
       const oc = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
       if (oc > 0) rows.push(csvQ(r.codice) + ';' + oc);
     });
-    if (rows.length === 1) return; // nessuna riga con quantità
+    if (rows.length === 1) return;
     const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = baseName + '_' + emp.codice.toLowerCase() + '_demetra.csv';
     a.click();
   });
+  if (conTotale) {
+    const rows = ['Codice;Quantita'];
+    righe.forEach(r => {
+      const tot = selezionati.reduce((s, emp) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
+      if (tot > 0) rows.push(csvQ(r.codice) + ';' + tot);
+    });
+    if (rows.length > 1) {
+      const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = baseName + '_totale_demetra.csv';
+      a.click();
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
