@@ -1003,7 +1003,7 @@ function renderCampagnaRow(camp) {
   } else if (camp.scadenza) {
     meta += ' · scad. ' + fmtD(camp.scadenza);
   }
-  if (camp.data_consegna) meta += ' · consegna ' + fmtD(camp.data_consegna);
+  if (camp.data_consegna) meta += ' · consegna ' + fmtD(camp.data_consegna) + (camp.data_consegna_fine ? ' – ' + fmtD(camp.data_consegna_fine) : '');
   if (camp.min_ordine) meta += ' · min €' + parseFloat(camp.min_ordine).toLocaleString('it-IT');
 
   const campDataJson = esc(JSON.stringify(camp));
@@ -1075,7 +1075,9 @@ async function renderCondPanel(campId, camp) {
   const dateRows = [
     ['Apertura preordini', fmtD(camp.data_apertura)],
     ['Chiusura preordini', fmtD(camp.scadenza)],
-    ['Consegna prevista',  fmtD(camp.data_consegna)],
+    ['Consegna prevista',  camp.data_consegna_fine
+      ? fmtD(camp.data_consegna) + ' – ' + fmtD(camp.data_consegna_fine)
+      : fmtD(camp.data_consegna)],
   ].filter(r => r[1] !== '—');
   let dateHtml = '';
   if (dateRows.length) {
@@ -2813,8 +2815,13 @@ function openCampagnaModal(sezioneId, campId) {
     '<input id="modal-input-scadenza" type="date" value="' + (camp?.scadenza || '') + '">' +
     '</div>' +
     '</div>' +
-    '<div class="modal-field"><label>Data consegna prevista</label>' +
-    '<input id="modal-input-consegna" type="date" value="' + (camp?.data_consegna || '') + '">' +
+    '<div class="modal-field"><label>Consegna prevista</label>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input id="modal-input-consegna" type="date" value="' + (camp?.data_consegna || '') + '" style="flex:1" title="Data fissa o inizio periodo">' +
+    '<span style="font-size:12px;color:#94a3b8;white-space:nowrap">fino al</span>' +
+    '<input id="modal-input-consegna-fine" type="date" value="' + (camp?.data_consegna_fine || '') + '" style="flex:1" title="Fine periodo (lascia vuoto per data fissa)">' +
+    '</div>' +
+    '<div style="font-size:10px;color:#94a3b8;margin-top:3px">Data fissa: compila solo il primo campo · Periodo: compila entrambi</div>' +
     '</div>' +
     '<div class="modal-field"><label>Minimo ordine € (opzionale)</label>' +
     '<input id="modal-input-min" type="number" step="0.01" min="0" value="' + (camp?.min_ordine || '') + '">' +
@@ -2912,7 +2919,8 @@ async function saveCampagna() {
   const stagione     = document.getElementById('modal-input-stagione').value.trim() || null;
   const scadenza     = document.getElementById('modal-input-scadenza').value || null;
   const data_apertura = document.getElementById('modal-input-apertura')?.value || null;
-  const data_consegna = document.getElementById('modal-input-consegna')?.value || null;
+  const data_consegna      = document.getElementById('modal-input-consegna')?.value || null;
+  const data_consegna_fine = document.getElementById('modal-input-consegna-fine')?.value || null;
   const min_ordine   = parseFloat(document.getElementById('modal-input-min').value) || null;
   const scaglioni    = [0,1,2,3].map(i => ({
     min: parseFloat(document.getElementById('tier-' + i + '-min')?.value) || 0,
@@ -2927,7 +2935,7 @@ async function saveCampagna() {
   })).filter(s => s.label);
   if (!nome) throw new Error('Inserisci un nome');
 
-  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, min_ordine, scaglioni, note_commerciali, regola_collo, soglie_categoria: soglie_categoria.length ? soglie_categoria : null };
+  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, data_consegna_fine, min_ordine, scaglioni, note_commerciali, regola_collo, soglie_categoria: soglie_categoria.length ? soglie_categoria : null };
 
   if (_modalMode === 'campagna-add') {
     const { data: camp, error } = await DB.from('preordini_campagne')
