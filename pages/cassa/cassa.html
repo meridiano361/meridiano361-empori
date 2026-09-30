@@ -2565,21 +2565,34 @@ function renderSpeseSavedView(turno, id, area, btn) {
   // Avviso se spesa presente ma nessuna foto e non esente
   const hasSpese = data.voci.length > 0 || !!data.legacy;
   if (hasSpese && fotoSpese.length === 0 && !speseExempt[turno]) {
-    const warn = document.createElement('div'); warn.className='spese-foto-warn';
-    const warnMsg = document.createElement('div'); warnMsg.className='spese-foto-warn-msg';
-    warnMsg.innerHTML='<i class="fas fa-triangle-exclamation"></i> Nessuna foto scontrino allegata';
-    const warnBtns = document.createElement('div'); warnBtns.className='spese-foto-warn-btns';
-    const btnCarica = document.createElement('button'); btnCarica.type='button'; btnCarica.className='btn-spese-carica';
-    btnCarica.innerHTML='<i class="fas fa-camera"></i> Carica ora';
-    btnCarica.addEventListener('click',()=>{ renderSpeseEditor(turno,id,PAGAMENTI.find(p=>p.id===id)?.label||id,area,btn); area.classList.remove('hidden'); });
-    const btnDopo = document.createElement('button'); btnDopo.type='button'; btnDopo.className='btn-spese-dopo';
-    btnDopo.innerHTML='<i class="fas fa-clock"></i> Più tardi';
-    btnDopo.addEventListener('click',()=>warn.remove());
-    const btnEsenta = document.createElement('button'); btnEsenta.type='button'; btnEsenta.className='btn-spese-esenta';
-    btnEsenta.innerHTML='<i class="fas fa-check"></i> Non necessaria';
-    btnEsenta.addEventListener('click',()=>{ speseExempt[turno]=true; markDirty(); warn.remove(); });
-    warnBtns.append(btnCarica,btnDopo,btnEsenta); warn.append(warnMsg,warnBtns);
-    wrap.appendChild(warn);
+    // Pomeriggio: se il mattino ha già una foto spese e il pomeriggio non ha
+    // aggiunto voci proprie, lo scontrino del mattino copre anche il pomeriggio.
+    const copertaDaMattino = turno === 'pom'
+      && photosMap.mat_spese.length > 0
+      && data.voci.length === 0;
+
+    if (copertaDaMattino) {
+      const info = document.createElement('div');
+      info.style.cssText='font-size:11px;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;margin-top:6px;display:flex;align-items:center;gap:6px';
+      info.innerHTML='<i class="fas fa-check-circle"></i> Scontrino del mattino valido anche per le spese del pomeriggio';
+      wrap.appendChild(info);
+    } else {
+      const warn = document.createElement('div'); warn.className='spese-foto-warn';
+      const warnMsg = document.createElement('div'); warnMsg.className='spese-foto-warn-msg';
+      warnMsg.innerHTML='<i class="fas fa-triangle-exclamation"></i> Nessuna foto scontrino allegata';
+      const warnBtns = document.createElement('div'); warnBtns.className='spese-foto-warn-btns';
+      const btnCarica = document.createElement('button'); btnCarica.type='button'; btnCarica.className='btn-spese-carica';
+      btnCarica.innerHTML='<i class="fas fa-camera"></i> Carica ora';
+      btnCarica.addEventListener('click',()=>{ renderSpeseEditor(turno,id,PAGAMENTI.find(p=>p.id===id)?.label||id,area,btn); area.classList.remove('hidden'); });
+      const btnDopo = document.createElement('button'); btnDopo.type='button'; btnDopo.className='btn-spese-dopo';
+      btnDopo.innerHTML='<i class="fas fa-clock"></i> Più tardi';
+      btnDopo.addEventListener('click',()=>warn.remove());
+      const btnEsenta = document.createElement('button'); btnEsenta.type='button'; btnEsenta.className='btn-spese-esenta';
+      btnEsenta.innerHTML='<i class="fas fa-check"></i> Non necessaria';
+      btnEsenta.addEventListener('click',()=>{ speseExempt[turno]=true; markDirty(); warn.remove(); });
+      warnBtns.append(btnCarica,btnDopo,btnEsenta); warn.append(warnMsg,warnBtns);
+      wrap.appendChild(warn);
+    }
   }
 
   const footer=document.createElement('div'); footer.className='note-saved-footer';
