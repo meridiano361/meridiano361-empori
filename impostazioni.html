@@ -303,6 +303,18 @@
                     </div>
                 </div>
             </div>
+            <!-- Richieste ruolo pendenti -->
+            <div class="s-card" style="margin-top:16px">
+                <div onclick="toggleCardCollapse('card-richieste-ruolo')" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;border-bottom:1px solid #f1f5f9" id="card-richieste-ruolo-header">
+                    <span style="font-weight:700;font-size:13px;color:#1e293b">🔑 Richieste assegnazione ruolo</span>
+                    <i class="fas fa-chevron-down" id="card-richieste-ruolo-icon" style="font-size:12px;color:#94a3b8;transition:transform .2s"></i>
+                </div>
+                <div id="card-richieste-ruolo" style="display:none">
+                    <div id="richieste-ruolo-container" style="min-height:60px">
+                        <p style="color:#94a3b8;padding:16px;font-size:13px">Caricamento...</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ── SEZIONE: NOTIFICHE ─────────────────────────────────────────── -->
@@ -1215,6 +1227,44 @@
         </div>
     </div>
 
+    <!-- ── MODAL RICHIESTA RUOLO ── -->
+    <div id="modal-richiesta-ruolo" class="modal-overlay" onclick="if(event.target===this)chiudiRichiestaRuolo()" style="display:none">
+        <div class="modal-box" style="max-width:440px">
+            <div class="modal-header">
+                <h3>Richiedi assegnazione ruolo</h3>
+                <button onclick="chiudiRichiestaRuolo()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field" style="margin-bottom:12px">
+                    <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Operatore</label>
+                    <select id="rr-operatore" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Nunito,sans-serif;padding:0 10px">
+                        <option value="">Seleziona operatore...</option>
+                    </select>
+                </div>
+                <div class="modal-field" style="margin-bottom:12px">
+                    <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Ruolo da assegnare</label>
+                    <select id="rr-ruolo" style="width:100%;height:36px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Nunito,sans-serif;padding:0 10px"></select>
+                </div>
+                <div class="modal-field" style="margin-bottom:12px">
+                    <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Azione</label>
+                    <div style="display:flex;gap:12px">
+                        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="rr-azione" id="rr-assegna" value="true" checked> Assegna ruolo</label>
+                        <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="rr-azione" id="rr-revoca" value="false"> Revoca ruolo</label>
+                    </div>
+                </div>
+                <div class="modal-field" style="margin-bottom:4px">
+                    <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Nota (opzionale)</label>
+                    <textarea id="rr-nota" rows="2" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:Nunito,sans-serif;padding:7px 10px;resize:vertical" placeholder="Motivazione..."></textarea>
+                </div>
+                <div id="rr-msg" style="font-size:12px;color:#dc2626;margin-top:6px;display:none"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="chiudiRichiestaRuolo()">Annulla</button>
+                <button class="btn-primary" onclick="inviaRichiestaRuolo()">Invia richiesta</button>
+            </div>
+        </div>
+    </div>
+
     <script>
     const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
     const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
@@ -1256,6 +1306,18 @@
 
     const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana', 'mantova'];
     const EMPORI_LABEL = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova' };
+
+    const RUOLI_SPECIALI = [
+      { campo: 'is_resp_acquisti',     label: 'Resp. Acquisti',     icon: '🛒', badge: 'ecfdf5', color: '065f46' },
+      { campo: 'is_resp_personale',    label: 'Resp. Personale',    icon: '👑', badge: 'ede9fe', color: '5b21b6' },
+      { campo: 'is_resp_emporio',      label: 'Resp. Emporio',      icon: '🏪', badge: 'fff7ed', color: 'c2410c' },
+      { campo: 'referente_alimentari', label: 'Ref. Alimentari',    icon: '🍎', badge: 'fef9c3', color: '713f12' },
+      { campo: 'referente_casa',       label: 'Ref. Casa',          icon: '🏠', badge: 'e0f2fe', color: '0369a1' },
+      { campo: 'referente_moda',       label: 'Ref. Moda',          icon: '👗', badge: 'fce7f3', color: '9d174d' },
+      { campo: 'referente_cosmesi',    label: 'Ref. Cosmesi',       icon: '💄', badge: 'fdf4ff', color: '7e22ce' },
+      { campo: 'referente_ricorrenze', label: 'Ref. Ricorrenze',    icon: '🎁', badge: 'fff1f2', color: 'be123c' },
+      { campo: 'referente_contabilita',label: 'Ref. Contabilità',   icon: '📊', badge: 'f0fdf4', color: '166534' },
+    ];
 
     // Converte qualunque forma ('Cremona', 'cremona', 'Reggio Emilia') → chiave interna
     function normalizzaEmporio(valore) {
@@ -1361,7 +1423,7 @@
         // Lazy load
         if (!_sectionLoaded[id]) {
             _sectionLoaded[id] = true;
-            if (id === 'operatori')         loadUsers();
+            if (id === 'operatori')         { loadUsers(); if (_isAdmin) loadRichiesteRuolo(); }
             if (id === 'notifiche')         { caricaNotificheInviate(true); caricaRegoleNotifiche(); }
             if (id === 'categorie')         caricaCategorie();
             if (id === 'accessi')           caricaAccessi();
@@ -2087,8 +2149,8 @@
                 <thead><tr>
                     <th>Nome</th>
                     <th>Ruolo</th>
+                    <th>Ruoli speciali</th>
                     <th>Telefono</th>
-                    <th>Email</th>
                     <th style="text-align:right">Azioni</th>
                 </tr></thead>
                 <tbody>${filtrati.map(op => rigaOperatoreResp(op)).join('')}</tbody>
@@ -2099,6 +2161,9 @@
         const iniziali  = avatarIniziali(op.nome);
         const ruoloNorm = (op.ruolo || 'operatore').toLowerCase().replace(/\s+/g, '');
         const safeId    = String(op.id).replace(/'/g, "\\'");
+        const ruoliBadges = RUOLI_SPECIALI.filter(r => op[r.campo]).map(r =>
+            `<span style="font-size:9px;background:#${r.badge};color:#${r.color};padding:1px 6px;border-radius:10px;font-weight:700;white-space:nowrap">${r.icon} ${r.label}</span>`
+        ).join(' ');
         return `
             <tr class="riga-operatore" data-id="${op.id}">
                 <td>
@@ -2108,12 +2173,17 @@
                         ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
                     </div>
                 </td>
-                <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
+                <td style="min-width:80px"><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
+                <td style="max-width:200px">
+                    <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center">
+                        ${ruoliBadges || '<span style="color:#94a3b8;font-size:11px">—</span>'}
+                    </div>
+                </td>
                 <td class="op-tel">${op.telefono || '—'}</td>
-                <td class="op-tel" style="font-size:12px">${op.email || '—'}</td>
                 <td>
                     <div class="op-azioni-riga">
                         <button onclick="apriModalModifica('${safeId}')" title="Modifica anagrafica">✏️</button>
+                        <button onclick="apriRichiestaRuolo('${safeId}','${(op.nome||'').replace(/'/g,"\\'")}')" title="Richiedi assegnazione ruolo" style="font-size:11px;background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;border-radius:5px;padding:2px 7px;cursor:pointer">+ Ruolo</button>
                     </div>
                 </td>
             </tr>`;
@@ -2125,6 +2195,126 @@
         if (!id) { alert('Impossibile eliminare: operatore non ancora salvato.'); return; }
         chiudiModalModifica();
         confermaEliminaOperatore(id, nome);
+    }
+
+    // ── RICHIESTE RUOLO ────────────────────────────────────────────────────
+    function apriRichiestaRuolo(opId, opNome) {
+        const modal = document.getElementById('modal-richiesta-ruolo');
+        const selOp = document.getElementById('rr-operatore');
+        const selRuolo = document.getElementById('rr-ruolo');
+        const msg = document.getElementById('rr-msg');
+        msg.style.display = 'none';
+        document.getElementById('rr-nota').value = '';
+        document.getElementById('rr-assegna').checked = true;
+
+        // Popola operatori
+        selOp.innerHTML = '<option value="">Seleziona operatore...</option>';
+        (utentiCache || []).forEach(op => {
+            const opt = document.createElement('option');
+            opt.value = op.id;
+            opt.textContent = (op.nome || '—') + ' (' + (op.emporio || '?') + ')';
+            if (String(op.id) === String(opId)) opt.selected = true;
+            selOp.appendChild(opt);
+        });
+
+        // Popola ruoli
+        selRuolo.innerHTML = RUOLI_SPECIALI.map(r =>
+            `<option value="${r.campo}">${r.icon} ${r.label}</option>`
+        ).join('');
+
+        modal.style.display = 'flex';
+    }
+
+    function chiudiRichiestaRuolo() {
+        document.getElementById('modal-richiesta-ruolo').style.display = 'none';
+    }
+
+    async function inviaRichiestaRuolo() {
+        const opId   = document.getElementById('rr-operatore').value;
+        const ruolo  = document.getElementById('rr-ruolo').value;
+        const valore = document.querySelector('input[name="rr-azione"]:checked').value === 'true';
+        const nota   = document.getElementById('rr-nota').value.trim() || null;
+        const msg    = document.getElementById('rr-msg');
+
+        if (!opId) { msg.textContent = 'Seleziona un operatore.'; msg.style.display = ''; return; }
+        if (!ruolo) { msg.textContent = 'Seleziona un ruolo.'; msg.style.display = ''; return; }
+
+        const richiedente = JSON.parse(localStorage.getItem('m361_user') || 'null');
+        const opSel = (utentiCache || []).find(o => String(o.id) === String(opId));
+        const ruoloInfo = RUOLI_SPECIALI.find(r => r.campo === ruolo);
+
+        const { error } = await db.from('richieste_ruolo').insert({
+            richiedente_id:   richiedente?.id || null,
+            richiedente_nome: richiedente?.nome || richiedente?.email || '?',
+            operatore_id:     opId,
+            operatore_nome:   opSel?.nome || '?',
+            ruolo,
+            valore,
+            nota,
+            stato: 'pending',
+        });
+
+        if (error) { msg.textContent = 'Errore: ' + error.message; msg.style.display = ''; return; }
+
+        chiudiRichiestaRuolo();
+        showToast('Richiesta inviata all\'admin per approvazione', 'success');
+    }
+
+    // ── RICHIESTE RUOLO (ADMIN) ────────────────────────────────────────────
+    async function loadRichiesteRuolo() {
+        const cont = document.getElementById('richieste-ruolo-container');
+        if (!cont) return;
+        const { data: richieste } = await db.from('richieste_ruolo')
+            .select('*').order('created_at', { ascending: false }).limit(50);
+        if (!richieste?.length) {
+            cont.innerHTML = '<p style="color:#94a3b8;padding:16px;font-size:13px">Nessuna richiesta.</p>';
+            return;
+        }
+        const statoColor = { pending: '#f59e0b', approvata: '#16a34a', negata: '#dc2626' };
+        const statoLabel = { pending: 'In attesa', approvata: 'Approvata', negata: 'Negata' };
+        cont.innerHTML = richieste.map(r => {
+            const ruoloInfo = RUOLI_SPECIALI.find(x => x.campo === r.ruolo);
+            const pendActions = r.stato === 'pending' ? `
+                <button onclick="approvaRuolo('${r.id}','${r.operatore_id}','${r.ruolo}',${r.valore})" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Nunito,sans-serif">✓ Approva</button>
+                <button onclick="negaRuolo('${r.id}')" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Nunito,sans-serif">✕ Nega</button>
+            ` : '';
+            return `<div style="border-bottom:1px solid #f1f5f9;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;font-family:Nunito,sans-serif">
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;font-weight:700;color:#1e293b">
+                        ${ruoloInfo ? ruoloInfo.icon + ' ' + ruoloInfo.label : r.ruolo} →
+                        <strong>${r.operatore_nome || '?'}</strong>
+                        <span style="font-size:10px;color:#94a3b8;font-weight:400">${r.valore ? '(assegna)' : '(revoca)'}</span>
+                    </div>
+                    <div style="font-size:11px;color:#64748b;margin-top:2px">
+                        Richiesta da: ${r.richiedente_nome || '?'} · ${new Date(r.created_at).toLocaleDateString('it-IT')}
+                        ${r.nota ? ' · <em>' + r.nota + '</em>' : ''}
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                    <span style="font-size:10px;font-weight:700;color:${statoColor[r.stato] || '#94a3b8'};background:${r.stato==='pending'?'#fffbeb':r.stato==='approvata'?'#f0fdf4':'#fef2f2'};padding:2px 8px;border-radius:10px">${statoLabel[r.stato] || r.stato}</span>
+                    ${pendActions}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function approvaRuolo(richiestaId, operatoreId, ruolo, valore) {
+        const update = {};
+        update[ruolo] = valore;
+        const { error: eOp } = await db.from('operatori').update(update).eq('id', operatoreId);
+        if (eOp) { showToast('Errore aggiornamento operatore: ' + eOp.message, 'error'); return; }
+        const { error: eR } = await db.from('richieste_ruolo').update({ stato: 'approvata', updated_at: new Date().toISOString() }).eq('id', richiestaId);
+        if (eR) { showToast('Errore aggiornamento richiesta: ' + eR.message, 'error'); return; }
+        showToast('Ruolo aggiornato e richiesta approvata', 'success');
+        loadRichiesteRuolo();
+        loadOperatori();
+    }
+
+    async function negaRuolo(richiestaId) {
+        const { error } = await db.from('richieste_ruolo').update({ stato: 'negata', updated_at: new Date().toISOString() }).eq('id', richiestaId);
+        if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+        showToast('Richiesta negata', 'success');
+        loadRichiesteRuolo();
     }
 
     function confermaEliminaOperatore(id, nome) {
