@@ -145,6 +145,15 @@
     .stor-lbl-v { color: #16A34A; }
     .stor-div { border-top: 1px solid #e2e8f0; margin: 1px 4px; }
 
+    /* ── STORICO INPUT (resp_acquisti editable) ── */
+    .stor-input {
+      width: 38px; border: 1px solid #e2e8f0; border-radius: 5px; background: white;
+      font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700;
+      text-align: right; padding: 1px 4px; outline: none; color: #1e293b;
+    }
+    .stor-input:focus { border-color: #94a3b8; background: #f0f9ff; }
+    .stor-input-v { color: #16A34A; }
+
     /* ── NOTE TOOLTIP ── */
     .nota-wrap { position: relative; display: inline-block; cursor: pointer; vertical-align: middle; }
     .nota-icon { font-size: 9px; margin-left: 2px; opacity: .5; }
@@ -812,6 +821,9 @@ const sezioniExpanded = new Set();
 let _modalMode   = null;
 let _modalCtx    = null;
 
+// Storico manuale (resp_acquisti: codice → emporio_codice → anno → {a, v})
+let storicoManuale = {};
+
 // Foto state
 let fotoDB    = {};
 let _lbCodice = null;
@@ -1401,6 +1413,19 @@ async function selezionaCampagna(camp) {
       });
     }
 
+    // Carica storico manuale da DB
+    storicoManuale = {};
+    {
+      let sq = DB.from('preordini_storico_manuale').select('*');
+      if (!_iAmAdmin && mioEmpCodice) sq = sq.eq('emporio_codice', mioEmpCodice);
+      const { data: storRows } = await sq;
+      (storRows || []).forEach(row => {
+        if (!storicoManuale[row.codice]) storicoManuale[row.codice] = {};
+        if (!storicoManuale[row.codice][row.emporio_codice]) storicoManuale[row.codice][row.emporio_codice] = {};
+        storicoManuale[row.codice][row.emporio_codice][row.anno] = { a: row.acquistato, v: row.venduto };
+      });
+    }
+
     document.getElementById('table-loading').classList.add('hidden');
     document.getElementById('table-wrap').classList.remove('hidden');
 
@@ -1522,7 +1547,7 @@ function renderTable() {
 
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
-  const nStorCols = 10; // 3 sedi × 3 anni + 1 TOT
+  const nStorCols = _iAmAdmin ? 10 : 4; // admin: 3 sedi × 3 anni + TOT; resp: 1 sede × 3 anni + TOT
   const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 2; // +2: € IMP + % inc.
 
   // Pre-calcola totale generale per incidenza
@@ -1551,23 +1576,22 @@ function renderTable() {
     h1 += '<th rowspan="2" class="th-emp" style="min-width:52px">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:600;opacity:.7">ord ' + String(campagna?.anno || '').slice(-2) + '</span></th>';
   });
   if (hasTotOrd) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
-  h1 += '<th colspan="10" class="th-stor">STORICO · <span style="color:#94a3b8">A</span> <span style="color:#4ade80">V</span></th>';
+  h1 += '<th colspan="' + nStorCols + '" class="th-stor">STORICO · <span style="color:#94a3b8">A</span> <span style="color:#4ade80">V</span>' + (_iAmAdmin ? '' : ' <span style="font-size:9px;opacity:.6">(' + mioEmpCodice + ')</span>') + '</th>';
   h1 += '<th rowspan="2" class="th-tot" style="min-width:74px">€ IMP</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:right;min-width:42px;background:#e0f2fe;color:#0369a1">% inc.</th>';
   h1 += '</tr>';
 
-  // THEAD ROW 2: 3 anni × 3 sedi (CR, CA, VI)
-  const STOR_SEDI = [
-    { lbl:'CR', bdr:'border-left:2px solid #64748b;' },
-    { lbl:'CA', bdr:'' },
-    { lbl:'VI', bdr:'' },
-  ];
+  // THEAD ROW 2: anni × sedi
+  const STOR_ANNI = [2026, 2025, 2024];
+  const STOR_SEDI = _iAmAdmin
+    ? [{ lbl:'CR', bdr:'border-left:2px solid #64748b;' }, { lbl:'CA', bdr:'' }, { lbl:'VI', bdr:'' }]
+    : [{ lbl: mioEmpCodice, bdr:'border-left:2px solid #64748b;' }];
   let h2 = '<tr>';
-  [2026, 2025, 2024].forEach((y, yi) => {
+  STOR_ANNI.forEach((y, yi) => {
     STOR_SEDI.forEach((s, si) => {
       const bL = s.bdr;
-      const bR = (yi === 2 && si === 2) ? 'border-right:2px solid #64748b;' : '';
-      h2 += '<th class="th-stor-year" style="min-width:38px;' + bL + bR + '">' + s.lbl + ' <span style="opacity:.6;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
+      const bR = (yi === 2 && si === STOR_SEDI.length - 1) ? 'border-right:2px solid #64748b;' : '';
+      h2 += '<th class="th-stor-year" style="min-width:' + (_iAmAdmin ? 38 : 52) + 'px;' + bL + bR + '">' + s.lbl + ' <span style="opacity:.6;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
     });
   });
   h2 += '<th class="th-stor-year" style="min-width:38px;border-left:1px solid #475569;border-right:2px solid #64748b;background:#263549;color:#94a3b8">TOT</th>';
@@ -1699,25 +1723,49 @@ function renderTable() {
         html += '<td class="td-tot-ord' + (totOrdInvalid ? ' inv-val' : '') + '" id="tot-ord-' + riga.id + '" title="' + (totOrdInvalid ? '⚠ Non multiplo di conf (' + conf + ')' : '') + '">' + (totOrd || '') + '</td>';
       }
 
-      // STORICO (3 anni × 3 sedi: CR, CA, VI) + TOT
+      // STORICO + TOT
       let storTotA = 0, storTotV = 0;
-      [2026, 2025, 2024].forEach((y, yi) => {
-        ['CR','CA','VI'].forEach((sede, si) => {
-          const s   = storBySede[sede];
-          const acq = s.a[y];
-          const vnd = s.v[y];
+      if (_iAmAdmin) {
+        // Admin: storico hardcoded CR/CA/VI
+        STOR_ANNI.forEach((y, yi) => {
+          ['CR','CA','VI'].forEach((sede, si) => {
+            const s   = storBySede[sede];
+            const acq = s.a[y];
+            const vnd = s.v[y];
+            if (acq != null) storTotA += acq;
+            if (vnd != null) storTotV += vnd;
+            const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
+            const bR  = (yi === 2 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
+            html += '<td class="td-stor" style="' + bL + bR + '">' +
+              '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
+              '<div class="stor-div"></div>' +
+              '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd">' + (vnd != null ? vnd : '—') + '</span></div>' +
+              '</td>';
+          });
+        });
+      } else {
+        // Resp_acquisti: solo il proprio emporio, modificabile
+        const emp = mioEmpCodice;
+        STOR_ANNI.forEach((y, yi) => {
+          const stored = storicoManuale[riga.codice]?.[emp]?.[y] || {};
+          const acq = stored.a != null ? stored.a : null;
+          const vnd = stored.v != null ? stored.v : null;
           if (acq != null) storTotA += acq;
           if (vnd != null) storTotV += vnd;
-          const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
-          const bR  = (yi === 2 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
-          html += '<td class="td-stor" style="' + bL + bR + '">' +
-            '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
+          const bL = (yi === 0) ? 'border-left:2px solid #94a3b8;' : '';
+          const bR = (yi === 2)  ? 'border-right:2px solid #94a3b8;' : '';
+          html += '<td class="td-stor" style="' + bL + bR + ';min-width:52px">' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span>' +
+            '<input class="stor-input" type="number" min="0" value="' + (acq ?? '') + '" ' +
+            'onchange="saveStoricoManuale(\'' + esc(riga.codice) + '\',\'' + emp + '\',' + y + ',\'a\',this.value,\'' + riga.id + '\')" title="Acquistato ' + y + '"></div>' +
             '<div class="stor-div"></div>' +
-            '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd">' + (vnd != null ? vnd : '—') + '</span></div>' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span>' +
+            '<input class="stor-input stor-input-v" type="number" min="0" value="' + (vnd ?? '') + '" ' +
+            'onchange="saveStoricoManuale(\'' + esc(riga.codice) + '\',\'' + emp + '\',' + y + ',\'v\',this.value,\'' + riga.id + '\')" title="Venduto ' + y + '"></div>' +
             '</td>';
         });
-      });
-      html += '<td class="td-stor" style="border-left:1px solid #64748b;border-right:2px solid #94a3b8;background:#f8fafc">' +
+      }
+      html += '<td class="td-stor" id="stor-tot-' + riga.id + '" style="border-left:1px solid #64748b;border-right:2px solid #94a3b8;background:#f8fafc">' +
         '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="font-weight:800">' + (storTotA > 0 ? storTotA : '—') + '</span></div>' +
         '<div class="stor-div"></div>' +
         '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="font-weight:800">' + (storTotV > 0 ? storTotV : '—') + '</span></div>' +
@@ -1799,6 +1847,39 @@ function updateRowTotals(rigaId) {
     eO.title = totInvalid ? '⚠ Non multiplo di conf (' + conf + ')' : '';
   }
   if (eE) eE.textContent = tot > 0 && pvp > 0 ? fmtEuro(tot * pvp) : '';
+}
+
+// ── STORICO MANUALE (resp_acquisti) ───────────────────────────────────
+async function saveStoricoManuale(codice, empCodice, anno, tipo, value, rigaId) {
+  const v = (value === '' || value == null) ? null : (parseInt(value) || 0);
+  if (!storicoManuale[codice]) storicoManuale[codice] = {};
+  if (!storicoManuale[codice][empCodice]) storicoManuale[codice][empCodice] = {};
+  if (!storicoManuale[codice][empCodice][anno]) storicoManuale[codice][empCodice][anno] = {};
+  storicoManuale[codice][empCodice][anno][tipo === 'a' ? 'a' : 'v'] = v;
+
+  const acq = storicoManuale[codice][empCodice][anno].a ?? null;
+  const vnd = storicoManuale[codice][empCodice][anno].v ?? null;
+
+  const { error } = await DB.from('preordini_storico_manuale').upsert(
+    { codice, emporio_codice: empCodice, anno, acquistato: acq, venduto: vnd, updated_at: new Date().toISOString() },
+    { onConflict: 'codice,emporio_codice,anno' }
+  );
+  if (error) console.error('Errore salvataggio storico:', error.message);
+
+  // Aggiorna cella TOT
+  const totCell = document.getElementById('stor-tot-' + rigaId);
+  if (totCell) {
+    const emp = empCodice;
+    let totA = 0, totV = 0;
+    [2026, 2025, 2024].forEach(y => {
+      const s = storicoManuale[codice]?.[emp]?.[y] || {};
+      totA += s.a || 0; totV += s.v || 0;
+    });
+    totCell.innerHTML =
+      '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="font-weight:800">' + (totA > 0 ? totA : '—') + '</span></div>' +
+      '<div class="stor-div"></div>' +
+      '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="font-weight:800">' + (totV > 0 ? totV : '—') + '</span></div>';
+  }
 }
 
 // ── SCONTO BANNER ─────────────────────────────────────────────────────
