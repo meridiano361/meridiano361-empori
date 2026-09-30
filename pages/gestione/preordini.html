@@ -71,6 +71,8 @@
     #filtri-count { font-size: 11px; color: #94a3b8; font-weight: 600; }
 
     /* ── TABLE VIEW FLEX ── */
+    /* L'altezza di #table-view viene impostata dinamicamente via JS:
+       riempie esattamente dal punto in cui inizia fino al fondo del viewport */
     #table-view { display: flex; flex-direction: column; overflow: hidden; }
     #table-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
@@ -255,8 +257,14 @@
 
     /* ── RIEPILOGO ── */
     .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .summary-table th { background: #1e293b; color: #94a3b8; padding: 6px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: .05em; }
-    .summary-table td { border-bottom: 1px solid #f1f5f9; padding: 5px 10px; }
+    .summary-table th { background: #1e293b; color: #94a3b8; padding: 5px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: .05em; }
+    .summary-table th.th-emp-head { text-align: center; border-left: 2px solid #334155; border-right: 2px solid #334155; }
+    .summary-table th.th-sub { background: #263549; font-size: 8px; text-align: right; padding: 3px 8px; }
+    .summary-table th.th-sub-pz { border-left: 2px solid #334155; }
+    .summary-table th.th-sub-eur { border-right: 2px solid #334155; }
+    .summary-table td { border-bottom: 1px solid #f1f5f9; padding: 4px 8px; }
+    .summary-table td.td-emp-pz { text-align: right; border-left: 2px solid #e2e8f0; font-weight: 700; color: #1e293b; font-family: 'Nunito', monospace; }
+    .summary-table td.td-emp-eur { text-align: right; border-right: 2px solid #e2e8f0; color: #64748b; font-size: 11px; font-family: 'Nunito', monospace; }
     .summary-table tr:hover td { background: #f8fafc; }
 
     /* ═══════════════════════════════════════
@@ -362,17 +370,17 @@
 
 
     /* ── FOTO NELLA COLONNA CODICE ── */
-    .foto-cod-wrap { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
-    .foto-cod-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; display: block; cursor: zoom-in; }
+    .foto-cod-wrap { position: relative; width: 40px; height: 40px; flex-shrink: 0; background: white; border-radius: 5px; border: 1px solid #e2e8f0; }
+    .foto-cod-thumb { width: 40px; height: 40px; object-fit: contain; border-radius: 5px; display: block; cursor: zoom-in; }
     .foto-cod-overlay {
-      position: absolute; inset: 0; border-radius: 4px;
-      background: rgba(0,0,0,.50); display: flex; align-items: center; justify-content: center;
+      position: absolute; inset: 0; border-radius: 5px;
+      background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center;
       opacity: 0; transition: opacity .15s; cursor: pointer; font-size: 15px;
     }
     td.col-s0:hover .foto-cod-overlay { opacity: 1; }
     .foto-cod-add {
-      width: 34px; height: 34px; flex-shrink: 0;
-      border: 1.5px dashed #cbd5e1; border-radius: 4px;
+      width: 40px; height: 40px; flex-shrink: 0;
+      border: 1.5px dashed #cbd5e1; border-radius: 5px;
       background: #f8fafc; color: #94a3b8; font-size: 17px;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       font-family: 'Nunito', sans-serif; padding: 0;
@@ -804,15 +812,21 @@ let fotoDB    = {};
 let _lbCodice = null;
 
 // ── DYNAMIC TABLE HEIGHT ───────────────────────────────────────────────
+// Imposta l'altezza di #table-view = spazio rimanente fino al fondo del viewport.
+// Con flex: 1 a cascata su #table-wrap e .tabella-wrapper, lo scroll funziona.
 function ajustTableHeight() {
-  const wrap = document.querySelector('.tabella-wrapper');
-  if (!wrap || !wrap.getBoundingClientRect) return;
-  const top = wrap.getBoundingClientRect().top;
-  if (top <= 0) return;
-  wrap.style.height = (window.innerHeight - top - 4) + 'px';
+  const tv = document.getElementById('table-view');
+  if (!tv || tv.classList.contains('hidden')) return;
+  tv.style.height = ''; // reset per rileggere la posizione reale
+  const top = tv.getBoundingClientRect().top;
+  const h   = window.innerHeight - top;
+  if (h > 80) tv.style.height = h + 'px';
+}
+function _scheduleAjust() {
+  requestAnimationFrame(() => requestAnimationFrame(ajustTableHeight));
 }
 window.addEventListener('resize', ajustTableHeight);
-window.addEventListener('orientationchange', () => setTimeout(ajustTableHeight, 200));
+window.addEventListener('orientationchange', () => setTimeout(ajustTableHeight, 250));
 
 // ── INIT ───────────────────────────────────────────────────────────────
 (async function init() {
@@ -1038,6 +1052,7 @@ function buildFiltriBar() {
   sel.innerHTML = '<option value="">Tutte le categorie</option>' +
     cats.map(c => '<option value="' + esc(c) + '"' + (c === prev ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
   document.getElementById('filtri-bar').classList.remove('hidden');
+  _scheduleAjust();
 }
 
 // ── PVP M361 SAVE ──────────────────────────────────────────────────────
@@ -1224,9 +1239,6 @@ async function salvaFotoPos() {
   fotoDB[_lbCodice].data_b64 = src;
   fotoDB[_lbCodice].pos_x = x;
   fotoDB[_lbCodice].pos_y = y;
-  document.querySelectorAll('.foto-cod-thumb[data-codice="' + _lbCodice + '"]').forEach(img => {
-    img.style.objectPosition = x + '% ' + y + '%';
-  });
   chiudiFotoLb();
 }
 
@@ -1495,7 +1507,7 @@ function renderTable() {
   h1 += '<th rowspan="2" class="th-info col-s1 th-sortable' + (sortRigheBy==='categoria'?' sort-active':'') + '" style="text-align:left;width:110px;min-width:110px" data-s="categoria" onclick="sortTabella(this.dataset.s)">Categoria' + sarr('categoria') + '</th>';
   h1 += '<th rowspan="2" class="th-info col-s2 th-sortable' + (sortRigheBy==='prodotto'?' sort-active':'') + '" style="text-align:left;min-width:180px" data-s="prodotto" onclick="sortTabella(this.dataset.s)">Prodotto' + sarr('prodotto') + '</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:42px">Conf</th>';
-  h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_corrente'?' sort-active':'') + '" style="text-align:center;width:58px" data-s="pvp_corrente" onclick="sortTabella(this.dataset.s)">Costo' + sarr('pvp_corrente') + '</th>';
+  h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_corrente'?' sort-active':'') + '" style="text-align:center;width:58px" data-s="pvp_corrente" onclick="sortTabella(this.dataset.s)">Costo i.e.' + sarr('pvp_corrente') + '</th>';
   h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_consigliato'?' sort-active':'') + '" style="text-align:center;width:64px" data-s="pvp_consigliato" onclick="sortTabella(this.dataset.s)">PVP cons.' + sarr('pvp_consigliato') + '</th>';
   h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_m361'?' sort-active':'') + '" style="text-align:center;width:64px" data-s="pvp_m361" onclick="sortTabella(this.dataset.s)">PVP m361' + sarr('pvp_m361') + '</th>';
   emporiVis.forEach(e => {
@@ -1592,13 +1604,13 @@ function renderTable() {
       html += '<div style="display:flex;align-items:center;gap:5px">';
       if (fotoSrc) {
         html += '<div class="foto-cod-wrap" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '">';
-        html += '<img src="' + fotoSrc + '" class="foto-cod-thumb" data-codice="' + riga.codice + '" style="object-position:' + fotoPos.x + '% ' + fotoPos.y + '%" ondblclick="apriLightboxFoto(this.dataset.codice,this.title)" title="' + nomeSafe + '">';
+        html += '<img src="' + fotoSrc + '" class="foto-cod-thumb" data-codice="' + riga.codice + '" ondblclick="apriLightboxFoto(this.dataset.codice,this.title)" title="' + nomeSafe + '">';
         if (_iAmAdmin) html += '<div class="foto-cod-overlay" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '" onclick="apriLightboxFoto(this.dataset.codice,this.dataset.nome)" title="Modifica foto">📷</div>';
         html += '</div>';
       } else if (_iAmAdmin) {
         html += '<button class="foto-cod-add" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '" onclick="apriLightboxFoto(this.dataset.codice,this.dataset.nome)" title="Carica foto">📷</button>';
       } else {
-        html += '<div style="width:34px;height:34px;flex-shrink:0"></div>';
+        html += '<div style="width:40px;height:40px;flex-shrink:0"></div>';
       }
       html += '<span style="color:#334155;font-size:11px;font-weight:600">' + esc(riga.codice || '') + '</span>';
       if (_iAmAdmin) html += '<button class="admin-edit-btn" data-rid="' + riga.id + '" onclick="event.stopPropagation();openEditRiga(this.dataset.rid)">✎</button>';
@@ -1710,7 +1722,7 @@ function renderTable() {
   tfoot.innerHTML = foot;
 
   aggiornaScontoBanner();
-  setTimeout(ajustTableHeight, 0);
+  _scheduleAjust();
 }
 
 // ── UPDATE ROW TOTALS ─────────────────────────────────────────────────
@@ -1764,8 +1776,10 @@ function aggiornaScontoBanner() {
   if (campagna?.min_ordine) {
     html += '<span style="font-size:10px;color:#94a3b8;margin-left:4px">Minimo: ' + fmtEuro(campagna.min_ordine) + '</span>';
   }
+  const wasHidden = banner.classList.contains('hidden');
   banner.innerHTML = html;
   banner.classList.remove('hidden');
+  if (wasHidden) _scheduleAjust(); // banner appena apparso → ricalcola altezza tabella
 }
 
 // ── COLLAPSE FORNITORE ────────────────────────────────────────────────
@@ -1926,60 +1940,84 @@ function renderRiepilogo() {
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
+  const hasTot = _iAmAdmin && emporiVis.length > 1;
   const categorie = [...new Set(righe.map(r => r.categoria || '—'))].sort();
-  let html = '<thead><tr><th>Categoria</th>';
-  emporiVis.forEach(e => { html += '<th style="text-align:right">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:400;opacity:.6">pz · €</span></th>'; });
-  if (_iAmAdmin && emporiVis.length > 1) html += '<th style="text-align:right">TOT pz</th>';
-  html += '<th style="text-align:right">€ IMP</th><th style="text-align:right;color:#0369a1">% inc.</th></tr></thead><tbody>';
 
-  // Prima passata: calcola gEur per le percentuali
+  // ── Thead row 1: Categoria | [EMP colspan=2]... | TOT PZ | € IMP | % inc.
+  let h1 = '<tr>';
+  h1 += '<th rowspan="2" style="text-align:left;min-width:120px">Categoria</th>';
+  emporiVis.forEach(e => {
+    h1 += '<th colspan="2" class="th-emp-head">' + esc(e.codice) + '</th>';
+  });
+  if (hasTot) h1 += '<th rowspan="2" style="text-align:right;min-width:54px">TOT<br>PZ</th>';
+  h1 += '<th rowspan="2" style="text-align:right;min-width:80px">€ IMP</th>';
+  h1 += '<th rowspan="2" style="text-align:right;min-width:52px;color:#7dd3fc">% INC.</th>';
+  h1 += '</tr>';
+
+  // ── Thead row 2: PZ | € per ogni emporio
+  let h2 = '<tr>';
+  emporiVis.forEach(() => {
+    h2 += '<th class="th-sub th-sub-pz">PZ</th>';
+    h2 += '<th class="th-sub th-sub-eur">€</th>';
+  });
+  h2 += '</tr>';
+
+  let html = '<thead>' + h1 + h2 + '</thead><tbody>';
+
+  // Calcola dati per categoria (doppia passata per avere gEur per le %)
   let gTot = 0, gEur = 0;
   const catData = categorie.map(cat => {
     const grp = righe.filter(r => (r.categoria || '—') === cat);
-    const empO = {}; emporiVis.forEach(emp => { empO[emp.codice] = 0; });
+    const empPz = {}, empEur = {};
+    emporiVis.forEach(e => { empPz[e.codice] = 0; empEur[e.codice] = 0; });
     let tTot = 0, tEur = 0;
     grp.forEach(r => {
+      const pvp = parseFloat(r.pvp_corrente) || 0;
       emporiVis.forEach(emp => {
         const oc = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
-        empO[emp.codice] += oc; tTot += oc;
-        tEur += oc * (parseFloat(r.pvp_corrente) || 0);
+        empPz[emp.codice]  += oc;
+        empEur[emp.codice] += oc * pvp;
+        tTot += oc;
+        tEur += oc * pvp;
       });
     });
     gTot += tTot; gEur += tEur;
-    return { cat, grp, empO, tTot, tEur };
+    return { cat, empPz, empEur, tTot, tEur };
   });
 
-  // Seconda passata: rendering con %
-  catData.forEach(({ cat, empO, tTot, tEur }) => {
+  catData.forEach(({ cat, empPz, empEur, tTot, tEur }) => {
     const incPct = gEur > 0 && tEur > 0 ? (tEur / gEur * 100).toFixed(1) + '%' : '—';
-    html += '<tr><td style="font-weight:600">' + esc(cat) + '</td>';
+    html += '<tr>';
+    html += '<td style="font-weight:600;color:#1e293b">' + esc(cat) + '</td>';
     emporiVis.forEach(emp => {
-      const pz = empO[emp.codice];
-      const eu = catData.find(d => d.cat === cat)?.grp.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0), 0) || 0;
-      html += '<td style="text-align:right;font-family:\'Nunito\',monospace;white-space:nowrap">' +
-        '<span style="color:#1e293b">' + (pz || '—') + '</span>' +
-        (eu > 0 ? '<span style="font-size:10px;color:#64748b;margin-left:4px">' + fmtEuro(eu) + '</span>' : '') +
-        '</td>';
+      const pz = empPz[emp.codice];
+      const eu = empEur[emp.codice];
+      html += '<td class="td-emp-pz">' + (pz || '—') + '</td>';
+      html += '<td class="td-emp-eur">' + (eu > 0 ? fmtEuro(eu) : '—') + '</td>';
     });
-    if (_iAmAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;font-weight:700;color:#16A34A">' + (tTot || '—') + '</td>';
-    html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534;font-weight:700">' + (tEur > 0 ? fmtEuro(tEur) : '—') + '</td>';
-    html += '<td style="text-align:right;font-weight:700;color:#0369a1;background:#e0f2fe">' + incPct + '</td></tr>';
+    if (hasTot) html += '<td style="text-align:right;font-weight:700;color:#16A34A;font-family:\'Nunito\',monospace">' + (tTot || '—') + '</td>';
+    html += '<td style="text-align:right;font-weight:700;color:#166534;font-family:\'Nunito\',monospace">' + (tEur > 0 ? fmtEuro(tEur) : '—') + '</td>';
+    html += '<td style="text-align:right;font-weight:700;color:#0369a1;background:#e0f2fe">' + incPct + '</td>';
+    html += '</tr>';
   });
 
-  html += '<tr style="background:#1e293b;color:white;font-weight:700"><td>TOTALE</td>';
+  // Totale generale
+  html += '<tr style="background:#1e293b;color:white;font-weight:700">';
+  html += '<td>TOTALE</td>';
   emporiVis.forEach(emp => {
     const pz = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
     const eu = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0), 0);
     const { pct } = calcolaSconto(emp.codice);
-    html += '<td style="text-align:right;font-family:\'Nunito\',monospace;white-space:nowrap">' +
-      '<span style="color:#4ade80">' + (pz || '—') + (pct > 0 ? '<span style="font-size:9px;color:#86efac;margin-left:3px">-' + pct + '%</span>' : '') + '</span>' +
-      (eu > 0 ? '<span style="font-size:10px;color:#86efac;margin-left:4px">' + fmtEuro(eu) + '</span>' : '') +
-      '</td>';
+    html += '<td style="text-align:right;color:#4ade80;border-left:2px solid #334155;font-family:\'Nunito\',monospace">' +
+      (pz || '—') + (pct > 0 ? '<span style="font-size:9px;color:#86efac;margin-left:3px">-' + pct + '%</span>' : '') + '</td>';
+    html += '<td style="text-align:right;color:#86efac;font-size:11px;border-right:2px solid #334155;font-family:\'Nunito\',monospace">' +
+      (eu > 0 ? fmtEuro(eu) : '—') + '</td>';
   });
-  if (_iAmAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gTot || '—') + '</td>';
-  html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gEur > 0 ? fmtEuro(gEur) : '—') + '</td>';
-  html += '<td style="text-align:right;font-weight:800;color:#7dd3fc">100%</td>';
+  if (hasTot) html += '<td style="text-align:right;color:#4ade80;font-family:\'Nunito\',monospace">' + (gTot || '—') + '</td>';
+  html += '<td style="text-align:right;color:#4ade80;font-family:\'Nunito\',monospace">' + (gEur > 0 ? fmtEuro(gEur) : '—') + '</td>';
+  html += '<td style="text-align:right;color:#7dd3fc;font-weight:800">100%</td>';
   html += '</tr></tbody>';
+
   document.getElementById('summary-table').innerHTML = html;
 }
 
@@ -1989,7 +2027,7 @@ function exportCSV() {
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
-  const cols = ['Codice','Categoria','Prodotto','Conf','Costo'];
+  const cols = ['Codice','Categoria','Prodotto','Conf','Costo i.e.'];
   emporiVis.forEach(e => { cols.push('ORD ' + e.codice); });
   if (_iAmAdmin && emporiVis.length > 1) cols.push('TOT ORD');
   ['CR','CA','VI'].forEach(s => {
