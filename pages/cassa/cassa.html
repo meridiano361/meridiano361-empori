@@ -3158,6 +3158,18 @@ function fillForm(data) {
     if(em) em.value=data['mat_coin_'+k]??'';
     if(ep) ep.value=data['pom_coin_'+k]??'';
   });
+  // Carica foto PRIMA di renderizzare le saved view (renderSpeseSavedView legge photosMap)
+  ['mat','pom'].forEach(t => {
+    ['rf','pos'].forEach(tp => {
+      const col = data[t+'_foto_'+tp];
+      if (col) try { photosMap[t+'_'+tp] = JSON.parse(col); } catch(e) {}
+      renderFotoWrap(t, tp);
+    });
+    const colSp = data[t+'_foto_spese'];
+    if (colSp) try { photosMap[t+'_spese'] = JSON.parse(colSp); } catch(e) {}
+    if (data[t+'_spese_foto_exempt']) speseExempt[t] = true;
+  });
+
   PAGAMENTI.forEach(p=>{
     const em=document.getElementById('mat_pay_'+p.id), ep=document.getElementById('pom_pay_'+p.id);
     if(em) em.value=data['mat_pay_'+p.id]!=null?euro(data['mat_pay_'+p.id]):'';
@@ -3239,19 +3251,6 @@ function fillForm(data) {
     const radio = document.querySelector(`input[name="turno_type"][value="${data.turno_type}"]`);
     if(radio) { radio.checked = true; updateTurnoVisibility(); }
   }
-  // Carica foto scontrini
-  ['mat','pom'].forEach(t => {
-    ['rf','pos'].forEach(tp => {
-      const col = data[t+'_foto_'+tp];
-      if (col) try { photosMap[t+'_'+tp] = JSON.parse(col); } catch(e) {}
-      renderFotoWrap(t, tp);
-    });
-    // Foto scontrini spese (si renderizzano all'apertura dell'editor)
-    const colSp = data[t+'_foto_spese'];
-    if (colSp) try { photosMap[t+'_spese'] = JSON.parse(colSp); } catch(e) {}
-    // Stato esenzione foto spese
-    if (data[t+'_spese_foto_exempt']) speseExempt[t] = true;
-  });
   if (data.mat_scontrini != null)   { const el = document.getElementById('mat-scontrini');   if (el) el.value = data.mat_scontrini; }
   if (data.pom_scontrini != null)   { const el = document.getElementById('pom-scontrini');   if (el) el.value = data.pom_scontrini; }
   if (data.global_scontrini != null){ const el = document.getElementById('global-scontrini'); if (el) el.value = data.global_scontrini; }
