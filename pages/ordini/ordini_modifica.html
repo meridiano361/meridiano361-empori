@@ -437,8 +437,19 @@
                 </div>
             </div>
 
-            <div class="section-card">
-                <textarea id="order-notes" rows="2" class="form-input" placeholder="Note..."></textarea>
+            <div class="section-card" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:4px">
+                        <i class="fas fa-lock" style="font-size:9px"></i> Note interne
+                    </div>
+                    <textarea id="order-notes" rows="3" class="form-input" placeholder="Visibili solo agli operatori…"></textarea>
+                </div>
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:#0369a1;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:4px">
+                        <i class="fas fa-file-pdf" style="font-size:9px"></i> Note per il cliente
+                    </div>
+                    <textarea id="order-notes-cliente" rows="3" class="form-input" placeholder="Visibili nel PDF cliente…" style="border-color:#bae6fd;background:#f0f9ff"></textarea>
+                </div>
             </div>
 
             <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -655,6 +666,7 @@
             
             // Note
             setValueSafe('order-notes', order.note);
+            setValueSafe('order-notes-cliente', order.note_cliente);
 
             // Titolo
             setValueSafe('titolo-ordine', order.titolo || '');
@@ -1444,6 +1456,7 @@
                     acconto: itParse(document.getElementById('acconto').value),
                     da_pagare: itParse(document.getElementById('saldo-finale').textContent),
                     note: document.getElementById('order-notes').value,
+                    note_cliente: document.getElementById('order-notes-cliente').value,
                     titolo: document.getElementById('titolo-ordine')?.value || '',
                     articoli: articoli,
                     stato: articoli.length > 0 && articoli.every(a => (parseInt(a.merce_pronta) || 0) >= (parseInt(a.qta) || 0)) ? 'merce_pronta' : 'in_corso'
@@ -1765,9 +1778,10 @@
             const dataOrdine = document.getElementById('order-date')?.value || '';
             const emporio    = document.getElementById('select-emporio')?.value || '';
             const numOrdine  = document.getElementById('numero-ordine-preview')?.textContent || '';
-            const grandTotal = document.getElementById('grand-total')?.textContent || '€ 0,00';
-            const accontoVal = document.getElementById('acconto')?.value || '€ 0,00';
-            const saldoVal   = document.getElementById('saldo-finale')?.textContent || '€ 0,00';
+            const grandTotal    = document.getElementById('grand-total')?.textContent || '€ 0,00';
+            const accontoVal    = document.getElementById('acconto')?.value || '€ 0,00';
+            const saldoVal      = document.getElementById('saldo-finale')?.textContent || '€ 0,00';
+            const noteCliente   = document.getElementById('order-notes-cliente')?.value?.trim() || '';
 
             // Collect groups
             let rowsHtml = '';
@@ -1894,6 +1908,7 @@
   <div class="totali-box"><span class="lbl">Acconto</span><span class="val">${accontoVal.replace('€ ','€ ')}</span></div>
   <div class="totali-box saldo"><span class="lbl">Da pagare</span><span class="val">${saldoVal}</span></div>
 </div>
+${noteCliente ? `<div style="margin-top:20px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px"><div style="font-size:10px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Note</div><div style="font-size:13px;color:#1e293b;white-space:pre-wrap">${noteCliente}</div></div>` : ''}
 <div class="footer">Meridiano 361 — documento generato il ${new Date().toLocaleDateString('it-IT')}</div>
 <script>window.onload=function(){window.print()}<\/script>
 </body></html>`;
