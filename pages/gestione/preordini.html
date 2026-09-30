@@ -87,10 +87,9 @@
     }
 
     /* ── STICKY LEFT COLS ── */
-    .col-s-foto { position: sticky; left: 0;     z-index: 2; width: 36px; min-width: 36px; }
-    .col-s0 { position: sticky; left: 36px;   z-index: 2; }
-    .col-s1 { position: sticky; left: 107px;  z-index: 2; }
-    .col-s2 { position: sticky; left: 219px;  z-index: 2; box-shadow: 2px 0 4px rgba(0,0,0,.07); }
+    .col-s0 { position: sticky; left: 0;     z-index: 2; }
+    .col-s1 { position: sticky; left: 108px; z-index: 2; }
+    .col-s2 { position: sticky; left: 220px; z-index: 2; box-shadow: 2px 0 4px rgba(0,0,0,.07); }
     .tabella-preordini tbody .col-s0,
     .tabella-preordini tbody .col-s1,
     .tabella-preordini tbody .col-s2 { background: #fff; }
@@ -306,18 +305,23 @@
     .btn-modal-save:disabled { opacity: .5; cursor: not-allowed; }
 
 
-    /* ── FOTO PRODOTTO THUMBNAIL ── */
-    .foto-prod-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; display: block; cursor: zoom-in; }
-    .foto-add-btn {
-      width: 30px; height: 30px; border: 1.5px dashed #cbd5e1; border-radius: 4px;
-      background: #f8fafc; color: #94a3b8; font-size: 16px; line-height: 1;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      margin: 0 auto; font-family: 'Nunito', sans-serif;
+    /* ── FOTO NELLA COLONNA CODICE ── */
+    .foto-cod-wrap { position: relative; width: 34px; height: 34px; flex-shrink: 0; }
+    .foto-cod-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; display: block; cursor: zoom-in; }
+    .foto-cod-overlay {
+      position: absolute; inset: 0; border-radius: 4px;
+      background: rgba(0,0,0,.50); display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .15s; cursor: pointer; font-size: 15px;
     }
-    .foto-add-btn:hover { background: #e2e8f0; color: #475569; border-color: #94a3b8; }
-    .tabella-preordini tbody .col-s-foto,
-    .tabella-preordini thead .col-s-foto { background: #fff; }
-    .tabella-preordini thead .col-s-foto { z-index: 16; }
+    td.col-s0:hover .foto-cod-overlay { opacity: 1; }
+    .foto-cod-add {
+      width: 34px; height: 34px; flex-shrink: 0;
+      border: 1.5px dashed #cbd5e1; border-radius: 4px;
+      background: #f8fafc; color: #94a3b8; font-size: 17px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-family: 'Nunito', sans-serif; padding: 0;
+    }
+    .foto-cod-add:hover { background: #e2e8f0; color: #475569; border-color: #94a3b8; }
 
     /* ── FOTO LIGHTBOX ── */
     #foto-lb-bg {
@@ -400,7 +404,7 @@
       .toolbar, #sconto-banner, #m361-header, #m361-nav { display: none !important; }
       body { padding: 0 !important; }
       .tabella-preordini thead { position: static; }
-      .col-s-foto, .col-s0, .col-s1, .col-s2 { position: static; }
+      .col-s0, .col-s1, .col-s2 { position: static; }
       .tabella-wrapper { max-height: none; overflow: visible; }
     }
   </style>
@@ -889,6 +893,16 @@ function onPvpM361(rigaId, input) {
   }, 700);
 }
 
+const pvpConsTimers = {};
+function onPvpCons(rigaId, input) {
+  clearTimeout(pvpConsTimers[rigaId]);
+  pvpConsTimers[rigaId] = setTimeout(async () => {
+    const val = input.value.trim() ? parseFloat(input.value.replace(',','.')) : null;
+    const { error } = await DB.from('preordini_righe').update({ pvp_consigliato: val }).eq('id', rigaId);
+    if (!error) { const r = righe.find(x => x.id === rigaId); if (r) r.pvp_consigliato = val; }
+  }, 700);
+}
+
 // ── ADMIN RIGA CRUD ────────────────────────────────────────────────────
 function openEditRiga(rigaId) {
   const riga = righe.find(r => r.id === rigaId);
@@ -998,7 +1012,7 @@ async function salvaFotoPos() {
   fotoDB[_lbCodice].data_b64 = src;
   fotoDB[_lbCodice].pos_x = x;
   fotoDB[_lbCodice].pos_y = y;
-  document.querySelectorAll('.foto-prod-thumb[data-codice="' + _lbCodice + '"]').forEach(img => {
+  document.querySelectorAll('.foto-cod-thumb[data-codice="' + _lbCodice + '"]').forEach(img => {
     img.style.objectPosition = x + '% ' + y + '%';
   });
   chiudiFotoLb();
@@ -1024,8 +1038,7 @@ function onFotoUpload(input) {
       const b64 = canvas.toDataURL('image/jpeg', 0.88);
       const lbImg = document.getElementById('foto-lb-main');
       lbImg.src = b64; lbImg.style.display = 'block';
-      const prev = document.getElementById('foto-lb-preview');
-      prev.src = b64;
+      document.getElementById('foto-lb-preview').src = b64;
       const x = parseInt(document.getElementById('foto-pos-x').value);
       const y = parseInt(document.getElementById('foto-pos-y').value);
       const { error } = await DB.from('preordini_foto')
@@ -1035,12 +1048,17 @@ function onFotoUpload(input) {
       fotoDB[_lbCodice].data_b64 = b64;
       fotoDB[_lbCodice].pos_x = x;
       fotoDB[_lbCodice].pos_y = y;
-      document.querySelectorAll('.foto-prod-thumb[data-codice="' + _lbCodice + '"]').forEach(el => {
+      // Aggiorna tutti i thumbnail in tabella (ricarica la riga)
+      document.querySelectorAll('.foto-cod-thumb[data-codice="' + _lbCodice + '"]').forEach(el => {
         el.src = b64; el.style.objectPosition = x + '% ' + y + '%';
       });
-      document.querySelectorAll('.foto-add-btn[data-codice="' + _lbCodice + '"]').forEach(btn => {
-        const td = btn.parentElement;
-        td.innerHTML = '<img src="' + b64 + '" class="foto-prod-thumb" data-codice="' + _lbCodice + '" style="object-position:' + x + '% ' + y + '%" ondblclick="apriLightboxFoto(this.dataset.codice,\'' + td.dataset.nome + '\')" title="' + (td.dataset.nome || '') + '">';
+      document.querySelectorAll('.foto-cod-add[data-codice="' + _lbCodice + '"]').forEach(btn => {
+        const wrap = btn.parentElement;
+        const nome = btn.dataset.nome || '';
+        btn.outerHTML = '<div class="foto-cod-wrap" data-codice="' + _lbCodice + '" data-nome="' + nome + '">'
+          + '<img src="' + b64 + '" class="foto-cod-thumb" data-codice="' + _lbCodice + '" style="object-position:' + x + '% ' + y + '%" ondblclick="apriLightboxFoto(this.dataset.codice,this.title)" title="' + nome + '">'
+          + '<div class="foto-cod-overlay" data-codice="' + _lbCodice + '" data-nome="' + nome + '" onclick="apriLightboxFoto(this.dataset.codice,this.dataset.nome)" title="Modifica foto">📷</div>'
+          + '</div>';
       });
     };
     img.src = e.target.result;
@@ -1195,7 +1213,7 @@ function renderTable() {
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
   const nStorCols = 9; // 3 sedi × 3 anni
-  const totalCols = 8 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 1;
+  const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 1;
 
   // THEAD ROW 1: fixed cols → order cols → storico header → € IMP
   // Sort indicator helper
@@ -1205,8 +1223,7 @@ function renderTable() {
   };
 
   let h1 = '<tr>';
-  h1 += '<th rowspan="2" class="th-info col-s-foto" style="text-align:center;width:36px;min-width:36px">📷</th>';
-  h1 += '<th rowspan="2" class="th-info col-s0 th-sortable' + (sortRigheBy==='codice'?' sort-active':'') + '" style="text-align:left;width:70px;min-width:70px" data-s="codice" onclick="sortTabella(this.dataset.s)">Codice' + sarr('codice') + '</th>';
+  h1 += '<th rowspan="2" class="th-info col-s0 th-sortable' + (sortRigheBy==='codice'?' sort-active':'') + '" style="text-align:left;width:108px;min-width:108px" data-s="codice" onclick="sortTabella(this.dataset.s)">Foto · Codice' + sarr('codice') + '</th>';
   h1 += '<th rowspan="2" class="th-info col-s1 th-sortable' + (sortRigheBy==='categoria'?' sort-active':'') + '" style="text-align:left;width:110px;min-width:110px" data-s="categoria" onclick="sortTabella(this.dataset.s)">Categoria' + sarr('categoria') + '</th>';
   h1 += '<th rowspan="2" class="th-info col-s2 th-sortable' + (sortRigheBy==='prodotto'?' sort-active':'') + '" style="text-align:left;min-width:180px" data-s="prodotto" onclick="sortTabella(this.dataset.s)">Prodotto' + sarr('prodotto') + '</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:42px">Conf</th>';
@@ -1276,16 +1293,22 @@ function renderTable() {
       const fotoPos = getFotoPos(riga.codice);
       const nomeSafe = esc(riga.prodotto || '');
       html += '<tr class="product-row" data-fk="' + fk + '" data-riga-id="' + riga.id + '">';
+      // Colonna fusa: foto + codice
+      html += '<td class="col-s0" style="padding:3px 5px;position:relative;white-space:nowrap">';
+      html += '<div style="display:flex;align-items:center;gap:5px">';
       if (fotoSrc) {
-        html += '<td class="col-s-foto" style="padding:2px;text-align:center" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '">'
-          + '<img src="' + fotoSrc + '" class="foto-prod-thumb" data-codice="' + riga.codice + '" style="object-position:' + fotoPos.x + '% ' + fotoPos.y + '%" ondblclick="apriLightboxFoto(this.dataset.codice,this.title)" title="' + nomeSafe + '">'
-          + '</td>';
+        html += '<div class="foto-cod-wrap" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '">';
+        html += '<img src="' + fotoSrc + '" class="foto-cod-thumb" data-codice="' + riga.codice + '" style="object-position:' + fotoPos.x + '% ' + fotoPos.y + '%" ondblclick="apriLightboxFoto(this.dataset.codice,this.title)" title="' + nomeSafe + '">';
+        if (_iAmAdmin) html += '<div class="foto-cod-overlay" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '" onclick="apriLightboxFoto(this.dataset.codice,this.dataset.nome)" title="Modifica foto">📷</div>';
+        html += '</div>';
+      } else if (_iAmAdmin) {
+        html += '<button class="foto-cod-add" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '" onclick="apriLightboxFoto(this.dataset.codice,this.dataset.nome)" title="Carica foto">📷</button>';
       } else {
-        html += '<td class="col-s-foto" style="padding:2px;text-align:center" data-codice="' + riga.codice + '" data-nome="' + nomeSafe + '">'
-          + (_iAmAdmin ? '<button class="foto-add-btn" data-codice="' + riga.codice + '" onclick="apriLightboxFoto(this.dataset.codice,this.closest(\'td\').dataset.nome)" title="Aggiungi foto">+</button>' : '')
-          + '</td>';
+        html += '<div style="width:34px;height:34px;flex-shrink:0"></div>';
       }
-      html += '<td class="col-s0" style="color:#94a3b8;font-size:10px;padding:3px 4px;position:relative">' + esc(riga.codice || '') + (_iAmAdmin ? '<button class="admin-edit-btn" data-rid="' + riga.id + '" onclick="event.stopPropagation();openEditRiga(this.dataset.rid)">✎</button>' : '') + '</td>';
+      html += '<span style="color:#334155;font-size:11px;font-weight:600">' + esc(riga.codice || '') + '</span>';
+      if (_iAmAdmin) html += '<button class="admin-edit-btn" data-rid="' + riga.id + '" onclick="event.stopPropagation();openEditRiga(this.dataset.rid)">✎</button>';
+      html += '</div></td>';
       html += '<td class="col-s1" style="font-size:11px;color:#64748b;padding:3px 4px">' + esc(riga.categoria || '') + '</td>';
 
       // Prodotto con nota tooltip
@@ -1296,7 +1319,11 @@ function renderTable() {
 
       html += '<td style="text-align:center;color:#94a3b8;font-size:11px">' + (riga.conf || '') + '</td>';
       html += '<td style="text-align:right;color:#475569;font-size:11px;padding:2px 6px">' + (riga.pvp_corrente ? fmtEuro(riga.pvp_corrente) : '') + '</td>';
-      html += '<td style="text-align:right;color:#64748b;font-size:11px;padding:2px 6px">' + (riga.pvp_consigliato ? fmtEuro(riga.pvp_consigliato) : '') + '</td>';
+      if (_iAmAdmin) {
+        html += '<td style="text-align:center;padding:1px 2px"><input class="pvp-m361-input" type="number" step="0.01" min="0" value="' + (riga.pvp_consigliato != null ? riga.pvp_consigliato : '') + '" placeholder="—" oninput="onPvpCons(\'' + riga.id + '\',this)" title="PVP consigliato"></td>';
+      } else {
+        html += '<td style="text-align:right;color:#64748b;font-size:11px;padding:2px 6px">' + (riga.pvp_consigliato ? fmtEuro(riga.pvp_consigliato) : '') + '</td>';
+      }
       const pvpM361Val = riga.pvp_m361 != null ? riga.pvp_m361 : (riga.pvp_consigliato != null ? riga.pvp_consigliato : '');
       html += '<td style="text-align:center;padding:1px 2px"><input class="pvp-m361-input" type="number" step="0.01" min="0" value="' + pvpM361Val + '" placeholder="—" oninput="onPvpM361(\'' + riga.id + '\',this)" title="PVP m361"></td>';
 
@@ -1345,7 +1372,7 @@ function renderTable() {
 
     // Riga subtotale
     html += '<tr class="tr-subtotal" data-fk="' + fk + '">';
-    html += '<td colspan="8" style="text-align:right;font-size:9px;text-transform:uppercase;letter-spacing:.04em">TOTALE ' + esc(forn) + '</td>';
+    html += '<td colspan="7" style="text-align:right;font-size:9px;text-transform:uppercase;letter-spacing:.04em">TOTALE ' + esc(forn) + '</td>';
     let subTot = 0, subEur = 0;
     emporiVis.forEach(emp => {
       const so = subEmpOrd[emp.codice] || 0;
@@ -1367,7 +1394,7 @@ function renderTable() {
 
   tbody.innerHTML = html;
 
-  let foot = '<tr><td colspan="8" style="text-align:right;font-size:10px;letter-spacing:.06em">TOTALE GENERALE →</td>';
+  let foot = '<tr><td colspan="7" style="text-align:right;font-size:10px;letter-spacing:.06em">TOTALE GENERALE →</td>';
   let gTot = 0, gEur = 0;
   emporiVis.forEach(emp => {
     const eo = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
