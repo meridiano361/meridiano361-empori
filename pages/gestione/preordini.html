@@ -335,12 +335,14 @@
     }
     .campagna-btns button:hover { background: #f1f5f9; border-color: #cbd5e1; }
     .campagna-btns button.del:hover { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+    .campagna-btns button.btn-cond-toggle { width: auto; padding: 0 10px; font-size: 12px; font-weight: 700; color: #0369a1; border-color: #bae6fd; background: #f0f9ff; gap: 4px; }
+    .campagna-btns button.btn-cond-toggle:hover, .campagna-btns button.btn-cond-toggle.active { background: #0369a1; color: white; border-color: #0369a1; }
     .camp-cond {
       border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;
       background: #f8fafc; padding: 14px 16px; margin-top: -9px; margin-bottom: 8px;
     }
-    .camp-cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 640px) { .camp-cond-grid { grid-template-columns: 1fr; } }
+    .camp-cond-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+    @media (max-width: 520px) { .camp-cond-grid { grid-template-columns: 1fr; } }
     .camp-cond h4 { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 6px; }
     .camp-cond-scag { border-collapse: collapse; font-size: 11px; width: 100%; }
     .camp-cond-scag td { padding: 2px 6px; color: #374151; }
@@ -1014,7 +1016,7 @@ function renderCampagnaRow(camp) {
   html += '</div>';
   html += '<div class="campagna-chevron">›</div>';
   html += '<div class="campagna-btns" onclick="event.stopPropagation()">';
-  html += '<button title="Condizioni commerciali &amp; allegati" onclick="toggleCond(\'' + camp.id + '\')" id="btn-cond-' + camp.id + '">ℹ</button>';
+  html += '<button class="btn-cond-toggle" title="Condizioni commerciali &amp; allegati" onclick="toggleCond(\'' + camp.id + '\')" id="btn-cond-' + camp.id + '">Condizioni ▾</button>';
   if (_iAmAdmin) {
     html += '<button title="Modifica" onclick="openCampagnaModal(\'' + (camp.sezione_id||'') + '\',\'' + camp.id + '\')">✎</button>';
     html += '<button class="del" title="Elimina" onclick="deleteCampagna(\'' + camp.id + '\',\'' + esc(camp.nome) + '\')">✕</button>';
@@ -1051,7 +1053,7 @@ async function toggleCond(campId) {
   const isOpen = !panel.classList.contains('hidden');
   if (isOpen) {
     panel.classList.add('hidden');
-    if (btn) btn.style.background = '';
+    if (btn) { btn.classList.remove('active'); btn.textContent = 'Condizioni ▾'; }
     return;
   }
   if (panel.dataset.loaded === '0') {
@@ -1060,47 +1062,65 @@ async function toggleCond(campId) {
     panel.dataset.loaded = '1';
   }
   panel.classList.remove('hidden');
-  if (btn) btn.style.background = '#e0f2fe';
+  if (btn) { btn.classList.add('active'); btn.textContent = 'Condizioni ▴'; }
 }
 
 async function renderCondPanel(campId, camp) {
   const panel = document.getElementById('cond-' + campId);
   if (!panel) return;
-  const fmtEu = v => v != null ? '€ ' + parseFloat(v).toLocaleString('it-IT', { minimumFractionDigits: 0 }) : '';
+  const fmtD  = d => d ? new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const fmtEu = v => v != null ? '€ ' + parseFloat(v).toLocaleString('it-IT', { minimumFractionDigits: 0 }) : '';
 
-  // Scaglioni
+  // ── SEZIONE DATE ──
+  const dateRows = [
+    ['Apertura preordini', fmtD(camp.data_apertura)],
+    ['Chiusura preordini', fmtD(camp.scadenza)],
+    ['Consegna prevista',  fmtD(camp.data_consegna)],
+  ].filter(r => r[1] !== '—');
+  let dateHtml = '';
+  if (dateRows.length) {
+    dateHtml = '<table class="camp-cond-scag"><tbody>' +
+      dateRows.map(r => '<tr><td>' + r[0] + '</td><td style="font-weight:700;color:#1e293b">' + r[1] + '</td></tr>').join('') +
+      '</tbody></table>';
+  }
+
+  // ── SEZIONE SCONTI ──
   let scagHtml = '';
-  if (camp.scaglioni && camp.scaglioni.length > 0) {
-    scagHtml = '<table class="camp-cond-scag"><tbody>';
-    camp.scaglioni.forEach((t, i) => {
-      if (!t.min && !t.pct) return;
-      const next = camp.scaglioni[i + 1];
+  const tiers = (camp.scaglioni || []).filter(t => t.min || t.pct);
+  if (tiers.length) {
+    scagHtml = '<table class="camp-cond-scag" style="width:100%"><thead><tr>' +
+      '<th style="text-align:left;font-size:9px;color:#94a3b8;font-weight:700;padding:2px 6px;text-transform:uppercase">Importo ordine</th>' +
+      '<th style="text-align:right;font-size:9px;color:#94a3b8;font-weight:700;padding:2px 6px;text-transform:uppercase">Sconto</th>' +
+      '</tr></thead><tbody>';
+    tiers.forEach((t, i) => {
+      const next = tiers[i + 1];
       const label = next ? 'Da ' + fmtEu(t.min) + ' a ' + fmtEu(next.min - 1) : 'Oltre ' + fmtEu(t.min);
-      scagHtml += '<tr><td>' + esc(label) + '</td><td style="font-weight:700;color:#16a34a">' + t.pct + '%</td></tr>';
+      scagHtml += '<tr><td>' + label + '</td><td style="text-align:right;font-weight:800;color:#16a34a;font-size:13px">' + t.pct + '%</td></tr>';
     });
     scagHtml += '</tbody></table>';
   } else {
-    scagHtml = '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuno scaglione</span>';
+    scagHtml = '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuno scaglione definito</span>';
   }
   if (camp.min_ordine) {
-    scagHtml += '<div style="font-size:11px;color:#475569;margin-top:4px">Minimo ordine: <strong>' + fmtEu(camp.min_ordine) + '</strong></div>';
+    scagHtml += '<div style="margin-top:6px;font-size:11px;color:#475569;background:#fef9c3;border-radius:5px;padding:4px 8px">Minimo ordine: <strong>' + fmtEu(camp.min_ordine) + '</strong></div>';
   }
 
-  // Note commerciali
+  // ── NOTE COMMERCIALI ──
   const note = camp.note_commerciali || '';
   const noteHtml = _iAmAdmin
-    ? '<textarea id="note-' + campId + '" class="camp-cond-note" onblur="saveNoteCommerciali(\'' + campId + '\')" placeholder="Note e condizioni commerciali...">' + esc(note) + '</textarea>'
+    ? '<textarea id="note-' + campId + '" class="camp-cond-note" onblur="saveNoteCommerciali(\'' + campId + '\')" placeholder="Condizioni di pagamento, rimborsi spedizione, premi fedeltà…">' + esc(note) + '</textarea>'
     : (note ? '<div class="camp-cond-note">' + esc(note) + '</div>' : '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuna nota</span>');
 
-  // Allegati: carica da DB
+  // ── ALLEGATI ──
   const { data: allegati } = await DB.from('preordini_allegati').select('*').eq('campagna_id', campId).order('created_at');
   let allegHtml = '';
   (allegati || []).forEach(a => {
-    const ext = (a.nome || '').split('.').pop().toLowerCase();
+    const ext  = (a.nome || '').split('.').pop().toLowerCase();
     const icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','webp'].includes(ext) ? '🖼' : '📎';
+    const dim  = a.dimensione > 1048576 ? (a.dimensione/1048576).toFixed(1) + ' MB' : Math.round(a.dimensione/1024) + ' KB';
     allegHtml += '<div class="allegato-row">';
     allegHtml += '<a class="allegato-nome" href="' + esc(a.url) + '" target="_blank" rel="noopener">' + icon + ' ' + esc(a.nome) + '</a>';
-    if (a.dimensione) allegHtml += '<span style="font-size:10px;color:#94a3b8">' + (a.dimensione > 1048576 ? (a.dimensione/1048576).toFixed(1) + ' MB' : Math.round(a.dimensione/1024) + ' KB') + '</span>';
+    if (a.dimensione) allegHtml += '<span style="font-size:10px;color:#94a3b8">' + dim + '</span>';
     if (_iAmAdmin) allegHtml += '<button class="allegato-del" onclick="deleteAllegato(\'' + a.id + '\',\'' + esc(a.storage_path || '') + '\',\'' + campId + '\')" title="Elimina">✕</button>';
     allegHtml += '</div>';
   });
@@ -1112,10 +1132,11 @@ async function renderCondPanel(campId, camp) {
 
   panel.innerHTML =
     '<div class="camp-cond-grid">' +
-      '<div><h4>Sconti &amp; condizioni</h4>' + scagHtml + '</div>' +
+      (dateHtml ? '<div><h4>Date</h4>' + dateHtml + '</div>' : '') +
+      '<div><h4>Scaglioni sconto</h4>' + scagHtml + '</div>' +
       '<div><h4>Note commerciali</h4>' + noteHtml + '</div>' +
     '</div>' +
-    '<div class="camp-allegati"><h4>Allegati</h4><div id="allegati-list-' + campId + '">' + allegHtml + '</div></div>';
+    '<div class="camp-allegati"><h4>Allegati (' + (allegati?.length || 0) + ')</h4><div id="allegati-list-' + campId + '">' + allegHtml + '</div></div>';
 }
 
 async function saveNoteCommerciali(campId) {
@@ -1131,7 +1152,14 @@ async function uploadAllegato(campId, input) {
   for (const file of files) {
     const path = campId + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const { error: upErr } = await DB.storage.from('preordini-allegati').upload(path, file, { upsert: false });
-    if (upErr) { alert('Errore upload: ' + upErr.message); continue; }
+    if (upErr) {
+      if (upErr.message.includes('Bucket not found') || upErr.message.includes('bucket')) {
+        alert('Bucket storage non trovato.\n\nEsegui in Supabase SQL Editor:\nINSERT INTO storage.buckets (id, name, public) VALUES (\'preordini-allegati\', \'preordini-allegati\', true) ON CONFLICT (id) DO NOTHING;\n\nPoi aggiungi le policy per storage.objects (vedi istruzioni).');
+      } else {
+        alert('Errore upload: ' + upErr.message);
+      }
+      continue;
+    }
     const { data: urlData } = DB.storage.from('preordini-allegati').getPublicUrl(path);
     const url = urlData?.publicUrl || '';
     const { error: dbErr } = await DB.from('preordini_allegati').insert({
