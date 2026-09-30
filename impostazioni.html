@@ -205,10 +205,14 @@
         .sez-card.sez-nascosta { border-color: #fca5a5; background: #fff5f5; }
         .sez-card.sez-readonly { border-color: #fde68a; background: #fefce8; }
         .sez-card.sez-sistema  { border-color: #e2e8f0; background: #f8fafc; opacity: .7; }
+        .sez-card.sez-forzata  { border-color: #f59e0b; background: #fffbeb; }
         .sez-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .sez-card-icon { font-size: 20px; }
         .sez-card-nome { font-size: 13px; font-weight: 700; color: #1e293b; }
         .sez-sistema-label { font-size: 10px; color: #94a3b8; font-weight: 600; margin-bottom: 8px; background: #f1f5f9; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+        .sez-forzata-label { font-size: 10px; color: #92400e; font-weight: 600; margin-bottom: 8px; background: #fef3c7; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+        .sez-sblocca-btn { font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer; font-family: 'Nunito', sans-serif; color: #475569; margin-top: 8px; width: 100%; text-align: center; }
+        .sez-sblocca-btn:hover { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
         .sez-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
         .sez-toggle-label { font-size: 12px; color: #64748b; }
         .sez-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
@@ -2894,9 +2898,10 @@
         _gruppoEmporioIds   = null;
     }
 
+    // Sezioni bloccate dal sistema MA sbloccabili dall'admin via utenti_permessi
+    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento']);
+
     // ── RESTRIZIONI DI SISTEMA ────────────────────────────────────────────
-    // Replica le restrizioni hardcoded di index.html e delle singole pagine.
-    // Una sezione è "sistema" se non è sbloccabile tramite utenti_permessi.
     function _sistemaSezioniNascoste(op) {
         if (!op) return new Set();
         const email   = (op.email || '').toLowerCase();
@@ -2906,14 +2911,13 @@
         const isAdminOp = ruolo === 'admin' || ruolo === 'dipendente';
         const isRespAcq = !!(op.is_resp_acquisti);
         const hidden = new Set();
-        // Lista Spesa e Analisi Commerciale: solo Emilio (wip in index.html)
+        // Lista Spesa, Analisi Commerciale: solo Emilio — non sbloccabili
         if (!isEmilio) { hidden.add('lista-spesa'); hidden.add('analisi-commerciale'); }
-        // Cassa: card visibile solo a Emilio e Cremona (index.html)
+        // Cassa: solo Emilio o Cremona — non sbloccabile
         if (!isEmilio && emporio !== 'cremona') hidden.add('cassa');
-        // Preordini: la pagina redirige se non Emilio e non is_resp_acquisti
+        // Preordini: bloccata se non Emilio e non is_resp_acquisti — SBLOCCABILE via permessi
         if (!isEmilio && !isRespAcq) hidden.add('preordini');
-        // Rifornimento: la pagina mostra "accesso negato" se non Emilio e non is_resp_acquisti
-        //               E la card in home è nascosta se non admin e non CA/VI
+        // Rifornimento: bloccata dalla pagina E/O nascosta in home — SBLOCCABILE via permessi
         if ((!isEmilio && !isRespAcq) || (!isAdminOp && emporio !== 'casalmaggiore' && emporio !== 'viadana')) {
             hidden.add('rifornimento');
         }
@@ -2921,12 +2925,20 @@
     }
 
     // ── HELPER BADGE ACCESSO COMPATTO ─────────────────────────────────────
+    function _effAccessibile(op, perm, sezId) {
+        const sist = _sistemaSezioniNascoste(op);
+        if (perm[sezId]?.vede === false) return false;
+        if (sist.has(sezId)) {
+            // Sbloccabile: accessibile solo se admin ha forzato esplicitamente
+            return SIST_SBLOCCABILE.has(sezId) && perm[sezId]?.vede === true;
+        }
+        return true;
+    }
     function _tipoAccesso(opId) {
         const op   = utentiCache.find(o => String(o.id) === String(opId));
         const perm = permessiCache[opId] || {};
-        const sist = _sistemaSezioniNascoste(op);
-        const nascoste = SEZIONI_APP.filter(s => perm[s.id]?.vede === false || sist.has(s.id)).length;
-        const solaLett = SEZIONI_APP.filter(s => !sist.has(s.id) && perm[s.id]?.vede !== false && perm[s.id]?.opera === false).length;
+        const nascoste = SEZIONI_APP.filter(s => !_effAccessibile(op, perm, s.id)).length;
+        const solaLett = SEZIONI_APP.filter(s => _effAccessibile(op, perm, s.id) && perm[s.id]?.opera === false).length;
         if (nascoste === SEZIONI_APP.length) return 'nessuno';
         if (nascoste === 0 && solaLett === 0) return 'completo';
         return 'restrizioni';
@@ -2938,9 +2950,8 @@
     function _iconaAccesso(opId) {
         const op   = utentiCache.find(o => String(o.id) === String(opId));
         const perm = permessiCache[opId] || {};
-        const sist = _sistemaSezioniNascoste(op);
-        const nascoste = SEZIONI_APP.filter(s => perm[s.id]?.vede === false || sist.has(s.id)).length;
-        const solaLett = SEZIONI_APP.filter(s => !sist.has(s.id) && perm[s.id]?.vede !== false && perm[s.id]?.opera === false).length;
+        const nascoste = SEZIONI_APP.filter(s => !_effAccessibile(op, perm, s.id)).length;
+        const solaLett = SEZIONI_APP.filter(s => _effAccessibile(op, perm, s.id) && perm[s.id]?.opera === false).length;
         if (nascoste === SEZIONI_APP.length) return '⛔ Nessun accesso';
         if (nascoste === 0 && solaLett === 0) return '✓ Completo';
         const acc = SEZIONI_APP.length - nascoste;
@@ -2968,22 +2979,41 @@
 
         const grid = document.getElementById('sez-sezioni-grid');
         grid.innerHTML = SEZIONI_APP.map(s => {
-            const sistema = sist.has(s.id);
+            const sistRestr = sist.has(s.id);
+            // Sbloccabile: sistema ma l'admin ha già forzato l'accesso (può_vedere=true esplicito)
+            const forzata   = sistRestr && SIST_SBLOCCABILE.has(s.id) && permMap[s.id]?.vede === true;
+            const sistema   = sistRestr && !forzata;
+
             const vedeDb  = permMap[s.id]?.vede  !== false;
             const operaDb = permMap[s.id]?.opera !== false;
-            const vede    = sistema ? false : vedeDb;
-            const opera   = sistema ? false : (vedeDb ? operaDb : false);
-            const cardCls = sistema ? 'sez-sistema' : (!vede ? 'sez-nascosta' : !opera ? 'sez-readonly' : '');
-            return `<div class="sez-card${cardCls ? ' ' + cardCls : ''}" id="sezcard-${s.id}">
+            const vede    = sistema ? false : (forzata ? true : vedeDb);
+            const opera   = sistema ? false : (forzata ? operaDb : (vedeDb ? operaDb : false));
+
+            if (sistema && SIST_SBLOCCABILE.has(s.id)) {
+                // Sistema sbloccabile: mostra bottone "Forza accesso"
+                return `<div class="sez-card sez-sistema" id="sezcard-${s.id}" data-forzata="false">
+                    <div class="sez-card-top">
+                        <span class="sez-card-icon">${s.icon || ''}</span>
+                        <span class="sez-card-nome">${s.nome}</span>
+                    </div>
+                    <div class="sez-sistema-label">⚙️ Richiede resp. acquisti</div>
+                    <input type="checkbox" class="sez-vede" data-sez="${s.id}" data-sistema="true" style="display:none" disabled>
+                    <button class="sez-sblocca-btn" onclick="sezForza('${s.id}')">↗ Forza accesso per questo operatore</button>
+                </div>`;
+            }
+
+            const cardCls = forzata ? 'sez-forzata' : sistema ? 'sez-sistema' : (!vede ? 'sez-nascosta' : !opera ? 'sez-readonly' : '');
+            return `<div class="sez-card${cardCls ? ' ' + cardCls : ''}" id="sezcard-${s.id}" data-forzata="${forzata}">
                 <div class="sez-card-top">
                     <span class="sez-card-icon">${s.icon || ''}</span>
                     <span class="sez-card-nome">${s.nome}</span>
                 </div>
+                ${forzata ? '<div class="sez-forzata-label">⚠️ Accesso forzato dall\'admin</div>' : ''}
                 ${sistema ? '<div class="sez-sistema-label">⚙️ Restrizione di sistema</div>' : ''}
                 <div class="sez-toggle-row">
                     <span class="sez-toggle-label">Visibile</span>
                     <label class="sez-toggle">
-                        <input type="checkbox" class="sez-vede" data-sez="${s.id}" data-sistema="${sistema}"
+                        <input type="checkbox" class="sez-vede" data-sez="${s.id}" data-sistema="${sistema && !forzata}"
                                ${vede ? 'checked' : ''} ${sistema ? 'disabled' : ''}
                                onchange="onSezVedeChange('${s.id}',this.checked)">
                         <span class="sez-toggle-slider"></span>
@@ -3036,6 +3066,36 @@
         } else {
             document.querySelectorAll('.sez-opera:not(:disabled)').forEach(cb => { cb.checked = val; aggiornaSezCard(cb.dataset.sez); });
         }
+    }
+
+    function sezForza(sezId) {
+        const card = document.getElementById('sezcard-' + sezId);
+        const s    = SEZIONI_APP.find(x => x.id === sezId);
+        if (!card || !s) return;
+        card.className   = 'sez-card sez-forzata';
+        card.dataset.forzata = 'true';
+        card.innerHTML = `
+            <div class="sez-card-top">
+                <span class="sez-card-icon">${s.icon || ''}</span>
+                <span class="sez-card-nome">${s.nome}</span>
+            </div>
+            <div class="sez-forzata-label">⚠️ Accesso forzato dall'admin</div>
+            <div class="sez-toggle-row">
+                <span class="sez-toggle-label">Visibile</span>
+                <label class="sez-toggle">
+                    <input type="checkbox" class="sez-vede" data-sez="${sezId}" data-sistema="false" checked
+                           onchange="onSezVedeChange('${sezId}',this.checked)">
+                    <span class="sez-toggle-slider"></span>
+                </label>
+            </div>
+            <div class="sez-toggle-row">
+                <span class="sez-toggle-label">Operativo</span>
+                <label class="sez-toggle">
+                    <input type="checkbox" class="sez-opera" data-sez="${sezId}" data-sistema="false" checked
+                           onchange="aggiornaSezCard('${sezId}')">
+                    <span class="sez-toggle-slider"></span>
+                </label>
+            </div>`;
     }
 
     function tornaAdOperatori() {

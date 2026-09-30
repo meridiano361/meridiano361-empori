@@ -898,6 +898,12 @@ window.addEventListener('orientationchange', () => setTimeout(() => { ajustTable
           .select('is_resp_acquisti').eq('id', _user.id).single();
         ok = !!(op?.is_resp_acquisti);
       }
+      // Accesso forzato dall'admin tramite utenti_permessi (senza is_resp_acquisti)
+      if (!ok && _user.id) {
+        const { data: perm } = await DB.from('utenti_permessi')
+          .select('può_vedere').eq('utente_id', _user.id).eq('sezione', 'preordini').maybeSingle();
+        ok = perm?.['può_vedere'] === true;
+      }
       if (!ok) { location.replace('/'); return; }
       const emNorm = (_user.emporio || '').toLowerCase().replace(/\s+/g,'');
       for (const [k, v] of Object.entries(EMP_MAP)) {
