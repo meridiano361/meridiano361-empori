@@ -204,9 +204,11 @@
         .sez-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; transition: border-color .15s, background .15s; }
         .sez-card.sez-nascosta { border-color: #fca5a5; background: #fff5f5; }
         .sez-card.sez-readonly { border-color: #fde68a; background: #fefce8; }
+        .sez-card.sez-sistema  { border-color: #e2e8f0; background: #f8fafc; opacity: .7; }
         .sez-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .sez-card-icon { font-size: 20px; }
         .sez-card-nome { font-size: 13px; font-weight: 700; color: #1e293b; }
+        .sez-sistema-label { font-size: 10px; color: #94a3b8; font-weight: 600; margin-bottom: 8px; background: #f1f5f9; border-radius: 4px; padding: 2px 6px; display: inline-block; }
         .sez-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
         .sez-toggle-label { font-size: 12px; color: #64748b; }
         .sez-toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
@@ -2892,11 +2894,31 @@
         _gruppoEmporioIds   = null;
     }
 
+    // ── RESTRIZIONI DI SISTEMA (replica logica index.html) ───────────────
+    function _sistemaSezioniNascoste(op) {
+        if (!op) return new Set();
+        const email   = (op.email || '').toLowerCase();
+        const emporio = normalizzaEmporio(op.emporio);
+        const ruolo   = (op.ruolo || '').toLowerCase();
+        const isEmilio  = email === 'emilio.mazzolari@gmail.com' || email === 'e.mazzolari@meridiano361.it';
+        const isAdminOp = ruolo === 'admin' || ruolo === 'dipendente';
+        const hidden = new Set();
+        // Lista Spesa e Analisi Commerciale: solo Emilio
+        if (!isEmilio) { hidden.add('lista-spesa'); hidden.add('analisi-commerciale'); }
+        // Cassa: solo Emilio o Cremona
+        if (!isEmilio && emporio !== 'cremona') hidden.add('cassa');
+        // Rifornimento: admin/dipendente + casalmaggiore + viadana
+        if (!isAdminOp && emporio !== 'casalmaggiore' && emporio !== 'viadana') hidden.add('rifornimento');
+        return hidden;
+    }
+
     // ── HELPER BADGE ACCESSO COMPATTO ─────────────────────────────────────
     function _tipoAccesso(opId) {
+        const op   = utentiCache.find(o => String(o.id) === String(opId));
         const perm = permessiCache[opId] || {};
-        const nascoste  = SEZIONI_APP.filter(s => perm[s.id]?.vede === false).length;
-        const solaLett  = SEZIONI_APP.filter(s => perm[s.id]?.vede !== false && perm[s.id]?.opera === false).length;
+        const sist = _sistemaSezioniNascoste(op);
+        const nascoste = SEZIONI_APP.filter(s => perm[s.id]?.vede === false || sist.has(s.id)).length;
+        const solaLett = SEZIONI_APP.filter(s => !sist.has(s.id) && perm[s.id]?.vede !== false && perm[s.id]?.opera === false).length;
         if (nascoste === SEZIONI_APP.length) return 'nessuno';
         if (nascoste === 0 && solaLett === 0) return 'completo';
         return 'restrizioni';
@@ -2906,9 +2928,11 @@
         return t === 'completo' ? 'badge-accesso-ok' : t === 'nessuno' ? 'badge-accesso-none' : 'badge-accesso-limit';
     }
     function _iconaAccesso(opId) {
+        const op   = utentiCache.find(o => String(o.id) === String(opId));
         const perm = permessiCache[opId] || {};
-        const nascoste = SEZIONI_APP.filter(s => perm[s.id]?.vede === false).length;
-        const solaLett = SEZIONI_APP.filter(s => perm[s.id]?.vede !== false && perm[s.id]?.opera === false).length;
+        const sist = _sistemaSezioniNascoste(op);
+        const nascoste = SEZIONI_APP.filter(s => perm[s.id]?.vede === false || sist.has(s.id)).length;
+        const solaLett = SEZIONI_APP.filter(s => !sist.has(s.id) && perm[s.id]?.vede !== false && perm[s.id]?.opera === false).length;
         if (nascoste === SEZIONI_APP.length) return '⛔ Nessun accesso';
         if (nascoste === 0 && solaLett === 0) return '✓ Completo';
         const acc = SEZIONI_APP.length - nascoste;
@@ -2927,35 +2951,45 @@
         const statusEl = document.getElementById('sez-status');
         statusEl.className = ''; statusEl.textContent = ''; statusEl.style.display = 'none';
 
+        const op = utentiCache.find(o => String(o.id) === String(uid));
+        const sist = _sistemaSezioniNascoste(op);
+
         const { data } = await db.from('utenti_permessi').select('*').eq('utente_id', uid);
         const permMap = {};
         (data || []).forEach(p => { permMap[p.sezione] = { vede: p['può_vedere'], opera: p['può_operare'] }; });
 
         const grid = document.getElementById('sez-sezioni-grid');
         grid.innerHTML = SEZIONI_APP.map(s => {
-            const vede  = permMap[s.id]?.vede  !== false;
-            const opera = permMap[s.id]?.opera !== false;
-            return `<div class="sez-card${!vede ? ' sez-nascosta' : !opera ? ' sez-readonly' : ''}" id="sezcard-${s.id}">
+            const sistema = sist.has(s.id);
+            const vedeDb  = permMap[s.id]?.vede  !== false;
+            const operaDb = permMap[s.id]?.opera !== false;
+            const vede    = sistema ? false : vedeDb;
+            const opera   = sistema ? false : (vedeDb ? operaDb : false);
+            const cardCls = sistema ? 'sez-sistema' : (!vede ? 'sez-nascosta' : !opera ? 'sez-readonly' : '');
+            return `<div class="sez-card${cardCls ? ' ' + cardCls : ''}" id="sezcard-${s.id}">
                 <div class="sez-card-top">
                     <span class="sez-card-icon">${s.icon || ''}</span>
                     <span class="sez-card-nome">${s.nome}</span>
                 </div>
+                ${sistema ? '<div class="sez-sistema-label">⚙️ Restrizione di sistema</div>' : ''}
                 <div class="sez-toggle-row">
                     <span class="sez-toggle-label">Visibile</span>
                     <label class="sez-toggle">
-                        <input type="checkbox" class="sez-vede" data-sez="${s.id}" ${vede ? 'checked' : ''}
+                        <input type="checkbox" class="sez-vede" data-sez="${s.id}" data-sistema="${sistema}"
+                               ${vede ? 'checked' : ''} ${sistema ? 'disabled' : ''}
                                onchange="onSezVedeChange('${s.id}',this.checked)">
                         <span class="sez-toggle-slider"></span>
                     </label>
                 </div>
-                <div class="sez-toggle-row">
+                ${!sistema ? `<div class="sez-toggle-row">
                     <span class="sez-toggle-label">Operativo</span>
                     <label class="sez-toggle">
-                        <input type="checkbox" class="sez-opera" data-sez="${s.id}" ${opera ? 'checked' : ''} ${!vede ? 'disabled' : ''}
+                        <input type="checkbox" class="sez-opera" data-sez="${s.id}" data-sistema="false"
+                               ${opera ? 'checked' : ''} ${!vede ? 'disabled' : ''}
                                onchange="aggiornaSezCard('${s.id}')">
                         <span class="sez-toggle-slider"></span>
                     </label>
-                </div>
+                </div>` : ''}
             </div>`;
         }).join('');
 
@@ -2984,7 +3018,7 @@
 
     function sezBulk(tipo, val) {
         if (tipo === 'vede') {
-            document.querySelectorAll('.sez-vede').forEach(cb => {
+            document.querySelectorAll('.sez-vede:not([disabled])').forEach(cb => {
                 cb.checked = val;
                 const sezId = cb.dataset.sez;
                 const operaCb = document.querySelector(`.sez-opera[data-sez="${sezId}"]`);
@@ -3004,12 +3038,15 @@
 
     async function salvaSchermataSez() {
         if (!_sezOpId) return;
-        const sezioniPerm = SEZIONI_APP.map(s => ({
-            utente_id:    _sezOpId,
-            sezione:      s.id,
-            'può_vedere': document.querySelector(`.sez-vede[data-sez="${s.id}"]`)?.checked !== false,
-            'può_operare':document.querySelector(`.sez-opera[data-sez="${s.id}"]`)?.checked !== false,
-        }));
+        // Esclude sezioni con restrizione di sistema (non salvabili nel DB)
+        const sezioniPerm = SEZIONI_APP
+            .filter(s => document.querySelector(`.sez-vede[data-sez="${s.id}"]`)?.dataset.sistema !== 'true')
+            .map(s => ({
+                utente_id:    _sezOpId,
+                sezione:      s.id,
+                'può_vedere': document.querySelector(`.sez-vede[data-sez="${s.id}"]`)?.checked !== false,
+                'può_operare':document.querySelector(`.sez-opera[data-sez="${s.id}"]`)?.checked !== false,
+            }));
 
         const statusEl = document.getElementById('sez-status');
         statusEl.className = ''; statusEl.textContent = 'Salvataggio…'; statusEl.style.display = 'block';
