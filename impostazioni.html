@@ -1598,14 +1598,25 @@
     let _editEmpId   = null;
 
     async function caricaEmporiConfig() {
-        const [{ data: orgs }, { data: emps }] = await Promise.all([
-            db.from('organizzazioni').select('*').order('ordine'),
-            db.from('empori_config').select('*').order('ordine'),
-        ]);
-        _orgsCache      = orgs || [];
-        _emporiCfgCache = emps || [];
-        _renderOrgs();
-        _renderEmporiCfg();
+        const errEl = (id, msg) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:8px 0">Errore: ${msg}</div>`;
+        };
+        try {
+            const [resOrgs, resEmps] = await Promise.all([
+                db.from('organizzazioni').select('*').order('ordine'),
+                db.from('empori_config').select('*').order('ordine'),
+            ]);
+            if (resOrgs.error) { errEl('org-list-wrap', resOrgs.error.message); return; }
+            if (resEmps.error) { errEl('empori-config-wrap', resEmps.error.message); return; }
+            _orgsCache      = resOrgs.data || [];
+            _emporiCfgCache = resEmps.data || [];
+            _renderOrgs();
+            _renderEmporiCfg();
+        } catch (e) {
+            errEl('org-list-wrap', e.message);
+            errEl('empori-config-wrap', e.message);
+        }
     }
 
     function _renderOrgs() {
