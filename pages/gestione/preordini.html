@@ -1547,7 +1547,7 @@ function renderTable() {
 
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
-  const nStorCols = _iAmAdmin ? 10 : 4; // admin: 3 sedi × 3 anni + TOT; resp: 1 sede × 3 anni + TOT
+  const nStorCols = _iAmAdmin ? 9 : 3; // admin: 3 sedi × 3 anni; resp: 1 sede × 3 anni
   const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 2; // +2: € IMP + % inc.
 
   // Pre-calcola totale generale per incidenza
@@ -1594,7 +1594,6 @@ function renderTable() {
       h2 += '<th class="th-stor-year" style="min-width:' + (_iAmAdmin ? 38 : 52) + 'px;' + bL + bR + '">' + s.lbl + ' <span style="opacity:.6;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
     });
   });
-  h2 += '<th class="th-stor-year" style="min-width:38px;border-left:1px solid #475569;border-right:2px solid #64748b;background:#263549;color:#94a3b8">TOT</th>';
   h2 += '</tr>';
   thead.innerHTML = h1 + h2;
 
@@ -1723,8 +1722,7 @@ function renderTable() {
         html += '<td class="td-tot-ord' + (totOrdInvalid ? ' inv-val' : '') + '" id="tot-ord-' + riga.id + '" title="' + (totOrdInvalid ? '⚠ Non multiplo di conf (' + conf + ')' : '') + '">' + (totOrd || '') + '</td>';
       }
 
-      // STORICO + TOT
-      let storTotA = 0, storTotV = 0;
+      // STORICO
       if (_iAmAdmin) {
         // Admin: storico hardcoded CR/CA/VI
         STOR_ANNI.forEach((y, yi) => {
@@ -1732,8 +1730,6 @@ function renderTable() {
             const s   = storBySede[sede];
             const acq = s.a[y];
             const vnd = s.v[y];
-            if (acq != null) storTotA += acq;
-            if (vnd != null) storTotV += vnd;
             const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
             const bR  = (yi === 2 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
             html += '<td class="td-stor" style="' + bL + bR + '">' +
@@ -1750,8 +1746,6 @@ function renderTable() {
           const stored = storicoManuale[riga.codice]?.[emp]?.[y] || {};
           const acq = stored.a != null ? stored.a : null;
           const vnd = stored.v != null ? stored.v : null;
-          if (acq != null) storTotA += acq;
-          if (vnd != null) storTotV += vnd;
           const bL = (yi === 0) ? 'border-left:2px solid #94a3b8;' : '';
           const bR = (yi === 2)  ? 'border-right:2px solid #94a3b8;' : '';
           html += '<td class="td-stor" style="' + bL + bR + ';min-width:52px">' +
@@ -1765,11 +1759,6 @@ function renderTable() {
             '</td>';
         });
       }
-      html += '<td class="td-stor" id="stor-tot-' + riga.id + '" style="border-left:1px solid #64748b;border-right:2px solid #94a3b8;background:#f8fafc">' +
-        '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="font-weight:800">' + (storTotA > 0 ? storTotA : '—') + '</span></div>' +
-        '<div class="stor-div"></div>' +
-        '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="font-weight:800">' + (storTotV > 0 ? storTotV : '—') + '</span></div>' +
-        '</td>';
 
       const incPct = gEurTotal > 0 && euroImp > 0 ? (euroImp / gEurTotal * 100).toFixed(1) + '%' : '';
       html += '<td class="td-tot-eur" id="tot-eur-' + riga.id + '">' + (euroImp > 0 ? fmtEuro(euroImp) : '') + '</td>';
@@ -1865,21 +1854,6 @@ async function saveStoricoManuale(codice, empCodice, anno, tipo, value, rigaId) 
     { onConflict: 'codice,emporio_codice,anno' }
   );
   if (error) console.error('Errore salvataggio storico:', error.message);
-
-  // Aggiorna cella TOT
-  const totCell = document.getElementById('stor-tot-' + rigaId);
-  if (totCell) {
-    const emp = empCodice;
-    let totA = 0, totV = 0;
-    [2026, 2025, 2024].forEach(y => {
-      const s = storicoManuale[codice]?.[emp]?.[y] || {};
-      totA += s.a || 0; totV += s.v || 0;
-    });
-    totCell.innerHTML =
-      '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="font-weight:800">' + (totA > 0 ? totA : '—') + '</span></div>' +
-      '<div class="stor-div"></div>' +
-      '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="font-weight:800">' + (totV > 0 ? totV : '—') + '</span></div>';
-  }
 }
 
 // ── SCONTO BANNER ─────────────────────────────────────────────────────
