@@ -1291,17 +1291,22 @@
     }
 
     const SEZIONI_APP = [
-        { id: 'ordini',       nome: 'Ordini' },
-        { id: 'prenotazioni', nome: 'Prenotazioni' },
-        { id: 'info',         nome: 'Richieste Info' },
-        { id: 'turni',        nome: 'Turni' },
-        { id: 'cassa',        nome: 'Controllo Cassa' },
-        { id: 'rifornimento', nome: 'Fornitura' },
-        { id: 'preordini',    nome: 'Preordini' },
-        { id: 'prezzi',       nome: 'Prezzi da Fare' },
-        { id: 'listino',      nome: 'Listino Vetrina' },
-        { id: 'scadenze',     nome: 'Scadenze' },
-        { id: 'materiali',    nome: 'Materiali' },
+        { id: 'ordini',              nome: 'Ordini',              icon: '🛍' },
+        { id: 'prenotazioni',        nome: 'Prenotazioni',        icon: '📅' },
+        { id: 'info',                nome: 'Richieste Info',      icon: '💬' },
+        { id: 'preventivi',          nome: 'Preventivi',          icon: '🧾' },
+        { id: 'cassa',               nome: 'Controllo Cassa',     icon: '🏧' },
+        { id: 'listino',             nome: 'Listino Vetrina',     icon: '📋' },
+        { id: 'materiali',           nome: 'Materiali',           icon: '📁' },
+        { id: 'preordini',           nome: 'Preordini',           icon: '📦' },
+        { id: 'prezzi',              nome: 'Prezzi da Fare',      icon: '🏷' },
+        { id: 'rifornimento',        nome: 'Fornitura',           icon: '🔄' },
+        { id: 'scadenze',            nome: 'Scadenze',            icon: '⏱' },
+        { id: 'turni',               nome: 'Turni',               icon: '👥' },
+        { id: 'calendario',          nome: 'Calendario',          icon: '🗓' },
+        { id: 'saldi',               nome: 'Saldi',               icon: '💸' },
+        { id: 'lista-spesa',         nome: 'Lista Spesa',         icon: '🛒' },
+        { id: 'analisi-commerciale', nome: 'Analisi Commerciale', icon: '📊' },
     ];
 
     const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana', 'mantova'];
@@ -1687,7 +1692,7 @@
             const perm = permMap[sezione.id] || { vede: true, opera: true };
             const tr   = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${sezione.nome}</strong></td>
+                <td><strong>${sezione.icon || ''} ${sezione.nome}</strong></td>
                 <td><input type="checkbox" class="perm-check perm-vede" data-sezione="${sezione.id}"
                         ${perm.vede ? 'checked' : ''}
                         onchange="toggleVede('${sezione.id}', this.checked); aggiornaCheckTutti()"></td>
@@ -1718,25 +1723,25 @@
     }
 
     function renderAccessiBadges(opId) {
-        const perm = permessiCache[opId];
-        if (!perm || Object.keys(perm).length === 0) {
-            return '<span style="font-size:9px;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;font-weight:700;white-space:nowrap">Completo</span>';
-        }
-        const visibili = SEZIONI_APP.filter(s => perm[s.id]?.vede !== false);
-        const nascoste = SEZIONI_APP.filter(s => perm[s.id]?.vede === false);
-        if (visibili.length === 0) {
+        const perm = permessiCache[opId] || {};
+        const nascoste     = SEZIONI_APP.filter(s => perm[s.id]?.vede === false);
+        const solaLettura  = SEZIONI_APP.filter(s => perm[s.id]?.vede !== false && perm[s.id]?.opera === false);
+        const totaleNeg    = nascoste.length;
+
+        if (totaleNeg === SEZIONI_APP.length) {
             return '<span style="font-size:9px;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:10px;font-weight:700">Nessun accesso</span>';
         }
-        if (nascoste.length === 0) {
-            return '<span style="font-size:9px;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;font-weight:700;white-space:nowrap">Completo</span>';
+        if (totaleNeg === 0 && solaLettura.length === 0) {
+            return '<span style="font-size:9px;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;font-weight:700;white-space:nowrap">✓ Completo</span>';
         }
-        return visibili.map(s => {
-            const solaLettura = perm[s.id]?.opera === false;
-            const bg = solaLettura ? '#fef9c3' : '#f1f5f9';
-            const col = solaLettura ? '#713f12' : '#475569';
-            const title = solaLettura ? s.nome + ' (sola lettura)' : s.nome;
-            return `<span style="font-size:9px;background:${bg};color:${col};padding:1px 5px;border-radius:10px;font-weight:700;white-space:nowrap" title="${title}">${s.nome}${solaLettura ? ' 👁' : ''}</span>`;
-        }).join(' ');
+        const pills = [];
+        nascoste.forEach(s => {
+            pills.push(`<span style="font-size:9px;background:#fee2e2;color:#b91c1c;padding:1px 5px;border-radius:10px;font-weight:700;white-space:nowrap" title="Sezione nascosta">✕ ${s.icon} ${s.nome}</span>`);
+        });
+        solaLettura.forEach(s => {
+            pills.push(`<span style="font-size:9px;background:#fef9c3;color:#713f12;padding:1px 5px;border-radius:10px;font-weight:700;white-space:nowrap" title="Sola lettura">👁 ${s.icon} ${s.nome}</span>`);
+        });
+        return pills.join(' ');
     }
 
     function rigaOperatore(op) {
@@ -2423,7 +2428,7 @@
             const perm = permMap[sezione.id] || { vede: true, opera: true };
             const tr   = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${sezione.nome}</strong></td>
+                <td><strong>${sezione.icon || ''} ${sezione.nome}</strong></td>
                 <td>
                     <input type="checkbox" class="perm-check perm-vede"
                            data-sezione="${sezione.id}"
