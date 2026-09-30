@@ -1104,6 +1104,24 @@ async function renderCondPanel(campId, camp) {
   if (camp.min_ordine) {
     scagHtml += '<div style="margin-top:6px;font-size:11px;color:#475569;background:#fef9c3;border-radius:5px;padding:4px 8px">Minimo ordine: <strong>' + fmtEu(camp.min_ordine) + '</strong></div>';
   }
+  if (camp.regola_collo) {
+    scagHtml += '<div style="margin-top:6px;font-size:11px;color:#92400e;background:#fef3c7;border-radius:5px;padding:4px 8px">⚠ Regola collo: per ottenere lo sconto ogni referenza deve essere ordinata in quantità ≥ 1 collo.</div>';
+  }
+
+  // ── SOGLIE CATEGORIA ──
+  let soglieHtml = '';
+  const soglie = camp.soglie_categoria || [];
+  if (soglie.length) {
+    soglieHtml = '<table class="camp-cond-scag" style="width:100%"><thead><tr>' +
+      '<th style="text-align:left;font-size:9px;color:#94a3b8;font-weight:700;padding:2px 6px;text-transform:uppercase">Categoria</th>' +
+      '<th style="text-align:right;font-size:9px;color:#94a3b8;font-weight:700;padding:2px 6px;text-transform:uppercase">Min €</th>' +
+      '</tr></thead><tbody>';
+    soglie.forEach(s => {
+      soglieHtml += '<tr><td>' + esc(s.label || s.categoria || '—') + (s.categoria && s.label ? ' <span style="font-size:10px;color:#94a3b8">(' + esc(s.categoria) + ')</span>' : '') + '</td>' +
+        '<td style="text-align:right;font-weight:700;color:#0369a1">' + fmtEu(s.importo_min) + '</td></tr>';
+    });
+    soglieHtml += '</tbody></table>';
+  }
 
   // ── NOTE COMMERCIALI ──
   const note = camp.note_commerciali || '';
@@ -1134,6 +1152,7 @@ async function renderCondPanel(campId, camp) {
     '<div class="camp-cond-grid">' +
       (dateHtml ? '<div><h4>Date</h4>' + dateHtml + '</div>' : '') +
       '<div><h4>Scaglioni sconto</h4>' + scagHtml + '</div>' +
+      (soglieHtml ? '<div><h4>Soglie categoria</h4>' + soglieHtml + '</div>' : '') +
       '<div><h4>Note commerciali</h4>' + noteHtml + '</div>' +
     '</div>' +
     '<div class="camp-allegati"><h4>Allegati (' + (allegati?.length || 0) + ')</h4><div id="allegati-list-' + campId + '">' + allegHtml + '</div></div>';
@@ -2152,18 +2171,53 @@ async function saveStoricoManuale(codice, empCodice, anno, tipo, value, rigaId) 
 }
 
 // ── SCONTO BANNER ─────────────────────────────────────────────────────
-function calcolaSconto(empCodice) {
+function analizzaCondizioni(empCodice) {
   const totEuro = righe.reduce((sum, r) => {
     const oc  = parseFloat(quantitaMap[r.id]?.[empCodice]?.ordine_corrente) || 0;
     const pvp = parseFloat(r.pvp_corrente) || 0;
     return sum + oc * pvp;
   }, 0);
-  // Use per-preordine scaglioni if defined, otherwise fall back to global SCONTO_TIERS
+
+  // Scaglioni
   const tiers = (campagna?.scaglioni && Array.isArray(campagna.scaglioni) && campagna.scaglioni.length > 0)
-    ? [...campagna.scaglioni].sort((a, b) => b.min - a.min).concat([{ min: 0, pct: 0 }])
+    ? [...campagna.scaglioni].filter(t => t.min || t.pct).sort((a, b) => b.min - a.min).concat([{ min: 0, pct: 0 }])
     : SCONTO_TIERS;
   const tier = tiers.find(t => totEuro >= t.min) || tiers[tiers.length - 1];
-  return { totEuro, pct: tier.pct };
+
+  // Regola collo: ogni referenza con qty>0 deve avere qty >= conf
+  let colloOk = true;
+  let colloViolazioni = 0;
+  if (campagna?.regola_collo) {
+    for (const r of righe) {
+      const oc   = parseFloat(quantitaMap[r.id]?.[empCodice]?.ordine_corrente) || 0;
+      const conf = parseFloat(r.conf) || 0;
+      if (oc > 0 && conf > 0 && oc < conf) { colloOk = false; colloViolazioni++; }
+    }
+  }
+
+  // Soglie per categoria
+  const soglieStatus = (campagna?.soglie_categoria || []).map(soglia => {
+    const tot = righe.reduce((sum, r) => {
+      if (soglia.categoria && (r.categoria || '').toLowerCase() !== (soglia.categoria || '').toLowerCase()) return sum;
+      const oc  = parseFloat(quantitaMap[r.id]?.[empCodice]?.ordine_corrente) || 0;
+      const pvp = parseFloat(r.pvp_corrente) || 0;
+      return sum + oc * pvp;
+    }, 0);
+    return { ...soglia, tot, ok: tot >= (soglia.importo_min || 0) };
+  });
+
+  // Lo sconto si applica solo se regola_collo è rispettata (quando abilitata)
+  const scontoApplicabile = !campagna?.regola_collo || colloOk;
+  const pct   = scontoApplicabile ? (tier.pct || 0) : 0;
+  const netto = totEuro * (1 - pct / 100);
+  const sconto = totEuro - netto;
+
+  return { totEuro, pct, tier, netto, sconto, colloOk, colloViolazioni, soglieStatus, scontoApplicabile };
+}
+
+function calcolaSconto(empCodice) {
+  const { totEuro, pct } = analizzaCondizioni(empCodice);
+  return { totEuro, pct };
 }
 
 function aggiornaScontoBanner() {
@@ -2174,23 +2228,54 @@ function aggiornaScontoBanner() {
 
   if (emporiVis.length === 0 || righe.length === 0) { banner.classList.add('hidden'); return; }
 
-  let html = '<span style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0">Imponibile:</span>';
+  const hasCond = campagna && (
+    (campagna.soglie_categoria?.length > 0) || campagna.regola_collo || campagna.min_ordine
+  );
+
+  let html = '';
   emporiVis.forEach(emp => {
-    const { totEuro, pct } = calcolaSconto(emp.codice);
+    const cond = analizzaCondizioni(emp.codice);
+    const { totEuro, pct, netto, sconto, colloOk, soglieStatus, scontoApplicabile } = cond;
     const pctCls = pct > 0 ? 'sc-pct' : 'sc-pct nosconto';
-    html += '<div class="sconto-chip">' +
-      '<span class="sc-emp">' + esc(emp.codice) + '</span>' +
-      '<span class="sc-euro">' + (totEuro > 0 ? fmtEuro(totEuro) : '€ 0') + '</span>' +
-      '<span class="' + pctCls + '">→ ' + (pct > 0 ? pct + '%' : 'no sconto') + '</span>' +
-      '</div>';
+
+    html += '<div class="sconto-chip">';
+    html += '<span class="sc-emp">' + esc(emp.codice) + '</span>';
+    html += '<span class="sc-euro">' + (totEuro > 0 ? fmtEuro(totEuro) : '€ 0') + '</span>';
+    html += '<span class="' + pctCls + '">→ ' + (pct > 0 ? '-' + pct + '%' : 'nessuno sconto') + '</span>';
+    if (pct > 0) {
+      html += '<span style="font-size:10px;color:#4ade80;font-weight:800">= ' + fmtEuro(netto) + '</span>';
+      html += '<span style="font-size:9px;color:#86efac">(risparmi ' + fmtEuro(sconto) + ')</span>';
+    }
+    // Obiettivi commerciali inline
+    if (hasCond) {
+      html += '<span style="font-size:9px;color:#94a3b8;margin-left:4px">·</span>';
+      // Minimo ordine
+      if (campagna.min_ordine) {
+        const ok = totEuro >= campagna.min_ordine;
+        html += _condPill(ok, ok ? 'Min ✓' : 'Min ✗ (mancano ' + fmtEuro(campagna.min_ordine - totEuro) + ')');
+      }
+      // Soglie categoria
+      soglieStatus.forEach(s => {
+        html += _condPill(s.ok, (s.label || s.categoria || 'Soglia') + (s.ok ? ' ✓' : ' ✗ (' + fmtEuro(s.tot) + '/' + fmtEuro(s.importo_min) + ')'));
+      });
+      // Regola collo
+      if (campagna.regola_collo) {
+        html += _condPill(colloOk, colloOk ? '1 collo/ref ✓' : '1 collo/ref ✗');
+      }
+    }
+    html += '</div>';
   });
-  if (campagna?.min_ordine) {
-    html += '<span style="font-size:10px;color:#94a3b8;margin-left:4px">Minimo: ' + fmtEuro(campagna.min_ordine) + '</span>';
-  }
+
   const wasHidden = banner.classList.contains('hidden');
   banner.innerHTML = html;
   banner.classList.remove('hidden');
-  if (wasHidden) _scheduleAjust(); // banner appena apparso → ricalcola altezza tabella
+  if (wasHidden) _scheduleAjust();
+}
+
+function _condPill(ok, label) {
+  const bg  = ok ? 'rgba(74,222,128,.15)' : 'rgba(248,113,113,.15)';
+  const col = ok ? '#4ade80' : '#f87171';
+  return '<span style="font-size:9px;background:' + bg + ';color:' + col + ';padding:1px 5px;border-radius:8px;font-weight:700;white-space:nowrap">' + label + '</span>';
 }
 
 // ── COLLAPSE FORNITORE ────────────────────────────────────────────────
@@ -2353,6 +2438,95 @@ function renderRiepilogo() {
 
   const hasTot = _iAmAdmin && emporiVis.length > 1;
   const categorie = [...new Set(righe.map(r => r.categoria || '—'))].sort();
+
+  // ── RIEPILOGO COMMERCIALE ──────────────────────────────────────────
+  const rw = document.getElementById('riepilogo-wrap');
+  let commEl = document.getElementById('riepilogo-comm');
+  if (!commEl) {
+    commEl = document.createElement('div');
+    commEl.id = 'riepilogo-comm';
+    rw.insertBefore(commEl, rw.firstChild);
+  }
+
+  const hasCond = campagna && (
+    campagna.min_ordine || campagna.regola_collo ||
+    (campagna.soglie_categoria?.length > 0) ||
+    (campagna.scaglioni?.some(t => t.pct > 0))
+  );
+
+  if (hasCond && emporiVis.length > 0) {
+    const tiers = (campagna.scaglioni?.filter(t => t.min || t.pct) || []).sort((a, b) => a.min - b.min);
+    let cardHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:18px">';
+    emporiVis.forEach(emp => {
+      const cond = analizzaCondizioni(emp.codice);
+      const { totEuro, pct, netto, sconto, colloOk, colloViolazioni, soglieStatus, scontoApplicabile } = cond;
+
+      cardHtml += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:12px">';
+      cardHtml += '<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">' + esc(emp.codice) + (emp.nome ? ' · ' + esc(emp.nome) : '') + '</div>';
+
+      // Totali
+      cardHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#64748b">Imponibile totale</span><strong>' + fmtEuro(totEuro) + '</strong></div>';
+      if (pct > 0) {
+        cardHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#64748b">Sconto (' + pct + '%)</span><strong style="color:#16a34a">- ' + fmtEuro(sconto) + '</strong></div>';
+        cardHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:10px;padding-top:6px;border-top:1px solid #e2e8f0"><span style="font-weight:700">Totale netto</span><strong style="font-size:14px;color:#16a34a">' + fmtEuro(netto) + '</strong></div>';
+      } else {
+        cardHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:10px;color:#94a3b8;font-size:11px"><span>Nessuno sconto raggiunto</span></div>';
+      }
+
+      // Scaglioni progressi
+      if (tiers.length > 0) {
+        cardHtml += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Scaglioni sconto</div>';
+        tiers.forEach(t => {
+          const reached = totEuro >= t.min && t.pct > 0;
+          const mancano = !reached && t.min > 0 ? t.min - totEuro : 0;
+          const ico = reached ? '✓' : (mancano < 500 && mancano > 0 ? '◎' : '○');
+          const col = reached ? '#16a34a' : (mancano < 500 && mancano > 0 ? '#d97706' : '#94a3b8');
+          cardHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">';
+          cardHtml += '<span style="color:' + col + ';font-weight:700">' + ico + ' ' + t.pct + '% da ' + fmtEuro(t.min) + '</span>';
+          if (!reached && mancano > 0) cardHtml += '<span style="font-size:10px;color:#94a3b8">mancano ' + fmtEuro(mancano) + '</span>';
+          cardHtml += '</div>';
+        });
+      }
+
+      // Soglie categoria
+      if (soglieStatus.length > 0) {
+        cardHtml += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 5px">Obiettivi per categoria</div>';
+        soglieStatus.forEach(s => {
+          const mancano = !s.ok && s.importo_min > 0 ? s.importo_min - s.tot : 0;
+          cardHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">';
+          cardHtml += '<span style="color:' + (s.ok ? '#16a34a' : '#dc2626') + ';font-weight:700">' + (s.ok ? '✓' : '✗') + ' ' + esc(s.label || s.categoria || '—') + '</span>';
+          cardHtml += '<span style="font-size:10px;color:#64748b">' + fmtEuro(s.tot) + ' / ' + fmtEuro(s.importo_min) + '</span>';
+          cardHtml += '</div>';
+          if (!s.ok && s.descrizione) cardHtml += '<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;padding-left:14px">' + esc(s.descrizione) + '</div>';
+        });
+      }
+
+      // Minimo ordine
+      if (campagna.min_ordine) {
+        const ok = totEuro >= campagna.min_ordine;
+        cardHtml += '<div style="display:flex;justify-content:space-between;margin-top:6px">';
+        cardHtml += '<span style="color:' + (ok ? '#16a34a' : '#dc2626') + ';font-weight:700">' + (ok ? '✓' : '✗') + ' Minimo ordine ' + fmtEuro(campagna.min_ordine) + '</span>';
+        if (!ok) cardHtml += '<span style="font-size:10px;color:#94a3b8">mancano ' + fmtEuro(campagna.min_ordine - totEuro) + '</span>';
+        cardHtml += '</div>';
+      }
+
+      // Regola collo
+      if (campagna.regola_collo) {
+        const col = colloOk ? '#16a34a' : '#dc2626';
+        cardHtml += '<div style="color:' + col + ';font-weight:700;margin-top:6px">';
+        cardHtml += (colloOk ? '✓' : '✗') + ' 1 collo per referenza';
+        if (!colloOk) cardHtml += ' <span style="font-size:10px;color:#94a3b8">(' + colloViolazioni + ' referenz' + (colloViolazioni === 1 ? 'a' : 'e') + ' sotto il minimo)</span>';
+        cardHtml += '</div>';
+        if (!colloOk) cardHtml += '<div style="font-size:10px;color:#94a3b8;margin-top:2px;padding-left:14px">Lo sconto non viene applicato finché tutte le referenze ordinate raggiungono almeno 1 collo</div>';
+      }
+
+      cardHtml += '</div>';
+    });
+    cardHtml += '</div>';
+    commEl.innerHTML = cardHtml;
+  } else {
+    commEl.innerHTML = '';
+  }
 
   // ── Thead row 1: Categoria | [EMP colspan=2]... | TOT PZ | € IMP | % inc.
   let h1 = '<tr>';
@@ -2522,6 +2696,27 @@ function openSezioneModal(id, nome) {
   setTimeout(() => document.getElementById('modal-input-nome')?.focus(), 60);
 }
 
+function buildSoglieRows(soglie) {
+  return soglie.map((s, i) => soglieRowHtml(i, s)).join('');
+}
+function soglieRowHtml(i, s) {
+  s = s || {};
+  const st = 'height:26px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:\'Nunito\',sans-serif;padding:0 6px;box-sizing:border-box';
+  return '<div class="soglia-cat-row" style="display:grid;grid-template-columns:1fr 1fr 90px auto;gap:4px;align-items:center">' +
+    '<input placeholder="Label (es. Ricorrenze)" style="' + st + ';width:100%" value="' + esc(s.label || '') + '" data-key="label">' +
+    '<input placeholder="Categoria (opz.)" style="' + st + ';width:100%" value="' + esc(s.categoria || '') + '" data-key="categoria">' +
+    '<input type="number" placeholder="Min €" min="0" step="1" style="' + st + ';width:90px;text-align:right" value="' + (s.importo_min || '') + '" data-key="importo_min">' +
+    '<button type="button" onclick="this.closest(\'.soglia-cat-row\').remove()" style="height:26px;width:26px;border:1px solid #fca5a5;background:#fff1f2;color:#dc2626;border-radius:5px;cursor:pointer;font-size:14px;line-height:1">✕</button>' +
+    '</div>';
+}
+function aggiungiSogliaCat() {
+  const list = document.getElementById('soglie-cat-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.innerHTML = soglieRowHtml(list.children.length, {});
+  list.appendChild(div.firstChild);
+}
+
 function openCampagnaModal(sezioneId, campId) {
   _modalMode = campId ? 'campagna-edit' : 'campagna-add';
   const camp = campId ? campagneAll.find(c => c.id === campId) : null;
@@ -2573,6 +2768,13 @@ function openCampagnaModal(sezioneId, campId) {
     '</div>' +
     '<div class="modal-field"><label>Scaglioni sconto</label>' +
     '<table style="border-collapse:collapse;margin-top:4px"><tbody>' + scaglioniRows + '</tbody></table>' +
+    '</div>' +
+    '<div class="modal-field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer">' +
+    '<input type="checkbox" id="modal-regola-collo" style="width:16px;height:16px;cursor:pointer"' + (camp?.regola_collo ? ' checked' : '') + '>' +
+    '<span>Regola collo — sconto solo se ogni referenza ordinata ha qty ≥ 1 collo</span></label>' +
+    '</div>' +
+    '<div class="modal-field"><label>Soglie per categoria <button type="button" onclick="aggiungiSogliaCat()" style="margin-left:8px;padding:2px 8px;font-size:11px;border:1px solid #bae6fd;background:#f0f9ff;color:#0369a1;border-radius:5px;cursor:pointer;font-family:\'Nunito\',sans-serif">+ Aggiungi</button></label>' +
+    '<div id="soglie-cat-list" style="display:flex;flex-direction:column;gap:6px;margin-top:6px">' + buildSoglieRows(camp?.soglie_categoria || []) + '</div>' +
     '</div>' +
     '<div class="modal-field"><label>Note commerciali (visibili a tutti)</label>' +
     '<textarea id="modal-input-note" style="width:100%;min-height:70px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-family:\'Nunito\',sans-serif;resize:vertical" placeholder="Condizioni di pagamento, spedizione, premi fedeltà...">' + esc(camp?.note_commerciali || '') + '</textarea>' +
@@ -2664,9 +2866,15 @@ async function saveCampagna() {
     pct: parseFloat(document.getElementById('tier-' + i + '-pct')?.value) || 0,
   }));
   const note_commerciali = document.getElementById('modal-input-note')?.value.trim() || null;
+  const regola_collo = document.getElementById('modal-regola-collo')?.checked || false;
+  const soglie_categoria = Array.from(document.querySelectorAll('#soglie-cat-list .soglia-cat-row')).map(row => ({
+    label:       row.querySelector('[data-key="label"]')?.value.trim() || '',
+    categoria:   row.querySelector('[data-key="categoria"]')?.value.trim() || '',
+    importo_min: parseFloat(row.querySelector('[data-key="importo_min"]')?.value) || 0,
+  })).filter(s => s.label);
   if (!nome) throw new Error('Inserisci un nome');
 
-  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, min_ordine, scaglioni, note_commerciali };
+  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, min_ordine, scaglioni, note_commerciali, regola_collo, soglie_categoria: soglie_categoria.length ? soglie_categoria : null };
 
   if (_modalMode === 'campagna-add') {
     const { data: camp, error } = await DB.from('preordini_campagne')
