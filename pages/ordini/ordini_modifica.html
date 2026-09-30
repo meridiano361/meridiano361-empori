@@ -441,9 +441,15 @@
                 <textarea id="order-notes" rows="2" class="form-input" placeholder="Note..."></textarea>
             </div>
 
-            <button type="submit" id="submit-btn" class="btn-submit">
-                <i class="fas fa-sync-alt mr-2"></i> Aggiorna Ordine
-            </button>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <button type="submit" id="submit-btn" class="btn-submit" style="flex:1">
+                    <i class="fas fa-sync-alt mr-2"></i> Aggiorna Ordine
+                </button>
+                <button type="button" id="btn-pdf" onclick="generaPDF()"
+                        style="flex:0 0 auto;padding:14px 22px;border-radius:16px;border:2px solid #475569;background:#fff;color:#475569;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px">
+                    <i class="fas fa-file-pdf"></i> PDF Cliente
+                </button>
+            </div>
         </form>
 
         <!-- Modal avviso uscita (BLOCCO 5) -->
@@ -687,10 +693,23 @@
                             if (costInp) costInp.value = '€ ' + parseFloat(a.confez_costo || 3).toFixed(2).replace('.', ',');
                         }
                         const confezQtyEl = document.getElementById(`confez-qty-${localGroupId}`);
-                        if (confezQtyEl) confezQtyEl.value = a.qta || 1;
+                        if (confezQtyEl) confezQtyEl.value = a.confez_qty != null ? a.confez_qty : (a.qta || 1);
                         if (a.confez_tipo) {
                             const tipoEl = document.querySelector(`input[name="confez-tipo-${localGroupId}"][value="${a.confez_tipo}"]`);
                             if (tipoEl) { tipoEl.checked = true; }
+                        }
+                        if (a.confez_gusto) {
+                            const gustoSel = document.getElementById(`confez-gusto-${localGroupId}`);
+                            if (gustoSel) {
+                                const opts = Array.from(gustoSel.options).map(o => o.value);
+                                if (opts.includes(a.confez_gusto)) {
+                                    gustoSel.value = a.confez_gusto;
+                                } else {
+                                    gustoSel.value = 'altro';
+                                    const altroInp = document.getElementById(`confez-gusto-altro-${localGroupId}`);
+                                    if (altroInp) { altroInp.value = a.confez_gusto; altroInp.style.display = 'inline-block'; }
+                                }
+                            }
                         }
                         if (a.cartoncino_fronte) {
                             const fronteEl = document.getElementById(`cart-fronte-${localGroupId}`);
@@ -1370,6 +1389,14 @@
                         confezionamento: document.getElementById(`check-conf-${gruppoId}`)?.checked || false,
                         confez_tipo: confezTipo,
                         confez_costo: confezCosto,
+                        confez_qty: parseInt(document.getElementById(`confez-qty-${gruppoId}`)?.value) || 0,
+                        confez_gusto: (() => {
+                            const isC = document.getElementById(`check-conf-${gruppoId}`)?.checked;
+                            if (!isC || confezTipo === 'senza_confetti') return '';
+                            const s = document.getElementById(`confez-gusto-${gruppoId}`);
+                            const a = document.getElementById(`confez-gusto-altro-${gruppoId}`);
+                            return s?.value === 'altro' ? (a?.value.trim() || 'Altro') : (s?.value || 'mandorla');
+                        })(),
                         cartoncino_fronte: document.getElementById(`cart-fronte-${gruppoId}`)?.value || '',
                         cartoncino_interno: document.getElementById(`cart-interno-${gruppoId}`)?.value || ''
                     });
@@ -1728,6 +1755,153 @@
 
     <div id="qty-tooltip" style="display:none;position:fixed;z-index:9999;background:#1e293b;color:#f8fafc;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.25);white-space:nowrap"></div>
     <script>
+        function generaPDF() {
+            const GUSTO_LABEL = { 'mandorla': 'Mandorla', 'mandorla-cioc': 'Mandorla e Cioccolato' };
+
+            const cliente = [
+                document.getElementById('cust-nome')?.value,
+                document.getElementById('cust-cognome')?.value
+            ].filter(Boolean).join(' ') || document.getElementById('titolo-ordine')?.value || '—';
+            const dataOrdine = document.getElementById('order-date')?.value || '';
+            const emporio    = document.getElementById('select-emporio')?.value || '';
+            const numOrdine  = document.getElementById('numero-ordine-preview')?.textContent || '';
+            const grandTotal = document.getElementById('grand-total')?.textContent || '€ 0,00';
+            const accontoVal = document.getElementById('acconto')?.value || '€ 0,00';
+            const saldoVal   = document.getElementById('saldo-finale')?.textContent || '€ 0,00';
+
+            // Collect groups
+            let rowsHtml = '';
+            document.querySelectorAll('[id^="group-"]').forEach(grpEl => {
+                const groupId = grpEl.id.replace('group-', '');
+                const tipLabel = document.getElementById(`tipologia-name-${groupId}`)?.value || '';
+                if (tipLabel) {
+                    rowsHtml += `<tr><td colspan="5" style="background:#f1f5f9;font-weight:800;font-size:11px;color:#475569;text-transform:uppercase;padding:6px 10px;letter-spacing:.05em">${tipLabel}</td></tr>`;
+                }
+
+                grpEl.querySelectorAll('.product-row').forEach(row => {
+                    const codice = row.querySelector('.codice-input')?.value || '';
+                    const desc   = row.querySelector('.desc-input')?.value || '';
+                    const prezzo = row.querySelector('.price-input')?.value || '€ 0,00';
+                    const qty    = row.querySelector('.qty-input')?.value || '0';
+                    const totale = row.querySelector('.row-total')?.textContent || '€ 0,00';
+                    if (!codice && !desc) return;
+                    rowsHtml += `<tr>
+                        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569">${codice}</td>
+                        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#1e293b">${desc}</td>
+                        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;text-align:right">${prezzo}</td>
+                        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:700">${qty}</td>
+                        <td style="padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;text-align:right;font-weight:700;color:#1e293b">${totale}</td>
+                    </tr>`;
+                });
+
+                // Confezionamento row
+                const checkConf = document.getElementById(`check-conf-${groupId}`);
+                if (checkConf?.checked) {
+                    const confezTipo  = document.querySelector(`input[name="confez-tipo-${groupId}"]:checked`)?.value || 'completo';
+                    const confezQty   = document.getElementById(`confez-qty-${groupId}`)?.value || '0';
+                    const confezCost  = document.getElementById(`confez-cost-inp-${groupId}`)?.value || '€ 0,00';
+                    const confezTotal = document.getElementById(`confez-total-${groupId}`)?.textContent || '0,00';
+
+                    let confezDesc = 'Confezionamento';
+                    if (confezTipo === 'senza_confetti') {
+                        confezDesc = 'Confezionamento senza confetti';
+                    } else {
+                        const sel = document.getElementById(`confez-gusto-${groupId}`);
+                        const altroInp = document.getElementById(`confez-gusto-altro-${groupId}`);
+                        const gusto = sel?.value === 'altro'
+                            ? (altroInp?.value.trim() || 'Altro')
+                            : (GUSTO_LABEL[sel?.value] || sel?.value || 'Mandorla');
+                        confezDesc = `Confezionamento con confetti — ${gusto}`;
+                    }
+                    rowsHtml += `<tr style="background:rgba(51,65,85,0.06)">
+                        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b">CB</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155">${confezDesc}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;text-align:right;color:#334155">${confezCost}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;text-align:center;font-weight:700;color:#334155">${confezQty}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;text-align:right;font-weight:700;color:#334155">€ ${confezTotal}</td>
+                    </tr>`;
+                }
+
+                // Cartoncini row (codice CO)
+                const cartFronte  = document.getElementById(`cart-fronte-${groupId}`)?.value?.trim();
+                const cartInterno = document.getElementById(`cart-interno-${groupId}`)?.value?.trim();
+                if (cartFronte || cartInterno) {
+                    const cartDesc = [
+                        cartFronte  ? `Fronte: "${cartFronte}"` : '',
+                        cartInterno ? `Retro: "${cartInterno}"` : ''
+                    ].filter(Boolean).join(' — ');
+                    rowsHtml += `<tr style="background:rgba(181,69,58,0.05)">
+                        <td style="padding:6px 10px;border-bottom:1px solid #fecaca;font-size:11px;color:#B5453A">CO</td>
+                        <td colspan="3" style="padding:6px 10px;border-bottom:1px solid #fecaca;font-size:12px;color:#7f1d1d">${cartDesc}</td>
+                        <td style="padding:6px 10px;border-bottom:1px solid #fecaca;font-size:12px;text-align:right;color:#B5453A">INCLUSI</td>
+                    </tr>`;
+                }
+            });
+
+            const dateFmt = dataOrdine
+                ? new Date(dataOrdine).toLocaleDateString('it-IT', {day:'2-digit',month:'long',year:'numeric'})
+                : '';
+
+            const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Ordine ${numOrdine} — ${cliente}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 32px; font-size: 13px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 2px solid #B5453A; padding-bottom: 16px; }
+  .logo { font-size: 22px; font-weight: 900; color: #B5453A; letter-spacing: -0.5px; }
+  .logo span { color: #1e293b; }
+  .order-meta { text-align: right; font-size: 12px; color: #64748b; }
+  .order-meta strong { font-size: 16px; color: #1e293b; display: block; margin-bottom: 2px; }
+  .cliente-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+  .cliente-box .lbl { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+  .cliente-box .val { font-size: 18px; font-weight: 800; color: #1e293b; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  thead th { background: #1e293b; color: #fff; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; text-align: left; }
+  thead th:nth-child(3), thead th:nth-child(4), thead th:nth-child(5) { text-align: right; }
+  thead th:nth-child(4) { text-align: center; }
+  .totali { display: flex; justify-content: flex-end; gap: 16px; margin-top: 8px; }
+  .totali-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; text-align: center; min-width: 130px; }
+  .totali-box .lbl { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; display: block; }
+  .totali-box .val { font-size: 18px; font-weight: 800; color: #1e293b; }
+  .totali-box.saldo { background: #B5453A; border-color: #B5453A; }
+  .totali-box.saldo .lbl { color: rgba(255,255,255,.8); }
+  .totali-box.saldo .val { color: #fff; }
+  .footer { margin-top: 32px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+  @media print { body { padding: 0; } @page { margin: 20mm; } }
+</style></head><body>
+<div class="header">
+  <div class="logo">Meridiano<span>361</span> <span style="font-size:13px;font-weight:600;color:#64748b">${emporio}</span></div>
+  <div class="order-meta">
+    <strong>Ordine ${numOrdine}</strong>
+    ${dateFmt}
+  </div>
+</div>
+<div class="cliente-box">
+  <div class="lbl">Cliente</div>
+  <div class="val">${cliente}</div>
+</div>
+<table>
+  <thead><tr>
+    <th style="width:80px">Codice</th>
+    <th>Descrizione</th>
+    <th style="width:90px;text-align:right">Prezzo</th>
+    <th style="width:60px;text-align:center">Qtà</th>
+    <th style="width:100px;text-align:right">Totale</th>
+  </tr></thead>
+  <tbody>${rowsHtml}</tbody>
+</table>
+<div class="totali">
+  <div class="totali-box"><span class="lbl">Totale ordine</span><span class="val">${grandTotal}</span></div>
+  <div class="totali-box"><span class="lbl">Acconto</span><span class="val">${accontoVal.replace('€ ','€ ')}</span></div>
+  <div class="totali-box saldo"><span class="lbl">Da pagare</span><span class="val">${saldoVal}</span></div>
+</div>
+<div class="footer">Meridiano 361 — documento generato il ${new Date().toLocaleDateString('it-IT')}</div>
+<script>window.onload=function(){window.print()}<\/script>
+</body></html>`;
+
+            const w = window.open('', '_blank');
+            if (w) { w.document.write(html); w.document.close(); }
+        }
+
         function _fmtAt(iso) {
             if (!iso) return null;
             const d = new Date(iso);
