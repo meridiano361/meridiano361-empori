@@ -17,18 +17,18 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- Policy: upload per utenti autenticati
+-- Policy: upload (anon + authenticated: app usa chiave anon senza sessione Supabase Auth)
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'cassa_foto_insert' AND schemaname = 'storage') THEN
     CREATE POLICY "cassa_foto_insert" ON storage.objects
-      FOR INSERT TO authenticated WITH CHECK (bucket_id = 'cassa-foto');
+      FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'cassa-foto');
   END IF;
 END $$;
 
--- Policy: eliminazione per utenti autenticati
+-- Policy: eliminazione (anon + authenticated)
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'cassa_foto_delete' AND schemaname = 'storage') THEN
     CREATE POLICY "cassa_foto_delete" ON storage.objects
-      FOR DELETE TO authenticated USING (bucket_id = 'cassa-foto');
+      FOR DELETE TO anon, authenticated USING (bucket_id = 'cassa-foto');
   END IF;
 END $$;
