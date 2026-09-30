@@ -2086,10 +2086,14 @@ function parseSpeseNote(val) {
 
 function hasNoteVal(turno, id) {
   const val = noteMap[turno+'_'+id] || '';
-  if (!val) return false;
   const p = PAGAMENTI.find(x => x.id === id);
+  if (p?.spese) {
+    if ((photosMap[turno+'_spese'] || []).length > 0) return true;
+    if (!val) return false;
+    const d = parseSpeseNote(val); return d.voci.length > 0 || !!d.libera?.trim() || !!d.legacy;
+  }
+  if (!val) return false;
   if (p?.online || p?.sati) { const d = parseOnlineNote(val); return d.voci.length > 0 || !!d.libera?.trim(); }
-  if (p?.spese)  { const d = parseSpeseNote(val);  return d.voci.length > 0 || !!d.libera?.trim() || !!d.legacy; }
   return val.trim().length > 0;
 }
 
@@ -2605,15 +2609,16 @@ function renderSpeseSavedView(turno, id, area, btn) {
 }
 
 function commitSpeseNote(turno, id, data, area, btn) {
-  const hasN = data.voci.length>0 || !!data.libera?.trim();
+  const hasN    = data.voci.length>0 || !!data.libera?.trim();
+  const hasFoto = (photosMap[turno+'_spese'] || []).length > 0;
   const serialized = hasN ? JSON.stringify(data) : '';
   noteMap[turno+'_'+id] = serialized;
   markDirty();
-  if (hasN) {
+  if (hasN || hasFoto) {
     renderSpeseSavedView(turno,id,area,btn);
     area.classList.remove('hidden');
     if(btn){ btn.classList.add('has-note'); btn.title='Nota presente'; }
-    if (turno === 'mat' && !noteMap['pom_'+id]) autoCopyNoteToPom(id, serialized, false);
+    if (hasN && turno === 'mat' && !noteMap['pom_'+id]) autoCopyNoteToPom(id, serialized, false);
   } else {
     area.innerHTML=''; area.classList.add('hidden');
     if(btn){ btn.classList.remove('has-note'); btn.title='Aggiungi nota'; }
@@ -3176,8 +3181,9 @@ function fillForm(data) {
     if(ep) ep.value=data['pom_pay_'+p.id]!=null?euro(data['pom_pay_'+p.id]):'';
     ['mat','pom'].forEach(t=>{
       const nk='note_'+t+'_pay_'+p.id;
-      if(data[nk]){
-        noteMap[t+'_'+p.id]=data[nk];
+      if(data[nk]) noteMap[t+'_'+p.id]=data[nk];
+      const hasFotoSpese = p.spese && (photosMap[t+'_spese']||[]).length > 0;
+      if(data[nk] || hasFotoSpese){
         const area=document.getElementById(t+'_notearea_'+p.id);
         const btn=document.getElementById(t+'_notebtn_'+p.id);
         if(area){
