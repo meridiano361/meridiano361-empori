@@ -715,6 +715,26 @@ function buildNav() {
       return;
     }
 
+    // Aggiorna is_resp_acquisti da DB (gestisce sessioni con localStorage stale)
+    if (!user.is_resp_acquisti) {
+      const { data: opDB } = await _supabase.from('operatori').select('is_resp_acquisti').eq('id', user.id).single();
+      if (opDB?.is_resp_acquisti) {
+        user.is_resp_acquisti = true;
+        localStorage.setItem('m361_user', JSON.stringify({ ...user, is_resp_acquisti: true }));
+        const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
+        if (preordItem && !preordItem.active) {
+          preordItem.active = true;
+          const navEl = document.querySelector('.mn-item[href*="preordini"]');
+          if (navEl) {
+            navEl.classList.remove('mn-wip');
+            navEl.classList.add('mn-active');
+            const BASE = window.location.pathname.split('/pages/')[0].split('/scripts')[0].replace(/\/[^/]+$/, '') || '';
+            navEl.href = BASE + '/' + 'pages/gestione/preordini.html';
+          }
+        }
+      }
+    }
+
     const { data: permessi } = await _supabase
       .from('utenti_permessi')
       .select('sezione, può_vedere, può_operare')

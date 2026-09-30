@@ -70,6 +70,10 @@
     .filtri-reset-btn:hover { background: #fee2e2; }
     #filtri-count { font-size: 11px; color: #94a3b8; font-weight: 600; }
 
+    /* ── HUB VIEW SCROLL ── */
+    /* L'altezza di #hub-view viene impostata via JS come #table-view */
+    #hub-view { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
     /* ── TABLE VIEW FLEX ── */
     /* L'altezza di #table-view viene impostata dinamicamente via JS:
        riempie esattamente dal punto in cui inizia fino al fondo del viewport */
@@ -537,6 +541,7 @@
   <div style="flex:1;min-width:8px"></div>
   <button class="btn-tb" id="btn-riepilogo" onclick="toggleRiepilogo()" disabled>≡ Riepilogo</button>
   <button class="btn-tb" id="btn-csv" onclick="exportCSV()" disabled>⬇ CSV</button>
+  <button class="btn-tb" id="btn-demetra" onclick="exportDemetra()" disabled style="background:#f0fdf4;color:#166534;border-color:#bbf7d0">⬇ Demetra</button>
   <button class="btn-tb" id="btn-print" onclick="window.print()" disabled>⎙ Stampa</button>
   <button class="btn-tb hidden" id="btn-add-riga" onclick="openAddRiga()" style="background:#1e293b;color:white;border-color:#1e293b">+ Prodotto</button>
 </div>
@@ -822,11 +827,19 @@ function ajustTableHeight() {
   const h   = window.innerHeight - top;
   if (h > 80) tv.style.height = h + 'px';
 }
-function _scheduleAjust() {
-  requestAnimationFrame(() => requestAnimationFrame(ajustTableHeight));
+function ajustHubHeight() {
+  const hv = document.getElementById('hub-view');
+  if (!hv || hv.classList.contains('hidden')) return;
+  hv.style.height = '';
+  const top = hv.getBoundingClientRect().top;
+  const h   = window.innerHeight - top;
+  if (h > 80) hv.style.height = h + 'px';
 }
-window.addEventListener('resize', ajustTableHeight);
-window.addEventListener('orientationchange', () => setTimeout(ajustTableHeight, 250));
+function _scheduleAjust() {
+  requestAnimationFrame(() => requestAnimationFrame(() => { ajustTableHeight(); ajustHubHeight(); }));
+}
+window.addEventListener('resize', () => { ajustTableHeight(); ajustHubHeight(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { ajustTableHeight(); ajustHubHeight(); }, 250));
 
 // ── INIT ───────────────────────────────────────────────────────────────
 (async function init() {
@@ -883,6 +896,7 @@ async function loadHub() {
     renderHub();
     document.getElementById('loading-state').classList.add('hidden');
     document.getElementById('hub-view').classList.remove('hidden');
+    _scheduleAjust();
   } catch (err) {
     document.getElementById('loading-state').innerHTML =
       '<div style="font-size:13px;color:#dc2626">Errore caricamento: ' + err.message + '</div>';
@@ -925,13 +939,13 @@ function renderHub() {
     html += '<div class="sezione-body" id="sez-body-' + sez.id + '"' + (isOpen ? '' : ' style="display:none"') + '>';
 
     if (camps.length === 0) {
-      html += '<div style="padding:8px 4px;font-size:12px;color:#94a3b8;font-style:italic">Nessuna campagna</div>';
+      html += '<div style="padding:8px 4px;font-size:12px;color:#94a3b8;font-style:italic">Nessun preordine</div>';
     } else {
       camps.forEach(camp => { html += renderCampagnaRow(camp); });
     }
 
     if (_iAmAdmin) {
-      html += '<button class="btn-add-sub" onclick="openCampagnaModal(\'' + sez.id + '\')">+ Aggiungi campagna</button>';
+      html += '<button class="btn-add-sub" onclick="openCampagnaModal(\'' + sez.id + '\')">+ Aggiungi preordine</button>';
     }
 
     html += '</div></div>';
@@ -941,11 +955,14 @@ function renderHub() {
 }
 
 function renderCampagnaRow(camp) {
+  const fmtD = d => new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
   let meta = String(camp.anno || '');
-  if (camp.scadenza) {
-    const d = new Date(camp.scadenza);
-    meta += ' · scad. ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (camp.data_apertura && camp.scadenza) {
+    meta += ' · ' + fmtD(camp.data_apertura) + ' – ' + fmtD(camp.scadenza);
+  } else if (camp.scadenza) {
+    meta += ' · scad. ' + fmtD(camp.scadenza);
   }
+  if (camp.data_consegna) meta += ' · consegna ' + fmtD(camp.data_consegna);
   if (camp.min_ordine) meta += ' · min €' + parseFloat(camp.min_ordine).toLocaleString('it-IT');
 
   let html = '<div class="campagna-row" onclick="apriCampagna(\'' + camp.id + '\')">';
@@ -1108,7 +1125,7 @@ function openEditRiga(rigaId) {
     <div class="modal-field"><label>Categoria</label><input id="mf-categoria" value="${esc(riga.categoria||'')}"></div>
     <div class="modal-field"><label>Fornitore</label><input id="mf-fornitore" value="${esc(riga.fornitore||'')}"></div>
     <div class="modal-field"><label>Confezione (pz)</label><input id="mf-conf" type="number" value="${riga.conf||''}"></div>
-    <div class="modal-field"><label>PVP Cessione (€)</label><input id="mf-pvp" type="number" step="0.01" value="${riga.pvp_corrente||''}"></div>
+    <div class="modal-field"><label>Costo i.e. (€)</label><input id="mf-pvp" type="number" step="0.01" value="${riga.pvp_corrente||''}"></div>
     <div class="modal-field"><label>PVP Consigliato (€)</label><input id="mf-pvpcons" type="number" step="0.01" value="${riga.pvp_consigliato||''}"></div>
     <div class="modal-field"><label>Note</label><input id="mf-note" value="${esc(riga.note||'')}"></div>
     <button onclick="eliminaRiga('${rigaId}')" style="margin-top:4px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">Elimina prodotto</button>
@@ -1127,7 +1144,7 @@ function openAddRiga() {
     <div class="modal-field"><label>Categoria</label><input id="mf-categoria"></div>
     <div class="modal-field"><label>Fornitore</label><input id="mf-fornitore"></div>
     <div class="modal-field"><label>Confezione (pz)</label><input id="mf-conf" type="number"></div>
-    <div class="modal-field"><label>PVP Cessione (€)</label><input id="mf-pvp" type="number" step="0.01"></div>
+    <div class="modal-field"><label>Costo i.e. (€)</label><input id="mf-pvp" type="number" step="0.01"></div>
     <div class="modal-field"><label>PVP Consigliato (€)</label><input id="mf-pvpcons" type="number" step="0.01"></div>
     <div class="modal-field"><label>Note</label><input id="mf-note"></div>
   `;
@@ -1136,7 +1153,7 @@ function openAddRiga() {
 }
 
 async function eliminaRiga(rigaId) {
-  if (!confirm('Eliminare questo prodotto dalla campagna?')) return;
+  if (!confirm('Eliminare questo prodotto dal preordine?')) return;
   await DB.from('preordini_quantita').delete().eq('riga_id', rigaId);
   const { error } = await DB.from('preordini_righe').delete().eq('id', rigaId);
   if (!error) { closeModal(); await selezionaCampagna(campagna); }
@@ -1340,10 +1357,11 @@ function tornaHub() {
   document.getElementById('sconto-banner').classList.add('hidden');
   document.getElementById('filtri-bar').classList.add('hidden');
   document.getElementById('hub-view').classList.remove('hidden');
-  ['btn-riepilogo', 'btn-csv', 'btn-print'].forEach(id => {
+  ['btn-riepilogo', 'btn-csv', 'btn-demetra', 'btn-print'].forEach(id => {
     document.getElementById(id).disabled = true;
   });
   riepilogoVis = false;
+  _scheduleAjust();
 }
 
 // ── SELECT CAMPAIGN ────────────────────────────────────────────────────
@@ -1386,7 +1404,7 @@ async function selezionaCampagna(camp) {
     document.getElementById('table-loading').classList.add('hidden');
     document.getElementById('table-wrap').classList.remove('hidden');
 
-    ['btn-riepilogo', 'btn-csv', 'btn-print'].forEach(id => {
+    ['btn-riepilogo', 'btn-csv', 'btn-demetra', 'btn-print'].forEach(id => {
       document.getElementById(id).disabled = false;
     });
 
@@ -1396,7 +1414,7 @@ async function selezionaCampagna(camp) {
       document.getElementById('filtri-bar').classList.add('hidden');
       document.getElementById('thead').innerHTML = '';
       document.getElementById('tbody').innerHTML =
-        '<tr><td colspan="10" style="text-align:center;padding:40px;color:#94a3b8;font-style:italic">Nessun prodotto in questa campagna</td></tr>';
+        '<tr><td colspan="10" style="text-align:center;padding:40px;color:#94a3b8;font-style:italic">Nessun prodotto in questo preordine</td></tr>';
       document.getElementById('tfoot').innerHTML = '';
     } else {
       buildFiltriBar();
@@ -1504,7 +1522,7 @@ function renderTable() {
 
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
-  const nStorCols = 9; // 3 sedi × 3 anni
+  const nStorCols = 10; // 3 sedi × 3 anni + 1 TOT
   const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 2; // +2: € IMP + % inc.
 
   // Pre-calcola totale generale per incidenza
@@ -1530,10 +1548,10 @@ function renderTable() {
   h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_consigliato'?' sort-active':'') + '" style="text-align:center;width:64px" data-s="pvp_consigliato" onclick="sortTabella(this.dataset.s)">PVP cons.' + sarr('pvp_consigliato') + '</th>';
   h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_m361'?' sort-active':'') + '" style="text-align:center;width:64px" data-s="pvp_m361" onclick="sortTabella(this.dataset.s)">PVP m361' + sarr('pvp_m361') + '</th>';
   emporiVis.forEach(e => {
-    h1 += '<th rowspan="2" class="th-emp" style="min-width:52px">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:600;opacity:.7">ord.' + (campagna?.anno || '') + '</span></th>';
+    h1 += '<th rowspan="2" class="th-emp" style="min-width:52px">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:600;opacity:.7">ord ' + String(campagna?.anno || '').slice(-2) + '</span></th>';
   });
   if (hasTotOrd) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
-  h1 += '<th colspan="9" class="th-stor">STORICO · <span style="color:#94a3b8">A</span> <span style="color:#4ade80">V</span></th>';
+  h1 += '<th colspan="10" class="th-stor">STORICO · <span style="color:#94a3b8">A</span> <span style="color:#4ade80">V</span></th>';
   h1 += '<th rowspan="2" class="th-tot" style="min-width:74px">€ IMP</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:right;min-width:42px;background:#e0f2fe;color:#0369a1">% inc.</th>';
   h1 += '</tr>';
@@ -1552,6 +1570,7 @@ function renderTable() {
       h2 += '<th class="th-stor-year" style="min-width:38px;' + bL + bR + '">' + s.lbl + ' <span style="opacity:.6;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
     });
   });
+  h2 += '<th class="th-stor-year" style="min-width:38px;border-left:1px solid #475569;border-right:2px solid #64748b;background:#263549;color:#94a3b8">TOT</th>';
   h2 += '</tr>';
   thead.innerHTML = h1 + h2;
 
@@ -1675,15 +1694,20 @@ function renderTable() {
       const pvp     = parseFloat(riga.pvp_corrente) || 0;
       const euroImp = totOrd * pvp;
       if (hasTotOrd) {
-        html += '<td class="td-tot-ord" id="tot-ord-' + riga.id + '">' + (totOrd || '') + '</td>';
+        const conf = parseFloat(riga.conf) || 0;
+        const totOrdInvalid = totOrd > 0 && conf > 0 && totOrd % conf !== 0;
+        html += '<td class="td-tot-ord' + (totOrdInvalid ? ' inv-val' : '') + '" id="tot-ord-' + riga.id + '" title="' + (totOrdInvalid ? '⚠ Non multiplo di conf (' + conf + ')' : '') + '">' + (totOrd || '') + '</td>';
       }
 
-      // STORICO (3 anni × 3 sedi: CR, CA, VI)
+      // STORICO (3 anni × 3 sedi: CR, CA, VI) + TOT
+      let storTotA = 0, storTotV = 0;
       [2026, 2025, 2024].forEach((y, yi) => {
         ['CR','CA','VI'].forEach((sede, si) => {
           const s   = storBySede[sede];
           const acq = s.a[y];
           const vnd = s.v[y];
+          if (acq != null) storTotA += acq;
+          if (vnd != null) storTotV += vnd;
           const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
           const bR  = (yi === 2 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
           html += '<td class="td-stor" style="' + bL + bR + '">' +
@@ -1693,6 +1717,11 @@ function renderTable() {
             '</td>';
         });
       });
+      html += '<td class="td-stor" style="border-left:1px solid #64748b;border-right:2px solid #94a3b8;background:#f8fafc">' +
+        '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="font-weight:800">' + (storTotA > 0 ? storTotA : '—') + '</span></div>' +
+        '<div class="stor-div"></div>' +
+        '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="font-weight:800">' + (storTotV > 0 ? storTotV : '—') + '</span></div>' +
+        '</td>';
 
       const incPct = gEurTotal > 0 && euroImp > 0 ? (euroImp / gEurTotal * 100).toFixed(1) + '%' : '';
       html += '<td class="td-tot-eur" id="tot-eur-' + riga.id + '">' + (euroImp > 0 ? fmtEuro(euroImp) : '') + '</td>';
@@ -1760,9 +1789,15 @@ function updateRowTotals(rigaId) {
     tot += parseFloat(quantitaMap[rigaId]?.[emp.codice]?.ordine_corrente) || 0;
   });
 
+  const conf = parseFloat(riga?.conf) || 0;
+  const totInvalid = tot > 0 && conf > 0 && tot % conf !== 0;
   const eO = document.getElementById('tot-ord-' + rigaId);
   const eE = document.getElementById('tot-eur-' + rigaId);
-  if (eO) eO.textContent = tot || '';
+  if (eO) {
+    eO.textContent = tot || '';
+    eO.classList.toggle('inv-val', totInvalid);
+    eO.title = totInvalid ? '⚠ Non multiplo di conf (' + conf + ')' : '';
+  }
   if (eE) eE.textContent = tot > 0 && pvp > 0 ? fmtEuro(tot * pvp) : '';
 }
 
@@ -1773,7 +1808,11 @@ function calcolaSconto(empCodice) {
     const pvp = parseFloat(r.pvp_corrente) || 0;
     return sum + oc * pvp;
   }, 0);
-  const tier = SCONTO_TIERS.find(t => totEuro >= t.min) || SCONTO_TIERS[SCONTO_TIERS.length - 1];
+  // Use per-preordine scaglioni if defined, otherwise fall back to global SCONTO_TIERS
+  const tiers = (campagna?.scaglioni && Array.isArray(campagna.scaglioni) && campagna.scaglioni.length > 0)
+    ? [...campagna.scaglioni].sort((a, b) => b.min - a.min).concat([{ min: 0, pct: 0 }])
+    : SCONTO_TIERS;
+  const tier = tiers.find(t => totEuro >= t.min) || tiers[tiers.length - 1];
   return { totEuro, pct: tier.pct };
 }
 
@@ -2094,6 +2133,30 @@ function exportCSV() {
   a.click();
 }
 
+function exportDemetra() {
+  // Per ogni emporio visibile: esporta codice + quantità (solo righe con qtà > 0)
+  const emporiVis = _iAmAdmin
+    ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
+    : emporiAttivi.filter(e => e.codice === mioEmpCodice);
+
+  if (emporiVis.length === 0) { alert('Nessun emporio selezionato.'); return; }
+
+  const baseName = (campagna?.nome || 'preordine').replace(/\s+/g,'_').toLowerCase();
+
+  emporiVis.forEach(emp => {
+    const rows = ['Codice;Quantita'];
+    righe.forEach(r => {
+      const oc = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
+      if (oc > 0) rows.push(csvQ(r.codice) + ';' + oc);
+    });
+    if (rows.length === 1) return; // nessuna riga con quantità
+    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = baseName + '_' + emp.codice.toLowerCase() + '_demetra.csv';
+    a.click();
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // ADMIN MODAL
 // ═══════════════════════════════════════════════════════════════════════
@@ -2113,7 +2176,27 @@ function openCampagnaModal(sezioneId, campId) {
   _modalMode = campId ? 'campagna-edit' : 'campagna-add';
   const camp = campId ? campagneAll.find(c => c.id === campId) : null;
   _modalCtx  = { sezioneId: sezioneId || null, campId: campId || null };
-  document.getElementById('modal-title').textContent = campId ? 'Modifica campagna' : 'Nuova campagna';
+  document.getElementById('modal-title').textContent = campId ? 'Modifica preordine' : 'Nuovo preordine';
+  const defTiers = [
+    { min: 1700, pct: 1.5 },
+    { min: 2801, pct: 2.5 },
+    { min: 3901, pct: 3   },
+    { min: 5000, pct: 4   },
+  ];
+  const tiers = (camp?.scaglioni && Array.isArray(camp.scaglioni) && camp.scaglioni.length === 4)
+    ? camp.scaglioni : defTiers;
+  let scaglioniRows = '';
+  tiers.forEach((t, i) => {
+    const label = i === tiers.length - 1 ? '≥' : 'da';
+    scaglioniRows +=
+      '<tr>' +
+      '<td style="padding:2px 4px;font-size:11px;color:#64748b;white-space:nowrap">' + label + '</td>' +
+      '<td style="padding:2px 4px"><input id="tier-' + i + '-min" type="number" min="0" step="1" value="' + t.min + '" style="width:70px;height:26px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:\'Nunito\',sans-serif;padding:0 6px;text-align:right"></td>' +
+      '<td style="padding:2px 4px;font-size:11px;color:#64748b">€ →</td>' +
+      '<td style="padding:2px 4px"><input id="tier-' + i + '-pct" type="number" min="0" max="20" step="0.1" value="' + t.pct + '" style="width:55px;height:26px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;font-family:\'Nunito\',sans-serif;padding:0 6px;text-align:right"></td>' +
+      '<td style="padding:2px 4px;font-size:11px;color:#64748b">%</td>' +
+      '</tr>';
+  });
   document.getElementById('modal-body').innerHTML =
     '<div class="modal-field"><label>Nome</label>' +
     '<input id="modal-input-nome" type="text" value="' + esc(camp?.nome || '') + '" placeholder="es. Pasqua 2028">' +
@@ -2124,11 +2207,22 @@ function openCampagnaModal(sezioneId, campId) {
     '<div class="modal-field"><label>Stagione (opzionale)</label>' +
     '<input id="modal-input-stagione" type="text" value="' + esc(camp?.stagione || '') + '" placeholder="es. Primavera 2028">' +
     '</div>' +
-    '<div class="modal-field"><label>Scadenza ordini (opzionale)</label>' +
+    '<div class="modal-field" style="display:flex;gap:10px;align-items:flex-start">' +
+    '<div style="flex:1"><label>Apertura preordini</label>' +
+    '<input id="modal-input-apertura" type="date" value="' + (camp?.data_apertura || '') + '">' +
+    '</div>' +
+    '<div style="flex:1"><label>Chiusura preordini</label>' +
     '<input id="modal-input-scadenza" type="date" value="' + (camp?.scadenza || '') + '">' +
+    '</div>' +
+    '</div>' +
+    '<div class="modal-field"><label>Data consegna prevista</label>' +
+    '<input id="modal-input-consegna" type="date" value="' + (camp?.data_consegna || '') + '">' +
     '</div>' +
     '<div class="modal-field"><label>Minimo ordine € (opzionale)</label>' +
     '<input id="modal-input-min" type="number" step="0.01" min="0" value="' + (camp?.min_ordine || '') + '">' +
+    '</div>' +
+    '<div class="modal-field"><label>Scaglioni sconto</label>' +
+    '<table style="border-collapse:collapse;margin-top:4px"><tbody>' + scaglioniRows + '</tbody></table>' +
     '</div>';
   document.getElementById('modal-bg').classList.remove('hidden');
   setTimeout(() => document.getElementById('modal-input-nome')?.focus(), 60);
@@ -2205,16 +2299,24 @@ async function saveSezione() {
 }
 
 async function saveCampagna() {
-  const nome      = document.getElementById('modal-input-nome').value.trim();
-  const anno      = parseInt(document.getElementById('modal-input-anno').value) || null;
-  const stagione  = document.getElementById('modal-input-stagione').value.trim() || null;
-  const scadenza  = document.getElementById('modal-input-scadenza').value || null;
-  const min_ordine = parseFloat(document.getElementById('modal-input-min').value) || null;
+  const nome         = document.getElementById('modal-input-nome').value.trim();
+  const anno         = parseInt(document.getElementById('modal-input-anno').value) || null;
+  const stagione     = document.getElementById('modal-input-stagione').value.trim() || null;
+  const scadenza     = document.getElementById('modal-input-scadenza').value || null;
+  const data_apertura = document.getElementById('modal-input-apertura')?.value || null;
+  const data_consegna = document.getElementById('modal-input-consegna')?.value || null;
+  const min_ordine   = parseFloat(document.getElementById('modal-input-min').value) || null;
+  const scaglioni    = [0,1,2,3].map(i => ({
+    min: parseFloat(document.getElementById('tier-' + i + '-min')?.value) || 0,
+    pct: parseFloat(document.getElementById('tier-' + i + '-pct')?.value) || 0,
+  }));
   if (!nome) throw new Error('Inserisci un nome');
+
+  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, min_ordine, scaglioni };
 
   if (_modalMode === 'campagna-add') {
     const { data: camp, error } = await DB.from('preordini_campagne')
-      .insert({ nome, anno, stagione, scadenza, min_ordine, sezione_id: _modalCtx.sezioneId })
+      .insert({ ...payload, sezione_id: _modalCtx.sezioneId })
       .select().single();
     if (error) throw new Error(error.message);
     if (camp) {
@@ -2228,7 +2330,7 @@ async function saveCampagna() {
     }
   } else {
     const { error } = await DB.from('preordini_campagne')
-      .update({ nome, anno, stagione, scadenza, min_ordine })
+      .update(payload)
       .eq('id', _modalCtx.campId);
     if (error) throw new Error(error.message);
   }
@@ -2237,7 +2339,7 @@ async function saveCampagna() {
 async function deleteSezione(id, nome) {
   const camps = campagneAll.filter(c => c.sezione_id === id);
   if (camps.length > 0) {
-    alert('Non puoi eliminare "' + nome + '" perché contiene ' + camps.length + ' campagna/e.\nElimina prima le campagne.');
+    alert('Non puoi eliminare "' + nome + '" perché contiene ' + camps.length + ' preordine/i.\nElimina prima i preordini.');
     return;
   }
   if (!confirm('Eliminare la sezione "' + nome + '"?')) return;
@@ -2247,7 +2349,7 @@ async function deleteSezione(id, nome) {
 }
 
 async function deleteCampagna(id, nome) {
-  if (!confirm('Eliminare la campagna "' + nome + '"?\nVerranno cancellati anche tutti gli ordini inseriti.')) return;
+  if (!confirm('Eliminare il preordine "' + nome + '"?\nVerranno cancellati anche tutti gli ordini inseriti.')) return;
   const { data: righeList } = await DB.from('preordini_righe').select('id').eq('campagna_id', id);
   if (righeList?.length) {
     await DB.from('preordini_quantita').delete().in('riga_id', righeList.map(r => r.id));
