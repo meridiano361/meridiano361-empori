@@ -218,6 +218,30 @@
     .deadline-chip.urgente { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
     .deadline-chip.normale { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
     .deadline-chip.passata { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
+    .deadline-chip.admin-edit { cursor: pointer; }
+    .deadline-chip.admin-edit:hover { opacity: .8; }
+    .deadline-chip.nessuna { background: #f8fafc; color: #94a3b8; border: 1.5px dashed #cbd5e1; cursor: pointer; }
+    .deadline-chip.nessuna:hover { border-color: #64748b; color: #475569; }
+    /* Inline date editor */
+    #deadline-editor {
+      display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    }
+    #deadline-date-input {
+      height: 28px; border: 1.5px solid #fde68a; border-radius: 8px;
+      padding: 0 8px; font-size: 11px; font-family: 'Nunito', sans-serif;
+      background: #fffbeb; color: #1e293b; outline: none;
+    }
+    #deadline-date-input:focus { border-color: #d97706; }
+    .deadline-save-btn {
+      height: 28px; padding: 0 10px; border: none; border-radius: 8px;
+      background: #1e293b; color: white; font-size: 11px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+    }
+    .deadline-cancel-btn {
+      height: 28px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px;
+      background: white; color: #64748b; font-size: 11px; cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+    }
 
     /* ── RIEPILOGO ── */
     .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -457,6 +481,11 @@
   <button class="btn-tb" onclick="tornaHub()" style="flex-shrink:0">← Preordini</button>
   <span style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px" id="tb-titolo"></span>
   <span id="tb-deadline" class="deadline-chip normale hidden"></span>
+  <div id="deadline-editor" class="hidden">
+    <input id="deadline-date-input" type="date">
+    <button class="deadline-save-btn" onclick="salvaScadenza()">Salva</button>
+    <button class="deadline-cancel-btn" onclick="annullaEditDeadline()">✕</button>
+  </div>
   <div id="emp-filter-wrap" class="emp-filter-wrap hidden"></div>
   <div style="flex:1;min-width:8px"></div>
   <button class="btn-tb" id="btn-riepilogo" onclick="toggleRiepilogo()" disabled>≡ Riepilogo</button>
@@ -1240,22 +1269,62 @@ async function selezionaCampagna(camp) {
 
 // ── DEADLINE CHIP ──────────────────────────────────────────────────────
 function mostraDeadline(scadenza) {
-  if (!scadenza) return;
   const chip = document.getElementById('tb-deadline');
+  document.getElementById('deadline-editor').classList.add('hidden');
+
+  if (!scadenza) {
+    if (_iAmAdmin) {
+      chip.className = 'deadline-chip nessuna';
+      chip.textContent = '📅 Imposta scadenza';
+      chip.onclick = editDeadline;
+      chip.classList.remove('hidden');
+    } else {
+      chip.classList.add('hidden');
+    }
+    return;
+  }
+
   const diff = Math.ceil((new Date(scadenza) - new Date()) / 86400000);
   let cls, label;
   const dateStr = new Date(scadenza).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
   if (diff < 0) {
     cls = 'passata'; label = '📅 Scad. preordine: ' + dateStr + ' (passata)';
   } else if (diff <= 7) {
-    cls = 'urgente'; label = '⏰ Scad. preordine: ' + dateStr + ' (' + diff + ' giorni)';
+    cls = 'urgente'; label = '⏰ Scad. preordine: ' + dateStr + ' (' + diff + ' gg)';
   } else {
-    cls = 'normale';
-    label = '📅 Scad. preordine: ' + dateStr;
+    cls = 'normale'; label = '📅 Scad. preordine: ' + dateStr;
   }
+  if (_iAmAdmin) { cls += ' admin-edit'; }
   chip.className = 'deadline-chip ' + cls;
-  chip.textContent = label;
+  chip.textContent = label + (_iAmAdmin ? ' ✎' : '');
+  chip.onclick = _iAmAdmin ? editDeadline : null;
   chip.classList.remove('hidden');
+}
+
+function editDeadline() {
+  const chip = document.getElementById('tb-deadline');
+  const editor = document.getElementById('deadline-editor');
+  const input  = document.getElementById('deadline-date-input');
+  chip.classList.add('hidden');
+  input.value = campagna?.scadenza ? campagna.scadenza.slice(0, 10) : '';
+  editor.classList.remove('hidden');
+  input.focus();
+}
+
+function annullaEditDeadline() {
+  document.getElementById('deadline-editor').classList.add('hidden');
+  mostraDeadline(campagna?.scadenza || null);
+}
+
+async function salvaScadenza() {
+  const val = document.getElementById('deadline-date-input').value || null;
+  const { error } = await DB.from('preordini_campagne').update({ scadenza: val }).eq('id', campagna.id);
+  if (error) { alert('Errore salvataggio: ' + error.message); return; }
+  campagna.scadenza = val;
+  // Aggiorna anche la lista locale
+  const c = campagneAll.find(x => x.id === campagna.id);
+  if (c) c.scadenza = val;
+  mostraDeadline(val);
 }
 
 // ── FILTRO EMPORI (admin only) ─────────────────────────────────────────
