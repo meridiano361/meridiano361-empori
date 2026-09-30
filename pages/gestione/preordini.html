@@ -2206,14 +2206,21 @@ function analizzaCondizioniOrg(orgKey, emporiOrg) {
     : SCONTO_TIERS;
   const tier = tiers.find(t => totEuro >= t.min) || tiers[tiers.length - 1];
 
+  // Regola collo a livello org: se almeno un emporio ordina una referenza,
+  // almeno uno degli empori dell'org deve avere qty >= conf per quella referenza.
   let colloOk = true;
   if (campagna?.regola_collo) {
     outer: for (const r of righe) {
-      for (const emp of emporiOrg) {
-        const oc   = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
-        const conf = parseFloat(r.conf) || 0;
-        if (oc > 0 && conf > 0 && oc < conf) { colloOk = false; break outer; }
-      }
+      const conf = parseFloat(r.conf) || 0;
+      if (conf <= 0) continue;
+      const hasQty = emporiOrg.some(emp =>
+        (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) > 0
+      );
+      if (!hasQty) continue;
+      const anyRespects = emporiOrg.some(emp =>
+        (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) >= conf
+      );
+      if (!anyRespects) { colloOk = false; break outer; }
     }
   }
 
@@ -2549,7 +2556,13 @@ function renderRiepilogo() {
       cardHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">';
       empsOrg.forEach(emp => {
       const cond = analizzaCondizioni(emp.codice);
-      const { totEuro, pct, netto, sconto, colloOk, colloViolazioni, soglieStatus, scontoApplicabile } = cond;
+      const totEuro = cond.totEuro;
+      // Sconto e collo determinati a livello org, non per singolo emporio
+      const pct    = orgCond.scontoApplicabile ? (orgCond.tier?.pct || 0) : 0;
+      const sconto = totEuro * pct / 100;
+      const netto  = totEuro - sconto;
+      const colloOk = orgCond.colloOk;
+      const { soglieStatus } = cond;
 
       cardHtml += '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-size:12px">';
       cardHtml += '<div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">' + esc(emp.codice) + (emp.nome ? ' · ' + esc(emp.nome) : '') + '</div>';
@@ -2600,14 +2613,13 @@ function renderRiepilogo() {
         cardHtml += '</div>';
       }
 
-      // Regola collo
+      // Regola collo (valutata sull'organizzazione, non sul singolo emporio)
       if (campagna.regola_collo) {
         const col = colloOk ? '#16a34a' : '#dc2626';
         cardHtml += '<div style="color:' + col + ';font-weight:700;margin-top:6px">';
-        cardHtml += (colloOk ? '✓' : '✗') + ' 1 collo per referenza';
-        if (!colloOk) cardHtml += ' <span style="font-size:10px;color:#94a3b8">(' + colloViolazioni + ' referenz' + (colloViolazioni === 1 ? 'a' : 'e') + ' sotto il minimo)</span>';
+        cardHtml += (colloOk ? '✓' : '✗') + ' 1 collo per referenza (org)';
         cardHtml += '</div>';
-        if (!colloOk) cardHtml += '<div style="font-size:10px;color:#94a3b8;margin-top:2px;padding-left:14px">Lo sconto non viene applicato finché tutte le referenze ordinate raggiungono almeno 1 collo</div>';
+        if (!colloOk) cardHtml += '<div style="font-size:10px;color:#94a3b8;margin-top:2px;padding-left:14px">Nessun emporio dell\'org raggiunge 1 collo su almeno una referenza — lo sconto non è applicato</div>';
       }
 
       cardHtml += '</div>';
