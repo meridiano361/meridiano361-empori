@@ -335,6 +335,28 @@
     }
     .campagna-btns button:hover { background: #f1f5f9; border-color: #cbd5e1; }
     .campagna-btns button.del:hover { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+    .camp-cond {
+      border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;
+      background: #f8fafc; padding: 14px 16px; margin-top: -9px; margin-bottom: 8px;
+    }
+    .camp-cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 640px) { .camp-cond-grid { grid-template-columns: 1fr; } }
+    .camp-cond h4 { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 6px; }
+    .camp-cond-scag { border-collapse: collapse; font-size: 11px; width: 100%; }
+    .camp-cond-scag td { padding: 2px 6px; color: #374151; }
+    .camp-cond-scag td:first-child { color: #64748b; }
+    .camp-cond-note { font-size: 12px; color: #374151; white-space: pre-wrap; min-height: 40px; }
+    .camp-cond-note textarea { width: 100%; min-height: 60px; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 5px; padding: 6px 8px; font-family: 'Nunito',sans-serif; resize: vertical; }
+    .camp-allegati { margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+    .allegato-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
+    .allegato-row:last-child { border-bottom: none; }
+    .allegato-nome { flex: 1; font-size: 12px; color: #1e293b; text-decoration: none; }
+    .allegato-nome:hover { text-decoration: underline; }
+    .allegato-del { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 13px; padding: 0 4px; }
+    .allegato-del:hover { color: #dc2626; }
+    .allegato-upload { display: none; }
+    .btn-upload-allegato { font-size: 11px; background: #f1f5f9; border: 1px dashed #cbd5e1; color: #475569; border-radius: 6px; padding: 5px 10px; cursor: pointer; margin-top: 6px; }
+    .btn-upload-allegato:hover { background: #e2e8f0; }
 
     .btn-add-sub {
       display: flex; align-items: center; gap: 6px;
@@ -982,19 +1004,24 @@ function renderCampagnaRow(camp) {
   if (camp.data_consegna) meta += ' · consegna ' + fmtD(camp.data_consegna);
   if (camp.min_ordine) meta += ' · min €' + parseFloat(camp.min_ordine).toLocaleString('it-IT');
 
-  let html = '<div class="campagna-row" onclick="apriCampagna(\'' + camp.id + '\')">';
+  const campDataJson = esc(JSON.stringify(camp));
+  let html = '<div id="camp-card-' + camp.id + '">';
+  html += '<div class="campagna-row" onclick="apriCampagna(\'' + camp.id + '\')">';
   html += '<div class="campagna-icon">📋</div>';
   html += '<div class="campagna-info">';
   html += '<div class="campagna-nome">' + esc(camp.nome) + '</div>';
   if (meta) html += '<div class="campagna-meta">' + esc(meta) + '</div>';
   html += '</div>';
   html += '<div class="campagna-chevron">›</div>';
+  html += '<div class="campagna-btns" onclick="event.stopPropagation()">';
+  html += '<button title="Condizioni commerciali &amp; allegati" onclick="toggleCond(\'' + camp.id + '\')" id="btn-cond-' + camp.id + '">ℹ</button>';
   if (_iAmAdmin) {
-    html += '<div class="campagna-btns" onclick="event.stopPropagation()">';
     html += '<button title="Modifica" onclick="openCampagnaModal(\'' + (camp.sezione_id||'') + '\',\'' + camp.id + '\')">✎</button>';
     html += '<button class="del" title="Elimina" onclick="deleteCampagna(\'' + camp.id + '\',\'' + esc(camp.nome) + '\')">✕</button>';
-    html += '</div>';
   }
+  html += '</div>';
+  html += '</div>';
+  html += '<div class="camp-cond hidden" id="cond-' + camp.id + '" data-loaded="0" data-camp=\'' + campDataJson + '\'></div>';
   html += '</div>';
   return html;
 }
@@ -1014,6 +1041,116 @@ function toggleSezione(sezId) {
     body.style.display  = '';
     arrow.textContent   = '▼';
   }
+}
+
+// ── CONDIZIONI COMMERCIALI + ALLEGATI ─────────────────────────────────
+async function toggleCond(campId) {
+  const panel = document.getElementById('cond-' + campId);
+  const btn   = document.getElementById('btn-cond-' + campId);
+  if (!panel) return;
+  const isOpen = !panel.classList.contains('hidden');
+  if (isOpen) {
+    panel.classList.add('hidden');
+    if (btn) btn.style.background = '';
+    return;
+  }
+  if (panel.dataset.loaded === '0') {
+    const camp = JSON.parse(panel.dataset.camp || '{}');
+    await renderCondPanel(campId, camp);
+    panel.dataset.loaded = '1';
+  }
+  panel.classList.remove('hidden');
+  if (btn) btn.style.background = '#e0f2fe';
+}
+
+async function renderCondPanel(campId, camp) {
+  const panel = document.getElementById('cond-' + campId);
+  if (!panel) return;
+  const fmtEu = v => v != null ? '€ ' + parseFloat(v).toLocaleString('it-IT', { minimumFractionDigits: 0 }) : '';
+
+  // Scaglioni
+  let scagHtml = '';
+  if (camp.scaglioni && camp.scaglioni.length > 0) {
+    scagHtml = '<table class="camp-cond-scag"><tbody>';
+    camp.scaglioni.forEach((t, i) => {
+      if (!t.min && !t.pct) return;
+      const next = camp.scaglioni[i + 1];
+      const label = next ? 'Da ' + fmtEu(t.min) + ' a ' + fmtEu(next.min - 1) : 'Oltre ' + fmtEu(t.min);
+      scagHtml += '<tr><td>' + esc(label) + '</td><td style="font-weight:700;color:#16a34a">' + t.pct + '%</td></tr>';
+    });
+    scagHtml += '</tbody></table>';
+  } else {
+    scagHtml = '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuno scaglione</span>';
+  }
+  if (camp.min_ordine) {
+    scagHtml += '<div style="font-size:11px;color:#475569;margin-top:4px">Minimo ordine: <strong>' + fmtEu(camp.min_ordine) + '</strong></div>';
+  }
+
+  // Note commerciali
+  const note = camp.note_commerciali || '';
+  const noteHtml = _iAmAdmin
+    ? '<textarea id="note-' + campId + '" class="camp-cond-note" onblur="saveNoteCommerciali(\'' + campId + '\')" placeholder="Note e condizioni commerciali...">' + esc(note) + '</textarea>'
+    : (note ? '<div class="camp-cond-note">' + esc(note) + '</div>' : '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuna nota</span>');
+
+  // Allegati: carica da DB
+  const { data: allegati } = await DB.from('preordini_allegati').select('*').eq('campagna_id', campId).order('created_at');
+  let allegHtml = '';
+  (allegati || []).forEach(a => {
+    const ext = (a.nome || '').split('.').pop().toLowerCase();
+    const icon = ext === 'pdf' ? '📄' : ['jpg','jpeg','png','webp'].includes(ext) ? '🖼' : '📎';
+    allegHtml += '<div class="allegato-row">';
+    allegHtml += '<a class="allegato-nome" href="' + esc(a.url) + '" target="_blank" rel="noopener">' + icon + ' ' + esc(a.nome) + '</a>';
+    if (a.dimensione) allegHtml += '<span style="font-size:10px;color:#94a3b8">' + (a.dimensione > 1048576 ? (a.dimensione/1048576).toFixed(1) + ' MB' : Math.round(a.dimensione/1024) + ' KB') + '</span>';
+    if (_iAmAdmin) allegHtml += '<button class="allegato-del" onclick="deleteAllegato(\'' + a.id + '\',\'' + esc(a.storage_path || '') + '\',\'' + campId + '\')" title="Elimina">✕</button>';
+    allegHtml += '</div>';
+  });
+  if (_iAmAdmin) {
+    allegHtml += '<input type="file" id="upload-' + campId + '" class="allegato-upload" multiple onchange="uploadAllegato(\'' + campId + '\',this)">';
+    allegHtml += '<button class="btn-upload-allegato" onclick="document.getElementById(\'upload-' + campId + '\').click()">+ Allega file</button>';
+  }
+  if (!allegHtml && !_iAmAdmin) allegHtml = '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessun allegato</span>';
+
+  panel.innerHTML =
+    '<div class="camp-cond-grid">' +
+      '<div><h4>Sconti &amp; condizioni</h4>' + scagHtml + '</div>' +
+      '<div><h4>Note commerciali</h4>' + noteHtml + '</div>' +
+    '</div>' +
+    '<div class="camp-allegati"><h4>Allegati</h4><div id="allegati-list-' + campId + '">' + allegHtml + '</div></div>';
+}
+
+async function saveNoteCommerciali(campId) {
+  const ta = document.getElementById('note-' + campId);
+  if (!ta) return;
+  await DB.from('preordini_campagne').update({ note_commerciali: ta.value || null }).eq('id', campId);
+}
+
+async function uploadAllegato(campId, input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const listEl = document.getElementById('allegati-list-' + campId);
+  for (const file of files) {
+    const path = campId + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const { error: upErr } = await DB.storage.from('preordini-allegati').upload(path, file, { upsert: false });
+    if (upErr) { alert('Errore upload: ' + upErr.message); continue; }
+    const { data: urlData } = DB.storage.from('preordini-allegati').getPublicUrl(path);
+    const url = urlData?.publicUrl || '';
+    const { error: dbErr } = await DB.from('preordini_allegati').insert({
+      campagna_id: campId, nome: file.name, url, storage_path: path, tipo_mime: file.type, dimensione: file.size
+    });
+    if (dbErr) { alert('Errore salvataggio allegato: ' + dbErr.message); continue; }
+  }
+  input.value = '';
+  // Reload list
+  const camp = JSON.parse(document.getElementById('cond-' + campId)?.dataset.camp || '{}');
+  await renderCondPanel(campId, camp);
+}
+
+async function deleteAllegato(allegatoId, storagePath, campId) {
+  if (!confirm('Eliminare questo allegato?')) return;
+  if (storagePath) await DB.storage.from('preordini-allegati').remove([storagePath]);
+  await DB.from('preordini_allegati').delete().eq('id', allegatoId);
+  const camp = JSON.parse(document.getElementById('cond-' + campId)?.dataset.camp || '{}');
+  await renderCondPanel(campId, camp);
 }
 
 const FOTO_PRODOTTI = {
@@ -2408,6 +2545,9 @@ function openCampagnaModal(sezioneId, campId) {
     '</div>' +
     '<div class="modal-field"><label>Scaglioni sconto</label>' +
     '<table style="border-collapse:collapse;margin-top:4px"><tbody>' + scaglioniRows + '</tbody></table>' +
+    '</div>' +
+    '<div class="modal-field"><label>Note commerciali (visibili a tutti)</label>' +
+    '<textarea id="modal-input-note" style="width:100%;min-height:70px;font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-family:\'Nunito\',sans-serif;resize:vertical" placeholder="Condizioni di pagamento, spedizione, premi fedeltà...">' + esc(camp?.note_commerciali || '') + '</textarea>' +
     '</div>';
   document.getElementById('modal-bg').classList.remove('hidden');
   setTimeout(() => document.getElementById('modal-input-nome')?.focus(), 60);
@@ -2495,9 +2635,10 @@ async function saveCampagna() {
     min: parseFloat(document.getElementById('tier-' + i + '-min')?.value) || 0,
     pct: parseFloat(document.getElementById('tier-' + i + '-pct')?.value) || 0,
   }));
+  const note_commerciali = document.getElementById('modal-input-note')?.value.trim() || null;
   if (!nome) throw new Error('Inserisci un nome');
 
-  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, min_ordine, scaglioni };
+  const payload = { nome, anno, stagione, scadenza, data_apertura, data_consegna, min_ordine, scaglioni, note_commerciali };
 
   if (_modalMode === 'campagna-add') {
     const { data: camp, error } = await DB.from('preordini_campagne')
