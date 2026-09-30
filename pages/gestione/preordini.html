@@ -9,7 +9,7 @@
   <title>Preordini</title>
   <link rel="stylesheet" href="../../assets/style/nav-style.css">
   <style>
-    body { font-family: 'Nunito', sans-serif; background: #f8fafc; }
+    body { font-family: 'Nunito', sans-serif; background: #f8fafc; overflow: hidden; }
 
     /* ── SAVE BADGE ── */
     #save-badge {
@@ -70,12 +70,22 @@
     .filtri-reset-btn:hover { background: #fee2e2; }
     #filtri-count { font-size: 11px; color: #94a3b8; font-weight: 600; }
 
+    /* ── TABLE VIEW FLEX ── */
+    #table-view { display: flex; flex-direction: column; overflow: hidden; }
+    #table-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
     /* ── TABLE WRAPPER ── */
     .tabella-wrapper {
       overflow-x: auto; overflow-y: auto;
-      height: calc(100vh - 283px);
+      flex: 1; min-height: 0;
       -webkit-overflow-scrolling: touch; padding-bottom: 80px;
     }
+
+    /* Override global mobile rule that breaks sticky columns */
+    .tabella-preordini { display: table !important; }
+
+    /* ── INCIDENCE CELL ── */
+    .td-inc { background: #f0f9ff; color: #0369a1; font-size: 10px; font-weight: 700; text-align: right; padding: 2px 5px; min-width: 38px; white-space: nowrap; }
 
     /* ── TABLE ── */
     .tabella-preordini { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -759,6 +769,17 @@ let _modalCtx    = null;
 let fotoDB    = {};
 let _lbCodice = null;
 
+// ── DYNAMIC TABLE HEIGHT ───────────────────────────────────────────────
+function ajustTableHeight() {
+  const wrap = document.querySelector('.tabella-wrapper');
+  if (!wrap || !wrap.getBoundingClientRect) return;
+  const top = wrap.getBoundingClientRect().top;
+  if (top <= 0) return;
+  wrap.style.height = (window.innerHeight - top - 4) + 'px';
+}
+window.addEventListener('resize', ajustTableHeight);
+window.addEventListener('orientationchange', () => setTimeout(ajustTableHeight, 200));
+
 // ── INIT ───────────────────────────────────────────────────────────────
 (async function init() {
   try {
@@ -1362,7 +1383,14 @@ function renderTable() {
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
   const nStorCols = 9; // 3 sedi × 3 anni
-  const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 1;
+  const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 2; // +2: € IMP + % inc.
+
+  // Pre-calcola totale generale per incidenza
+  const gEurTotal = righe.reduce((s, r) => {
+    return s + emporiVis.reduce((se, emp) => {
+      return se + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0);
+    }, 0);
+  }, 0);
 
   // THEAD ROW 1: fixed cols → order cols → storico header → € IMP
   // Sort indicator helper
@@ -1376,7 +1404,7 @@ function renderTable() {
   h1 += '<th rowspan="2" class="th-info col-s1 th-sortable' + (sortRigheBy==='categoria'?' sort-active':'') + '" style="text-align:left;width:110px;min-width:110px" data-s="categoria" onclick="sortTabella(this.dataset.s)">Categoria' + sarr('categoria') + '</th>';
   h1 += '<th rowspan="2" class="th-info col-s2 th-sortable' + (sortRigheBy==='prodotto'?' sort-active':'') + '" style="text-align:left;min-width:180px" data-s="prodotto" onclick="sortTabella(this.dataset.s)">Prodotto' + sarr('prodotto') + '</th>';
   h1 += '<th rowspan="2" class="th-info" style="text-align:center;width:42px">Conf</th>';
-  h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_corrente'?' sort-active':'') + '" style="text-align:center;width:58px" data-s="pvp_corrente" onclick="sortTabella(this.dataset.s)">PVP cess.' + sarr('pvp_corrente') + '</th>';
+  h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_corrente'?' sort-active':'') + '" style="text-align:center;width:58px" data-s="pvp_corrente" onclick="sortTabella(this.dataset.s)">Costo' + sarr('pvp_corrente') + '</th>';
   h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_consigliato'?' sort-active':'') + '" style="text-align:center;width:64px" data-s="pvp_consigliato" onclick="sortTabella(this.dataset.s)">PVP cons.' + sarr('pvp_consigliato') + '</th>';
   h1 += '<th rowspan="2" class="th-info th-sortable' + (sortRigheBy==='pvp_m361'?' sort-active':'') + '" style="text-align:center;width:64px" data-s="pvp_m361" onclick="sortTabella(this.dataset.s)">PVP m361' + sarr('pvp_m361') + '</th>';
   emporiVis.forEach(e => {
@@ -1385,6 +1413,7 @@ function renderTable() {
   if (hasTotOrd) h1 += '<th rowspan="2" class="th-tot" style="min-width:54px">TOT<br>ORD</th>';
   h1 += '<th colspan="9" class="th-stor">STORICO · <span style="color:#94a3b8">A</span> <span style="color:#4ade80">V</span></th>';
   h1 += '<th rowspan="2" class="th-tot" style="min-width:74px">€ IMP</th>';
+  h1 += '<th rowspan="2" class="th-info" style="text-align:right;min-width:42px;background:#e0f2fe;color:#0369a1">% inc.</th>';
   h1 += '</tr>';
 
   // THEAD ROW 2: 3 anni × 3 sedi (CR, CA, VI)
@@ -1540,7 +1569,9 @@ function renderTable() {
         });
       });
 
+      const incPct = gEurTotal > 0 && euroImp > 0 ? (euroImp / gEurTotal * 100).toFixed(1) + '%' : '';
       html += '<td class="td-tot-eur" id="tot-eur-' + riga.id + '">' + (euroImp > 0 ? fmtEuro(euroImp) : '') + '</td>';
+      html += '<td class="td-inc" id="inc-' + riga.id + '">' + incPct + '</td>';
       html += '</tr>';
     });
 
@@ -1562,7 +1593,9 @@ function renderTable() {
       html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#16A34A;background:#f0fdf4">' + (subTot || '') + '</td>';
     }
     for (let i = 0; i < nStorCols; i++) html += '<td style="background:#f1f5f9"></td>';
+    const subIncPct = gEurTotal > 0 && subEur > 0 ? (subEur / gEurTotal * 100).toFixed(1) + '%' : '';
     html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534;background:#f0fdf4">' + (subEur > 0 ? fmtEuro(subEur) : '') + '</td>';
+    html += '<td style="text-align:right;font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe">' + subIncPct + '</td>';
     html += '</tr>';
   });
 
@@ -1581,10 +1614,12 @@ function renderTable() {
   }
   for (let i = 0; i < nStorCols; i++) foot += '<td style="background:#1e293b"></td>';
   foot += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80;background:#0f3d1e">' + (gEur > 0 ? fmtEuro(gEur) : '') + '</td>';
+  foot += '<td style="text-align:right;font-size:11px;font-weight:800;color:#7dd3fc;background:#0c2a40">100%</td>';
   foot += '</tr>';
   tfoot.innerHTML = foot;
 
   aggiornaScontoBanner();
+  setTimeout(ajustTableHeight, 0);
 }
 
 // ── UPDATE ROW TOTALS ─────────────────────────────────────────────────
@@ -1802,40 +1837,57 @@ function renderRiepilogo() {
 
   const categorie = [...new Set(righe.map(r => r.categoria || '—'))].sort();
   let html = '<thead><tr><th>Categoria</th>';
-  emporiVis.forEach(e => { html += '<th style="text-align:right">' + esc(e.codice) + '</th>'; });
-  if (_iAmAdmin && emporiVis.length > 1) html += '<th style="text-align:right">TOT</th>';
-  html += '<th style="text-align:right">€ IMP</th></tr></thead><tbody>';
+  emporiVis.forEach(e => { html += '<th style="text-align:right">' + esc(e.codice) + '<br><span style="font-size:8px;font-weight:400;opacity:.6">pz · €</span></th>'; });
+  if (_iAmAdmin && emporiVis.length > 1) html += '<th style="text-align:right">TOT pz</th>';
+  html += '<th style="text-align:right">€ IMP</th><th style="text-align:right;color:#0369a1">% inc.</th></tr></thead><tbody>';
 
+  // Prima passata: calcola gEur per le percentuali
   let gTot = 0, gEur = 0;
-  categorie.forEach(cat => {
+  const catData = categorie.map(cat => {
     const grp = righe.filter(r => (r.categoria || '—') === cat);
-    const empO = {};
-    emporiVis.forEach(emp => { empO[emp.codice] = 0; });
+    const empO = {}; emporiVis.forEach(emp => { empO[emp.codice] = 0; });
     let tTot = 0, tEur = 0;
     grp.forEach(r => {
       emporiVis.forEach(emp => {
         const oc = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
-        empO[emp.codice] += oc;
-        tTot += oc;
+        empO[emp.codice] += oc; tTot += oc;
         tEur += oc * (parseFloat(r.pvp_corrente) || 0);
       });
     });
     gTot += tTot; gEur += tEur;
+    return { cat, grp, empO, tTot, tEur };
+  });
+
+  // Seconda passata: rendering con %
+  catData.forEach(({ cat, empO, tTot, tEur }) => {
+    const incPct = gEur > 0 && tEur > 0 ? (tEur / gEur * 100).toFixed(1) + '%' : '—';
     html += '<tr><td style="font-weight:600">' + esc(cat) + '</td>';
-    emporiVis.forEach(emp => { html += '<td style="text-align:right;font-family:\'Nunito\',monospace">' + (empO[emp.codice] || '—') + '</td>'; });
+    emporiVis.forEach(emp => {
+      const pz = empO[emp.codice];
+      const eu = catData.find(d => d.cat === cat)?.grp.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0), 0) || 0;
+      html += '<td style="text-align:right;font-family:\'Nunito\',monospace;white-space:nowrap">' +
+        '<span style="color:#1e293b">' + (pz || '—') + '</span>' +
+        (eu > 0 ? '<span style="font-size:10px;color:#64748b;margin-left:4px">' + fmtEuro(eu) + '</span>' : '') +
+        '</td>';
+    });
     if (_iAmAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;font-weight:700;color:#16A34A">' + (tTot || '—') + '</td>';
-    html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534">' + (tEur > 0 ? fmtEuro(tEur) : '—') + '</td></tr>';
+    html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534;font-weight:700">' + (tEur > 0 ? fmtEuro(tEur) : '—') + '</td>';
+    html += '<td style="text-align:right;font-weight:700;color:#0369a1;background:#e0f2fe">' + incPct + '</td></tr>';
   });
 
   html += '<tr style="background:#1e293b;color:white;font-weight:700"><td>TOTALE</td>';
   emporiVis.forEach(emp => {
-    const t = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
+    const pz = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
+    const eu = righe.reduce((s,r) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0) * (parseFloat(r.pvp_corrente) || 0), 0);
     const { pct } = calcolaSconto(emp.codice);
-    html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (t || '—') +
-      (pct > 0 ? '<span style="font-size:9px;color:#86efac;margin-left:3px">-' + pct + '%</span>' : '') + '</td>';
+    html += '<td style="text-align:right;font-family:\'Nunito\',monospace;white-space:nowrap">' +
+      '<span style="color:#4ade80">' + (pz || '—') + (pct > 0 ? '<span style="font-size:9px;color:#86efac;margin-left:3px">-' + pct + '%</span>' : '') + '</span>' +
+      (eu > 0 ? '<span style="font-size:10px;color:#86efac;margin-left:4px">' + fmtEuro(eu) + '</span>' : '') +
+      '</td>';
   });
   if (_iAmAdmin && emporiVis.length > 1) html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gTot || '—') + '</td>';
   html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#4ade80">' + (gEur > 0 ? fmtEuro(gEur) : '—') + '</td>';
+  html += '<td style="text-align:right;font-weight:800;color:#7dd3fc">100%</td>';
   html += '</tr></tbody>';
   document.getElementById('summary-table').innerHTML = html;
 }
@@ -1846,7 +1898,7 @@ function exportCSV() {
     ? emporiAttivi.filter(e => filtroEmpori.has(e.codice))
     : emporiAttivi.filter(e => e.codice === mioEmpCodice);
 
-  const cols = ['Codice','Categoria','Prodotto','Conf','PVP cess.'];
+  const cols = ['Codice','Categoria','Prodotto','Conf','Costo'];
   emporiVis.forEach(e => { cols.push('ORD ' + e.codice); });
   if (_iAmAdmin && emporiVis.length > 1) cols.push('TOT ORD');
   ['CR','CA','VI'].forEach(s => {
