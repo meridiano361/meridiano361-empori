@@ -383,13 +383,14 @@
     #foto-lb-bg {
       position: fixed; inset: 0; background: rgba(0,0,0,.65);
       z-index: 2000; display: flex; align-items: center; justify-content: center;
+      padding: 12px;
     }
     #foto-lb-box {
       background: white; border-radius: 16px; padding: 20px;
-      width: min(420px, 94vw); box-shadow: 0 24px 64px rgba(0,0,0,.35);
+      width: min(480px, 96vw); box-shadow: 0 24px 64px rgba(0,0,0,.35);
     }
     #foto-lb-header {
-      display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
     }
     #foto-lb-title { font-size: 13px; font-weight: 700; color: #1e293b; flex: 1; margin-right: 8px; }
     #foto-lb-close {
@@ -397,25 +398,53 @@
       color: #94a3b8; padding: 2px 6px; border-radius: 6px; line-height: 1;
     }
     #foto-lb-close:hover { background: #f1f5f9; color: #475569; }
+
+    /* ── Main image container with crop dot ── */
+    #foto-lb-img-wrap {
+      position: relative; width: 100%; height: 240px;
+      background: #f1f5f9; border-radius: 10px; border: 1px solid #e2e8f0;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+      cursor: crosshair; margin-bottom: 4px;
+    }
     #foto-lb-main {
-      display: block; max-width: 100%; max-height: 260px; object-fit: contain;
-      border-radius: 10px; margin: 0 auto; border: 1px solid #e2e8f0;
+      display: block; max-width: 100%; max-height: 240px; object-fit: contain;
+      pointer-events: none;
     }
-    #foto-lb-editor { margin-top: 16px; }
-    .foto-pos-row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
-    .foto-pos-preview-wrap {
-      flex-shrink: 0;
+    #foto-crop-dot {
+      position: absolute; width: 22px; height: 22px;
+      border: 2.5px solid white; border-radius: 50%;
+      box-shadow: 0 0 0 2px #3b82f6, 0 2px 8px rgba(0,0,0,.5);
+      pointer-events: none; transform: translate(-50%, -50%);
+      display: none; transition: left .1s, top .1s;
     }
+    #foto-lb-hint {
+      font-size: 10px; color: #94a3b8; text-align: center; margin-bottom: 14px;
+    }
+
+    #foto-lb-editor { }
+    .foto-pos-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+
+    /* ── Large preview ── */
+    .foto-pos-preview-wrap { flex-shrink: 0; }
     .foto-pos-preview-label { font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: .04em; margin-bottom: 5px; }
     .foto-pos-preview {
-      width: 68px; height: 68px; overflow: hidden; border-radius: 6px;
-      border: 2px solid #3b82f6; display: block;
+      width: 130px; height: 130px; overflow: hidden; border-radius: 10px;
+      border: 2.5px solid #3b82f6; display: block;
     }
-    #foto-lb-preview { width: 68px; height: 68px; object-fit: cover; display: block; }
-    .foto-pos-sliders { flex: 1; }
-    .foto-pos-sliders label { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #475569; margin-bottom: 8px; }
-    .foto-pos-sliders label span { width: 14px; text-align: center; }
-    .foto-pos-sliders input[type=range] { flex: 1; accent-color: #3b82f6; }
+    #foto-lb-preview { width: 130px; height: 130px; object-fit: cover; display: block; }
+
+    /* ── Sliders ── */
+    .foto-pos-sliders { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+    .foto-pos-sliders label { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #475569; }
+    .foto-pos-sliders label span { width: 16px; text-align: center; font-size: 13px; }
+    .foto-pos-sliders input[type=range] { flex: 1; accent-color: #3b82f6; cursor: pointer; }
+    .foto-pos-center-btn {
+      align-self: flex-start; background: #f1f5f9; border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: 5px 10px; font-size: 10px; font-weight: 700;
+      color: #475569; cursor: pointer; font-family: 'Nunito', sans-serif;
+    }
+    .foto-pos-center-btn:hover { background: #e2e8f0; }
+
     .foto-lb-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .foto-lb-upload-lbl {
       background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px;
@@ -576,17 +605,22 @@
       <span id="foto-lb-title"></span>
       <button id="foto-lb-close" onclick="chiudiFotoLb()">✕</button>
     </div>
-    <img id="foto-lb-main" alt="">
+    <!-- Main image: click to set crop center -->
+    <div id="foto-lb-img-wrap" onclick="onFotoLbImgClick(event)">
+      <img id="foto-lb-main" alt="">
+      <div id="foto-crop-dot"></div>
+    </div>
     <div id="foto-lb-editor" class="hidden">
+      <div id="foto-lb-hint">Clicca sull'immagine per centrare il ritaglio · usa i cursori per regolarlo</div>
       <div class="foto-pos-row">
         <div class="foto-pos-preview-wrap">
-          <div class="foto-pos-preview-label">ANTEPRIMA 34×34</div>
+          <div class="foto-pos-preview-label">RITAGLIO 34×34</div>
           <div class="foto-pos-preview"><img id="foto-lb-preview" alt=""></div>
         </div>
         <div class="foto-pos-sliders">
-          <div class="foto-pos-preview-label" style="margin-bottom:10px">POSIZIONE RITAGLIO</div>
           <label><span>↔</span><input type="range" id="foto-pos-x" min="0" max="100" value="50" oninput="aggiornaFotoPos()"></label>
           <label><span>↕</span><input type="range" id="foto-pos-y" min="0" max="100" value="50" oninput="aggiornaFotoPos()"></label>
+          <button class="foto-pos-center-btn" onclick="centraCrop()">⊕ Centra</button>
         </div>
       </div>
       <div class="foto-lb-actions">
@@ -1098,13 +1132,19 @@ function apriLightboxFoto(codice, nome) {
   const lbImg = document.getElementById('foto-lb-main');
   if (src) { lbImg.src = src; lbImg.style.display = 'block'; }
   else      { lbImg.src = ''; lbImg.style.display = 'none'; }
+  document.getElementById('foto-crop-dot').style.display = 'none';
   if (_iAmAdmin) {
     const pos = getFotoPos(codice);
     document.getElementById('foto-pos-x').value = pos.x;
     document.getElementById('foto-pos-y').value = pos.y;
     const prev = document.getElementById('foto-lb-preview');
-    if (src) { prev.src = src; prev.style.objectPosition = pos.x + '% ' + pos.y + '%'; }
-    else      { prev.src = ''; }
+    if (src) {
+      prev.src = src;
+      prev.style.objectPosition = pos.x + '% ' + pos.y + '%';
+      // Update dot after image loads
+      if (lbImg.complete && lbImg.naturalWidth) { _aggiornaCropDot(pos.x, pos.y); }
+      else { lbImg.onload = () => _aggiornaCropDot(pos.x, pos.y); }
+    } else { prev.src = ''; }
     document.getElementById('foto-lb-editor').classList.remove('hidden');
   } else {
     document.getElementById('foto-lb-editor').classList.add('hidden');
@@ -1121,6 +1161,54 @@ function aggiornaFotoPos() {
   const x = document.getElementById('foto-pos-x').value;
   const y = document.getElementById('foto-pos-y').value;
   document.getElementById('foto-lb-preview').style.objectPosition = x + '% ' + y + '%';
+  _aggiornaCropDot(x, y);
+}
+
+function centraCrop() {
+  document.getElementById('foto-pos-x').value = 50;
+  document.getElementById('foto-pos-y').value = 50;
+  aggiornaFotoPos();
+}
+
+function _aggiornaCropDot(x, y) {
+  const img  = document.getElementById('foto-lb-main');
+  const dot  = document.getElementById('foto-crop-dot');
+  const wrap = document.getElementById('foto-lb-img-wrap');
+  if (!img.naturalWidth || !img.src) { dot.style.display = 'none'; return; }
+
+  const wW = wrap.offsetWidth, wH = wrap.offsetHeight;
+  const natRatio = img.naturalWidth / img.naturalHeight;
+  const conRatio = wW / wH;
+  let iW, iH, iX, iY;
+  if (natRatio > conRatio) { iW = wW; iH = wW / natRatio; iX = 0; iY = (wH - iH) / 2; }
+  else                     { iH = wH; iW = wH * natRatio; iX = (wW - iW) / 2; iY = 0; }
+
+  dot.style.left = (iX + iW * x / 100) + 'px';
+  dot.style.top  = (iY + iH * y / 100) + 'px';
+  dot.style.display = 'block';
+}
+
+function onFotoLbImgClick(e) {
+  if (!_iAmAdmin) return;
+  const img  = document.getElementById('foto-lb-main');
+  if (!img.naturalWidth) return;
+  const wrap = document.getElementById('foto-lb-img-wrap');
+  const wRect = wrap.getBoundingClientRect();
+  const wW = wRect.width, wH = wRect.height;
+  const natRatio = img.naturalWidth / img.naturalHeight;
+  const conRatio = wW / wH;
+  let iW, iH, iX, iY;
+  if (natRatio > conRatio) { iW = wW; iH = wW / natRatio; iX = 0; iY = (wH - iH) / 2; }
+  else                     { iH = wH; iW = wH * natRatio; iX = (wW - iW) / 2; iY = 0; }
+
+  const clickX = e.clientX - wRect.left - iX;
+  const clickY = e.clientY - wRect.top  - iY;
+  const pctX = Math.round(Math.max(0, Math.min(100, clickX / iW * 100)));
+  const pctY = Math.round(Math.max(0, Math.min(100, clickY / iH * 100)));
+
+  document.getElementById('foto-pos-x').value = pctX;
+  document.getElementById('foto-pos-y').value = pctY;
+  aggiornaFotoPos();
 }
 
 async function salvaFotoPos() {
@@ -1161,10 +1249,13 @@ function onFotoUpload(input) {
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       const b64 = canvas.toDataURL('image/jpeg', 0.88);
       const lbImg = document.getElementById('foto-lb-main');
+      lbImg.onload = () => { const x2 = parseInt(document.getElementById('foto-pos-x').value); const y2 = parseInt(document.getElementById('foto-pos-y').value); _aggiornaCropDot(x2, y2); };
       lbImg.src = b64; lbImg.style.display = 'block';
-      document.getElementById('foto-lb-preview').src = b64;
+      const prev = document.getElementById('foto-lb-preview');
+      prev.src = b64;
       const x = parseInt(document.getElementById('foto-pos-x').value);
       const y = parseInt(document.getElementById('foto-pos-y').value);
+      prev.style.objectPosition = x + '% ' + y + '%';
       const { error } = await DB.from('preordini_foto')
         .upsert({ codice: _lbCodice, data_b64: b64, pos_x: x, pos_y: y }, { onConflict: 'codice' });
       if (error) { alert('Errore: ' + error.message); return; }
