@@ -2172,6 +2172,69 @@ async function saveStoricoManuale(codice, empCodice, anno, tipo, value, rigaId) 
   if (error) console.error('Errore salvataggio storico:', error.message);
 }
 
+// ── ORG MAPPING (codici preordini → organizzazione) ───────────────────
+const EMP_ORG_MAP = {
+  CR: 'meridiano361', CA: 'meridiano361', VI: 'meridiano361', RE: 'meridiano361',
+  MN: 'mappamondo', MNU: 'mappamondo', MND: 'mappamondo',
+};
+const ORGS_INFO = {
+  meridiano361: { nome: 'MERIDIANO361', colore: '#1e293b', light: '#f1f5f9' },
+  mappamondo:   { nome: 'Mappamondo',   colore: '#1d4ed8', light: '#eff6ff' },
+};
+
+function empOriByOrg(emporiList) {
+  const map = {};
+  emporiList.forEach(e => {
+    const org = EMP_ORG_MAP[e.codice] || 'altro';
+    if (!map[org]) map[org] = [];
+    map[org].push(e);
+  });
+  return map;
+}
+
+function analizzaCondizioniOrg(orgKey, emporiOrg) {
+  // Calcola il totale aggregato per tutti gli empori dell'org
+  const totEuro = righe.reduce((sum, r) => {
+    const pvp = parseFloat(r.pvp_corrente) || 0;
+    const ocSum = emporiOrg.reduce((s, emp) =>
+      s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
+    return sum + ocSum * pvp;
+  }, 0);
+
+  const tiers = (campagna?.scaglioni && Array.isArray(campagna.scaglioni) && campagna.scaglioni.length > 0)
+    ? [...campagna.scaglioni].filter(t => t.min || t.pct).sort((a, b) => b.min - a.min).concat([{ min: 0, pct: 0 }])
+    : SCONTO_TIERS;
+  const tier = tiers.find(t => totEuro >= t.min) || tiers[tiers.length - 1];
+
+  let colloOk = true;
+  if (campagna?.regola_collo) {
+    outer: for (const r of righe) {
+      for (const emp of emporiOrg) {
+        const oc   = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
+        const conf = parseFloat(r.conf) || 0;
+        if (oc > 0 && conf > 0 && oc < conf) { colloOk = false; break outer; }
+      }
+    }
+  }
+
+  const soglieStatus = (campagna?.soglie_categoria || []).map(soglia => {
+    const tot = righe.reduce((sum, r) => {
+      if (soglia.categoria && (r.categoria || '').toLowerCase() !== (soglia.categoria || '').toLowerCase()) return sum;
+      const pvp = parseFloat(r.pvp_corrente) || 0;
+      const ocSum = emporiOrg.reduce((s, emp) =>
+        s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
+      return sum + ocSum * pvp;
+    }, 0);
+    return { ...soglia, tot, ok: tot >= (soglia.importo_min || 0) };
+  });
+
+  const scontoApplicabile = !campagna?.regola_collo || colloOk;
+  const pct   = scontoApplicabile ? (tier.pct || 0) : 0;
+  const netto = totEuro * (1 - pct / 100);
+  const sconto = totEuro - netto;
+  return { totEuro, pct, tier, netto, sconto, colloOk, soglieStatus, scontoApplicabile };
+}
+
 // ── SCONTO BANNER ─────────────────────────────────────────────────────
 function analizzaCondizioni(empCodice) {
   const totEuro = righe.reduce((sum, r) => {
@@ -2234,36 +2297,40 @@ function aggiornaScontoBanner() {
     (campagna.soglie_categoria?.length > 0) || campagna.regola_collo || campagna.min_ordine
   );
 
+  const orgGroups = empOriByOrg(emporiVis);
   let html = '';
-  emporiVis.forEach(emp => {
-    const cond = analizzaCondizioni(emp.codice);
-    const { totEuro, pct, netto, sconto, colloOk, soglieStatus, scontoApplicabile } = cond;
-    const pctCls = pct > 0 ? 'sc-pct' : 'sc-pct nosconto';
 
-    html += '<div class="sconto-chip">';
-    html += '<span class="sc-emp">' + esc(emp.codice) + '</span>';
-    html += '<span class="sc-euro">' + (totEuro > 0 ? fmtEuro(totEuro) : '€ 0') + '</span>';
+  Object.entries(orgGroups).forEach(([orgKey, emps]) => {
+    const orgInfo = ORGS_INFO[orgKey] || { nome: orgKey, colore: '#64748b', light: '#f8fafc' };
+    const orgCond = analizzaCondizioniOrg(orgKey, emps);
+    const { totEuro, pct, netto, sconto, colloOk, soglieStatus, scontoApplicabile } = orgCond;
+
+    // Org header chip
+    html += '<div class="sconto-chip" style="border-color:' + orgInfo.colore + '40;background:' + orgInfo.light + '">';
+    html += '<span class="sc-emp" style="background:' + orgInfo.colore + ';color:#fff;border-radius:4px;padding:1px 5px">' + orgInfo.nome + '</span>';
+    // Per-emporio sub-totals
+    emps.forEach(emp => {
+      const ec = analizzaCondizioni(emp.codice);
+      if (ec.totEuro > 0) html += '<span style="font-size:10px;color:#64748b">' + esc(emp.codice) + ' ' + fmtEuro(ec.totEuro) + '</span>';
+    });
+    html += '<span style="font-size:9px;color:#94a3b8">·</span>';
+    html += '<span class="sc-euro" style="font-weight:900">' + (totEuro > 0 ? fmtEuro(totEuro) : '€ 0') + '</span>';
+    const pctCls = pct > 0 ? 'sc-pct' : 'sc-pct nosconto';
     html += '<span class="' + pctCls + '">→ ' + (pct > 0 ? '-' + pct + '%' : 'nessuno sconto') + '</span>';
     if (pct > 0) {
       html += '<span style="font-size:10px;color:#4ade80;font-weight:800">= ' + fmtEuro(netto) + '</span>';
       html += '<span style="font-size:9px;color:#86efac">(risparmi ' + fmtEuro(sconto) + ')</span>';
     }
-    // Obiettivi commerciali inline
     if (hasCond) {
       html += '<span style="font-size:9px;color:#94a3b8;margin-left:4px">·</span>';
-      // Minimo ordine
       if (campagna.min_ordine) {
         const ok = totEuro >= campagna.min_ordine;
         html += _condPill(ok, ok ? 'Min ✓' : 'Min ✗ (mancano ' + fmtEuro(campagna.min_ordine - totEuro) + ')');
       }
-      // Soglie categoria
       soglieStatus.forEach(s => {
         html += _condPill(s.ok, (s.label || s.categoria || 'Soglia') + (s.ok ? ' ✓' : ' ✗ (' + fmtEuro(s.tot) + '/' + fmtEuro(s.importo_min) + ')'));
       });
-      // Regola collo
-      if (campagna.regola_collo) {
-        html += _condPill(colloOk, colloOk ? '1 collo/ref ✓' : '1 collo/ref ✗');
-      }
+      if (campagna.regola_collo) html += _condPill(colloOk, colloOk ? '1 collo/ref ✓' : '1 collo/ref ✗');
     }
     html += '</div>';
   });
@@ -2458,8 +2525,29 @@ function renderRiepilogo() {
 
   if (hasCond && emporiVis.length > 0) {
     const tiers = (campagna.scaglioni?.filter(t => t.min || t.pct) || []).sort((a, b) => a.min - b.min);
-    let cardHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:18px">';
-    emporiVis.forEach(emp => {
+    const orgGroups = empOriByOrg(emporiVis);
+    let cardHtml = '';
+
+    Object.entries(orgGroups).forEach(([orgKey, empsOrg]) => {
+      const orgInfo = ORGS_INFO[orgKey] || { nome: orgKey, colore: '#64748b', light: '#f8fafc' };
+      const orgCond = analizzaCondizioniOrg(orgKey, empsOrg);
+
+      cardHtml += '<div style="border:2px solid ' + orgInfo.colore + '30;border-radius:12px;padding:14px;margin-bottom:14px;background:' + orgInfo.light + '">';
+      // Org header + totale
+      cardHtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">';
+      cardHtml += '<span style="font-size:12px;font-weight:900;color:' + orgInfo.colore + ';background:' + orgInfo.colore + '15;padding:3px 10px;border-radius:6px">' + orgInfo.nome + '</span>';
+      cardHtml += '<span style="font-size:13px;font-weight:800;color:#1e293b">TOT: ' + fmtEuro(orgCond.totEuro) + '</span>';
+      if (orgCond.pct > 0) {
+        cardHtml += '<span style="font-size:12px;color:#16a34a;font-weight:700">→ -' + orgCond.pct + '% = ' + fmtEuro(orgCond.netto) + '</span>';
+        cardHtml += '<span style="font-size:11px;color:#86efac">(risparmi ' + fmtEuro(orgCond.sconto) + ')</span>';
+      } else {
+        cardHtml += '<span style="font-size:11px;color:#94a3b8">nessuno sconto raggiunto</span>';
+      }
+      cardHtml += '</div>';
+
+      // Grid per-emporio
+      cardHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">';
+      empsOrg.forEach(emp => {
       const cond = analizzaCondizioni(emp.codice);
       const { totEuro, pct, netto, sconto, colloOk, colloViolazioni, soglieStatus, scontoApplicabile } = cond;
 
@@ -2523,8 +2611,26 @@ function renderRiepilogo() {
       }
 
       cardHtml += '</div>';
-    });
-    cardHtml += '</div>';
+      }); // end empsOrg.forEach
+      cardHtml += '</div>'; // end grid
+      // Scaglioni progress per org
+      if (tiers.length > 0) {
+        cardHtml += '<div style="margin-top:12px;padding-top:10px;border-top:1px solid ' + orgInfo.colore + '20">';
+        cardHtml += '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Scaglioni (' + orgInfo.nome + ')</div>';
+        tiers.forEach(t => {
+          const reached = orgCond.totEuro >= t.min && t.pct > 0;
+          const mancano = !reached && t.min > 0 ? t.min - orgCond.totEuro : 0;
+          const ico = reached ? '✓' : (mancano < 500 && mancano > 0 ? '◎' : '○');
+          const col = reached ? '#16a34a' : (mancano < 500 && mancano > 0 ? '#d97706' : '#94a3b8');
+          cardHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;font-size:11px">';
+          cardHtml += '<span style="color:' + col + ';font-weight:700">' + ico + ' ' + t.pct + '% da ' + fmtEuro(t.min) + '</span>';
+          if (!reached && mancano > 0) cardHtml += '<span style="color:#94a3b8">mancano ' + fmtEuro(mancano) + '</span>';
+          cardHtml += '</div>';
+        });
+        cardHtml += '</div>';
+      }
+      cardHtml += '</div>'; // end org wrapper
+    }); // end orgGroups.forEach
     commEl.innerHTML = cardHtml;
   } else {
     commEl.innerHTML = '';
@@ -2944,11 +3050,12 @@ async function saveCampagna() {
     if (error) throw new Error(error.message);
     if (camp) {
       await DB.from('preordini_empori').insert([
-        { campagna_id: camp.id, codice: 'CR', nome: 'Cremona',        ordine_visualizzazione: 0 },
-        { campagna_id: camp.id, codice: 'CA', nome: 'Casalmaggiore',  ordine_visualizzazione: 1 },
-        { campagna_id: camp.id, codice: 'VI', nome: 'Viadana',        ordine_visualizzazione: 2 },
-        { campagna_id: camp.id, codice: 'RE', nome: 'Reggio Emilia',  ordine_visualizzazione: 3 },
-        { campagna_id: camp.id, codice: 'MN', nome: 'Mantova',        ordine_visualizzazione: 4 },
+        { campagna_id: camp.id, codice: 'CR',  nome: 'Cremona',        ordine_visualizzazione: 0 },
+        { campagna_id: camp.id, codice: 'CA',  nome: 'Casalmaggiore',  ordine_visualizzazione: 1 },
+        { campagna_id: camp.id, codice: 'VI',  nome: 'Viadana',        ordine_visualizzazione: 2 },
+        { campagna_id: camp.id, codice: 'RE',  nome: 'Reggio Emilia',  ordine_visualizzazione: 3 },
+        { campagna_id: camp.id, codice: 'MNU', nome: 'Mantova U.',     ordine_visualizzazione: 4 },
+        { campagna_id: camp.id, codice: 'MND', nome: 'Mantova D.',     ordine_visualizzazione: 5 },
       ]);
     }
   } else {

@@ -13,6 +13,45 @@
   window.__m361NavLoaded = true;
 
   /* ═══════════════════════════════════════
+     EMPORI & ORGANIZZAZIONI — fonte unica
+  ═══════════════════════════════════════ */
+  window.ORGANIZZAZIONI = {
+    meridiano361: { nome: 'MERIDIANO361', colore: '#1e293b', coloreLight: '#f1f5f9', coloreAccent: '#334155' },
+    mappamondo:   { nome: 'Mappamondo',   colore: '#1d4ed8', coloreLight: '#eff6ff', coloreAccent: '#2563eb' },
+  };
+  window.EMPORI_CONF = {
+    cremona:       { nome: 'Cremona',        nomeBreve: 'CR',  org: 'meridiano361', colore: '#B5453A', ordine: 0 },
+    casalmaggiore: { nome: 'Casalmaggiore',  nomeBreve: 'CA',  org: 'meridiano361', colore: '#D97706', ordine: 1 },
+    viadana:       { nome: 'Viadana',        nomeBreve: 'VI',  org: 'meridiano361', colore: '#2563EB', ordine: 2 },
+    reggioemilia:  { nome: 'Reggio Emilia',  nomeBreve: 'RE',  org: 'meridiano361', colore: '#7C3AED', ordine: 3 },
+    mantova:       { nome: 'Mantova U.',     nomeBreve: 'MNU', org: 'mappamondo',   colore: '#0891b2', ordine: 4 },
+    mantova_d:     { nome: 'Mantova D.',     nomeBreve: 'MND', org: 'mappamondo',   colore: '#0e7490', ordine: 5 },
+  };
+  window.EMPORI_ORDER = Object.keys(window.EMPORI_CONF).sort((a, b) =>
+    window.EMPORI_CONF[a].ordine - window.EMPORI_CONF[b].ordine
+  );
+  window.EMPORI_LABEL = Object.fromEntries(
+    Object.entries(window.EMPORI_CONF).map(([k, v]) => [k, v.nome])
+  );
+  window.emporioNome = function(codice) {
+    return (window.EMPORI_CONF[codice] || {}).nome || codice || '';
+  };
+  window.emporioOrg = function(codice) {
+    const orgKey = (window.EMPORI_CONF[codice] || {}).org;
+    return orgKey ? window.ORGANIZZAZIONI[orgKey] : null;
+  };
+  window.orgBadgeHtml = function(codice, opts) {
+    const cfg = window.EMPORI_CONF[codice];
+    if (!cfg) return '';
+    const org = window.ORGANIZZAZIONI[cfg.org];
+    if (!org) return '';
+    const style = opts?.small
+      ? `font-size:9px;padding:1px 5px;border-radius:8px;font-weight:700;white-space:nowrap;background:${org.coloreLight};color:${org.colore}`
+      : `font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;white-space:nowrap;background:${org.coloreLight};color:${org.colore}`;
+    return `<span style="${style}">${org.nome}</span>`;
+  };
+
+  /* ═══════════════════════════════════════
      SUPABASE CLIENT (lazy)
   ═══════════════════════════════════════ */
   const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';

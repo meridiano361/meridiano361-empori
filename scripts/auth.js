@@ -71,12 +71,14 @@ function emporioToId(nome) {
 
 /** ID slug → nome completo */
 function emporioIdToNome(id) {
+  if (window.EMPORI_CONF && window.EMPORI_CONF[id]) return window.EMPORI_CONF[id].nome;
   const map = {
     casalmaggiore: 'Casalmaggiore',
     cremona:       'Cremona',
     reggioemilia:  'Reggio Emilia',
     viadana:       'Viadana',
-    mantova:       'Mantova',
+    mantova:       'Mantova U.',
+    mantova_d:     'Mantova D.',
   };
   return map[id] || id;
 }

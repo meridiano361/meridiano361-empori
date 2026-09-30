@@ -342,7 +342,8 @@
                                 <option value="casalmaggiore">Emporio Casalmaggiore</option>
                                 <option value="reggioemilia">Emporio Reggio Emilia</option>
                                 <option value="viadana">Emporio Viadana</option>
-                                <option value="mantova">Emporio Mantova</option>
+                                <option value="mantova">Mantova U. (ON Earth)</option>
+                                <option value="mantova_d">Mantova D. (Via Daino)</option>
                             </select>
                         </div>
                         <div>
@@ -376,7 +377,8 @@
                             <option value="casalmaggiore">Casalmaggiore</option>
                             <option value="reggioemilia">Reggio Emilia</option>
                             <option value="viadana">Viadana</option>
-                            <option value="mantova">Mantova</option>
+                            <option value="mantova">Mantova U.</option>
+                            <option value="mantova_d">Mantova D.</option>
                         </select>
                         <select id="filtro-inv-periodo" onchange="renderNotifFiltrate()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;background:#fff;outline:none">
                             <option value="">Tutto il periodo</option>
@@ -1309,8 +1311,10 @@
         { id: 'analisi-commerciale', nome: 'Analisi Commerciale', icon: '📊' },
     ];
 
-    const EMPORI_ORDER = ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana', 'mantova'];
-    const EMPORI_LABEL = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova' };
+    // Fonte: window.EMPORI_CONF (iniettato da nav-script.js); fallback per compatibilità
+    const EMPORI_ORDER = window.EMPORI_ORDER || ['cremona', 'casalmaggiore', 'reggioemilia', 'viadana', 'mantova', 'mantova_d'];
+    const EMPORI_LABEL = window.EMPORI_LABEL || { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova U.', mantova_d: 'Mantova D.' };
+    const EMPORI_ORG   = Object.fromEntries(Object.entries(window.EMPORI_CONF || {}).map(([k,v]) => [k, v.org]));
 
     const RUOLI_SPECIALI = [
       { campo: 'is_resp_acquisti',     label: 'Resp. Acquisti',     icon: '🛒', badge: 'ecfdf5', color: '065f46' },
@@ -1443,7 +1447,8 @@
     const _LOGHI_EMPORI = [
         { chiave: 'Casalmaggiore', label: 'Casalmaggiore' },
         { chiave: 'Cremona',       label: 'Cremona' },
-        { chiave: 'Mantova',       label: 'Mantova' },
+        { chiave: 'Mantova U.',    label: 'Mantova U. (ON Earth)' },
+        { chiave: 'Mantova D.',    label: 'Mantova D. (Via Daino)' },
         { chiave: 'Reggio Emilia', label: 'Reggio Emilia' },
         { chiave: 'Viadana',       label: 'Viadana' },
     ];
@@ -1529,15 +1534,8 @@
     }
 
     // ── COLORI EMPORI ─────────────────────────────────────────────────────
-    const COLORI_EMPORI = {
-        'cremona':       '#B5453A',
-        'casalmaggiore': '#D97706',
-        'viadana':       '#2563EB',
-        'reggioemilia':  '#7C3AED',
-        'mantova':       '#7C3AED',
-    };
     function coloreEmporio(chiave) {
-        return COLORI_EMPORI[(chiave || '').toLowerCase()] || '#64748b';
+        return (window.EMPORI_CONF?.[chiave] || {}).colore || '#64748b';
     }
 
     // ── HELPERS ───────────────────────────────────────────────────────────
@@ -1621,6 +1619,7 @@
                         <span class="emporio-freccia" id="freccia-${safeId}">▶</span>
                         <span class="emporio-dot" style="background:${colore}"></span>
                         <span class="emporio-nome">${empLabel}</span>
+                        ${window.orgBadgeHtml ? window.orgBadgeHtml(chiave, {small:true}) : ''}
                         <span class="emporio-count">${ops.length} operator${ops.length === 1 ? 'e' : 'i'}</span>
                     </div>
                     <div class="emporio-riga-dx">
@@ -2636,11 +2635,9 @@
     });
 
     // ── NOTIFICHE ─────────────────────────────────────────────────────────
-    const EMPORI_LABEL_NOTIF = {
-        tutti: 'Tutti',
-        cremona: 'Cremona', casalmaggiore: 'Casalmaggiore',
-        reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova',
-    };
+    const EMPORI_LABEL_NOTIF = window.EMPORI_LABEL
+        ? { tutti: 'Tutti', ...window.EMPORI_LABEL }
+        : { tutti: 'Tutti', cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', reggioemilia: 'Reggio Emilia', viadana: 'Viadana', mantova: 'Mantova U.', mantova_d: 'Mantova D.' };
 
     async function inviaNotifica() {
         const target  = document.getElementById('notif-target').value.trim();
