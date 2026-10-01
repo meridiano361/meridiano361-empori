@@ -1008,22 +1008,20 @@ function buildNav() {
       return !Array.isArray(n.letta_da) || !n.letta_da.includes(nome);
     });
 
-    // Aggiorna badge campanellina
-    whenReady(() => {
-      const badge = document.getElementById('m361-bell-badge');
-      if (badge) {
-        if (nonLette.length > 0) {
-          badge.textContent = nonLette.length;
-          badge.style.display = 'flex';
-        } else {
-          badge.style.display = 'none';
-        }
+    // Aggiorna badge campanellina (DOM sempre pronto qui — chiamato dopo DOMContentLoaded)
+    const badge = document.getElementById('m361-bell-badge');
+    if (badge) {
+      if (nonLette.length > 0) {
+        badge.textContent = nonLette.length;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
       }
-    });
+    }
 
     if (!nonLette.length) return;
 
-    whenReady(() => {
+    (() => {
       nonLette.forEach(notif => {
         const bannerId = `m361-notif-${notif.id}`;
         if (document.getElementById(bannerId)) return;
@@ -1080,7 +1078,7 @@ function buildNav() {
           || document.getElementById('m361-header');
         document.body.insertBefore(banner, anchor?.nextSibling || document.body.firstChild);
       });
-    });
+    })();
   }
 
   // ── PUSH NOTIFICATIONS ──────────────────────────────────────────────────
