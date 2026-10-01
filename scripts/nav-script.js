@@ -1025,6 +1025,10 @@ function buildNav() {
       nonLette.forEach(notif => {
         const bannerId = `m361-notif-${notif.id}`;
         if (document.getElementById(bannerId)) return;
+        // Evita di mostrare la stessa notifica più volte nella stessa sessione browser
+        const sessionKey = 'm361_notif_seen_' + notif.id;
+        if (sessionStorage.getItem(sessionKey)) return;
+        sessionStorage.setItem(sessionKey, '1');
 
         const banner = document.createElement('div');
         banner.id = bannerId;
