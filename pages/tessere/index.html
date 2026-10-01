@@ -192,6 +192,40 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .toast.show{opacity:1}
 
 @media(max-width:480px){.field-grid{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}}
+
+/* ── Duplicati ── */
+.dup-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:12px}
+.dup-card-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.dup-reasons{display:flex;gap:6px;flex-wrap:wrap}
+.dup-reason{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#fef2f2;color:var(--red);border:1px solid #fce7e7}
+.dup-conf{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;flex-shrink:0}
+.dup-conf.alta{background:#dcfce7;color:#166534}
+.dup-conf.media{background:#fef9c3;color:#854d0e}
+.dup-pair{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:start;margin-bottom:12px}
+.dup-col{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px}
+.dup-col-name{font-size:14px;font-weight:800;color:#1e293b;margin-bottom:6px}
+.dup-col-row{font-size:12px;font-weight:600;color:#475569;display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.dup-col-row i{font-size:10px;color:#94a3b8;width:12px;flex-shrink:0}
+.dup-col-row.match{color:#16a34a;background:#dcfce7;border-radius:6px;padding:2px 6px;margin-left:-6px}
+.dup-col-row.match i{color:#16a34a}
+.dup-col-row.muted{color:#cbd5e1}
+.dup-col-row.tessera{color:var(--amb)}
+.dup-col-row.tessera i{color:var(--amb)}
+.dup-col-name.match{color:#16a34a}
+.dup-vs{font-size:11px;font-weight:900;color:#94a3b8;align-self:center;padding-top:4px;text-align:center}
+.dup-warning{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.dup-actions{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f1f5f9;padding-top:12px}
+.dup-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:10px;font-weight:900;border-radius:20px;padding:1px 6px;margin-left:4px;min-width:18px;line-height:1.6}
+@media(max-width:600px){.dup-pair{grid-template-columns:1fr}.dup-vs{display:none}}
+
+/* ── Merge modal ── */
+.merge-option{display:block;cursor:pointer;border:2px solid #e2e8f0;border-radius:12px;padding:12px;transition:all .15s}
+.merge-option.selected{border-color:var(--red);background:#fef2f2}
+.merge-option input[type=radio]{display:none}
+.merge-opt-name{font-size:14px;font-weight:800;color:#1e293b;margin-bottom:6px}
+.merge-opt-row{font-size:12px;color:#475569;display:flex;align-items:center;gap:5px;margin-bottom:2px}
+.merge-opt-row i{font-size:10px;color:#94a3b8;width:12px;flex-shrink:0}
+.merge-opt-row.muted{color:#94a3b8}
 </style>
 </head>
 <body>
@@ -199,9 +233,10 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   <!-- Tabs + azione -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
     <div class="tabs" style="margin-bottom:0">
-      <button class="tab-btn active" onclick="showTab('clienti')">Clienti</button>
-      <button class="tab-btn" onclick="showTab('analisi')">Analisi</button>
-      <button class="tab-btn" onclick="showTab('messaggi')">Messaggi WA</button>
+      <button class="tab-btn active" data-tab="clienti" onclick="showTab('clienti')">Clienti</button>
+      <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
+      <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
+      <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
     </div>
     <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo cliente</button>
   </div>
@@ -286,8 +321,35 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <button class="btn btn-red btn-sm" style="margin-bottom:14px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
     <div id="msg-list"></div>
   </div>
+
+  <!-- TAB DUPLICATI -->
+  <div id="tab-duplicati" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Proposte di unione</div>
+        <div style="font-size:12px;color:#64748b">Clienti con dati simili o identici che potrebbero essere la stessa persona</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="renderDuplicati()"><i class="fas fa-rotate"></i> Rianalizza</button>
+    </div>
+    <div id="dup-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Analisi in corso…</div></div>
+  </div>
 </div>
 
+
+<!-- MERGE MODAL -->
+<div class="small-modal" id="merge-modal">
+  <div class="small-modal-panel" style="max-width:520px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin-bottom:0">Unisci clienti</h3>
+      <button onclick="closeMergeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div id="merge-modal-body"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
+      <button class="btn btn-outline btn-sm" onclick="closeMergeModal()">Annulla</button>
+      <button class="btn btn-red btn-sm" onclick="confirmMerge()"><i class="fas fa-merge"></i> Conferma unione</button>
+    </div>
+  </div>
+</div>
 
 <!-- CLIENT SIDE PANEL -->
 <div class="side-panel" id="cliente-overlay">
@@ -467,6 +529,7 @@ async function loadAll() {
   applyFilters();
   renderAnalisi();
   renderMsgList();
+  _updateDupBadge();
 }
 
 // ── Escape per chiudere pannello ─────────────────────────────────────────────
@@ -475,11 +538,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCliente
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
   activeTab = tab;
-  ['clienti','analisi','messaggi'].forEach(t => {
+  ['clienti','analisi','messaggi','duplicati'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
-    document.querySelector(`.tab-btn:nth-child(${['clienti','analisi','messaggi'].indexOf(t)+1})`).classList.toggle('active', t === tab);
+    document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
   document.getElementById('fab-new').style.display = tab === 'clienti' ? '' : 'none';
+  if (tab === 'duplicati') renderDuplicati();
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -1041,6 +1105,254 @@ function showToast(msg) {
 }
 
 init();
+
+// ── DUPLICATI ─────────────────────────────────────────────────────────────
+const _DUP_KEY = 'm361_dup_dismissed';
+
+function _getDismissed() {
+  try { return new Set(JSON.parse(localStorage.getItem(_DUP_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function _saveDismissed(s) {
+  localStorage.setItem(_DUP_KEY, JSON.stringify([...s]));
+}
+
+function _normStr(s) {
+  return (s || '').toLowerCase().trim().replace(/\s+/g,' ');
+}
+function _normKey(s) {
+  return _normStr(s).replace(/[^a-z0-9]/g,'');
+}
+
+function _levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  const prev = [...Array(n+1).keys()];
+  for (let i = 1; i <= m; i++) {
+    const curr = [i];
+    for (let j = 1; j <= n; j++) {
+      curr[j] = a[i-1] === b[j-1]
+        ? prev[j-1]
+        : 1 + Math.min(prev[j-1], prev[j], curr[j-1]);
+    }
+    prev.splice(0, prev.length, ...curr);
+  }
+  return prev[n];
+}
+
+function _findDuplicates(clienti) {
+  const pairs = [];
+  const seen = new Set();
+  for (let i = 0; i < clienti.length; i++) {
+    for (let j = i + 1; j < clienti.length; j++) {
+      const a = clienti[i], b = clienti[j];
+      const pairKey = [a.id, b.id].sort().join('|');
+      if (seen.has(pairKey)) continue;
+      const reasons = [];
+      let confidenza = 'media';
+
+      const telA = (a.telefono || '').replace(/\D/g,'');
+      const telB = (b.telefono || '').replace(/\D/g,'');
+      if (telA.length >= 8 && telA === telB) {
+        reasons.push('Stesso numero di telefono'); confidenza = 'alta';
+      }
+
+      const emA = (a.email || '').toLowerCase().trim();
+      const emB = (b.email || '').toLowerCase().trim();
+      if (emA && emA === emB) {
+        reasons.push('Stessa email'); confidenza = 'alta';
+      }
+
+      const nkA = _normKey(a.nome) + _normKey(a.cognome);
+      const nkB = _normKey(b.nome) + _normKey(b.cognome);
+      if (nkA.length >= 4 && nkA === nkB) {
+        reasons.push('Nome e cognome identici'); confidenza = 'alta';
+      } else if (nkA.length >= 6 && nkB.length >= 6) {
+        const dist = _levenshtein(nkA, nkB);
+        const maxL = Math.max(nkA.length, nkB.length);
+        if (dist <= Math.floor(maxL * 0.15)) {
+          reasons.push('Nome e cognome molto simili');
+        }
+      }
+
+      if (reasons.length > 0) {
+        seen.add(pairKey);
+        pairs.push({ a, b, reasons, confidenza, key: pairKey });
+      }
+    }
+  }
+  return pairs;
+}
+
+function _updateDupBadge() {
+  const dismissed = _getDismissed();
+  const count = _findDuplicates(allClienti).filter(p => !dismissed.has(p.key)).length;
+  const badge = document.getElementById('dup-badge');
+  if (!badge) return;
+  badge.textContent = count || '';
+  badge.style.display = count > 0 ? 'inline-flex' : 'none';
+}
+
+function _dupColHtml(c, tessera, other) {
+  const telA = (c.telefono    || '').replace(/\D/g,'');
+  const telB = (other.telefono|| '').replace(/\D/g,'');
+  const telMatch   = telA.length >= 8 && telA === telB;
+  const emailMatch = c.email && (c.email||'').toLowerCase().trim() === (other.email||'').toLowerCase().trim();
+  const nameMatch  = _normKey(c.nome)+_normKey(c.cognome) &&
+                     _normKey(c.nome)+_normKey(c.cognome) === _normKey(other.nome)+_normKey(other.cognome);
+  return `<div class="dup-col">
+    <div class="dup-col-name${nameMatch?' match':''}">${esc((c.nome||'')+' '+(c.cognome||''))}</div>
+    ${c.telefono
+      ? `<div class="dup-col-row${telMatch?' match':''}"><i class="fas fa-phone"></i>${esc(c.telefono)}</div>`
+      : '<div class="dup-col-row muted"><i class="fas fa-phone"></i>—</div>'}
+    ${c.email
+      ? `<div class="dup-col-row${emailMatch?' match':''}"><i class="fas fa-envelope"></i>${esc(c.email)}</div>`
+      : '<div class="dup-col-row muted"><i class="fas fa-envelope"></i>—</div>'}
+    ${c.emporio ? `<div class="dup-col-row"><i class="fas fa-store"></i>${esc(c.emporio)}</div>` : ''}
+    ${tessera
+      ? `<div class="dup-col-row tessera"><i class="fas fa-id-card"></i>Tessera ${esc(tessera.codice_tessera||'')}</div>`
+      : '<div class="dup-col-row muted"><i class="fas fa-id-card"></i>Nessuna tessera</div>'}
+  </div>`;
+}
+
+function renderDuplicati() {
+  const container = document.getElementById('dup-list');
+  if (!container) return;
+  const dismissed = _getDismissed();
+  const pairs = _findDuplicates(allClienti).filter(p => !dismissed.has(p.key));
+
+  const badge = document.getElementById('dup-badge');
+  if (badge) { badge.textContent = pairs.length || ''; badge.style.display = pairs.length > 0 ? 'inline-flex' : 'none'; }
+
+  if (pairs.length === 0) {
+    container.innerHTML = `<div class="empty"><i class="fas fa-check-circle" style="color:#16a34a"></i>Nessun duplicato trovato</div>`;
+    return;
+  }
+
+  container.innerHTML = pairs.map(p => {
+    const tA = allTessere.find(t => t.cliente_id === p.a.id);
+    const tB = allTessere.find(t => t.cliente_id === p.b.id);
+    const cardId = 'dup-' + p.key.replace('|','-');
+    return `<div class="dup-card" id="${cardId}">
+      <div class="dup-card-hdr">
+        <div class="dup-reasons">${p.reasons.map(r=>`<span class="dup-reason">${r}</span>`).join('')}</div>
+        <span class="dup-conf ${p.confidenza}">${p.confidenza === 'alta' ? 'Alta confidenza' : 'Media confidenza'}</span>
+      </div>
+      <div class="dup-pair">
+        ${_dupColHtml(p.a, tA, p.b)}
+        <div class="dup-vs">VS</div>
+        ${_dupColHtml(p.b, tB, p.a)}
+      </div>
+      ${tA && tB ? `<div class="dup-warning"><i class="fas fa-triangle-exclamation"></i> Entrambi hanno una tessera — ti verrà chiesto quale mantenere</div>` : ''}
+      <div class="dup-actions">
+        <button class="btn btn-outline btn-sm" onclick="dismissDuplicate('${p.key}')"><i class="fas fa-xmark"></i> Non sono la stessa persona</button>
+        <button class="btn btn-red btn-sm" onclick="openMergeModal('${p.a.id}','${p.b.id}')"><i class="fas fa-code-merge"></i> Unisci</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function dismissDuplicate(key) {
+  const dismissed = _getDismissed();
+  dismissed.add(key);
+  _saveDismissed(dismissed);
+  const card = document.getElementById('dup-' + key.replace('|','-'));
+  if (card) card.remove();
+  const remaining = document.querySelectorAll('.dup-card').length;
+  const badge = document.getElementById('dup-badge');
+  if (badge) { badge.textContent = remaining || ''; badge.style.display = remaining > 0 ? 'inline-flex' : 'none'; }
+  if (remaining === 0)
+    document.getElementById('dup-list').innerHTML = `<div class="empty"><i class="fas fa-check-circle" style="color:#16a34a"></i>Nessun duplicato rimasto</div>`;
+}
+
+// ── MERGE ────────────────────────────────────────────────────────────────────
+let _mergeA = null, _mergeB = null;
+
+function openMergeModal(idA, idB) {
+  _mergeA = allClienti.find(c => c.id === idA);
+  _mergeB = allClienti.find(c => c.id === idB);
+  if (!_mergeA || !_mergeB) return;
+  const tA = allTessere.find(t => t.cliente_id === idA);
+  const tB = allTessere.find(t => t.cliente_id === idB);
+
+  function optHtml(id, c, tessera, defaultChecked) {
+    return `<label class="merge-option${defaultChecked?' selected':''}" id="merge-opt-${id}">
+      <input type="radio" name="merge-keep" value="${id}" ${defaultChecked?'checked':''}>
+      <div class="merge-opt-name">${esc(((c.nome||'')+' '+(c.cognome||'')).trim())}</div>
+      ${tessera ? `<div class="merge-opt-row"><i class="fas fa-id-card"></i>${esc(tessera.codice_tessera||'')}</div>` : '<div class="merge-opt-row muted">Nessuna tessera</div>'}
+      ${c.telefono ? `<div class="merge-opt-row"><i class="fas fa-phone"></i>${esc(c.telefono)}</div>` : ''}
+      ${c.email    ? `<div class="merge-opt-row"><i class="fas fa-envelope"></i>${esc(c.email)}</div>` : ''}
+      ${c.emporio  ? `<div class="merge-opt-row"><i class="fas fa-store"></i>${esc(c.emporio)}</div>` : ''}
+      <div class="merge-opt-row muted" style="font-size:10px">ID …${c.id.slice(-6)}</div>
+    </label>`;
+  }
+
+  document.getElementById('merge-modal-body').innerHTML = `
+    <p style="font-size:13px;color:#64748b;margin-bottom:14px">Scegli quale record mantenere. I campi vuoti verranno completati con i dati dell'altro. Il duplicato verrà eliminato definitivamente.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      ${optHtml('a', _mergeA, tA, true)}
+      ${optHtml('b', _mergeB, tB, false)}
+    </div>
+    ${tA && tB ? `<div class="dup-warning"><i class="fas fa-triangle-exclamation"></i> Entrambi hanno una tessera. Verrà mantenuta solo quella del record scelto; l'altra verrà eliminata insieme ai suoi sconti.</div>` : ''}
+  `;
+
+  document.querySelectorAll('input[name="merge-keep"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('merge-opt-a').classList.toggle('selected', r.value === 'a');
+      document.getElementById('merge-opt-b').classList.toggle('selected', r.value === 'b');
+    });
+  });
+
+  document.getElementById('merge-modal').classList.add('open');
+}
+
+function closeMergeModal() {
+  document.getElementById('merge-modal').classList.remove('open');
+  _mergeA = null; _mergeB = null;
+}
+
+async function confirmMerge() {
+  if (!_mergeA || !_mergeB) return;
+  const keepId = document.querySelector('input[name="merge-keep"]:checked')?.value;
+  const keep   = keepId === 'a' ? _mergeA : _mergeB;
+  const remove = keepId === 'a' ? _mergeB : _mergeA;
+
+  const keepName   = ((keep.nome||'')+' '+(keep.cognome||'')).trim();
+  const removeName = ((remove.nome||'')+' '+(remove.cognome||'')).trim();
+  if (!confirm(`Unire "${removeName}" in "${keepName}"?\n\nIl record "${removeName}" verrà eliminato definitivamente.`)) return;
+
+  try {
+    const mergedFields = {};
+    ['telefono','email','data_nascita','indirizzo','note','emporio'].forEach(f => {
+      if (!keep[f] && remove[f]) mergedFields[f] = remove[f];
+    });
+    if (Object.keys(mergedFields).length > 0) {
+      const { error } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
+      if (error) throw error;
+    }
+
+    const tRemove = allTessere.find(t => t.cliente_id === remove.id);
+    if (tRemove) {
+      await _sb.from('tessere_sconti').delete().eq('tessera_id', tRemove.id);
+      await _sb.from('tessere').delete().eq('id', tRemove.id);
+    }
+
+    const { error: delErr } = await _sb.from('clienti').delete().eq('id', remove.id);
+    if (delErr) throw delErr;
+
+    const pairKey = [_mergeA.id, _mergeB.id].sort().join('|');
+    const dismissed = _getDismissed();
+    dismissed.add(pairKey);
+    _saveDismissed(dismissed);
+
+    closeMergeModal();
+    showToast('Clienti uniti con successo!');
+    await loadAll();
+    renderDuplicati();
+  } catch(e) {
+    alert('Errore durante l\'unione: ' + e.message);
+  }
+}
 </script>
 </body>
 </html>
