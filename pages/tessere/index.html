@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<link rel="icon" href="/faviconm361.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="../../assets/style/nav-style.css">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tessere Fedeltà — M361</title>
@@ -348,11 +352,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
 const ALLOWED = ['Emilio Mazzolari', 'Chiara Monteverdi'];
 const TIMBRI_MAX = 12;
 const VALORE_SCONTO = { standard: '€20', ambassador: '€25' };
+const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 
 // ── State ───────────────────────────────────────────────────────────────────
 let _sb, _user;
@@ -368,18 +375,19 @@ let editingMsgId = null;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  await new Promise(r => {
-    if (window._m361NavReady) r();
-    else document.addEventListener('m361NavReady', r);
-  });
-  _sb   = window.getSupabase?.();
-  _user = window._m361User;
-  if (!_user || !ALLOWED.includes(_user.nome)) {
+  _sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+  _user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+  if (!_user) { location.replace('/login.html'); return; }
+
+  const _em = (_user.email || '').toLowerCase();
+  const isEmilio = _em === 'emilio.mazzolari@gmail.com' || _em === 'e.mazzolari@meridiano361.it';
+  const isAllowed = isEmilio || ALLOWED.includes(_user.nome);
+
+  if (!isAllowed) {
     document.querySelector('.page-wrap').innerHTML =
       '<div class="empty"><i class="fas fa-lock"></i><p>Accesso riservato</p></div>';
     return;
   }
-  window._m361SetTitle?.('Tessere Fedeltà');
   await loadAll();
 }
 
