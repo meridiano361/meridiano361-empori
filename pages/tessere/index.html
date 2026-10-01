@@ -43,6 +43,21 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 /* chip filtro caratteristica */
 .chip.caract-chip.active{background:#0369a1;border-color:#0369a1;color:#fff}
 
+/* ── Stats bar ── */
+.stats-bar{display:flex;gap:0;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden}
+.stat-pill{flex:1;min-width:100px;padding:10px 14px;border-right:1px solid #e2e8f0;text-align:center}
+.stat-pill:last-child{border-right:none}
+.stat-pill strong{display:block;font-size:20px;font-weight:900;line-height:1}
+.stat-pill span{font-size:11px;font-weight:700;color:#64748b}
+
+/* ── Quick toggle buttons on card ── */
+.card-toggles{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.qtog{font-size:11px;padding:3px 9px;border-radius:20px;border:1.5px solid #e2e8f0;background:#fff;color:#94a3b8;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700;transition:all .12s;white-space:nowrap;line-height:1.4}
+.qtog.on{background:#dcfce7;border-color:#16a34a;color:#166534}
+.qtog.on-wa{background:#e0fce7;border-color:#25d366;color:#166534}
+.qtog:hover{border-color:#B5453A;color:#B5453A}
+.qtog.on:hover,.qtog.on-wa:hover{border-color:#991b1b;background:#fee2e2;color:#991b1b}
+
 /* ── FAB ── */
 .fab{position:fixed;bottom:76px;right:18px;width:52px;height:52px;border-radius:50%;background:var(--red);color:#fff;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(181,69,58,.4);z-index:200;transition:transform .15s}
 .fab:hover{transform:scale(1.08)}
@@ -185,7 +200,17 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div class="chip caract-chip" onclick="toggleCaratt('no_telefono')">🔇 No telefono</div>
       </div>
     </div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:8px" id="filter-count"></div>
+    <!-- Stats bar -->
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-pill"><strong id="sb-vis" style="color:var(--red)">–</strong><span>visualizzati</span></div>
+      <div class="stat-pill"><strong id="sb-wa" style="color:#25d366">–</strong><span>con WA</span></div>
+      <div class="stat-pill"><strong id="sb-bc" style="color:#3b82f6">–</strong><span>in broadcast</span></div>
+      <div class="stat-pill"><strong id="sb-benv" style="color:#f59e0b">–</strong><span>senza benvenuto</span></div>
+      <div class="stat-pill"><strong id="sb-amb" style="color:var(--amb)">–</strong><span>Ambassador</span></div>
+      <div class="stat-pill" style="display:flex;align-items:center;justify-content:center;min-width:130px">
+        <button onclick="exportCSV()" class="btn btn-outline btn-sm"><i class="fas fa-download"></i> Esporta CSV</button>
+      </div>
+    </div>
     <div class="client-list" id="client-list">
       <div class="empty"><i class="fas fa-spinner fa-spin"></i>Caricamento…</div>
     </div>
@@ -230,7 +255,8 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <button onclick="closeClienteModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#64748b"><i class="fas fa-arrow-left"></i></button>
       <h2 id="detail-title">Nuovo cliente</h2>
       <span id="detail-tipo-badge"></span>
-      <button onclick="saveCliente()" class="btn btn-red btn-sm">Salva</button>
+      <button onclick="saveCliente(false)" class="btn btn-outline btn-sm" id="btn-salva-altro" style="display:none">Salva e aggiungi</button>
+      <button onclick="saveCliente(true)" class="btn btn-red btn-sm">Salva</button>
     </div>
     <div class="modal-body">
       <!-- Info -->
@@ -475,11 +501,58 @@ function applyFilters() {
     return true;
   });
 
-  const countEl = document.getElementById('filter-count');
-  if (countEl) countEl.textContent = filteredList.length < allClienti.filter(c => tessereMap.has(c.id)).length
-    ? `${filteredList.length} clienti visualizzati` : '';
-
   renderClientList(tessereMap);
+  renderStatsBar(tessereMap);
+}
+
+function renderStatsBar(tessereMap) {
+  if (!tessereMap) tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
+  const ft = filteredList.map(c => tessereMap.get(c.id)).filter(Boolean);
+  document.getElementById('sb-vis').textContent  = filteredList.length;
+  document.getElementById('sb-wa').textContent   = ft.filter(t => t.ha_whatsapp).length;
+  document.getElementById('sb-bc').textContent   = ft.filter(t => t.in_lista_broadcast_whatsapp).length;
+  document.getElementById('sb-benv').textContent = ft.filter(t => !t.messaggio_benvenuto_inviato).length;
+  document.getElementById('sb-amb').textContent  = ft.filter(t => t.tipo === 'ambassador').length;
+}
+
+async function quickToggle(tesseraId, field, e) {
+  e.stopPropagation();
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const newVal = !t[field];
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const {error} = await _sb.from('tessere').update({[field]: newVal, updated_at: new Date().toISOString()}).eq('id', tesseraId);
+  btn.disabled = false;
+  if (error) { showToast('Errore salvataggio'); return; }
+  t[field] = newVal;
+  // Aggiorna solo il pulsante senza ri-renderizzare tutta la lista
+  const onClass = field === 'ha_whatsapp' ? 'on-wa' : 'on';
+  btn.classList.toggle(onClass, newVal);
+  showToast(newVal ? '✓ Attivato' : '✓ Disattivato');
+  renderStatsBar();
+}
+
+function exportCSV() {
+  const tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
+  const rows = [['Cognome','Nome','Tipo','Emporio','Telefono','Email','Data nascita','Città','Provincia','WhatsApp','Vuole news','In broadcast','Benvenuto inviato','Codice tessera','Note']];
+  filteredList.forEach(c => {
+    const t = tessereMap.get(c.id) || {};
+    rows.push([
+      c.cognome||'', c.nome||'', t.tipo||'', t.emporio||'',
+      c.telefono||'', c.email||'', c.data_nascita||'', c.citta||'', c.provincia||'',
+      t.ha_whatsapp?'Sì':'No', t.vuole_news_whatsapp?'Sì':'No',
+      t.in_lista_broadcast_whatsapp?'Sì':'No', t.messaggio_benvenuto_inviato?'Sì':'No',
+      t.codice_tessera||'', t.note||''
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `tessere_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── Render client list ────────────────────────────────────────────────────────
@@ -494,26 +567,25 @@ function renderClientList(tessereMap) {
     const isAmb = t.tipo === 'ambassador';
     const empLab = {cremona:'CR',casalmaggiore:'CA',viadana:'VI','reggio emilia':'RE'}[t.emporio] || t.emporio;
     const bday = getBirthdayStr(c.data_nascita);
-    const icons = [
-      t.ha_whatsapp ? '<span title="WhatsApp">📱</span>' : '',
-      t.vuole_news_whatsapp ? '<span title="Vuole news WA">📰</span>' : '',
-      t.in_lista_broadcast_whatsapp ? '<span title="In broadcast">📋</span>' : '',
-      !t.messaggio_benvenuto_inviato ? '<span title="Benvenuto non inviato" style="opacity:.5">✉️</span>' : '',
-    ].filter(Boolean).join('');
     return `
     <div class="client-card" onclick="openClienteModal('${c.id}')">
       <div class="client-card-top">
         <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
         <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}">${isAmb?'Ambassador':'Standard'}</span>
         <span style="font-size:11px;font-weight:700;color:#94a3b8">${empLab}</span>
-        ${icons ? `<span style="font-size:12px;letter-spacing:1px">${icons}</span>` : ''}
       </div>
       <div class="client-card-sub">
-        ${c.telefono ? `<span><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : ''}
+        ${c.telefono ? `<span><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : '<span style="color:#fca5a5">nessun tel.</span>'}
         ${c.email ? `<span style="color:#94a3b8">${esc(c.email)}</span>` : ''}
         ${bday ? `<span><i class="fas fa-cake-candles" style="font-size:10px"></i> ${bday}</span>` : ''}
-        ${t.codice_tessera ? `<span>N° ${esc(t.codice_tessera)}</span>` : ''}
+        ${t.codice_tessera ? `<span style="color:#94a3b8">N° ${esc(t.codice_tessera)}</span>` : ''}
         ${c.citta ? `<span style="color:#94a3b8">${esc(c.citta)}</span>` : ''}
+      </div>
+      <div class="card-toggles" onclick="event.stopPropagation()">
+        <button class="qtog ${t.ha_whatsapp?'on-wa':''}" onclick="quickToggle('${t.id}','ha_whatsapp',event)">📱 WA</button>
+        <button class="qtog ${t.vuole_news_whatsapp?'on':''}" onclick="quickToggle('${t.id}','vuole_news_whatsapp',event)">📰 News</button>
+        <button class="qtog ${t.in_lista_broadcast_whatsapp?'on':''}" onclick="quickToggle('${t.id}','in_lista_broadcast_whatsapp',event)">📋 Broadcast</button>
+        <button class="qtog ${t.messaggio_benvenuto_inviato?'on':''}" onclick="quickToggle('${t.id}','messaggio_benvenuto_inviato',event)">✉️ Benvenuto</button>
       </div>
     </div>`;
   }).join('');
@@ -571,6 +643,7 @@ function openClienteModal(clienteId) {
     document.getElementById('storico-section').style.display = '';
     document.getElementById('wa-section').style.display = '';
     document.getElementById('delete-section').style.display = '';
+    document.getElementById('btn-salva-altro').style.display = 'none';
 
     renderTimbri();
     renderStorico();
@@ -582,7 +655,10 @@ function openClienteModal(clienteId) {
       document.getElementById(id).value = '');
     document.getElementById('f-emissione').value = new Date().toISOString().slice(0,10);
     document.getElementById('f-tipo').value = 'standard';
-    document.getElementById('f-emporio').value = 'cremona';
+    // Auto-fill emporio dall'utente loggato
+    const empOp = (_user?.emporio || '').toLowerCase();
+    const emporiValid = ['cremona','casalmaggiore','viadana','reggio emilia'];
+    document.getElementById('f-emporio').value = emporiValid.includes(empOp) ? empOp : 'cremona';
     document.getElementById('f-ha-wa').checked = false;
     document.getElementById('f-news-wa').checked = false;
     document.getElementById('f-lista-wa').checked = false;
@@ -591,6 +667,8 @@ function openClienteModal(clienteId) {
     document.getElementById('storico-section').style.display = 'none';
     document.getElementById('wa-section').style.display = 'none';
     document.getElementById('delete-section').style.display = 'none';
+    document.getElementById('btn-salva-altro').style.display = '';
+    setTimeout(() => document.getElementById('f-nome')?.focus(), 100);
   }
 }
 
@@ -747,7 +825,7 @@ function renderWaButtons(cliente) {
 }
 
 // ── Save cliente ──────────────────────────────────────────────────────────────
-async function saveCliente() {
+async function saveCliente(closeAfter = true) {
   const nome = document.getElementById('f-nome').value.trim();
   if (!nome) { showToast('Inserisci il nome'); return; }
   const clientePayload = {
@@ -790,6 +868,7 @@ async function saveCliente() {
     allClienti.push(nc);
     allTessere.push(nt);
     showToast('Cliente aggiunto ✓');
+    if (!closeAfter) { openClienteModal(null); return; }
   }
   document.getElementById('cliente-overlay').classList.remove('open');
   applyFilters();
