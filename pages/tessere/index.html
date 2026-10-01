@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tessere Fedeltà — M361</title>
+<script src="../../scripts/nav-script.js"></script>
+<style>
+:root{--red:#B5453A;--red2:#9e3f3f;--s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s800:#1e293b;--amb:#7c3aed}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:#f8fafc}
+.page-wrap{max-width:900px;margin:0 auto;padding:16px}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;margin-bottom:16px}
+.tab-btn{flex:1;padding:8px 4px;border:none;background:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;transition:all .15s}
+.tab-btn.active{background:#fff;color:var(--red);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+/* ── Filtri ── */
+.filter-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.search-wrap{flex:1;min-width:160px;position:relative}
+.search-wrap input{width:100%;padding:9px 12px 9px 36px;border:1px solid #e2e8f0;border-radius:9px;font-family:'Nunito',sans-serif;font-size:14px;background:#fff}
+.search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px}
+.chip-group{display:flex;gap:4px;flex-wrap:wrap}
+.chip{padding:5px 12px;border:1px solid #e2e8f0;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#fff;color:#64748b;transition:all .12s}
+.chip.active{background:var(--red);color:#fff;border-color:var(--red)}
+.chip.amb-chip.active{background:var(--amb);border-color:var(--amb)}
+
+/* ── Client list ── */
+.client-list{display:flex;flex-direction:column;gap:8px}
+.client-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:12px}
+.client-card:hover{border-color:#B5453A;box-shadow:0 2px 8px rgba(181,69,58,.12)}
+.client-card-left{flex:1;min-width:0}
+.client-card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.client-nome{font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tipo-badge{font-size:10px;font-weight:800;letter-spacing:.05em;padding:2px 8px;border-radius:10px;flex-shrink:0;text-transform:uppercase}
+.tipo-standard{background:#fef2f2;color:var(--red)}
+.tipo-ambassador{background:#f5f3ff;color:var(--amb)}
+.client-card-sub{font-size:12px;color:#64748b;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.client-card-right{flex-shrink:0;text-align:right}
+.timbri-mini{display:flex;gap:2px;flex-wrap:wrap;max-width:88px;margin-bottom:3px}
+.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.dot.on{background:var(--red)}
+.dot.on-amb{background:var(--amb)}
+.dot.off{background:#e2e8f0}
+.timbri-count{font-size:11px;font-weight:700;color:#64748b;text-align:center}
+.completo-badge{font-size:10px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:8px}
+
+/* ── FAB ── */
+.fab{position:fixed;bottom:76px;right:18px;width:52px;height:52px;border-radius:50%;background:var(--red);color:#fff;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(181,69,58,.4);z-index:200;transition:transform .15s}
+.fab:hover{transform:scale(1.08)}
+
+/* ── Modal overlay ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:0}
+.modal-overlay.open{display:flex}
+.modal-panel{background:#fff;width:100%;max-width:620px;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+@media(min-width:640px){.modal-panel{height:calc(100vh - 32px);margin-top:16px;border-radius:16px 16px 0 0}}
+.modal-header{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:#fff;z-index:10}
+.modal-header h2{flex:1;font-size:17px;font-weight:800;color:#1e293b}
+.modal-body{padding:16px 18px;flex:1}
+
+/* ── Form fields ── */
+.form-section{margin-bottom:18px}
+.form-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f1f5f9}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field-grid.single{grid-template-columns:1fr}
+.field-label{font-size:12px;font-weight:700;color:#475569;margin-bottom:4px}
+.field-input{width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:600;color:#1e293b;transition:border-color .15s;background:#fff}
+.field-input:focus{outline:none;border-color:var(--red)}
+.field-select{width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:600;color:#1e293b;background:#fff}
+.field-textarea{width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Nunito',sans-serif;font-size:14px;resize:vertical;min-height:70px}
+
+/* ── Timbri ── */
+.timbri-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin:10px 0}
+.timbro{width:100%;aspect-ratio:1;border-radius:50%;border:2px solid #e2e8f0;background:#fff;transition:all .2s;cursor:default}
+.timbro.on{border-color:var(--red);background:var(--red)}
+.timbro.on-amb{border-color:var(--amb);background:var(--amb)}
+.timbro-actions{display:flex;gap:10px;align-items:center;margin-top:10px}
+.btn{padding:9px 18px;border-radius:9px;border:none;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .12s}
+.btn-outline{background:#fff;border:1.5px solid #e2e8f0;color:#475569}
+.btn-outline:hover{border-color:#94a3b8}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red2)}
+.btn-green{background:#16a34a;color:#fff}
+.btn-green:hover{background:#15803d}
+.btn-purple{background:var(--amb);color:#fff}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* ── Sconto completamento banner ── */
+.sconto-banner{background:#dcfce7;border:1.5px solid #16a34a;border-radius:10px;padding:12px 14px;margin-top:8px;display:flex;align-items:center;gap:10px}
+.sconto-banner i{color:#16a34a;font-size:18px}
+.sconto-banner strong{color:#166534;font-size:14px}
+
+/* ── Check rows ── */
+.check-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.check-row:last-child{border-bottom:none}
+.check-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0}
+.check-row label{font-size:14px;font-weight:600;color:#334155;cursor:pointer}
+
+/* ── WA buttons ── */
+.wa-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:#25d366;color:#fff;font-size:12px;font-weight:700;text-decoration:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif;transition:background .12s}
+.wa-btn:hover{background:#1ebe5c}
+
+/* ── Storico ── */
+.sconto-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.sconto-value{font-size:15px;font-weight:800;color:#166534}
+.sconto-date{font-size:12px;color:#64748b}
+.sconto-days{font-size:11px;color:#94a3b8}
+.delete-btn{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:4px}
+.delete-btn:hover{color:#B5453A}
+
+/* ── Analisi ── */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;text-align:center}
+.stat-num{font-size:28px;font-weight:900;color:var(--red)}
+.stat-num.amb{color:var(--amb)}
+.stat-label{font-size:12px;font-weight:700;color:#64748b;margin-top:2px}
+.section-title{font-size:14px;font-weight:800;color:#334155;margin-bottom:10px}
+.analisi-table{width:100%;border-collapse:collapse;font-size:13px}
+.analisi-table th{text-align:left;padding:7px 10px;background:#f1f5f9;font-weight:800;color:#475569;font-size:11px;text-transform:uppercase}
+.analisi-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#334155}
+.analisi-table tr:last-child td{border-bottom:none}
+
+/* ── Messaggi WA ── */
+.msg-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px}
+.msg-tipo{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px}
+.msg-titolo{font-size:15px;font-weight:800;color:#1e293b;margin-bottom:6px}
+.msg-testo{font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5}
+.msg-actions{display:flex;gap:8px;margin-top:10px}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:40px 20px;color:#94a3b8}
+.empty i{font-size:40px;margin-bottom:10px;display:block}
+
+/* ── Modal sconti ── */
+.small-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:none;align-items:center;justify-content:center;padding:20px}
+.small-modal.open{display:flex}
+.small-modal-panel{background:#fff;border-radius:14px;width:100%;max-width:400px;padding:20px}
+.small-modal-panel h3{font-size:16px;font-weight:800;color:#1e293b;margin-bottom:14px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:700;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+@media(max-width:480px){.field-grid{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('clienti')">Clienti</button>
+    <button class="tab-btn" onclick="showTab('analisi')">Analisi</button>
+    <button class="tab-btn" onclick="showTab('messaggi')">Messaggi WA</button>
+  </div>
+
+  <!-- TAB CLIENTI -->
+  <div id="tab-clienti">
+    <div class="filter-row">
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="text" id="search-input" placeholder="Cerca nome, cognome, codice…" oninput="applyFilters()">
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="chip-group" id="tipo-chips">
+        <div class="chip active" onclick="setTipo('tutti')">Tutti</div>
+        <div class="chip" onclick="setTipo('standard')">Standard</div>
+        <div class="chip amb-chip" onclick="setTipo('ambassador')">Ambassador</div>
+      </div>
+      <div class="chip-group" id="emp-chips">
+        <div class="chip active" onclick="setEmporio('tutti')">Tutti</div>
+        <div class="chip" onclick="setEmporio('cremona')">Cremona</div>
+        <div class="chip" onclick="setEmporio('casalmaggiore')">Casalmaggiore</div>
+        <div class="chip" onclick="setEmporio('viadana')">Viadana</div>
+        <div class="chip" onclick="setEmporio('reggio emilia')">Reggio E.</div>
+      </div>
+    </div>
+    <div class="client-list" id="client-list">
+      <div class="empty"><i class="fas fa-spinner fa-spin"></i>Caricamento…</div>
+    </div>
+  </div>
+
+  <!-- TAB ANALISI -->
+  <div id="tab-analisi" style="display:none">
+    <div class="stat-grid" id="stat-grid">
+      <div class="stat-card"><div class="stat-num" id="stat-tot">–</div><div class="stat-label">Clienti totali</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-std">–</div><div class="stat-label">Standard</div></div>
+      <div class="stat-card"><div class="stat-num amb" id="stat-amb">–</div><div class="stat-label">Ambassador</div></div>
+      <div class="stat-card"><div class="stat-num" id="stat-completi">–</div><div class="stat-label">Tessere complete</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="section-title">Per emporio</div>
+      <table class="analisi-table" id="emp-table"><tbody></tbody></table>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="section-title">Compleanni questo mese</div>
+      <div id="birthday-list"></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px">
+      <div class="section-title">Ultimi sconti utilizzati</div>
+      <div id="recent-sconti"></div>
+    </div>
+  </div>
+
+  <!-- TAB MESSAGGI WA -->
+  <div id="tab-messaggi" style="display:none">
+    <button class="btn btn-red btn-sm" style="margin-bottom:14px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
+    <div id="msg-list"></div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openClienteModal(null)" title="Nuovo cliente"><i class="fas fa-plus"></i></button>
+
+<!-- CLIENT DETAIL MODAL -->
+<div class="modal-overlay" id="cliente-overlay" onclick="closeClienteModal(event)">
+  <div class="modal-panel" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <button onclick="closeClienteModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#64748b"><i class="fas fa-arrow-left"></i></button>
+      <h2 id="detail-title">Nuovo cliente</h2>
+      <span id="detail-tipo-badge"></span>
+      <button onclick="saveCliente()" class="btn btn-red btn-sm">Salva</button>
+    </div>
+    <div class="modal-body">
+      <!-- Info -->
+      <div class="form-section">
+        <div class="form-section-title">Anagrafica</div>
+        <div class="field-grid">
+          <div><div class="field-label">Nome *</div><input class="field-input" id="f-nome" placeholder="Nome"></div>
+          <div><div class="field-label">Cognome</div><input class="field-input" id="f-cognome" placeholder="Cognome"></div>
+          <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="date"></div>
+          <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel"></div>
+          <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
+          <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città"></div>
+          <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR"></div>
+        </div>
+      </div>
+
+      <!-- Tessera -->
+      <div class="form-section">
+        <div class="form-section-title">Tessera</div>
+        <div class="field-grid">
+          <div>
+            <div class="field-label">Tipo</div>
+            <select class="field-select" id="f-tipo" onchange="onTipoChange()">
+              <option value="standard">Standard</option>
+              <option value="ambassador">Ambassador</option>
+            </select>
+          </div>
+          <div><div class="field-label">Emporio</div>
+            <select class="field-select" id="f-emporio">
+              <option value="cremona">Cremona</option>
+              <option value="casalmaggiore">Casalmaggiore</option>
+              <option value="viadana">Viadana</option>
+              <option value="reggio emilia">Reggio Emilia</option>
+            </select>
+          </div>
+          <div><div class="field-label">Codice tessera</div><input class="field-input" id="f-codice" placeholder="es. 3013"></div>
+          <div><div class="field-label">Data emissione</div><input class="field-input" id="f-emissione" type="date"></div>
+        </div>
+      </div>
+
+      <!-- Timbri (solo se tessera esistente) -->
+      <div class="form-section" id="timbri-section" style="display:none">
+        <div class="form-section-title">Timbri</div>
+        <div id="timbri-info" style="font-size:12px;color:#64748b;margin-bottom:8px"></div>
+        <div class="timbri-grid" id="timbri-grid"></div>
+        <div id="sconto-banner-wrap"></div>
+        <div class="timbri-actions">
+          <button class="btn btn-outline btn-sm" onclick="changeTimbri(-1)"><i class="fas fa-minus"></i> 1</button>
+          <button class="btn btn-red btn-sm" onclick="changeTimbri(1)"><i class="fas fa-plus"></i> 1 timbro</button>
+        </div>
+      </div>
+
+      <!-- Preferenze -->
+      <div class="form-section">
+        <div class="form-section-title">Preferenze &amp; stato</div>
+        <div class="check-row"><input type="checkbox" id="f-ha-wa" onchange="updateWaField()"><label for="f-ha-wa">Ha WhatsApp</label></div>
+        <div class="check-row"><input type="checkbox" id="f-news-wa"><label for="f-news-wa">Vuole ricevere news via WhatsApp</label></div>
+        <div class="check-row"><input type="checkbox" id="f-lista-wa"><label for="f-lista-wa">Inserita in lista broadcast WhatsApp</label></div>
+        <div class="check-row"><input type="checkbox" id="f-benvenuto"><label for="f-benvenuto">Messaggio di benvenuto inviato</label></div>
+      </div>
+
+      <!-- Note -->
+      <div class="form-section">
+        <div class="form-section-title">Note</div>
+        <textarea class="field-textarea" id="f-note" placeholder="Note interne…"></textarea>
+      </div>
+
+      <!-- WA quick messages -->
+      <div class="form-section" id="wa-section" style="display:none">
+        <div class="form-section-title">Messaggi WhatsApp rapidi</div>
+        <div id="wa-btn-list"></div>
+      </div>
+
+      <!-- Storico sconti -->
+      <div class="form-section" id="storico-section" style="display:none">
+        <div class="form-section-title">Storico sconti utilizzati</div>
+        <div id="storico-list"></div>
+      </div>
+
+      <!-- Elimina -->
+      <div id="delete-section" style="display:none;padding-top:10px;border-top:1px solid #f1f5f9;margin-top:10px">
+        <button onclick="deleteCliente()" class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5">Elimina cliente</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCONTO MODAL -->
+<div class="small-modal" id="sconto-modal">
+  <div class="small-modal-panel">
+    <h3>Registra utilizzo sconto</h3>
+    <div class="field-label" style="margin-bottom:6px">Data utilizzo</div>
+    <input class="field-input" id="sconto-data" type="date" style="margin-bottom:12px">
+    <div class="field-label" style="margin-bottom:6px">Note (opzionale)</div>
+    <textarea class="field-textarea" id="sconto-note" placeholder="…" style="margin-bottom:14px;min-height:50px"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeScontoModal()">Annulla</button>
+      <button class="btn btn-green" onclick="confirmSconto()">Registra</button>
+    </div>
+  </div>
+</div>
+
+<!-- MSG MODAL -->
+<div class="small-modal" id="msg-modal">
+  <div class="small-modal-panel">
+    <h3 id="msg-modal-title">Nuovo messaggio</h3>
+    <div class="field-label" style="margin-bottom:4px">Tipo</div>
+    <select class="field-select" id="msg-tipo" style="margin-bottom:10px">
+      <option value="benvenuto">Benvenuto</option>
+      <option value="compleanno">Compleanno</option>
+      <option value="compleanno_ambassador">Compleanno Ambassador</option>
+      <option value="completamento">Sconto completamento</option>
+      <option value="altro">Altro</option>
+    </select>
+    <div class="field-label" style="margin-bottom:4px">Titolo</div>
+    <input class="field-input" id="msg-titolo" style="margin-bottom:10px" placeholder="Titolo template">
+    <div class="field-label" style="margin-bottom:4px">Testo</div>
+    <textarea class="field-textarea" id="msg-testo" style="min-height:100px;margin-bottom:14px" placeholder="Testo del messaggio WA…"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeMsgModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveMsg()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const ALLOWED = ['Emilio Mazzolari', 'Chiara Monteverdi'];
+const TIMBRI_MAX = 12;
+const VALORE_SCONTO = { standard: '€20', ambassador: '€25' };
+
+// ── State ───────────────────────────────────────────────────────────────────
+let _sb, _user;
+let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
+let filteredList = [];
+let activeTab = 'clienti';
+let filterTipo = 'tutti', filterEmporio = 'tutti';
+let editingTesseraId = null;
+let editingClienteId = null;
+let currentTimbri = 0;
+let currentTipo = 'standard';
+let editingMsgId = null;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  await new Promise(r => {
+    if (window._m361NavReady) r();
+    else document.addEventListener('m361NavReady', r);
+  });
+  _sb   = window.getSupabase?.();
+  _user = window._m361User;
+  if (!_user || !ALLOWED.includes(_user.nome)) {
+    document.querySelector('.page-wrap').innerHTML =
+      '<div class="empty"><i class="fas fa-lock"></i><p>Accesso riservato</p></div>';
+    return;
+  }
+  window._m361SetTitle?.('Tessere Fedeltà');
+  await loadAll();
+}
+
+async function loadAll() {
+  const [c, t, s, m] = await Promise.all([
+    _sb.from('clienti').select('*').order('cognome').order('nome'),
+    _sb.from('tessere').select('*'),
+    _sb.from('tessere_sconti').select('*').order('data_utilizzo', {ascending:false}),
+    _sb.from('tessere_messaggi').select('*').order('ordine'),
+  ]);
+  allClienti       = c.data || [];
+  allTessere       = t.data || [];
+  allSconti        = s.data || [];
+  allMsgTemplates  = m.data || [];
+  applyFilters();
+  renderAnalisi();
+  renderMsgList();
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  activeTab = tab;
+  ['clienti','analisi','messaggi'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
+    document.querySelector(`.tab-btn:nth-child(${['clienti','analisi','messaggi'].indexOf(t)+1})`).classList.toggle('active', t === tab);
+  });
+  document.querySelector('.fab').style.display = tab === 'clienti' ? '' : 'none';
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+function setTipo(v) {
+  filterTipo = v;
+  document.querySelectorAll('#tipo-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  applyFilters();
+}
+function setEmporio(v) {
+  filterEmporio = v;
+  document.querySelectorAll('#emp-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('search-input')?.value?.toLowerCase().trim() || '';
+  const tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
+
+  filteredList = allClienti.filter(c => {
+    const t = tessereMap.get(c.id);
+    if (!t) return false;
+    if (filterTipo !== 'tutti' && t.tipo !== filterTipo) return false;
+    if (filterEmporio !== 'tutti' && t.emporio !== filterEmporio) return false;
+    if (q) {
+      const hay = [c.nome, c.cognome, c.telefono, c.email, t.codice_tessera].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  renderClientList(tessereMap);
+}
+
+// ── Render client list ────────────────────────────────────────────────────────
+function renderClientList(tessereMap) {
+  const el = document.getElementById('client-list');
+  if (!filteredList.length) {
+    el.innerHTML = '<div class="empty"><i class="fas fa-users"></i><p>Nessun cliente trovato</p></div>';
+    return;
+  }
+  el.innerHTML = filteredList.map(c => {
+    const t = tessereMap.get(c.id);
+    const isAmb = t.tipo === 'ambassador';
+    const timbri = t.timbri_attuali || 0;
+    const completo = timbri >= TIMBRI_MAX;
+    const dotColor = isAmb ? 'on-amb' : 'on';
+    const dots = Array.from({length:TIMBRI_MAX}, (_,i) =>
+      `<div class="dot ${i < timbri ? dotColor : 'off'}"></div>`
+    ).join('');
+    const empLab = {cremona:'CR',casalmaggiore:'CA',viadana:'VI','reggio emilia':'RE'}[t.emporio] || t.emporio;
+    const bday = getBirthdayStr(c.data_nascita);
+    return `
+    <div class="client-card" onclick="openClienteModal('${c.id}')">
+      <div class="client-card-left">
+        <div class="client-card-top">
+          <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
+          <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}">${isAmb?'Ambassador':'Standard'}</span>
+          <span style="font-size:11px;font-weight:700;color:#94a3b8">${empLab}</span>
+        </div>
+        <div class="client-card-sub">
+          ${c.telefono ? `<span><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : ''}
+          ${bday ? `<span><i class="fas fa-cake-candles" style="font-size:10px"></i> ${bday}</span>` : ''}
+          ${t.codice_tessera ? `<span>N° ${esc(t.codice_tessera)}</span>` : ''}
+        </div>
+      </div>
+      <div class="client-card-right">
+        <div class="timbri-mini">${dots}</div>
+        ${completo
+          ? `<div class="completo-badge">Sconto pronto!</div>`
+          : `<div class="timbri-count">${timbri}/12</div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function getBirthdayStr(data_nascita) {
+  if (!data_nascita) return null;
+  const d = new Date(data_nascita);
+  const today = new Date();
+  if (d.getMonth() === today.getMonth() && d.getDate() === today.getDate())
+    return '🎂 Oggi!';
+  const thisYear = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (thisYear - today) / (1000*60*60*24);
+  if (diff >= 0 && diff <= 7) return `🎂 tra ${Math.ceil(diff)} gg`;
+  return null;
+}
+
+// ── Open/Close cliente modal ──────────────────────────────────────────────────
+function openClienteModal(clienteId) {
+  editingClienteId = clienteId;
+  editingTesseraId = null;
+  currentTimbri = 0;
+  currentTipo = 'standard';
+  const overlay = document.getElementById('cliente-overlay');
+  overlay.classList.add('open');
+
+  if (clienteId) {
+    const c = allClienti.find(x => String(x.id) === String(clienteId));
+    const t = allTessere.find(x => String(x.cliente_id) === String(clienteId));
+    editingTesseraId = t?.id || null;
+    currentTimbri = t?.timbri_attuali || 0;
+    currentTipo = t?.tipo || 'standard';
+
+    document.getElementById('detail-title').textContent = `${c.cognome || ''} ${c.nome}`.trim();
+    document.getElementById('detail-tipo-badge').innerHTML =
+      `<span class="tipo-badge tipo-${currentTipo}">${currentTipo==='ambassador'?'Ambassador':'Standard'}</span>`;
+    document.getElementById('f-nome').value = c.nome || '';
+    document.getElementById('f-cognome').value = c.cognome || '';
+    document.getElementById('f-nascita').value = c.data_nascita || '';
+    document.getElementById('f-telefono').value = c.telefono || '';
+    document.getElementById('f-email').value = c.email || '';
+    document.getElementById('f-citta').value = c.citta || '';
+    document.getElementById('f-provincia').value = c.provincia || '';
+    document.getElementById('f-tipo').value = currentTipo;
+    document.getElementById('f-emporio').value = t?.emporio || 'cremona';
+    document.getElementById('f-codice').value = t?.codice_tessera || '';
+    document.getElementById('f-emissione').value = t?.data_emissione || '';
+    document.getElementById('f-ha-wa').checked = t?.ha_whatsapp || c.wa || false;
+    document.getElementById('f-news-wa').checked = t?.vuole_news_whatsapp || false;
+    document.getElementById('f-lista-wa').checked = t?.in_lista_broadcast_whatsapp || false;
+    document.getElementById('f-benvenuto').checked = t?.messaggio_benvenuto_inviato || false;
+    document.getElementById('f-note').value = t?.note || '';
+
+    document.getElementById('timbri-section').style.display = '';
+    document.getElementById('storico-section').style.display = '';
+    document.getElementById('wa-section').style.display = '';
+    document.getElementById('delete-section').style.display = '';
+
+    renderTimbri();
+    renderStorico();
+    renderWaButtons(c);
+  } else {
+    document.getElementById('detail-title').textContent = 'Nuovo cliente';
+    document.getElementById('detail-tipo-badge').innerHTML = '';
+    ['f-nome','f-cognome','f-nascita','f-telefono','f-email','f-citta','f-provincia','f-codice','f-note'].forEach(id =>
+      document.getElementById(id).value = '');
+    document.getElementById('f-emissione').value = new Date().toISOString().slice(0,10);
+    document.getElementById('f-tipo').value = 'standard';
+    document.getElementById('f-emporio').value = 'cremona';
+    document.getElementById('f-ha-wa').checked = false;
+    document.getElementById('f-news-wa').checked = false;
+    document.getElementById('f-lista-wa').checked = false;
+    document.getElementById('f-benvenuto').checked = false;
+    document.getElementById('timbri-section').style.display = 'none';
+    document.getElementById('storico-section').style.display = 'none';
+    document.getElementById('wa-section').style.display = 'none';
+    document.getElementById('delete-section').style.display = 'none';
+  }
+}
+
+function closeClienteModal(e) {
+  if (e && e.target !== document.getElementById('cliente-overlay')) return;
+  document.getElementById('cliente-overlay').classList.remove('open');
+}
+
+function onTipoChange() {
+  currentTipo = document.getElementById('f-tipo').value;
+  if (editingTesseraId) renderTimbri();
+}
+
+function updateWaField() {
+  // sync wa field
+}
+
+// ── Timbri ────────────────────────────────────────────────────────────────────
+function renderTimbri() {
+  const isAmb = currentTipo === 'ambassador';
+  const dotColor = isAmb ? 'on-amb' : 'on';
+  const grid = document.getElementById('timbri-grid');
+  grid.innerHTML = Array.from({length:TIMBRI_MAX}, (_,i) =>
+    `<div class="timbro ${i < currentTimbri ? dotColor : ''}"></div>`
+  ).join('');
+
+  const info = document.getElementById('timbri-info');
+  const prossimo = isAmb ? 'ogni €30' : 'ogni €25';
+  info.textContent = `${prossimo} • 12 timbri → ${VALORE_SCONTO[isAmb?'ambassador':'standard']} sconto`;
+
+  const banner = document.getElementById('sconto-banner-wrap');
+  if (currentTimbri >= TIMBRI_MAX) {
+    banner.innerHTML = `
+      <div class="sconto-banner">
+        <i class="fas fa-star"></i>
+        <div><strong>Sconto disponibile! ${VALORE_SCONTO[isAmb?'ambassador':'standard']}</strong><br>
+        <button class="btn btn-green btn-sm" style="margin-top:6px" onclick="openScontoModal()">Registra utilizzo sconto</button></div>
+      </div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+async function changeTimbri(delta) {
+  if (!editingTesseraId) return;
+  const newVal = Math.min(TIMBRI_MAX, Math.max(0, currentTimbri + delta));
+  if (newVal === currentTimbri) return;
+  const {error} = await _sb.from('tessere').update({timbri_attuali: newVal, updated_at: new Date().toISOString()})
+    .eq('id', editingTesseraId);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  currentTimbri = newVal;
+  const t = allTessere.find(x => x.id === editingTesseraId);
+  if (t) {
+    t.timbri_attuali = newVal;
+    if (newVal === 1 && !t.data_inizio_ciclo_corrente) {
+      const today = new Date().toISOString().slice(0,10);
+      await _sb.from('tessere').update({data_inizio_ciclo_corrente: today}).eq('id', editingTesseraId);
+      t.data_inizio_ciclo_corrente = today;
+    }
+  }
+  renderTimbri();
+  applyFilters();
+}
+
+// ── Sconto modal ──────────────────────────────────────────────────────────────
+function openScontoModal() {
+  document.getElementById('sconto-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('sconto-note').value = '';
+  document.getElementById('sconto-modal').classList.add('open');
+}
+function closeScontoModal() {
+  document.getElementById('sconto-modal').classList.remove('open');
+}
+async function confirmSconto() {
+  const data = document.getElementById('sconto-data').value;
+  if (!data || !editingTesseraId) return;
+  const t = allTessere.find(x => x.id === editingTesseraId);
+  const isAmb = (t?.tipo || currentTipo) === 'ambassador';
+  const valoreSconto = VALORE_SCONTO[isAmb ? 'ambassador' : 'standard'];
+  let giorni = null;
+  if (t?.data_inizio_ciclo_corrente) {
+    const d1 = new Date(t.data_inizio_ciclo_corrente);
+    const d2 = new Date(data);
+    giorni = Math.round((d2 - d1) / (1000*60*60*24));
+  }
+  const {data: ins, error} = await _sb.from('tessere_sconti').insert({
+    tessera_id: editingTesseraId,
+    data_inizio_ciclo: t?.data_inizio_ciclo_corrente || null,
+    data_utilizzo: data,
+    giorni_completamento: giorni,
+    valore_sconto: valoreSconto,
+    note: document.getElementById('sconto-note').value.trim() || null,
+  }).select().single();
+  if (error) { showToast('Errore: ' + error.message); return; }
+  allSconti.unshift(ins);
+  // Reset timbri and cycle start
+  await _sb.from('tessere').update({timbri_attuali: 0, data_inizio_ciclo_corrente: null, updated_at: new Date().toISOString()})
+    .eq('id', editingTesseraId);
+  if (t) { t.timbri_attuali = 0; t.data_inizio_ciclo_corrente = null; }
+  currentTimbri = 0;
+  closeScontoModal();
+  renderTimbri();
+  renderStorico();
+  applyFilters();
+  renderAnalisi();
+  showToast('Sconto registrato ✓');
+}
+
+// ── Storico ───────────────────────────────────────────────────────────────────
+function renderStorico() {
+  const list = document.getElementById('storico-list');
+  const sconti = allSconti.filter(s => s.tessera_id === editingTesseraId);
+  if (!sconti.length) {
+    list.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessuno sconto utilizzato</div>';
+    return;
+  }
+  list.innerHTML = sconti.map(s => `
+    <div class="sconto-item">
+      <div>
+        <div class="sconto-value">${esc(s.valore_sconto)}</div>
+        <div class="sconto-date">Usato il ${fmtDate(s.data_utilizzo)}</div>
+        ${s.giorni_completamento != null ? `<div class="sconto-days">${s.giorni_completamento} giorni per completare</div>` : ''}
+        ${s.note ? `<div class="sconto-days">${esc(s.note)}</div>` : ''}
+      </div>
+      <button class="delete-btn" onclick="deleteSconto('${s.id}')" title="Elimina"><i class="fas fa-trash"></i></button>
+    </div>`).join('');
+}
+
+async function deleteSconto(id) {
+  if (!confirm('Eliminare questo sconto?')) return;
+  await _sb.from('tessere_sconti').delete().eq('id', id);
+  allSconti = allSconti.filter(s => s.id !== id);
+  renderStorico();
+  renderAnalisi();
+}
+
+// ── WA buttons ────────────────────────────────────────────────────────────────
+function renderWaButtons(cliente) {
+  const phone = (cliente.telefono || '').replace(/[^\d]/g,'');
+  const wrap = document.getElementById('wa-btn-list');
+  if (!phone) {
+    wrap.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessun numero per aprire WA</div>';
+    return;
+  }
+  const relevant = allMsgTemplates.filter(m =>
+    m.tipo !== 'compleanno_ambassador' || currentTipo === 'ambassador'
+  );
+  wrap.innerHTML = relevant.map(m => {
+    const testo = encodeURIComponent(m.testo);
+    return `<a class="wa-btn" href="https://wa.me/39${phone}?text=${testo}" target="_blank" rel="noopener" style="margin-bottom:6px;display:inline-flex">
+      <i class="fab fa-whatsapp"></i> ${esc(m.titolo)}
+    </a><br>`;
+  }).join('');
+}
+
+// ── Save cliente ──────────────────────────────────────────────────────────────
+async function saveCliente() {
+  const nome = document.getElementById('f-nome').value.trim();
+  if (!nome) { showToast('Inserisci il nome'); return; }
+  const clientePayload = {
+    nome,
+    cognome:    document.getElementById('f-cognome').value.trim() || null,
+    data_nascita: document.getElementById('f-nascita').value || null,
+    telefono:   document.getElementById('f-telefono').value.trim() || null,
+    email:      document.getElementById('f-email').value.trim().toLowerCase() || null,
+    citta:      document.getElementById('f-citta').value.trim() || null,
+    provincia:  document.getElementById('f-provincia').value.trim() || null,
+    wa:         document.getElementById('f-ha-wa').checked,
+    emporio:    document.getElementById('f-emporio').value,
+  };
+  const tesseraPayload = {
+    tipo:                        document.getElementById('f-tipo').value,
+    emporio:                     document.getElementById('f-emporio').value,
+    codice_tessera:              document.getElementById('f-codice').value.trim() || null,
+    data_emissione:              document.getElementById('f-emissione').value || null,
+    ha_whatsapp:                 document.getElementById('f-ha-wa').checked,
+    vuole_news_whatsapp:         document.getElementById('f-news-wa').checked,
+    in_lista_broadcast_whatsapp: document.getElementById('f-lista-wa').checked,
+    messaggio_benvenuto_inviato: document.getElementById('f-benvenuto').checked,
+    note:                        document.getElementById('f-note').value.trim() || null,
+    updated_at:                  new Date().toISOString(),
+  };
+
+  if (editingClienteId) {
+    const {error:e1} = await _sb.from('clienti').update(clientePayload).eq('id', editingClienteId);
+    if (e1) { showToast('Errore: ' + e1.message); return; }
+    const {error:e2} = await _sb.from('tessere').update(tesseraPayload).eq('id', editingTesseraId);
+    if (e2) { showToast('Errore: ' + e2.message); return; }
+    Object.assign(allClienti.find(c => String(c.id) === String(editingClienteId)) || {}, {...clientePayload, id:editingClienteId});
+    Object.assign(allTessere.find(t => t.id === editingTesseraId) || {}, {...tesseraPayload, id:editingTesseraId});
+    showToast('Cliente aggiornato ✓');
+  } else {
+    const {data:nc, error:e1} = await _sb.from('clienti').insert(clientePayload).select().single();
+    if (e1) { showToast('Errore: ' + e1.message); return; }
+    const {data:nt, error:e2} = await _sb.from('tessere').insert({...tesseraPayload, cliente_id: nc.id}).select().single();
+    if (e2) { showToast('Errore: ' + e2.message); return; }
+    allClienti.push(nc);
+    allTessere.push(nt);
+    showToast('Cliente aggiunto ✓');
+  }
+  document.getElementById('cliente-overlay').classList.remove('open');
+  applyFilters();
+  renderAnalisi();
+}
+
+async function deleteCliente() {
+  if (!editingClienteId || !confirm('Eliminare definitivamente questo cliente e la sua tessera?')) return;
+  await _sb.from('clienti').delete().eq('id', editingClienteId);
+  allClienti   = allClienti.filter(c => String(c.id) !== String(editingClienteId));
+  allTessere   = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId));
+  allSconti    = allSconti.filter(s => s.tessera_id !== editingTesseraId);
+  document.getElementById('cliente-overlay').classList.remove('open');
+  applyFilters();
+  renderAnalisi();
+  showToast('Cliente eliminato');
+}
+
+// ── Analisi ───────────────────────────────────────────────────────────────────
+function renderAnalisi() {
+  const totale = allTessere.length;
+  const standard = allTessere.filter(t => t.tipo === 'standard').length;
+  const ambassador = allTessere.filter(t => t.tipo === 'ambassador').length;
+  const completi = allTessere.filter(t => t.timbri_attuali >= TIMBRI_MAX).length;
+  document.getElementById('stat-tot').textContent = totale;
+  document.getElementById('stat-std').textContent = standard;
+  document.getElementById('stat-amb').textContent = ambassador;
+  document.getElementById('stat-completi').textContent = completi;
+
+  const empori = ['cremona','casalmaggiore','viadana','reggio emilia'];
+  const empLab = {cremona:'Cremona',casalmaggiore:'Casalmaggiore',viadana:'Viadana','reggio emilia':'Reggio E.'};
+  const tbody = document.querySelector('#emp-table tbody');
+  tbody.innerHTML = `<tr><th>Emporio</th><th>Standard</th><th>Ambassador</th><th>Totale</th></tr>` +
+    empori.map(emp => {
+      const rows = allTessere.filter(t => t.emporio === emp);
+      if (!rows.length) return '';
+      const s = rows.filter(t => t.tipo === 'standard').length;
+      const a = rows.filter(t => t.tipo === 'ambassador').length;
+      return `<tr><td>${empLab[emp]||emp}</td><td>${s}</td><td>${a}</td><td><strong>${rows.length}</strong></td></tr>`;
+    }).join('');
+
+  // Compleanni questo mese
+  const today = new Date();
+  const thisMonth = today.getMonth();
+  const bdList = allClienti.filter(c => {
+    if (!c.data_nascita) return false;
+    return new Date(c.data_nascita).getMonth() === thisMonth;
+  }).sort((a,b) => new Date(a.data_nascita).getDate() - new Date(b.data_nascita).getDate());
+  const bdEl = document.getElementById('birthday-list');
+  if (!bdList.length) {
+    bdEl.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessun compleanno questo mese</div>';
+  } else {
+    bdEl.innerHTML = bdList.map(c => {
+      const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
+      const d = new Date(c.data_nascita);
+      const isToday = d.getDate() === today.getDate();
+      const isAmb = t?.tipo === 'ambassador';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+        <span style="font-size:18px">${isToday ? '🎂' : '🗓️'}</span>
+        <div style="flex:1"><strong style="font-size:14px">${esc(c.cognome)} ${esc(c.nome)}</strong>
+        ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>':''}<br>
+        <span style="font-size:12px;color:#64748b">${d.getDate()} ${['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'][d.getMonth()]}
+        ${isToday ? ' — <strong style=color:#B5453A>Oggi!</strong>':''}</span></div>
+        ${c.telefono ? `<a class="wa-btn" href="https://wa.me/39${c.telefono.replace(/[^\d]/g,'')}?text=${encodeURIComponent(isAmb ? allMsgTemplates.find(m=>m.tipo==='compleanno_ambassador')?.testo||'' : allMsgTemplates.find(m=>m.tipo==='compleanno')?.testo||'')}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>`:``}
+      </div>`;
+    }).join('');
+  }
+
+  // Ultimi sconti
+  const recEl = document.getElementById('recent-sconti');
+  const recent = allSconti.slice(0, 10);
+  if (!recent.length) {
+    recEl.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessuno sconto registrato</div>';
+  } else {
+    recEl.innerHTML = recent.map(s => {
+      const t = allTessere.find(x => x.id === s.tessera_id);
+      const c = allClienti.find(x => String(x.id) === String(t?.cliente_id));
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+        <span class="sconto-value">${esc(s.valore_sconto)}</span>
+        <div style="flex:1"><strong style="font-size:13px">${c ? esc(c.cognome)+' '+esc(c.nome) : '–'}</strong><br>
+        <span style="font-size:12px;color:#64748b">${fmtDate(s.data_utilizzo)}
+        ${s.giorni_completamento != null ? ` • ${s.giorni_completamento} gg`:''}</span></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── Messaggi WA ───────────────────────────────────────────────────────────────
+function renderMsgList() {
+  const el = document.getElementById('msg-list');
+  const tipoLab = {benvenuto:'Benvenuto',compleanno:'Compleanno',compleanno_ambassador:'Compleanno Ambassador',completamento:'Sconto completamento',altro:'Altro'};
+  el.innerHTML = allMsgTemplates.map(m => `
+    <div class="msg-card">
+      <div class="msg-tipo">${tipoLab[m.tipo]||m.tipo}</div>
+      <div class="msg-titolo">${esc(m.titolo)}</div>
+      <div class="msg-testo">${esc(m.testo)}</div>
+      <div class="msg-actions">
+        <button class="btn btn-outline btn-sm" onclick="openMsgModal('${m.id}')"><i class="fas fa-pen"></i> Modifica</button>
+        <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="deleteMsg('${m.id}')"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`).join('') || '<div class="empty"><i class="fas fa-comment-slash"></i><p>Nessun template</p></div>';
+}
+
+function openMsgModal(id) {
+  editingMsgId = id;
+  const m = id ? allMsgTemplates.find(x => x.id === id) : null;
+  document.getElementById('msg-modal-title').textContent = m ? 'Modifica messaggio' : 'Nuovo messaggio';
+  document.getElementById('msg-tipo').value = m?.tipo || 'benvenuto';
+  document.getElementById('msg-titolo').value = m?.titolo || '';
+  document.getElementById('msg-testo').value = m?.testo || '';
+  document.getElementById('msg-modal').classList.add('open');
+}
+function closeMsgModal() { document.getElementById('msg-modal').classList.remove('open'); }
+async function saveMsg() {
+  const payload = {
+    tipo: document.getElementById('msg-tipo').value,
+    titolo: document.getElementById('msg-titolo').value.trim(),
+    testo: document.getElementById('msg-testo').value.trim(),
+    updated_at: new Date().toISOString(),
+  };
+  if (!payload.titolo || !payload.testo) { showToast('Compila tutti i campi'); return; }
+  if (editingMsgId) {
+    await _sb.from('tessere_messaggi').update(payload).eq('id', editingMsgId);
+    const m = allMsgTemplates.find(x => x.id === editingMsgId);
+    if (m) Object.assign(m, payload);
+  } else {
+    const {data} = await _sb.from('tessere_messaggi').insert(payload).select().single();
+    if (data) allMsgTemplates.push(data);
+  }
+  closeMsgModal();
+  renderMsgList();
+  showToast('Salvato ✓');
+}
+async function deleteMsg(id) {
+  if (!confirm('Eliminare questo template?')) return;
+  await _sb.from('tessere_messaggi').delete().eq('id', id);
+  allMsgTemplates = allMsgTemplates.filter(m => m.id !== id);
+  renderMsgList();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(d) {
+  if (!d) return '–';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('it-IT');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>

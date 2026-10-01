@@ -591,6 +591,11 @@ function buildNav() {
     const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
     if (preordItem) preordItem.active = true;
   }
+  const TESSERE_ALLOWED = ['Emilio Mazzolari', 'Chiara Monteverdi'];
+  if (user && TESSERE_ALLOWED.includes(user.nome)) {
+    const tessereItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'tessere') : null;
+    if (tessereItem) tessereItem.active = true;
+  }
 
   const nav = document.createElement('nav');
   nav.id = 'm361-nav';
