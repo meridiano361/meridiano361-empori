@@ -153,6 +153,8 @@
         .badge-merce-ordinata { background: #D97706; }
         .badge-da-avvisare    { background: #CA8A04; }
         .badge-avvisato       { background: #16A34A; }
+        .badge-confez-pronte  { background: #16A34A; }
+        .badge-confez-da-fare { background: #EA580C; }
         
         .order-number {
             font-family: 'Nunito', sans-serif;
@@ -633,6 +635,23 @@
             });
         }
 
+        function getConfezBadge(order) {
+            if (order.tipo_ordine !== 'bomboniere') return '';
+            const articoli = order.articoli;
+            if (!articoli || !Array.isArray(articoli)) return '';
+            const confezGroups = [...new Set(
+                articoli.filter(a => a.confezionamento && !a.is_omaggio).map(a => a.gruppo_id)
+            )];
+            if (confezGroups.length === 0) return '';
+            const allPronte = confezGroups.every(gid => {
+                const groupArticoli = articoli.filter(a => a.gruppo_id === gid && !a.is_omaggio);
+                return groupArticoli.some(a => a.confez_pronta === true);
+            });
+            return allPronte
+                ? '<span class="order-badge badge-confez-pronte">Bomboniere confezionate</span>'
+                : '<span class="order-badge badge-confez-da-fare">Bomboniere da confezionare</span>';
+        }
+
         function isMerceFisicamente(order) {
             const articoli = order.articoli;
             if (!articoli || !Array.isArray(articoli) || articoli.length === 0) return false;
@@ -703,6 +722,7 @@
                                 ${merceOrdinata && !mercePronte ? '<span class="order-badge badge-merce-ordinata">Merce ordinata</span>' : ''}
                                 ${da_avvisare ? '<span class="order-badge badge-da-avvisare">Da avvisare</span>' : ''}
                                 ${avvisato ? '<span class="order-badge badge-avvisato">Cliente avvisato</span>' : ''}
+                                ${getConfezBadge(order)}
                             </div>
                             <div class="customer-name">${escHtml(order.cliente_nome)} ${escHtml(order.cliente_cognome)}</div>
                             <div class="compact-info">
