@@ -442,8 +442,7 @@ function getCurrentPageId(){ return 'calendario'; }
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <label class="form-label"><i class="fas fa-paperclip" style="margin-right:4px"></i>Allegato</label>
-          <!-- Pill: file allegato -->
+          <label class="form-label"><i class="fas fa-paperclip" style="margin-right:4px"></i>Allegato info operative</label>
           <div id="f-file-pill" style="display:none;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--s200);border-radius:9px;background:var(--s50)">
             <i class="fas fa-file-alt" style="color:var(--red);font-size:18px;flex-shrink:0"></i>
             <span id="f-file-name" style="flex:1;font-size:13px;font-weight:600;color:var(--s700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
@@ -451,7 +450,7 @@ function getCurrentPageId(){ return 'calendario'; }
             <button onclick="removeInfoOpFile()" style="background:none;border:none;color:var(--s400);font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1" title="Rimuovi"><i class="fas fa-times"></i></button>
           </div>
           <div id="f-file-input-wrap">
-            <label id="f-file-lbl" style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid var(--s200);border-radius:9px;background:#fff;font-size:13px;font-weight:700;color:var(--s600);cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s">
+            <label style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid var(--s200);border-radius:9px;background:#fff;font-size:13px;font-weight:700;color:var(--s600);cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s">
               <i class="fas fa-paperclip"></i> Allega file
               <input type="file" id="f-file-inp" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="onInfoFileSelected(this)" style="display:none">
             </label>
@@ -461,9 +460,27 @@ function getCurrentPageId(){ return 'calendario'; }
           </div>
         </div>
         <div>
-          <label class="form-label"><i class="fas fa-link" style="margin-right:4px"></i>Link esterno</label>
-          <input type="url" id="f-link-esterno" class="form-input" placeholder="https://…" autocomplete="off">
+          <label class="form-label"><i class="fas fa-paperclip" style="margin-right:4px"></i>Allegato materiali</label>
+          <div id="f-mat-pill" style="display:none;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--s200);border-radius:9px;background:var(--s50)">
+            <i class="fas fa-file-alt" style="color:#2563eb;font-size:18px;flex-shrink:0"></i>
+            <span id="f-mat-name" style="flex:1;font-size:13px;font-weight:600;color:var(--s700);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <a id="f-mat-link" href="#" target="_blank" rel="noopener" style="color:var(--s400);font-size:15px;flex-shrink:0" title="Apri"><i class="fas fa-arrow-up-right-from-square"></i></a>
+            <button onclick="removeMatFile()" style="background:none;border:none;color:var(--s400);font-size:15px;cursor:pointer;flex-shrink:0;padding:0;line-height:1" title="Rimuovi"><i class="fas fa-times"></i></button>
+          </div>
+          <div id="f-mat-input-wrap">
+            <label style="display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1px solid var(--s200);border-radius:9px;background:#fff;font-size:13px;font-weight:700;color:var(--s600);cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s">
+              <i class="fas fa-paperclip"></i> Allega file
+              <input type="file" id="f-mat-inp" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="onMatFileSelected(this)" style="display:none">
+            </label>
+          </div>
+          <div id="f-mat-progress" style="display:none;align-items:center;gap:8px;font-size:13px;color:var(--s500);padding:6px 2px">
+            <i class="fas fa-spinner fa-spin"></i> Caricamento…
+          </div>
         </div>
+      </div>
+      <div>
+        <label class="form-label"><i class="fas fa-link" style="margin-right:4px"></i>Link esterno</label>
+        <input type="url" id="f-link-esterno" class="form-input" placeholder="https://…" autocomplete="off">
       </div>
       <div>
         <label class="form-label">PDV aderenti</label>
@@ -593,6 +610,8 @@ let _editId = null;
 let _inlineCtx = null;
 let _pendingInfoFile = null;
 let _currentInfoUrl  = '';
+let _pendingMatFile  = null;
+let _currentMatUrl   = '';
 let _viewMode = 'cal';
 let _calSubView = 'mese';
 let _calDate = new Date();
@@ -1106,6 +1125,38 @@ function removeInfoOpFile(){
   document.getElementById('f-file-inp').value='';
 }
 
+function onMatFileSelected(input){
+  const file=input.files[0];
+  if(!file) return;
+  _pendingMatFile=file;
+  _currentMatUrl='';
+  document.getElementById('f-mat-name').textContent=file.name;
+  const fl=document.getElementById('f-mat-link');
+  fl.href='#'; fl.style.display='none';
+  document.getElementById('f-mat-pill').style.display='flex';
+  document.getElementById('f-mat-input-wrap').style.display='none';
+}
+function showMatFile(name, url){
+  _currentMatUrl=url;
+  _pendingMatFile=null;
+  document.getElementById('f-mat-name').textContent=name||url;
+  const fl=document.getElementById('f-mat-link');
+  fl.href=url||'#';
+  fl.style.display=url?'inline':'none';
+  document.getElementById('f-mat-pill').style.display='flex';
+  document.getElementById('f-mat-input-wrap').style.display='none';
+}
+function removeMatFile(){
+  _pendingMatFile=null;
+  _currentMatUrl='';
+  document.getElementById('f-mat-pill').style.display='none';
+  document.getElementById('f-mat-input-wrap').style.display='flex';
+  document.getElementById('f-mat-name').textContent='';
+  const fl=document.getElementById('f-mat-link');
+  fl.href='#'; fl.style.display='none';
+  document.getElementById('f-mat-inp').value='';
+}
+
 /* ── FORM ── */
 function buildAderisceChips(pdv){
   const wrap=document.getElementById('pdv-aderisce-wrap');
@@ -1193,6 +1244,15 @@ function openForm(evId){
   } else {
     removeInfoOpFile();
   }
+  _pendingMatFile = null;
+  const savedMatUrl = ev?.link_materiali||'';
+  if(savedMatUrl){
+    const mparts = savedMatUrl.split('/');
+    const mfname = decodeURIComponent(mparts[mparts.length-1].split('?')[0]);
+    showMatFile(mfname||savedMatUrl, savedMatUrl);
+  } else {
+    removeMatFile();
+  }
   document.getElementById('f-link-esterno').value = ev?.link_esterno||'';
 
   const pdv = ev?.pdv_data||defaultPdvData();
@@ -1236,7 +1296,7 @@ async function saveEvento(){
   const titolo=document.getElementById('f-titolo').value.trim();
   if(!titolo){ showToastM361('Inserisci il titolo','warning'); switchTab('info'); document.getElementById('f-titolo').focus(); return; }
 
-  // Upload pending file if selected
+  // Upload info operative file
   let infoUrl = _currentInfoUrl;
   if(_pendingInfoFile){
     const prog=document.getElementById('f-upload-progress');
@@ -1251,21 +1311,38 @@ async function saveEvento(){
     infoUrl=pubData.publicUrl;
     _currentInfoUrl=infoUrl;
     _pendingInfoFile=null;
-    // Update pill link now that URL is known
     const fl=document.getElementById('f-file-link');
     fl.href=infoUrl; fl.style.display='inline';
   }
+  // Upload materiali file
+  let matUrl = _currentMatUrl;
+  if(_pendingMatFile){
+    const prog=document.getElementById('f-mat-progress');
+    prog.style.display='flex';
+    const safeName=_pendingMatFile.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path=`campagne/mat_${Date.now()}_${safeName}`;
+    const {error:upErr}=await _sb.storage.from('info-operative').upload(path,_pendingMatFile,{upsert:true});
+    prog.style.display='none';
+    if(upErr){ showToastM361('Errore upload materiali: '+upErr.message,'error'); return; }
+    const {data:pubData}=_sb.storage.from('info-operative').getPublicUrl(path);
+    matUrl=pubData.publicUrl;
+    _currentMatUrl=matUrl;
+    _pendingMatFile=null;
+    const fl=document.getElementById('f-mat-link');
+    fl.href=matUrl; fl.style.display='inline';
+  }
   const row={
-    anno:          parseInt(document.getElementById('f-anno').value),
-    titolo:        titolo.toUpperCase(),
-    settore:       document.getElementById('f-settore').value,
-    tipologia:     document.getElementById('f-tipologia').value||null,
-    meccanica:     document.getElementById('f-meccanica').value.trim()||null,
-    data_inizio:   document.getElementById('f-data-ini').value||null,
-    data_fine:     document.getElementById('f-data-fin').value||null,
-    link_info:     infoUrl||null,
-    link_esterno:  document.getElementById('f-link-esterno').value.trim()||null,
-    pdv_data:      collectPdvData(),
+    anno:            parseInt(document.getElementById('f-anno').value),
+    titolo:          titolo.toUpperCase(),
+    settore:         document.getElementById('f-settore').value,
+    tipologia:       document.getElementById('f-tipologia').value||null,
+    meccanica:       document.getElementById('f-meccanica').value.trim()||null,
+    data_inizio:     document.getElementById('f-data-ini').value||null,
+    data_fine:       document.getElementById('f-data-fin').value||null,
+    link_info:       infoUrl||null,
+    link_materiali:  matUrl||null,
+    link_esterno:    document.getElementById('f-link-esterno').value.trim()||null,
+    pdv_data:        collectPdvData(),
   };
   let err;
   if(_editId){
