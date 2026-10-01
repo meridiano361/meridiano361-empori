@@ -410,6 +410,15 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div><div class="field-label">Data iscrizione</div><input class="field-input" id="f-emissione" type="date"></div>
         <div><div class="field-label">Data rinnovo</div><input class="field-input" id="f-rinnovo" type="date"></div>
       </div>
+      <button id="btn-nuova-tessera" class="btn btn-outline btn-sm" style="margin-top:10px;display:none" onclick="nuovaTessera()">
+        <i class="fas fa-plus"></i> Nuova tessera (archivia attuale)
+      </button>
+    </div>
+
+    <!-- Storico tessere -->
+    <div class="panel-sec" id="tessere-storico-section" style="display:none">
+      <div class="panel-sec-title"><i class="fas fa-layer-group"></i> Storico tessere</div>
+      <div id="tessere-storico-list"></div>
     </div>
 
     <!-- Preferenze -->
@@ -767,7 +776,9 @@ function openClienteModal(clienteId) {
 
   if (clienteId) {
     const c = allClienti.find(x => String(x.id) === String(clienteId));
-    const t = allTessere.find(x => String(x.cliente_id) === String(clienteId));
+    const _tessereCliente = allTessere.filter(x => String(x.cliente_id) === String(clienteId));
+    const t = _tessereCliente.find(x => x.attiva !== false)
+           || [..._tessereCliente].sort((a,b) => (b.data_emissione||'') > (a.data_emissione||'') ? 1 : -1)[0];
     editingTesseraId = t?.id || null;
     currentTipo = t?.tipo || 'standard';
     const isAmb = currentTipo === 'ambassador';
@@ -809,9 +820,12 @@ function openClienteModal(clienteId) {
     document.getElementById('wa-section').style.display = '';
     document.getElementById('btn-elimina').style.display = '';
     document.getElementById('btn-salva-altro').style.display = 'none';
+    document.getElementById('btn-nuova-tessera').style.display = '';
+    document.getElementById('tessere-storico-section').style.display = '';
 
     renderStorico();
     renderWaButtons(c);
+    renderStoricoTessere(clienteId);
   } else {
     document.getElementById('detail-mode').textContent = '';
     document.getElementById('detail-title').textContent = 'Nuovo cliente';
@@ -839,6 +853,8 @@ function openClienteModal(clienteId) {
     document.getElementById('wa-section').style.display = 'none';
     document.getElementById('btn-elimina').style.display = 'none';
     document.getElementById('btn-salva-altro').style.display = '';
+    document.getElementById('btn-nuova-tessera').style.display = 'none';
+    document.getElementById('tessere-storico-section').style.display = 'none';
     setTimeout(() => document.getElementById('f-nome')?.focus(), 100);
   }
 }
@@ -953,12 +969,18 @@ async function saveCliente(closeAfter = true) {
 
 async function deleteCliente() {
   if (!editingClienteId) return;
-  if (!confirm('Eliminare questo cliente e la sua tessera fedeltà?')) return;
+  if (!confirm('Eliminare questo cliente e tutte le sue tessere fedeltà?')) return;
   if (!confirm('Conferma: questa azione è irreversibile. Continuare?')) return;
+  // Elimina TUTTE le tessere e i relativi sconti del cliente
+  const tIds = allTessere.filter(t => String(t.cliente_id) === String(editingClienteId)).map(t => t.id);
+  for (const tid of tIds) {
+    await _sb.from('tessere_sconti').delete().eq('tessera_id', tid);
+    await _sb.from('tessere').delete().eq('id', tid);
+  }
   await _sb.from('clienti').delete().eq('id', editingClienteId);
-  allClienti   = allClienti.filter(c => String(c.id) !== String(editingClienteId));
-  allTessere   = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId));
-  allSconti    = allSconti.filter(s => s.tessera_id !== editingTesseraId);
+  allClienti = allClienti.filter(c => String(c.id) !== String(editingClienteId));
+  allTessere = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId));
+  allSconti  = allSconti.filter(s => !tIds.includes(s.tessera_id));
   closeClienteModal();
   applyFilters();
   renderAnalisi();
@@ -1102,6 +1124,78 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Storico tessere ──────────────────────────────────────────────────────────
+function renderStoricoTessere(clienteId) {
+  const el = document.getElementById('tessere-storico-list');
+  if (!el) return;
+  const tessere = allTessere
+    .filter(x => String(x.cliente_id) === String(clienteId))
+    .sort((a, b) => (b.data_emissione || b.created_at || '') > (a.data_emissione || a.created_at || '') ? 1 : -1);
+
+  if (tessere.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:#94a3b8">Nessuna tessera registrata</div>';
+    return;
+  }
+
+  el.innerHTML = tessere.map(t => {
+    const isAttiva = t.attiva !== false;
+    const isEsaurita = (t.timbri_attuali || 0) >= TIMBRI_MAX;
+    let statoLabel, statoColor, statoIcon;
+    if (isAttiva) {
+      statoLabel = 'Attiva'; statoColor = '#16a34a'; statoIcon = 'fa-circle-check';
+    } else if (isEsaurita) {
+      statoLabel = 'Esaurita'; statoColor = '#94a3b8'; statoIcon = 'fa-circle-xmark';
+    } else {
+      statoLabel = 'Archiviata'; statoColor = '#cbd5e1'; statoIcon = 'fa-circle-dot';
+    }
+    const codice = t.codice_tessera ? `N° <strong>${esc(t.codice_tessera)}</strong>` : '<span style="color:#cbd5e1">Senza codice</span>';
+    const dataEm = t.data_emissione ? fmtDate(t.data_emissione) : '—';
+    const dataRin = t.data_rinnovo ? ` → ${fmtDate(t.data_rinnovo)}` : '';
+    const timbri = t.timbri_attuali != null ? `<span style="color:#94a3b8;font-size:10px;margin-left:6px">${t.timbri_attuali}/${TIMBRI_MAX} timbri</span>` : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
+      <div style="min-width:0">
+        <div style="font-weight:700;color:#1e293b">${codice}${timbri}</div>
+        <div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div>
+      </div>
+      <span style="font-size:11px;font-weight:800;color:${statoColor};white-space:nowrap;flex-shrink:0">
+        <i class="fas ${statoIcon}" style="font-size:10px"></i> ${statoLabel}
+      </span>
+    </div>`;
+  }).join('');
+}
+
+async function nuovaTessera() {
+  if (!editingClienteId) return;
+  if (!confirm('Archiviare la tessera attuale e creare una nuova tessera per questo cliente?')) return;
+  try {
+    if (editingTesseraId) {
+      await _sb.from('tessere').update({ attiva: false }).eq('id', editingTesseraId);
+      const cur = allTessere.find(t => t.id === editingTesseraId);
+      if (cur) cur.attiva = false;
+    }
+    const newPayload = {
+      cliente_id:    editingClienteId,
+      tipo:          currentTipo,
+      emporio:       document.getElementById('f-emporio').value,
+      attiva:        true,
+      data_emissione: new Date().toISOString().slice(0, 10),
+      timbri_attuali: 0,
+    };
+    const { data: nt, error } = await _sb.from('tessere').insert(newPayload).select().single();
+    if (error) throw error;
+    allTessere.push(nt);
+    editingTesseraId = nt.id;
+    document.getElementById('f-codice').value    = '';
+    document.getElementById('f-emissione').value = nt.data_emissione;
+    document.getElementById('f-rinnovo').value   = '';
+    renderStorico();
+    renderStoricoTessere(editingClienteId);
+    showToast('Nuova tessera creata!');
+  } catch(e) {
+    alert('Errore: ' + e.message);
+  }
 }
 
 init();
