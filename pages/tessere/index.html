@@ -347,7 +347,8 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
           </select>
         </div>
         <div><div class="field-label">Codice tessera</div><input class="field-input" id="f-codice" placeholder="es. 3013"></div>
-        <div><div class="field-label">Data emissione</div><input class="field-input" id="f-emissione" type="date"></div>
+        <div><div class="field-label">Data iscrizione</div><input class="field-input" id="f-emissione" type="date"></div>
+        <div><div class="field-label">Data rinnovo</div><input class="field-input" id="f-rinnovo" type="date"></div>
       </div>
     </div>
 
@@ -569,7 +570,7 @@ async function quickToggle(tesseraId, field, e) {
 
 function exportCSV() {
   const tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
-  const rows = [['Cognome','Nome','Tipo','Emporio','Telefono','Email','Data nascita','Città','Provincia','WhatsApp','Vuole news','In broadcast','Benvenuto inviato','Codice tessera','Note']];
+  const rows = [['Cognome','Nome','Tipo','Emporio','Telefono','Email','Data nascita','Città','Provincia','WhatsApp','Vuole news','In broadcast','Benvenuto inviato','Codice tessera','Data iscrizione','Data rinnovo','Note']];
   filteredList.forEach(c => {
     const t = tessereMap.get(c.id) || {};
     rows.push([
@@ -577,7 +578,7 @@ function exportCSV() {
       c.telefono||'', c.email||'', c.data_nascita||'', c.citta||'', c.provincia||'',
       t.ha_whatsapp?'Sì':'No', t.vuole_news_whatsapp?'Sì':'No',
       t.in_lista_broadcast_whatsapp?'Sì':'No', t.messaggio_benvenuto_inviato?'Sì':'No',
-      t.codice_tessera||'', t.note||''
+      t.codice_tessera||'', t.data_emissione||'', t.data_rinnovo||'', t.note||''
     ]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -671,6 +672,10 @@ function renderClientList(tessereMap) {
         ${t.codice_tessera ? `<span style="color:#94a3b8">N° ${esc(t.codice_tessera)}</span>` : ''}
         ${c.citta ? `<span style="color:#94a3b8">${esc(c.citta)}</span>` : ''}
       </div>
+      <div class="client-card-sub" style="margin-top:2px;font-size:11px;color:#94a3b8">
+        ${t.data_emissione ? `<span><i class="fas fa-calendar-plus" style="font-size:9px"></i> Iscritto ${fmtDate(t.data_emissione)}</span>` : ''}
+        ${t.data_rinnovo ? `<span style="color:#16a34a"><i class="fas fa-rotate" style="font-size:9px"></i> Rinnovato ${fmtDate(t.data_rinnovo)}</span>` : ''}
+      </div>
       ${toggles(t)}
     </div>`;
   }).join('');
@@ -733,6 +738,7 @@ function openClienteModal(clienteId) {
     document.getElementById('f-emporio').value = t?.emporio || 'cremona';
     document.getElementById('f-codice').value = t?.codice_tessera || '';
     document.getElementById('f-emissione').value = t?.data_emissione || '';
+    document.getElementById('f-rinnovo').value = t?.data_rinnovo || '';
     document.getElementById('f-ha-wa').checked = t?.ha_whatsapp || c.wa || false;
     document.getElementById('f-news-wa').checked = t?.vuole_news_whatsapp || false;
     document.getElementById('f-lista-wa').checked = t?.in_lista_broadcast_whatsapp || false;
@@ -760,6 +766,7 @@ function openClienteModal(clienteId) {
     ['f-nome','f-cognome','f-nascita','f-telefono','f-email','f-citta','f-provincia','f-codice','f-note'].forEach(id =>
       document.getElementById(id).value = '');
     document.getElementById('f-emissione').value = new Date().toISOString().slice(0,10);
+    document.getElementById('f-rinnovo').value = '';
     document.getElementById('f-tipo').value = 'standard';
     const empOp = (_user?.emporio || '').toLowerCase();
     const emporiValid = ['cremona','casalmaggiore','viadana','reggio emilia'];
@@ -853,6 +860,7 @@ async function saveCliente(closeAfter = true) {
     emporio:                     document.getElementById('f-emporio').value,
     codice_tessera:              document.getElementById('f-codice').value.trim() || null,
     data_emissione:              document.getElementById('f-emissione').value || null,
+    data_rinnovo:                document.getElementById('f-rinnovo').value || null,
     ha_whatsapp:                 document.getElementById('f-ha-wa').checked,
     vuole_news_whatsapp:         document.getElementById('f-news-wa').checked,
     in_lista_broadcast_whatsapp: document.getElementById('f-lista-wa').checked,
