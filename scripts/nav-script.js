@@ -1059,16 +1059,16 @@ function buildNav() {
           }
         };
 
-        // Marca come letta subito (non aspettare il click su ✕)
-        // così non riappare ad ogni cambio di pagina/sezione
+        // Marca come letta subito — se fallisce l'RLS la notifica riappare ogni sessione
         (async () => {
           const { data: fresh } = await _supabase
             .from('notifiche').select('letta_da').eq('id', notif.id).limit(1);
           const current = fresh?.[0]?.letta_da || [];
           if (!current.includes(nome)) {
-            await _supabase.from('notifiche')
+            const { error: upErr } = await _supabase.from('notifiche')
               .update({ letta_da: [...current, nome] })
               .eq('id', notif.id);
+            if (upErr) console.warn('[notifiche] update letta_da fallito (RLS?):', upErr.message);
           }
         })();
 
