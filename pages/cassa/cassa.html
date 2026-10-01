@@ -2154,6 +2154,10 @@ function renderTextSavedView(turno, id, area, btn) {
 
 function autoCopyNoteToPom(id, val, isOnline) {
   noteMap['pom_'+id] = val;
+  // Copia anche le foto spese se il pomeriggio non ne ha ancora
+  if (id === 'spese' && photosMap.mat_spese.length > 0 && photosMap.pom_spese.length === 0) {
+    photosMap.pom_spese = [...photosMap.mat_spese];
+  }
   markDirty();
   const pomArea = document.getElementById('pom_notearea_'+id);
   const pomBtn  = document.getElementById('pom_notebtn_'+id);
@@ -3199,6 +3203,10 @@ function fillForm(data) {
     // Auto-copy mat→pom al caricamento se mat ha contenuto e pom è privo di contenuto reale
     if (hasNoteVal('mat', p.id) && !hasNoteVal('pom', p.id)) {
       noteMap['pom_'+p.id] = noteMap['mat_'+p.id];
+      // Per spese: copia anche le foto se pom non ne ha proprie
+      if (p.spese && photosMap.mat_spese.length > 0 && photosMap.pom_spese.length === 0) {
+        photosMap.pom_spese = [...photosMap.mat_spese];
+      }
       const pomBtn  = document.getElementById('pom_notebtn_'+p.id);
       const pomArea = document.getElementById('pom_notearea_'+p.id);
       if (pomBtn) { pomBtn.classList.add('has-note'); pomBtn.title='Nota presente (copiata dal mattino)'; }
