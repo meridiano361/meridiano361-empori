@@ -13,7 +13,7 @@
 :root{--red:#B5453A;--red2:#9e3f3f;--s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s800:#1e293b;--amb:#7c3aed}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Nunito',sans-serif;background:#f8fafc}
-.page-wrap{max-width:900px;margin:0 auto;padding:16px}
+.page-wrap{max-width:1400px;margin:0 auto;padding:16px}
 
 /* ── Tabs ── */
 .tabs{display:flex;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;margin-bottom:16px}
@@ -31,24 +31,17 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .chip.amb-chip.active{background:var(--amb);border-color:var(--amb)}
 
 /* ── Client list ── */
-.client-list{display:flex;flex-direction:column;gap:8px}
-.client-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:12px}
+.client-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px}
+.client-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;transition:all .12s}
 .client-card:hover{border-color:#B5453A;box-shadow:0 2px 8px rgba(181,69,58,.12)}
-.client-card-left{flex:1;min-width:0}
 .client-card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
-.client-nome{font-size:15px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-nome{font-size:15px;font-weight:800;color:#1e293b}
 .tipo-badge{font-size:10px;font-weight:800;letter-spacing:.05em;padding:2px 8px;border-radius:10px;flex-shrink:0;text-transform:uppercase}
 .tipo-standard{background:#fef2f2;color:var(--red)}
 .tipo-ambassador{background:#f5f3ff;color:var(--amb)}
-.client-card-sub{font-size:12px;color:#64748b;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.client-card-right{flex-shrink:0;text-align:right}
-.timbri-mini{display:flex;gap:2px;flex-wrap:wrap;max-width:88px;margin-bottom:3px}
-.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-.dot.on{background:var(--red)}
-.dot.on-amb{background:var(--amb)}
-.dot.off{background:#e2e8f0}
-.timbri-count{font-size:11px;font-weight:700;color:#64748b;text-align:center}
-.completo-badge{font-size:10px;font-weight:800;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:8px}
+.client-card-sub{font-size:12px;color:#64748b;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:2px}
+/* chip filtro caratteristica */
+.chip.caract-chip.active{background:#0369a1;border-color:#0369a1;color:#fff}
 
 /* ── FAB ── */
 .fab{position:fixed;bottom:76px;right:18px;width:52px;height:52px;border-radius:50%;background:var(--red);color:#fff;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(181,69,58,.4);z-index:200;transition:transform .15s}
@@ -180,6 +173,19 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div class="chip" onclick="setEmporio('reggio emilia')">Reggio E.</div>
       </div>
     </div>
+    <div class="filter-row">
+      <div class="chip-group" id="caract-chips">
+        <div class="chip caract-chip" onclick="toggleCaratt('ha_wa')">📱 Ha WhatsApp</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('no_wa')">🚫 No WhatsApp</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('vuole_news')">📰 Vuole news</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('in_broadcast')">📋 In broadcast</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('senza_benvenuto')">✉️ Benvenuto da inviare</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('ha_compleanno')">🎂 Ha data nascita</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('ha_telefono')">📞 Ha telefono</div>
+        <div class="chip caract-chip" onclick="toggleCaratt('no_telefono')">🔇 No telefono</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:8px" id="filter-count"></div>
     <div class="client-list" id="client-list">
       <div class="empty"><i class="fas fa-spinner fa-spin"></i>Caricamento…</div>
     </div>
@@ -367,6 +373,7 @@ let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
 let filteredList = [];
 let activeTab = 'clienti';
 let filterTipo = 'tutti', filterEmporio = 'tutti';
+let filterCaratt = new Set();
 let editingTesseraId = null;
 let editingClienteId = null;
 let currentTimbri = 0;
@@ -431,6 +438,17 @@ function setEmporio(v) {
   applyFilters();
 }
 
+function toggleCaratt(v) {
+  if (filterCaratt.has(v)) {
+    filterCaratt.delete(v);
+    event.target.classList.remove('active');
+  } else {
+    filterCaratt.add(v);
+    event.target.classList.add('active');
+  }
+  applyFilters();
+}
+
 function applyFilters() {
   const q = document.getElementById('search-input')?.value?.toLowerCase().trim() || '';
   const tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
@@ -440,12 +458,26 @@ function applyFilters() {
     if (!t) return false;
     if (filterTipo !== 'tutti' && t.tipo !== filterTipo) return false;
     if (filterEmporio !== 'tutti' && t.emporio !== filterEmporio) return false;
+    if (filterCaratt.size > 0) {
+      if (filterCaratt.has('ha_wa')          && !t.ha_whatsapp)                     return false;
+      if (filterCaratt.has('no_wa')          && t.ha_whatsapp)                      return false;
+      if (filterCaratt.has('vuole_news')     && !t.vuole_news_whatsapp)             return false;
+      if (filterCaratt.has('in_broadcast')   && !t.in_lista_broadcast_whatsapp)     return false;
+      if (filterCaratt.has('senza_benvenuto')&& t.messaggio_benvenuto_inviato)      return false;
+      if (filterCaratt.has('ha_compleanno')  && !c.data_nascita)                    return false;
+      if (filterCaratt.has('ha_telefono')    && !c.telefono)                        return false;
+      if (filterCaratt.has('no_telefono')    && c.telefono)                         return false;
+    }
     if (q) {
-      const hay = [c.nome, c.cognome, c.telefono, c.email, t.codice_tessera].join(' ').toLowerCase();
+      const hay = [c.nome, c.cognome, c.telefono, c.email, t.codice_tessera, c.citta].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
   });
+
+  const countEl = document.getElementById('filter-count');
+  if (countEl) countEl.textContent = filteredList.length < allClienti.filter(c => tessereMap.has(c.id)).length
+    ? `${filteredList.length} clienti visualizzati` : '';
 
   renderClientList(tessereMap);
 }
@@ -460,33 +492,28 @@ function renderClientList(tessereMap) {
   el.innerHTML = filteredList.map(c => {
     const t = tessereMap.get(c.id);
     const isAmb = t.tipo === 'ambassador';
-    const timbri = t.timbri_attuali || 0;
-    const completo = timbri >= TIMBRI_MAX;
-    const dotColor = isAmb ? 'on-amb' : 'on';
-    const dots = Array.from({length:TIMBRI_MAX}, (_,i) =>
-      `<div class="dot ${i < timbri ? dotColor : 'off'}"></div>`
-    ).join('');
     const empLab = {cremona:'CR',casalmaggiore:'CA',viadana:'VI','reggio emilia':'RE'}[t.emporio] || t.emporio;
     const bday = getBirthdayStr(c.data_nascita);
+    const icons = [
+      t.ha_whatsapp ? '<span title="WhatsApp">📱</span>' : '',
+      t.vuole_news_whatsapp ? '<span title="Vuole news WA">📰</span>' : '',
+      t.in_lista_broadcast_whatsapp ? '<span title="In broadcast">📋</span>' : '',
+      !t.messaggio_benvenuto_inviato ? '<span title="Benvenuto non inviato" style="opacity:.5">✉️</span>' : '',
+    ].filter(Boolean).join('');
     return `
     <div class="client-card" onclick="openClienteModal('${c.id}')">
-      <div class="client-card-left">
-        <div class="client-card-top">
-          <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
-          <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}">${isAmb?'Ambassador':'Standard'}</span>
-          <span style="font-size:11px;font-weight:700;color:#94a3b8">${empLab}</span>
-        </div>
-        <div class="client-card-sub">
-          ${c.telefono ? `<span><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : ''}
-          ${bday ? `<span><i class="fas fa-cake-candles" style="font-size:10px"></i> ${bday}</span>` : ''}
-          ${t.codice_tessera ? `<span>N° ${esc(t.codice_tessera)}</span>` : ''}
-        </div>
+      <div class="client-card-top">
+        <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
+        <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}">${isAmb?'Ambassador':'Standard'}</span>
+        <span style="font-size:11px;font-weight:700;color:#94a3b8">${empLab}</span>
+        ${icons ? `<span style="font-size:12px;letter-spacing:1px">${icons}</span>` : ''}
       </div>
-      <div class="client-card-right">
-        <div class="timbri-mini">${dots}</div>
-        ${completo
-          ? `<div class="completo-badge">Sconto pronto!</div>`
-          : `<div class="timbri-count">${timbri}/12</div>`}
+      <div class="client-card-sub">
+        ${c.telefono ? `<span><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : ''}
+        ${c.email ? `<span style="color:#94a3b8">${esc(c.email)}</span>` : ''}
+        ${bday ? `<span><i class="fas fa-cake-candles" style="font-size:10px"></i> ${bday}</span>` : ''}
+        ${t.codice_tessera ? `<span>N° ${esc(t.codice_tessera)}</span>` : ''}
+        ${c.citta ? `<span style="color:#94a3b8">${esc(c.citta)}</span>` : ''}
       </div>
     </div>`;
   }).join('');
