@@ -1364,6 +1364,18 @@ function buildNav() {
       updated_at:     new Date().toISOString(),
     }, { onConflict: 'endpoint' });
     if (error) throw new Error(error.message);
+    // Mantieni al massimo 3 sottoscrizioni per operatore (elimina le più vecchie)
+    if (user.id) {
+      try {
+        const { data: all } = await _supabase
+          .from('push_subscriptions').select('endpoint, created_at')
+          .eq('operatore_id', user.id).order('created_at', { ascending: false });
+        if (all && all.length > 3) {
+          const old = all.slice(3).map(s => s.endpoint);
+          await _supabase.from('push_subscriptions').delete().in('endpoint', old);
+        }
+      } catch (_) {}
+    }
   }
 
   async function initPushNotifications(user) {
