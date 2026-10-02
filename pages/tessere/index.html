@@ -252,11 +252,15 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
   <!-- TAB CLIENTI -->
   <div id="tab-clienti">
-    <div class="filter-row" style="margin-bottom:8px">
+    <!-- Ricerca -->
+    <div style="margin-bottom:8px">
       <div class="search-wrap">
         <i class="fas fa-search"></i>
         <input type="text" id="search-input" placeholder="Cerca nome, cognome, codice…" oninput="applyFilters()">
       </div>
+    </div>
+    <!-- Filtri: tipo + emporio -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center">
       <div class="chip-group" id="tipo-chips">
         <div class="chip active" onclick="setTipo('tutti')">Tutti</div>
         <div class="chip" onclick="setTipo('standard')">Standard</div>
@@ -270,6 +274,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div class="chip" onclick="setEmporio('reggio emilia')">Reggio E.</div>
       </div>
     </div>
+    <!-- Filtri caratteristica -->
     <div class="filtri-caract" id="caract-chips">
       <div class="filtro-gruppo">
         <span class="filtro-label">WA</span>
@@ -550,6 +555,7 @@ async function init() {
     return;
   }
   await loadAll();
+  loadStoricoExcel(); // carica in background
 }
 
 async function loadAll() {
@@ -705,6 +711,10 @@ function setView(v) {
 // ── Render client list ────────────────────────────────────────────────────────
 function renderClientList(tessereMap) {
   const el = document.getElementById('client-list');
+  // applica classe vista anche senza click manuale
+  el.classList.remove('view-list','view-compact');
+  if (viewMode === 'list')    el.classList.add('view-list');
+  if (viewMode === 'compact') el.classList.add('view-compact');
   if (!filteredList.length) {
     el.innerHTML = '<div class="empty"><i class="fas fa-users"></i><p>Nessun cliente trovato</p></div>';
     return;
@@ -1157,44 +1167,134 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ── Archivio storico Excel ────────────────────────────────────────────────────
+let _storicoExcel = null;
+let _storicoLoading = false;
+
+async function loadStoricoExcel() {
+  if (_storicoExcel || _storicoLoading) return;
+  _storicoLoading = true;
+  try {
+    const r = await fetch('storico_excel.json');
+    _storicoExcel = await r.json();
+  } catch(e) { console.warn('storico_excel.json non caricato', e); }
+  _storicoLoading = false;
+}
+
+function _normName(s) {
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+}
+function _normTel(s) {
+  const d = (s||'').replace(/\D/g,'');
+  return d.startsWith('39') && d.length >= 11 ? d.slice(2) : d;
+}
+function _empLabel(e) {
+  const m = {cremona:'CR', casalmaggiore:'CA', viadana:'VI', 'reggio emilia':'RE'};
+  return m[e] || e || '';
+}
+
+function _getExcelData(cliente, tipoTessera) {
+  if (!_storicoExcel) return {tessere:[], ambUtilizzi:[]};
+  const tel = _normTel(cliente.telefono || '');
+  const nk  = _normName(cliente.cognome||'') + _normName(cliente.nome||'');
+  let tessere = [];
+  if (tel && _storicoExcel.byTel[tel]) tessere = _storicoExcel.byTel[tel];
+  else if (nk && _storicoExcel.byName[nk]) tessere = _storicoExcel.byName[nk];
+  // Ambassador: cerca nel registro soci
+  let ambUtilizzi = [];
+  if (tipoTessera === 'ambassador' && nk) {
+    const found = _storicoExcel.amb.find(a => a.nk === nk);
+    if (found) ambUtilizzi = found.u || [];
+  }
+  return {tessere, ambUtilizzi};
+}
+
 // ── Storico tessere ──────────────────────────────────────────────────────────
 function renderStoricoTessere(clienteId) {
   const el = document.getElementById('tessere-storico-list');
   if (!el) return;
-  const tessere = allTessere
-    .filter(x => String(x.cliente_id) === String(clienteId))
-    .sort((a, b) => (b.data_emissione || b.created_at || '') > (a.data_emissione || a.created_at || '') ? 1 : -1);
 
-  if (tessere.length === 0) {
+  const cliente   = allClienti.find(c => String(c.id) === String(clienteId));
+  const tessereDB = allTessere
+    .filter(x => String(x.cliente_id) === String(clienteId))
+    .sort((a, b) => (b.data_emissione||b.created_at||'') > (a.data_emissione||a.created_at||'') ? 1 : -1);
+  const tipoTessera = tessereDB[0]?.tipo || currentTipo || 'standard';
+
+  // ── Sezione DB ──
+  let htmlDB = '';
+  if (tessereDB.length > 0) {
+    htmlDB = tessereDB.map(t => {
+      const isAttiva   = t.attiva !== false;
+      const isEsaurita = (t.timbri_attuali || 0) >= TIMBRI_MAX;
+      let statoLabel, statoColor, statoIcon;
+      if (isAttiva)        { statoLabel='Attiva';     statoColor='#16a34a'; statoIcon='fa-circle-check'; }
+      else if (isEsaurita) { statoLabel='Esaurita';   statoColor='#94a3b8'; statoIcon='fa-circle-xmark'; }
+      else                 { statoLabel='Archiviata'; statoColor='#cbd5e1'; statoIcon='fa-circle-dot'; }
+      const codice  = t.codice_tessera ? `N° <strong>${esc(t.codice_tessera)}</strong>` : '<span style="color:#cbd5e1">—</span>';
+      const dataEm  = t.data_emissione ? fmtDate(t.data_emissione) : '—';
+      const dataRin = t.data_rinnovo   ? ` → ${fmtDate(t.data_rinnovo)}` : '';
+      const timbri  = t.timbri_attuali != null ? ` <span style="color:#94a3b8;font-size:10px">${t.timbri_attuali}/${TIMBRI_MAX}</span>` : '';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
+        <div style="min-width:0"><div style="font-weight:700;color:#1e293b">${codice}${timbri}</div><div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div></div>
+        <span style="font-size:11px;font-weight:800;color:${statoColor};white-space:nowrap"><i class="fas ${statoIcon}" style="font-size:10px"></i> ${statoLabel}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Sezione archivio Excel ──
+  let htmlExcel = '';
+  if (cliente && _storicoExcel) {
+    const {tessere: exTessere, ambUtilizzi} = _getExcelData(cliente, tipoTessera);
+
+    if (tipoTessera === 'ambassador' && ambUtilizzi.length > 0) {
+      const righe = ambUtilizzi.map(d =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+          <span style="color:#475569"><i class="fas fa-check-circle" style="color:#16a34a;font-size:10px;margin-right:4px"></i> Sconto utilizzato</span>
+          <span style="font-weight:700;color:#334155">${fmtDate(d)}</span>
+        </div>`
+      ).join('');
+      htmlExcel = `<div style="margin-top:10px">
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+          <span>Utilizzi sconto (archivio)</span>
+          <span style="background:#f1f5f9;border-radius:20px;padding:1px 8px;color:#475569">${ambUtilizzi.length} volte</span>
+        </div>
+        ${righe}
+      </div>`;
+
+    } else if (exTessere.length > 0) {
+      const completate = exTessere.filter(t => t.eu);
+      const righe = exTessere
+        .sort((a,b) => (b.ei||b.a||'') > (a.ei||a.a||'') ? 1 : -1)
+        .map(t => {
+          const completata = !!t.eu;
+          const codice = t.c ? `N° <strong>${esc(t.c)}</strong>` : '<span style="color:#cbd5e1">—</span>';
+          const emp    = `<span style="font-size:10px;color:#94a3b8;margin-left:4px">${_empLabel(t.e)}</span>`;
+          const anno   = `<span style="color:#94a3b8;font-size:10px"> · ${esc(t.a)}</span>`;
+          const stato  = completata
+            ? `<span style="font-size:11px;font-weight:800;color:#94a3b8;white-space:nowrap"><i class="fas fa-circle-check" style="font-size:10px;color:#16a34a"></i> ${fmtDate(t.eu)}</span>`
+            : `<span style="font-size:11px;font-weight:700;color:#cbd5e1;white-space:nowrap"><i class="fas fa-circle" style="font-size:10px"></i> Non completata</span>`;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
+            <div>${codice}${emp}${anno}</div>${stato}
+          </div>`;
+        }).join('');
+      htmlExcel = `<div style="margin-top:10px">
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+          <span>Archivio tessere 2019–2025</span>
+          <span style="background:#f1f5f9;border-radius:20px;padding:1px 8px;color:#475569">${completate.length} completate su ${exTessere.length}</span>
+        </div>
+        ${righe}
+      </div>`;
+    }
+  } else if (cliente && !_storicoExcel) {
+    // Dati in caricamento, ritenta tra poco
+    setTimeout(() => renderStoricoTessere(clienteId), 800);
+  }
+
+  if (!htmlDB && !htmlExcel) {
     el.innerHTML = '<div style="font-size:12px;color:#94a3b8">Nessuna tessera registrata</div>';
     return;
   }
-
-  el.innerHTML = tessere.map(t => {
-    const isAttiva = t.attiva !== false;
-    const isEsaurita = (t.timbri_attuali || 0) >= TIMBRI_MAX;
-    let statoLabel, statoColor, statoIcon;
-    if (isAttiva) {
-      statoLabel = 'Attiva'; statoColor = '#16a34a'; statoIcon = 'fa-circle-check';
-    } else if (isEsaurita) {
-      statoLabel = 'Esaurita'; statoColor = '#94a3b8'; statoIcon = 'fa-circle-xmark';
-    } else {
-      statoLabel = 'Archiviata'; statoColor = '#cbd5e1'; statoIcon = 'fa-circle-dot';
-    }
-    const codice = t.codice_tessera ? `N° <strong>${esc(t.codice_tessera)}</strong>` : '<span style="color:#cbd5e1">Senza codice</span>';
-    const dataEm = t.data_emissione ? fmtDate(t.data_emissione) : '—';
-    const dataRin = t.data_rinnovo ? ` → ${fmtDate(t.data_rinnovo)}` : '';
-    const timbri = t.timbri_attuali != null ? `<span style="color:#94a3b8;font-size:10px;margin-left:6px">${t.timbri_attuali}/${TIMBRI_MAX} timbri</span>` : '';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
-      <div style="min-width:0">
-        <div style="font-weight:700;color:#1e293b">${codice}${timbri}</div>
-        <div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div>
-      </div>
-      <span style="font-size:11px;font-weight:800;color:${statoColor};white-space:nowrap;flex-shrink:0">
-        <i class="fas ${statoIcon}" style="font-size:10px"></i> ${statoLabel}
-      </span>
-    </div>`;
-  }).join('');
+  el.innerHTML = htmlDB + htmlExcel;
 }
 
 async function nuovaTessera() {
