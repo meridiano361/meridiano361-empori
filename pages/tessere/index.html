@@ -300,6 +300,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <button class="tab-btn" data-tab="tessere" onclick="showTab('tessere')">Tessere</button>
       <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
       <button class="tab-btn" data-tab="consensi" onclick="showTab('consensi')">Consensi</button>
+      <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
       <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
       <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
     </div>
@@ -411,13 +412,23 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <div class="section-title">Fasce di età</div>
       <div id="analisi-eta"><div style="font-size:13px;color:#94a3b8">Caricamento…</div></div>
     </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
-      <div class="section-title">Compleanni questo mese</div>
-      <div id="birthday-list"></div>
-    </div>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px">
       <div class="section-title">Ultimi sconti utilizzati</div>
       <div id="recent-sconti"></div>
+    </div>
+  </div>
+
+  <!-- TAB COMPLEANNI -->
+  <div id="tab-compleanni" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Compleanni</div>
+        <div style="font-size:12px;color:#64748b">Clienti con compleanno questo mese</div>
+      </div>
+      <div id="compleanni-count" style="font-size:12px;color:#94a3b8"></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px">
+      <div id="birthday-list-tab"></div>
     </div>
   </div>
 
@@ -843,7 +854,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCliente
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
   activeTab = tab;
-  ['clienti','analisi','messaggi','consensi','tessere','duplicati'].forEach(t => {
+  ['clienti','analisi','messaggi','consensi','tessere','duplicati','compleanni'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
@@ -852,6 +863,7 @@ function showTab(tab) {
   if (tab === 'consensi') renderConsensi();
   if (tab === 'tessere') renderTessereTab();
   if (tab === 'messaggi') _refreshConsentMsgPreview();
+  if (tab === 'compleanni') renderCompleanni();
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -1484,6 +1496,42 @@ async function deleteCliente() {
   showToast('Cliente eliminato');
 }
 
+// ── Compleanni ────────────────────────────────────────────────────────────────
+function renderCompleanni() {
+  const today = new Date();
+  const thisMonth = today.getMonth();
+  const bdList = allClienti.filter(c => {
+    if (!c.data_nascita) return false;
+    return new Date(c.data_nascita).getMonth() === thisMonth;
+  }).sort((a,b) => new Date(a.data_nascita).getDate() - new Date(b.data_nascita).getDate());
+
+  const countEl = document.getElementById('compleanni-count');
+  if (countEl) countEl.textContent = bdList.length ? `${bdList.length} clienti` : '';
+
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const html = bdList.length
+    ? bdList.map(c => {
+        const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
+        const d = new Date(c.data_nascita);
+        const isToday = d.getDate() === today.getDate();
+        const isAmb = t?.tipo === 'ambassador';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9" onclick="openClienteModal('${c.id}')" style="cursor:pointer">
+          <span style="font-size:20px">${isToday ? '🎂' : '🗓️'}</span>
+          <div style="flex:1">
+            <strong style="font-size:14px">${esc(c.cognome)} ${esc(c.nome)}</strong>
+            ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>' : ''}
+            <br>
+            <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]}${isToday ? ' — <strong style="color:#B5453A">Oggi!</strong>' : ''}</span>
+          </div>
+          ${c.telefono ? `<a class="wa-btn" href="https://wa.me/39${c.telefono.replace(/[^\d]/g,'')}?text=${encodeURIComponent(isAmb ? allMsgTemplates.find(m=>m.tipo==='compleanno_ambassador')?.testo||'' : allMsgTemplates.find(m=>m.tipo==='compleanno')?.testo||'')}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i></a>` : ''}
+        </div>`;
+      }).join('')
+    : '<div style="font-size:13px;color:#94a3b8">Nessun compleanno questo mese</div>';
+
+  const tabEl = document.getElementById('birthday-list-tab');
+  if (tabEl) tabEl.innerHTML = html;
+}
+
 // ── Analisi ───────────────────────────────────────────────────────────────────
 function renderAnalisi() {
   const totale = allTessere.length;
@@ -1507,32 +1555,7 @@ function renderAnalisi() {
       return `<tr><td>${empLab[emp]||emp}</td><td>${s}</td><td>${a}</td><td><strong>${rows.length}</strong></td></tr>`;
     }).join('');
 
-  // Compleanni questo mese
-  const today = new Date();
-  const thisMonth = today.getMonth();
-  const bdList = allClienti.filter(c => {
-    if (!c.data_nascita) return false;
-    return new Date(c.data_nascita).getMonth() === thisMonth;
-  }).sort((a,b) => new Date(a.data_nascita).getDate() - new Date(b.data_nascita).getDate());
-  const bdEl = document.getElementById('birthday-list');
-  if (!bdList.length) {
-    bdEl.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessun compleanno questo mese</div>';
-  } else {
-    bdEl.innerHTML = bdList.map(c => {
-      const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
-      const d = new Date(c.data_nascita);
-      const isToday = d.getDate() === today.getDate();
-      const isAmb = t?.tipo === 'ambassador';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <span style="font-size:18px">${isToday ? '🎂' : '🗓️'}</span>
-        <div style="flex:1"><strong style="font-size:14px">${esc(c.cognome)} ${esc(c.nome)}</strong>
-        ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>':''}<br>
-        <span style="font-size:12px;color:#64748b">${d.getDate()} ${['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'][d.getMonth()]}
-        ${isToday ? ' — <strong style=color:#B5453A>Oggi!</strong>':''}</span></div>
-        ${c.telefono ? `<a class="wa-btn" href="https://wa.me/39${c.telefono.replace(/[^\d]/g,'')}?text=${encodeURIComponent(isAmb ? allMsgTemplates.find(m=>m.tipo==='compleanno_ambassador')?.testo||'' : allMsgTemplates.find(m=>m.tipo==='compleanno')?.testo||'')}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i></a>`:``}
-      </div>`;
-    }).join('');
-  }
+  renderCompleanni();
 
   renderAnalisiEta();
 
