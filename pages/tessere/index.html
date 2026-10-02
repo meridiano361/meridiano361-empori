@@ -234,13 +234,25 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 @media(max-width:600px){.dup-pair{grid-template-columns:1fr}.dup-vs{display:none}}
 
 /* ── Merge modal ── */
-.merge-option{display:block;cursor:pointer;border:2px solid #e2e8f0;border-radius:12px;padding:12px;transition:all .15s}
-.merge-option.selected{border-color:var(--red);background:#fef2f2}
-.merge-option input[type=radio]{display:none}
-.merge-opt-name{font-size:14px;font-weight:800;color:#1e293b;margin-bottom:6px}
-.merge-opt-row{font-size:12px;color:#475569;display:flex;align-items:center;gap:5px;margin-bottom:2px}
-.merge-opt-row i{font-size:10px;color:#94a3b8;width:12px;flex-shrink:0}
-.merge-opt-row.muted{color:#94a3b8}
+.merge-modal-panel{background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.merge-modal-hdr{padding:16px 20px;border-bottom:1px solid #f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.merge-modal-body{padding:16px 20px;overflow-y:auto;flex:1}
+.merge-modal-ftr{padding:12px 20px;border-top:1px solid #f1f5f9;flex-shrink:0;display:flex;justify-content:flex-end;gap:8px}
+.mft-table{width:100%;border-collapse:collapse;margin-top:4px}
+.mft-table th{font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;text-align:left;background:#f8fafc;border-bottom:1.5px solid #e2e8f0}
+.mft-table td{padding:7px 8px;border-bottom:1px solid #f1f5f9;font-size:13px;vertical-align:middle}
+.mft-table tr:last-child td{border-bottom:none}
+.mft-label-cell{font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;width:80px}
+.mft-val-cell{cursor:pointer;border-radius:7px;transition:background .1s}
+.mft-val-cell:hover{background:#f8fafc}
+.mft-val-cell.chosen{background:#f0fdf4;color:#16a34a;font-weight:700}
+.mft-val-cell input[type=radio]{display:none}
+.mft-same{color:#94a3b8;font-style:italic;font-size:12px}
+.mft-empty{color:#cbd5e1;font-size:12px}
+.merge-section-title{font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin:14px 0 6px}
+.mrec-opt{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;cursor:pointer;transition:all .12s;font-size:13px;font-weight:700;color:#475569}
+.mrec-opt input[type=radio]{accent-color:var(--red);width:14px;height:14px}
+.mrec-opt.selected{border-color:var(--red);background:#fef2f2;color:#B5453A}
 </style>
 </head>
 <body>
@@ -381,15 +393,15 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
 <!-- MERGE MODAL -->
 <div class="small-modal" id="merge-modal">
-  <div class="small-modal-panel" style="max-width:520px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="margin-bottom:0">Unisci clienti</h3>
+  <div class="merge-modal-panel">
+    <div class="merge-modal-hdr">
+      <h3 style="margin:0;font-size:16px;font-weight:800;color:#1e293b">Unisci clienti</h3>
       <button onclick="closeMergeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
     </div>
-    <div id="merge-modal-body"></div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
+    <div class="merge-modal-body" id="merge-modal-body"></div>
+    <div class="merge-modal-ftr">
       <button class="btn btn-outline btn-sm" onclick="closeMergeModal()">Annulla</button>
-      <button class="btn btn-red btn-sm" onclick="confirmMerge()"><i class="fas fa-merge"></i> Conferma unione</button>
+      <button class="btn btn-red btn-sm" onclick="confirmMerge()"><i class="fas fa-code-merge"></i> Conferma unione</button>
     </div>
   </div>
 </div>
@@ -1575,6 +1587,7 @@ function _dupColHtml(c, tessera, other) {
     ${tessera
       ? `<div class="dup-col-row tessera"><i class="fas fa-id-card"></i>Tessera ${esc(tessera.codice_tessera||'')}</div>`
       : '<div class="dup-col-row muted"><i class="fas fa-id-card"></i>Nessuna tessera</div>'}
+    <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%;font-size:11px" onclick="openClienteModal('${c.id}')"><i class="fas fa-arrow-up-right-from-square"></i> Apri anagrafica</button>
   </div>`;
 }
 
@@ -1652,77 +1665,151 @@ function dismissDuplicate(key) {
 }
 
 // ── MERGE ────────────────────────────────────────────────────────────────────
-let _mergeA = null, _mergeB = null;
+let _mergeA = null, _mergeB = null, _mergeTesseraA = null, _mergeTesseraB = null;
+let _mergeSelections = {};
+let _mergeRecord = 'a';
+let _mergeTessera = 'a';
+
+const MERGE_FIELDS = [
+  { key:'nome',         label:'Nome' },
+  { key:'cognome',      label:'Cognome' },
+  { key:'telefono',     label:'Telefono' },
+  { key:'email',        label:'Email' },
+  { key:'data_nascita', label:'Data nascita' },
+  { key:'citta',        label:'Città' },
+  { key:'provincia',    label:'Provincia' },
+  { key:'emporio',      label:'Emporio' },
+];
 
 function openMergeModal(idA, idB) {
   _mergeA = allClienti.find(c => String(c.id) === String(idA));
   _mergeB = allClienti.find(c => String(c.id) === String(idB));
   if (!_mergeA || !_mergeB) return;
-  const tA = allTessere.find(t => String(t.cliente_id) === String(idA));
-  const tB = allTessere.find(t => String(t.cliente_id) === String(idB));
-
-  function optHtml(id, c, tessera, defaultChecked) {
-    return `<label class="merge-option${defaultChecked?' selected':''}" id="merge-opt-${id}">
-      <input type="radio" name="merge-keep" value="${id}" ${defaultChecked?'checked':''}>
-      <div class="merge-opt-name">${esc(((c.nome||'')+' '+(c.cognome||'')).trim())}</div>
-      ${tessera ? `<div class="merge-opt-row"><i class="fas fa-id-card"></i>${esc(tessera.codice_tessera||'')}</div>` : '<div class="merge-opt-row muted">Nessuna tessera</div>'}
-      ${c.telefono ? `<div class="merge-opt-row"><i class="fas fa-phone"></i>${esc(c.telefono)}</div>` : ''}
-      ${c.email    ? `<div class="merge-opt-row"><i class="fas fa-envelope"></i>${esc(c.email)}</div>` : ''}
-      ${c.emporio  ? `<div class="merge-opt-row"><i class="fas fa-store"></i>${esc(c.emporio)}</div>` : ''}
-      <div class="merge-opt-row muted" style="font-size:10px">ID …${String(c.id).slice(-6)}</div>
-    </label>`;
-  }
-
-  document.getElementById('merge-modal-body').innerHTML = `
-    <p style="font-size:13px;color:#64748b;margin-bottom:14px">Scegli quale record mantenere. I campi vuoti verranno completati con i dati dell'altro. Il duplicato verrà eliminato definitivamente.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      ${optHtml('a', _mergeA, tA, true)}
-      ${optHtml('b', _mergeB, tB, false)}
-    </div>
-    ${tA && tB ? `<div class="dup-warning"><i class="fas fa-triangle-exclamation"></i> Entrambi hanno una tessera. Verrà mantenuta solo quella del record scelto; l'altra verrà eliminata insieme ai suoi sconti.</div>` : ''}
-  `;
-
-  document.querySelectorAll('input[name="merge-keep"]').forEach(r => {
-    r.addEventListener('change', () => {
-      document.getElementById('merge-opt-a').classList.toggle('selected', r.value === 'a');
-      document.getElementById('merge-opt-b').classList.toggle('selected', r.value === 'b');
-    });
-  });
-
+  _mergeTesseraA = allTessere.find(t => String(t.cliente_id) === String(idA)) || null;
+  _mergeTesseraB = allTessere.find(t => String(t.cliente_id) === String(idB)) || null;
+  _mergeSelections = {};
+  MERGE_FIELDS.forEach(f => { _mergeSelections[f.key] = _mergeA[f.key] ? 'a' : 'b'; });
+  _mergeRecord = 'a';
+  _mergeTessera = 'a';
+  _renderMergeBody();
   document.getElementById('merge-modal').classList.add('open');
 }
 
+function _renderMergeBody() {
+  const nA = esc(((_mergeA.nome||'')+' '+(_mergeA.cognome||'')).trim());
+  const nB = esc(((_mergeB.nome||'')+' '+(_mergeB.cognome||'')).trim());
+
+  let rows = '';
+  MERGE_FIELDS.forEach(f => {
+    const vA = _mergeA[f.key] || '';
+    const vB = _mergeB[f.key] || '';
+    const same = vA && vB && vA === vB;
+    const selA = _mergeSelections[f.key] !== 'b';
+    if (same) {
+      rows += `<tr>
+        <td class="mft-label-cell">${f.label}</td>
+        <td colspan="2" class="mft-same"><i class="fas fa-equals" style="font-size:10px;margin-right:4px;opacity:.6"></i>${esc(vA)}</td>
+      </tr>`;
+    } else {
+      rows += `<tr>
+        <td class="mft-label-cell">${f.label}</td>
+        <td class="mft-val-cell${selA?' chosen':''}" onclick="setMergeSel('${f.key}','a')">
+          <input type="radio" name="mf-${f.key}" value="a" ${selA?'checked':''}>
+          ${vA ? esc(vA) : '<span class="mft-empty">—</span>'}
+        </td>
+        <td class="mft-val-cell${!selA?' chosen':''}" onclick="setMergeSel('${f.key}','b')">
+          <input type="radio" name="mf-${f.key}" value="b" ${!selA?'checked':''}>
+          ${vB ? esc(vB) : '<span class="mft-empty">—</span>'}
+        </td>
+      </tr>`;
+    }
+  });
+
+  let tesseraSection = '';
+  if (_mergeTesseraA && _mergeTesseraB) {
+    tesseraSection = `
+      <div class="merge-section-title"><i class="fas fa-id-card" style="margin-right:4px"></i>Tessera da mantenere</div>
+      <div class="dup-warning" style="margin-bottom:10px"><i class="fas fa-triangle-exclamation"></i> Entrambi hanno una tessera. L'altra verrà eliminata insieme ai suoi sconti.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+        <label class="mrec-opt${_mergeTessera==='a'?' selected':''}">
+          <input type="radio" name="merge-tessera" value="a" ${_mergeTessera==='a'?'checked':''} onchange="setMergeTessera('a')">
+          <div><div style="font-size:12px;font-weight:800">${esc(_mergeTesseraA.codice_tessera||'—')}</div><div style="font-size:11px;color:#94a3b8">${nA}</div></div>
+        </label>
+        <label class="mrec-opt${_mergeTessera==='b'?' selected':''}">
+          <input type="radio" name="merge-tessera" value="b" ${_mergeTessera==='b'?'checked':''} onchange="setMergeTessera('b')">
+          <div><div style="font-size:12px;font-weight:800">${esc(_mergeTesseraB.codice_tessera||'—')}</div><div style="font-size:11px;color:#94a3b8">${nB}</div></div>
+        </label>
+      </div>`;
+  }
+
+  document.getElementById('merge-modal-body').innerHTML = `
+    <table class="mft-table">
+      <thead><tr>
+        <th class="mft-label-cell"></th>
+        <th>${nA}</th>
+        <th>${nB}</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${tesseraSection}
+    <div class="merge-section-title" style="margin-top:14px"><i class="fas fa-fingerprint" style="margin-right:4px"></i>Record principale (ID da mantenere)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <label class="mrec-opt${_mergeRecord==='a'?' selected':''}">
+        <input type="radio" name="merge-record" value="a" ${_mergeRecord==='a'?'checked':''} onchange="setMergeRecord('a')">
+        <div><div style="font-weight:800">${nA}</div><div style="font-size:11px;color:#94a3b8">ID …${String(_mergeA.id).slice(-6)}</div></div>
+      </label>
+      <label class="mrec-opt${_mergeRecord==='b'?' selected':''}">
+        <input type="radio" name="merge-record" value="b" ${_mergeRecord==='b'?'checked':''} onchange="setMergeRecord('b')">
+        <div><div style="font-weight:800">${nB}</div><div style="font-size:11px;color:#94a3b8">ID …${String(_mergeB.id).slice(-6)}</div></div>
+      </label>
+    </div>
+  `;
+}
+
+function setMergeSel(field, side)  { _mergeSelections[field] = side; _renderMergeBody(); }
+function setMergeTessera(side)     { _mergeTessera = side;           _renderMergeBody(); }
+function setMergeRecord(side)      { _mergeRecord  = side;           _renderMergeBody(); }
+
 function closeMergeModal() {
   document.getElementById('merge-modal').classList.remove('open');
-  _mergeA = null; _mergeB = null;
+  _mergeA = null; _mergeB = null; _mergeTesseraA = null; _mergeTesseraB = null;
+  _mergeSelections = {};
 }
 
 async function confirmMerge() {
   if (!_mergeA || !_mergeB) return;
-  const keepId = document.querySelector('input[name="merge-keep"]:checked')?.value;
-  const keep   = keepId === 'a' ? _mergeA : _mergeB;
-  const remove = keepId === 'a' ? _mergeB : _mergeA;
-
+  const keep   = _mergeRecord === 'a' ? _mergeA : _mergeB;
+  const remove = _mergeRecord === 'a' ? _mergeB : _mergeA;
   const keepName   = ((keep.nome||'')+' '+(keep.cognome||'')).trim();
   const removeName = ((remove.nome||'')+' '+(remove.cognome||'')).trim();
-  if (!confirm(`Unire "${removeName}" in "${keepName}"?\n\nIl record "${removeName}" verrà eliminato definitivamente.`)) return;
+
+  if (!confirm(`Unire "${removeName}" in "${keepName}"?\n\nIl record "${removeName}" (ID ${remove.id}) verrà eliminato definitivamente.`)) return;
 
   try {
+    // Apply per-field selections
     const mergedFields = {};
-    ['telefono','email','data_nascita','indirizzo','note','emporio'].forEach(f => {
-      if (!keep[f] && remove[f]) mergedFields[f] = remove[f];
+    MERGE_FIELDS.forEach(f => {
+      const chosen = _mergeSelections[f.key] === 'b' ? _mergeB : _mergeA;
+      mergedFields[f.key] = chosen[f.key] || null;
     });
-    if (Object.keys(mergedFields).length > 0) {
-      const { error } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
-      if (error) throw error;
+    const { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
+    if (updErr) throw updErr;
+
+    // Tessera handling
+    const hasBoth = !!(_mergeTesseraA && _mergeTesseraB);
+    const chosenTessera  = hasBoth ? (_mergeTessera === 'a' ? _mergeTesseraA : _mergeTesseraB)
+                                   : (_mergeTesseraA || _mergeTesseraB);
+    const discardTessera = hasBoth ? (_mergeTessera === 'a' ? _mergeTesseraB : _mergeTesseraA) : null;
+
+    if (discardTessera) {
+      await _sb.from('tessere_sconti').delete().eq('tessera_id', discardTessera.id);
+      await _sb.from('tessere').delete().eq('id', discardTessera.id);
+    }
+    if (chosenTessera && String(chosenTessera.cliente_id) !== String(keep.id)) {
+      await _sb.from('tessere').update({ cliente_id: keep.id }).eq('id', chosenTessera.id);
     }
 
-    const tRemove = allTessere.find(t => t.cliente_id === remove.id);
-    if (tRemove) {
-      await _sb.from('tessere_sconti').delete().eq('tessera_id', tRemove.id);
-      await _sb.from('tessere').delete().eq('id', tRemove.id);
-    }
-
+    // Delete duplicate
     const { error: delErr } = await _sb.from('clienti').delete().eq('id', remove.id);
     if (delErr) throw delErr;
 
