@@ -177,6 +177,15 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .msg-testo{font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5}
 .msg-actions{display:flex;gap:8px;margin-top:10px}
 
+/* ── Filtri caratteristica ── */
+.filtri-caract{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.filtro-gruppo{display:inline-flex;align-items:center;background:#f1f5f9;border-radius:8px;padding:2px 6px 2px 10px;gap:2px}
+.filtro-label{font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-right:3px;white-space:nowrap}
+.filtro-btn{padding:3px 10px;border:none;border-radius:6px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#94a3b8;transition:all .12s;line-height:1.5}
+.filtro-btn:hover{background:#e2e8f0;color:#475569}
+.filtro-btn.active-si{background:#dcfce7;color:#166534}
+.filtro-btn.active-no{background:#fee2e2;color:#991b1b}
+
 /* ── Empty state ── */
 .empty{text-align:center;padding:40px 20px;color:#94a3b8}
 .empty i{font-size:40px;margin-bottom:10px;display:block}
@@ -261,16 +270,36 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div class="chip" onclick="setEmporio('reggio emilia')">Reggio E.</div>
       </div>
     </div>
-    <div class="filter-row" style="margin-bottom:10px">
-      <div class="chip-group" id="caract-chips">
-        <div class="chip caract-chip" onclick="toggleCaratt('ha_wa')">📱 WA</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('no_wa')">🚫 No WA</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('vuole_news')">📰 News</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('in_broadcast')">📋 Broadcast</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('senza_benvenuto')">✉️ Senza benvenuto</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('ha_compleanno')">🎂 Data nascita</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('ha_telefono')">📞 Con telefono</div>
-        <div class="chip caract-chip" onclick="toggleCaratt('no_telefono')">🔇 No telefono</div>
+    <div class="filtri-caract" id="caract-chips">
+      <div class="filtro-gruppo">
+        <span class="filtro-label">WA</span>
+        <button class="filtro-btn" id="fc-wa-si" onclick="setFiltroCaratt('wa','si')">Sì</button>
+        <button class="filtro-btn" id="fc-wa-no" onclick="setFiltroCaratt('wa','no')">No</button>
+      </div>
+      <div class="filtro-gruppo">
+        <span class="filtro-label">Newsletter</span>
+        <button class="filtro-btn" id="fc-news-si" onclick="setFiltroCaratt('news','si')">Sì</button>
+        <button class="filtro-btn" id="fc-news-no" onclick="setFiltroCaratt('news','no')">No</button>
+      </div>
+      <div class="filtro-gruppo">
+        <span class="filtro-label">Cellulare</span>
+        <button class="filtro-btn" id="fc-cellulare-si" onclick="setFiltroCaratt('cellulare','si')">Sì</button>
+        <button class="filtro-btn" id="fc-cellulare-no" onclick="setFiltroCaratt('cellulare','no')">No</button>
+      </div>
+      <div class="filtro-gruppo">
+        <span class="filtro-label">Email</span>
+        <button class="filtro-btn" id="fc-email-si" onclick="setFiltroCaratt('email','si')">Sì</button>
+        <button class="filtro-btn" id="fc-email-no" onclick="setFiltroCaratt('email','no')">No</button>
+      </div>
+      <div class="filtro-gruppo">
+        <span class="filtro-label">Compleanno</span>
+        <button class="filtro-btn" id="fc-compleanno-si" onclick="setFiltroCaratt('compleanno','si')">Sì</button>
+        <button class="filtro-btn" id="fc-compleanno-no" onclick="setFiltroCaratt('compleanno','no')">No</button>
+      </div>
+      <div class="filtro-gruppo">
+        <span class="filtro-label">Benvenuto</span>
+        <button class="filtro-btn" id="fc-benvenuto-si" onclick="setFiltroCaratt('benvenuto','si')">Sì</button>
+        <button class="filtro-btn" id="fc-benvenuto-no" onclick="setFiltroCaratt('benvenuto','no')">No</button>
       </div>
     </div>
     <!-- Barra azioni (solo CSV + vista, senza numeri) -->
@@ -498,7 +527,7 @@ let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
 let filteredList = [];
 let activeTab = 'clienti';
 let filterTipo = 'tutti', filterEmporio = 'tutti';
-let filterCaratt = new Set();
+let filterCaratt = {wa:null, news:null, cellulare:null, email:null, compleanno:null, benvenuto:null};
 let editingTesseraId = null;
 let editingClienteId = null;
 let currentTipo = 'standard';
@@ -568,14 +597,14 @@ function setEmporio(v) {
   applyFilters();
 }
 
-function toggleCaratt(v) {
-  if (filterCaratt.has(v)) {
-    filterCaratt.delete(v);
-    event.target.classList.remove('active');
-  } else {
-    filterCaratt.add(v);
-    event.target.classList.add('active');
-  }
+function setFiltroCaratt(cat, val) {
+  filterCaratt[cat] = filterCaratt[cat] === val ? null : val;
+  ['si','no'].forEach(v => {
+    const btn = document.getElementById(`fc-${cat}-${v}`);
+    if (!btn) return;
+    btn.classList.remove('active-si','active-no');
+    if (filterCaratt[cat] === v) btn.classList.add(v === 'si' ? 'active-si' : 'active-no');
+  });
   applyFilters();
 }
 
@@ -588,16 +617,19 @@ function applyFilters() {
     if (!t) return false;
     if (filterTipo !== 'tutti' && t.tipo !== filterTipo) return false;
     if (filterEmporio !== 'tutti' && t.emporio !== filterEmporio) return false;
-    if (filterCaratt.size > 0) {
-      if (filterCaratt.has('ha_wa')          && !t.ha_whatsapp)                     return false;
-      if (filterCaratt.has('no_wa')          && t.ha_whatsapp)                      return false;
-      if (filterCaratt.has('vuole_news')     && !t.vuole_news_whatsapp)             return false;
-      if (filterCaratt.has('in_broadcast')   && !t.in_lista_broadcast_whatsapp)     return false;
-      if (filterCaratt.has('senza_benvenuto')&& t.messaggio_benvenuto_inviato)      return false;
-      if (filterCaratt.has('ha_compleanno')  && !c.data_nascita)                    return false;
-      if (filterCaratt.has('ha_telefono')    && !c.telefono)                        return false;
-      if (filterCaratt.has('no_telefono')    && c.telefono)                         return false;
-    }
+    const fc = filterCaratt;
+    if (fc.wa         === 'si'  && !t.ha_whatsapp)               return false;
+    if (fc.wa         === 'no'  &&  t.ha_whatsapp)               return false;
+    if (fc.news       === 'si'  && !t.vuole_news_whatsapp)       return false;
+    if (fc.news       === 'no'  &&  t.vuole_news_whatsapp)       return false;
+    if (fc.cellulare  === 'si'  && !c.telefono)                  return false;
+    if (fc.cellulare  === 'no'  &&  c.telefono)                  return false;
+    if (fc.email      === 'si'  && !c.email)                     return false;
+    if (fc.email      === 'no'  &&  c.email)                     return false;
+    if (fc.compleanno === 'si'  && !c.data_nascita)              return false;
+    if (fc.compleanno === 'no'  &&  c.data_nascita)              return false;
+    if (fc.benvenuto  === 'si'  && !t.messaggio_benvenuto_inviato) return false;
+    if (fc.benvenuto  === 'no'  &&  t.messaggio_benvenuto_inviato) return false;
     if (q) {
       const hay = [c.nome, c.cognome, c.telefono, c.email, t.codice_tessera, c.citta].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
