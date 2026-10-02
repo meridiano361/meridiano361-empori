@@ -604,6 +604,8 @@ const SETTORI = {
   N: { label:'Benessere',  color:'#059036' },
 };
 const EV_COLOR = '#1e293b'; // colore unico per eventi
+const SETTORE_ORDER = { A:0, N:1, C:2, M:3, G:4 };
+function evOrder(e){ return e.record_type==='evento' ? 5 : (SETTORE_ORDER[e.settore]??4); }
 const PDV_LIST   = ['CR','CA','VI','RE','WEB'];
 const PDV_LABELS = { CR:'Cremona', CA:'Casalmaggiore', VI:'Viadana', RE:'Reggio E.', WEB:'Web' };
 const EMPORIO_TO_PDV = { 'Cremona':'CR', 'Casalmaggiore':'CA', 'Viadana':'VI', 'Reggio Emilia':'RE' };
@@ -655,7 +657,7 @@ async function loadEventi(){
   if(r2.error){ showToastM361('Errore caricamento: '+r2.error.message,'error'); return; }
   const seen=new Set();
   _eventi=[...(r1.data||[]),...(r2.data||[])].filter(e=>{ if(seen.has(e.id))return false; seen.add(e.id); return true; })
-    .sort((a,b)=>{ if(!a.data_inizio)return 1; if(!b.data_inizio)return -1; return a.data_inizio.localeCompare(b.data_inizio)||a.id-b.id; });
+    .sort((a,b)=>{ if(!a.data_inizio)return 1; if(!b.data_inizio)return -1; return a.data_inizio.localeCompare(b.data_inizio)||evOrder(a)-evOrder(b)||a.id-b.id; });
   render();
 }
 
@@ -803,7 +805,7 @@ function renderMese(evs){
       if(!ev.data_inizio) return false;
       const evEnd=ev.data_fine||ev.data_inizio;
       return ev.data_inizio<=cellStr&&evEnd>=cellStr;
-    }):[];
+    }).sort((a,b)=>evOrder(a)-evOrder(b)):[];
     const evHtml=dayEvs.map(ev=>{
       const s=SETTORI[ev.settore]||SETTORI.G;
       const evC=ev.record_type==='evento'?EV_COLOR:s.color;
@@ -849,7 +851,7 @@ function renderSettimana(evs){
     if(!ev.data_inizio) return false;
     const evEnd=ev.data_fine||ev.data_inizio;
     return ev.data_inizio<=weekEnd&&evEnd>=weekStart;
-  });
+  }).sort((a,b)=>evOrder(a)-evOrder(b));
   const DOW_SHORT=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
   const MESI_S=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
   const dayHdrs=weekDays.map((d,i)=>{
