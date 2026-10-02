@@ -423,7 +423,27 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
   <!-- TAB MESSAGGI WA -->
   <div id="tab-messaggi" style="display:none">
-    <button class="btn btn-red btn-sm" style="margin-bottom:14px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
+    <!-- Messaggio di sistema: consenso privacy -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Messaggio di sistema</div>
+      <div class="msg-card" id="consent-msg-card" style="border-left:3px solid #7c3aed">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+          <div class="msg-tipo" style="background:#ede9fe;color:#7c3aed">consenso_privacy</div>
+          <span style="font-size:10px;color:#94a3b8">Inviato via WA quando si raccoglie il consenso online</span>
+        </div>
+        <div class="msg-titolo">Messaggio consenso privacy WA</div>
+        <div class="msg-testo" id="consent-msg-preview" style="white-space:pre-wrap"></div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">
+          Variabili: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">{nome}</code>
+          <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{url}</code>
+        </div>
+        <div class="msg-actions">
+          <button class="btn btn-outline btn-sm" onclick="openConsentMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Template personalizzati</div>
+    <button class="btn btn-red btn-sm" style="margin-bottom:10px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
     <div id="msg-list"></div>
   </div>
 
@@ -773,6 +793,7 @@ async function loadAll() {
   applyFilters();
   renderAnalisi();
   renderMsgList();
+  _refreshConsentMsgPreview();
   _updateDupBadge();
 }
 
@@ -790,6 +811,7 @@ function showTab(tab) {
   if (tab === 'duplicati') renderDuplicati();
   if (tab === 'consensi') renderConsensi();
   if (tab === 'tessere') renderTessereTab();
+  if (tab === 'messaggi') _refreshConsentMsgPreview();
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -978,7 +1000,7 @@ function renderClientList(tessereMap) {
   el.innerHTML = filteredList.map(c => {
     const t = tessereMap.get(c.id);
     const isAmb = t.tipo === 'ambassador';
-    const empLab = {cremona:'CR',casalmaggiore:'CA',viadana:'VI','reggio emilia':'RE'}[t.emporio] || t.emporio;
+    const empLab = {cremona:'CR',casalmaggiore:'CA',viadana:'VI','reggio emilia':'RE'}[t.emporio] || capEmporio(t.emporio);
     const bday = getBirthdayStr(c.data_nascita);
 
     if (viewMode === 'list') {
@@ -1309,6 +1331,10 @@ function sendConsentWa() {
   window.open(`https://wa.me/39${phone}?text=${encodeURIComponent(text)}`, '_blank');
 }
 
+function _refreshConsentMsgPreview() {
+  const el = document.getElementById('consent-msg-preview');
+  if (el) el.textContent = _getConsentMsgTesto();
+}
 function openConsentMsgModal() {
   document.getElementById('consent-msg-testo').value = _getConsentMsgTesto();
   document.getElementById('consent-msg-modal').classList.add('open');
@@ -1333,6 +1359,7 @@ async function saveConsentMsg() {
     if (data) allMsgTemplates.push(data);
   }
   closeConsentMsgModal();
+  _refreshConsentMsgPreview();
   showToast('Messaggio aggiornato ✓');
 }
 
@@ -1494,7 +1521,7 @@ const DEST_COLOR = { tutti:'#475569', standard:'#0ea5e9', ambassador:'#7c3aed', 
 
 function renderMsgList() {
   const el = document.getElementById('msg-list');
-  el.innerHTML = allMsgTemplates.map(m => {
+  el.innerHTML = allMsgTemplates.filter(m => m.tipo !== 'consenso_privacy').map(m => {
     const dest = m.destinatari || 'tutti';
     const destLabel = DEST_LABEL[dest] || dest;
     const destColor = DEST_COLOR[dest] || '#475569';
@@ -1832,7 +1859,7 @@ function renderTessereTab() {
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
       <td><strong style="color:var(--amb);font-size:14px">${esc(t.codice_tessera||'—')}</strong></td>
       <td>${nome}${c&&c.citta?`<div style="font-size:11px;color:#94a3b8">${esc(c.citta)}</div>`:''}</td>
-      <td style="color:#64748b;font-size:12px">${empLab[t.emporio]||esc(t.emporio||'–')}</td>
+      <td style="color:#64748b;font-size:12px">${empLab[t.emporio]||esc(capEmporio(t.emporio)||'–')}</td>
       <td><span class="tipo-badge tipo-${t.tipo==='ambassador'?'ambassador':'standard'}" style="font-size:9px">${t.tipo==='ambassador'?'Amb':'Std'}</span></td>
       <td style="color:#64748b;font-size:12px">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
       <td>${stato}</td>
@@ -2027,7 +2054,7 @@ function renderConsensi() {
       <td style="font-weight:700">${esc((c.cognome||'')+' '+(c.nome||'')).trim()}</td>
       <td><span class="cons-badge ${mod}"><i class="fas ${badgeIcon}"></i>${badgeLabel}</span></td>
       <td style="color:#64748b">${dataStr}</td>
-      <td style="color:#94a3b8;font-size:12px">${esc(c.emporio||'—')}</td>
+      <td style="color:#94a3b8;font-size:12px">${esc(capEmporio(c.emporio)||'—')}</td>
     </tr>`;
   }).join('');
 
@@ -2152,7 +2179,7 @@ function _dupColHtml(c, tessere, other) {
     ${c.email
       ? `<div class="dup-col-row${emailMatch?' match':''}"><i class="fas fa-envelope"></i>${esc(c.email)}</div>`
       : '<div class="dup-col-row muted"><i class="fas fa-envelope"></i>—</div>'}
-    ${c.emporio ? `<div class="dup-col-row"><i class="fas fa-store"></i>${esc(c.emporio)}</div>` : ''}
+    ${c.emporio ? `<div class="dup-col-row"><i class="fas fa-store"></i>${esc(capEmporio(c.emporio))}</div>` : ''}
     ${tessereHtml}
     <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%;font-size:11px" onclick="openClienteModal('${c.id}')"><i class="fas fa-arrow-up-right-from-square"></i> Apri anagrafica</button>
   </div>`;
@@ -2236,6 +2263,7 @@ function dismissDuplicate(key) {
 let _mergeA = null, _mergeB = null, _mergeTessereA = [], _mergeTessereB = [];
 let _mergeSelections = {};
 let _mergeRecord = 'a';
+let _mergeTessereAttiva = new Set(); // tessera IDs che resteranno attive dopo merge
 
 const MERGE_FIELDS = [
   { key:'nome',         label:'Nome' },
@@ -2246,14 +2274,23 @@ const MERGE_FIELDS = [
   { key:'citta',        label:'Città' },
   { key:'provincia',    label:'Provincia' },
   { key:'emporio',      label:'Emporio' },
+  { key:'wa',           label:'WhatsApp' },
+  { key:'note',         label:'Note' },
 ];
 
+function capEmporio(e) {
+  if (!e) return '';
+  return e.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 function _fmtMergeVal(key, val) {
-  if (!val) return '';
+  if (val === null || val === undefined || val === '') return '';
   if (key === 'data_nascita') {
-    const p = val.split('-');
+    const p = String(val).split('-');
     return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : val;
   }
+  if (key === 'wa') return val ? 'Sì' : 'No';
+  if (key === 'emporio') return capEmporio(val);
   return val;
 }
 
@@ -2264,7 +2301,18 @@ function openMergeModal(idA, idB) {
   _mergeTessereA = allTessere.filter(t => String(t.cliente_id) === String(idA));
   _mergeTessereB = allTessere.filter(t => String(t.cliente_id) === String(idB));
   _mergeSelections = {};
-  MERGE_FIELDS.forEach(f => { _mergeSelections[f.key] = _mergeA[f.key] ? 'a' : 'b'; });
+  MERGE_FIELDS.forEach(f => {
+    const vA = _mergeA[f.key], vB = _mergeB[f.key];
+    if (typeof vA === 'boolean' || typeof vB === 'boolean') {
+      _mergeSelections[f.key] = vA ? 'a' : (vB ? 'b' : 'a');
+    } else {
+      _mergeSelections[f.key] = vA ? 'a' : 'b';
+    }
+  });
+  // Pre-seleziona come attive tutte le tessere già attive
+  _mergeTessereAttiva = new Set(
+    [..._mergeTessereA, ..._mergeTessereB].filter(t => t.attiva).map(t => t.id)
+  );
   _mergeRecord = 'a';
   _renderMergeBody();
   document.getElementById('merge-modal').classList.add('open');
@@ -2276,11 +2324,12 @@ function _renderMergeBody() {
 
   let rows = '';
   MERGE_FIELDS.forEach(f => {
-    const vA = _mergeA[f.key] || '';
-    const vB = _mergeB[f.key] || '';
-    const dA = _fmtMergeVal(f.key, vA);
-    const dB = _fmtMergeVal(f.key, vB);
-    const same = vA && vB && vA === vB;
+    const vA = _mergeA[f.key];
+    const vB = _mergeB[f.key];
+    const dA = _fmtMergeVal(f.key, vA ?? '');
+    const dB = _fmtMergeVal(f.key, vB ?? '');
+    const strA = String(vA ?? ''), strB = String(vB ?? '');
+    const same = strA === strB && strA !== '' && strA !== 'undefined' && strA !== 'null';
     const selA = _mergeSelections[f.key] !== 'b';
     if (same) {
       rows += `<tr>
@@ -2305,18 +2354,44 @@ function _renderMergeBody() {
   const allMergeTessere = [..._mergeTessereA, ..._mergeTessereB];
   let tesseraSection = '';
   if (allMergeTessere.length > 0) {
-    const rows = allMergeTessere.map(t => {
+    const tessRows = allMergeTessere.map(t => {
       const owner = _mergeTessereA.find(x => x.id === t.id) ? nA : nB;
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:13px">
-        <i class="fas fa-id-card" style="color:#7c3aed;width:14px;text-align:center"></i>
-        <span style="font-weight:700">N° ${esc(t.codice_tessera||'?')}</span>
-        <span style="font-size:11px;color:#94a3b8">${owner}${t.attiva===false?' · completa':''}</span>
-      </div>`;
+      const isCompl = (t.timbri_attuali||0) >= TIMBRI_MAX;
+      const isAttiva = _mergeTessereAttiva.has(t.id);
+      const waIcon = t.ha_whatsapp ? '<i class="fab fa-whatsapp" style="color:#25d366"></i>' : '<span style="color:#cbd5e1">—</span>';
+      const statoCell = isCompl
+        ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#f1f5f9;color:#94a3b8;font-weight:700">Completa</span>'
+        : `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:700;color:${isAttiva?'#7c3aed':'#94a3b8'}">
+             <input type="checkbox" ${isAttiva?'checked':''} onchange="toggleMergeTessera('${t.id}',this.checked)" style="accent-color:#7c3aed">
+             Attiva
+           </label>`;
+      return `<tr style="font-size:12px">
+        <td style="font-weight:700;color:#334155">${esc(capEmporio(t.emporio||''))}</td>
+        <td style="font-weight:800;color:var(--amb)">${esc(t.codice_tessera||'—')}</td>
+        <td style="color:#64748b">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
+        <td style="color:#64748b;text-align:center">${t.timbri_attuali||0}/${TIMBRI_MAX}</td>
+        <td style="text-align:center">${waIcon}</td>
+        <td style="color:#64748b;font-size:11px">${esc(owner)}</td>
+        <td style="text-align:center">${statoCell}</td>
+      </tr>`;
     }).join('');
     tesseraSection = `
       <div class="merge-section-title" style="margin-top:14px"><i class="fas fa-id-card" style="margin-right:4px"></i>Tessere (${allMergeTessere.length})</div>
-      <p style="font-size:12px;color:#64748b;margin-bottom:8px">Tutte le tessere verranno mantenute sul record principale.</p>
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px">${rows}</div>`;
+      <p style="font-size:12px;color:#64748b;margin-bottom:8px">Tutte le tessere vengono mantenute. Scegli quali restano <strong>attive</strong> dopo l'unione.</p>
+      <div style="overflow-x:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="border-bottom:1px solid #e2e8f0">
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">Emporio</th>
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">N°</th>
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">Emissione</th>
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:center">Timbri</th>
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:center">WA</th>
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">Da</th>
+            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:center">Stato</th>
+          </tr></thead>
+          <tbody>${tessRows}</tbody>
+        </table>
+      </div>`
   }
 
   document.getElementById('merge-modal-body').innerHTML = `
@@ -2345,11 +2420,15 @@ function _renderMergeBody() {
 
 function setMergeSel(field, side) { _mergeSelections[field] = side; _renderMergeBody(); }
 function setMergeRecord(side)     { _mergeRecord  = side;           _renderMergeBody(); }
+function toggleMergeTessera(id, checked) {
+  if (checked) _mergeTessereAttiva.add(id); else _mergeTessereAttiva.delete(id);
+}
 
 function closeMergeModal() {
   document.getElementById('merge-modal').classList.remove('open');
   _mergeA = null; _mergeB = null; _mergeTessereA = []; _mergeTessereB = [];
   _mergeSelections = {};
+  _mergeTessereAttiva = new Set();
 }
 
 async function confirmMerge() {
@@ -2375,6 +2454,15 @@ async function confirmMerge() {
     const tessereToReassign = allTessere.filter(t => String(t.cliente_id) === String(remove.id));
     for (const t of tessereToReassign) {
       await _sb.from('tessere').update({ cliente_id: keep.id }).eq('id', t.id);
+    }
+
+    // Applica lo stato attiva scelto dall'utente su tutte le tessere di entrambi i clienti
+    const allMergeTessere = [..._mergeTessereA, ..._mergeTessereB];
+    for (const t of allMergeTessere) {
+      const shouldBeActive = _mergeTessereAttiva.has(t.id);
+      if (!!t.attiva !== shouldBeActive) {
+        await _sb.from('tessere').update({ attiva: shouldBeActive }).eq('id', t.id);
+      }
     }
 
     // Delete duplicate
