@@ -665,9 +665,29 @@ function setFiltroCaratt(cat, val) {
   applyFilters();
 }
 
+function _buildTessereMap() {
+  // clienteId → tessera attiva (o più recente) per filtri/display
+  const map = new Map();
+  allTessere.forEach(t => {
+    const ex = map.get(t.cliente_id);
+    if (!ex || t.attiva !== false) map.set(t.cliente_id, t);
+  });
+  return map;
+}
+
+function _buildTessereCodsMap() {
+  // clienteId → tutti i codici tessera uniti (per ricerca)
+  const map = new Map();
+  allTessere.forEach(t => {
+    map.set(t.cliente_id, ((map.get(t.cliente_id)||'') + ' ' + (t.codice_tessera||'')).trim());
+  });
+  return map;
+}
+
 function applyFilters() {
   const q = document.getElementById('search-input')?.value?.toLowerCase().trim() || '';
-  const tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
+  const tessereMap = _buildTessereMap();
+  const tessereCodsMap = _buildTessereCodsMap();
 
   filteredList = allClienti.filter(c => {
     const t = tessereMap.get(c.id);
@@ -688,7 +708,7 @@ function applyFilters() {
     if (fc.benvenuto  === 'si'  && !t.messaggio_benvenuto_inviato) return false;
     if (fc.benvenuto  === 'no'  &&  t.messaggio_benvenuto_inviato) return false;
     if (q) {
-      const hay = [c.nome, c.cognome, c.telefono, c.email, t.codice_tessera, c.citta].join(' ').toLowerCase();
+      const hay = [c.nome, c.cognome, c.telefono, c.email, tessereCodsMap.get(c.id)||'', c.citta].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -699,7 +719,7 @@ function applyFilters() {
 }
 
 function renderStatsBar(tessereMap) {
-  if (!tessereMap) tessereMap = new Map(allTessere.map(t => [t.cliente_id, t]));
+  if (!tessereMap) tessereMap = _buildTessereMap();
   const ft = filteredList.map(c => tessereMap.get(c.id)).filter(Boolean);
   document.getElementById('sb-vis').textContent  = filteredList.length;
   document.getElementById('sb-wa').textContent   = ft.filter(t => t.ha_whatsapp).length;
@@ -1568,13 +1588,16 @@ function _updateDupBadge() {
   badge.style.display = count > 0 ? 'inline-flex' : 'none';
 }
 
-function _dupColHtml(c, tessera, other) {
+function _dupColHtml(c, tessere, other) {
   const telA = (c.telefono    || '').replace(/\D/g,'');
   const telB = (other.telefono|| '').replace(/\D/g,'');
   const telMatch   = telA.length >= 8 && telA === telB;
   const emailMatch = c.email && (c.email||'').toLowerCase().trim() === (other.email||'').toLowerCase().trim();
   const nameMatch  = _normKey(c.nome)+_normKey(c.cognome) &&
                      _normKey(c.nome)+_normKey(c.cognome) === _normKey(other.nome)+_normKey(other.cognome);
+  const tessereHtml = tessere.length
+    ? tessere.map(t => `<div class="dup-col-row tessera"><i class="fas fa-id-card"></i>N° ${esc(t.codice_tessera||'?')}${t.attiva===false?' <span style="font-size:10px;opacity:.6">(completa)</span>':''}</div>`).join('')
+    : '<div class="dup-col-row muted"><i class="fas fa-id-card"></i>Nessuna tessera</div>';
   return `<div class="dup-col">
     <div class="dup-col-name${nameMatch?' match':''}">${esc((c.nome||'')+' '+(c.cognome||''))}</div>
     ${c.telefono
@@ -1584,9 +1607,7 @@ function _dupColHtml(c, tessera, other) {
       ? `<div class="dup-col-row${emailMatch?' match':''}"><i class="fas fa-envelope"></i>${esc(c.email)}</div>`
       : '<div class="dup-col-row muted"><i class="fas fa-envelope"></i>—</div>'}
     ${c.emporio ? `<div class="dup-col-row"><i class="fas fa-store"></i>${esc(c.emporio)}</div>` : ''}
-    ${tessera
-      ? `<div class="dup-col-row tessera"><i class="fas fa-id-card"></i>Tessera ${esc(tessera.codice_tessera||'')}</div>`
-      : '<div class="dup-col-row muted"><i class="fas fa-id-card"></i>Nessuna tessera</div>'}
+    ${tessereHtml}
     <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%;font-size:11px" onclick="openClienteModal('${c.id}')"><i class="fas fa-arrow-up-right-from-square"></i> Apri anagrafica</button>
   </div>`;
 }
@@ -1629,8 +1650,9 @@ function _renderDupList(pairs) {
   }
 
   container.innerHTML = pairs.map(p => {
-    const tA = allTessere.find(t => String(t.cliente_id) === String(p.a.id));
-    const tB = allTessere.find(t => String(t.cliente_id) === String(p.b.id));
+    const tA = allTessere.filter(t => String(t.cliente_id) === String(p.a.id));
+    const tB = allTessere.filter(t => String(t.cliente_id) === String(p.b.id));
+    const totTessere = tA.length + tB.length;
     const cardId = 'dup-' + p.key.replace('|','-');
     return `<div class="dup-card" id="${cardId}">
       <div class="dup-card-hdr">
@@ -1642,7 +1664,7 @@ function _renderDupList(pairs) {
         <div class="dup-vs">VS</div>
         ${_dupColHtml(p.b, tB, p.a)}
       </div>
-      ${tA && tB ? `<div class="dup-warning"><i class="fas fa-triangle-exclamation"></i> Entrambi hanno una tessera — ti verrà chiesto quale mantenere</div>` : ''}
+      ${totTessere > 0 ? `<div class="dup-warning"><i class="fas fa-triangle-exclamation"></i> In caso di unione, tutte le tessere (${totTessere}) verranno mantenute sul record principale.</div>` : ''}
       <div class="dup-actions">
         <button class="btn btn-outline btn-sm" onclick="dismissDuplicate('${p.key}')"><i class="fas fa-xmark"></i> Non sono la stessa persona</button>
         <button class="btn btn-red btn-sm" onclick="openMergeModal('${p.a.id}','${p.b.id}')"><i class="fas fa-code-merge"></i> Unisci</button>
@@ -1665,10 +1687,9 @@ function dismissDuplicate(key) {
 }
 
 // ── MERGE ────────────────────────────────────────────────────────────────────
-let _mergeA = null, _mergeB = null, _mergeTesseraA = null, _mergeTesseraB = null;
+let _mergeA = null, _mergeB = null, _mergeTessereA = [], _mergeTessereB = [];
 let _mergeSelections = {};
 let _mergeRecord = 'a';
-let _mergeTessera = 'both'; // 'both' | 'a' | 'b'
 
 const MERGE_FIELDS = [
   { key:'nome',         label:'Nome' },
@@ -1694,12 +1715,11 @@ function openMergeModal(idA, idB) {
   _mergeA = allClienti.find(c => String(c.id) === String(idA));
   _mergeB = allClienti.find(c => String(c.id) === String(idB));
   if (!_mergeA || !_mergeB) return;
-  _mergeTesseraA = allTessere.find(t => String(t.cliente_id) === String(idA)) || null;
-  _mergeTesseraB = allTessere.find(t => String(t.cliente_id) === String(idB)) || null;
+  _mergeTessereA = allTessere.filter(t => String(t.cliente_id) === String(idA));
+  _mergeTessereB = allTessere.filter(t => String(t.cliente_id) === String(idB));
   _mergeSelections = {};
   MERGE_FIELDS.forEach(f => { _mergeSelections[f.key] = _mergeA[f.key] ? 'a' : 'b'; });
   _mergeRecord = 'a';
-  _mergeTessera = 'both';
   _renderMergeBody();
   document.getElementById('merge-modal').classList.add('open');
 }
@@ -1736,23 +1756,21 @@ function _renderMergeBody() {
     }
   });
 
+  const allMergeTessere = [..._mergeTessereA, ..._mergeTessereB];
   let tesseraSection = '';
-  if (_mergeTesseraA && _mergeTesseraB) {
-    const tOpts = [
-      { val:'both', label:'Mantieni entrambe',      sub:'' },
-      { val:'a',    label:`Solo N° ${esc(_mergeTesseraA.codice_tessera||'—')}`, sub: nA },
-      { val:'b',    label:`Solo N° ${esc(_mergeTesseraB.codice_tessera||'—')}`, sub: nB },
-    ];
-    tesseraSection = `
-      <div class="merge-section-title"><i class="fas fa-id-card" style="margin-right:4px"></i>Tessere</div>
-      <p style="font-size:12px;color:#64748b;margin-bottom:8px">Entrambi hanno una tessera — tienile tutte e due o solo una?</p>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px">
-        ${tOpts.map(o => `
-        <label class="mrec-opt${_mergeTessera===o.val?' selected':''}">
-          <input type="radio" name="merge-tessera" value="${o.val}" ${_mergeTessera===o.val?'checked':''} onchange="setMergeTessera('${o.val}')">
-          <div><div style="font-weight:800">${o.label}</div>${o.sub?`<div style="font-size:11px;color:#94a3b8">${o.sub}</div>`:''}</div>
-        </label>`).join('')}
+  if (allMergeTessere.length > 0) {
+    const rows = allMergeTessere.map(t => {
+      const owner = _mergeTessereA.find(x => x.id === t.id) ? nA : nB;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:13px">
+        <i class="fas fa-id-card" style="color:#7c3aed;width:14px;text-align:center"></i>
+        <span style="font-weight:700">N° ${esc(t.codice_tessera||'?')}</span>
+        <span style="font-size:11px;color:#94a3b8">${owner}${t.attiva===false?' · completa':''}</span>
       </div>`;
+    }).join('');
+    tesseraSection = `
+      <div class="merge-section-title" style="margin-top:14px"><i class="fas fa-id-card" style="margin-right:4px"></i>Tessere (${allMergeTessere.length})</div>
+      <p style="font-size:12px;color:#64748b;margin-bottom:8px">Tutte le tessere verranno mantenute sul record principale.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px">${rows}</div>`;
   }
 
   document.getElementById('merge-modal-body').innerHTML = `
@@ -1779,13 +1797,12 @@ function _renderMergeBody() {
   `;
 }
 
-function setMergeSel(field, side)  { _mergeSelections[field] = side; _renderMergeBody(); }
-function setMergeTessera(side)     { _mergeTessera = side;           _renderMergeBody(); }
-function setMergeRecord(side)      { _mergeRecord  = side;           _renderMergeBody(); }
+function setMergeSel(field, side) { _mergeSelections[field] = side; _renderMergeBody(); }
+function setMergeRecord(side)     { _mergeRecord  = side;           _renderMergeBody(); }
 
 function closeMergeModal() {
   document.getElementById('merge-modal').classList.remove('open');
-  _mergeA = null; _mergeB = null; _mergeTesseraA = null; _mergeTesseraB = null;
+  _mergeA = null; _mergeB = null; _mergeTessereA = []; _mergeTessereB = [];
   _mergeSelections = {};
 }
 
@@ -1808,28 +1825,10 @@ async function confirmMerge() {
     const { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
     if (updErr) throw updErr;
 
-    // Tessera handling
-    const hasBoth = !!(_mergeTesseraA && _mergeTesseraB);
-    if (hasBoth) {
-      if (_mergeTessera === 'both') {
-        // Reassign remove's tessera to keep — no deletion
-        const removeT = String(_mergeTesseraA.cliente_id) === String(remove.id) ? _mergeTesseraA : _mergeTesseraB;
-        await _sb.from('tessere').update({ cliente_id: keep.id }).eq('id', removeT.id);
-      } else {
-        const keepT    = _mergeTessera === 'a' ? _mergeTesseraA : _mergeTesseraB;
-        const discardT = _mergeTessera === 'a' ? _mergeTesseraB : _mergeTesseraA;
-        await _sb.from('tessere_sconti').delete().eq('tessera_id', discardT.id);
-        await _sb.from('tessere').delete().eq('id', discardT.id);
-        if (String(keepT.cliente_id) !== String(keep.id)) {
-          await _sb.from('tessere').update({ cliente_id: keep.id }).eq('id', keepT.id);
-        }
-      }
-    } else {
-      // Only one has a tessera: reassign it to keep if it belongs to remove
-      const singleT = _mergeTesseraA || _mergeTesseraB;
-      if (singleT && String(singleT.cliente_id) === String(remove.id)) {
-        await _sb.from('tessere').update({ cliente_id: keep.id }).eq('id', singleT.id);
-      }
+    // Riassegna tutte le tessere del cliente eliminato al record principale
+    const tessereToReassign = allTessere.filter(t => String(t.cliente_id) === String(remove.id));
+    for (const t of tessereToReassign) {
+      await _sb.from('tessere').update({ cliente_id: keep.id }).eq('id', t.id);
     }
 
     // Delete duplicate
