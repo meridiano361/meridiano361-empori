@@ -357,12 +357,16 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
   <!-- TAB DUPLICATI -->
   <div id="tab-duplicati" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Proposte di unione</div>
         <div style="font-size:12px;color:#64748b">Clienti con dati simili o identici che potrebbero essere la stessa persona</div>
       </div>
       <button class="btn btn-outline btn-sm" onclick="renderDuplicati()"><i class="fas fa-rotate"></i> Rianalizza</button>
+    </div>
+    <div class="search-wrap" style="margin-bottom:12px">
+      <i class="fas fa-search"></i>
+      <input type="text" id="dup-search" placeholder="Cerca per nome, cognome, telefono…" oninput="filterDuplicati()" autocomplete="off">
     </div>
     <div id="dup-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Analisi in corso…</div></div>
   </div>
@@ -1440,14 +1444,37 @@ function _dupColHtml(c, tessera, other) {
   </div>`;
 }
 
+let _dupPairsCache = null;
+
 function renderDuplicati() {
   const container = document.getElementById('dup-list');
   if (!container) return;
-  const dismissed = _getDismissed();
-  const pairs = _findDuplicates(allClienti).filter(p => !dismissed.has(p.key));
+  container.innerHTML = `<div class="empty"><i class="fas fa-spinner fa-spin"></i>Analisi in corso…</div>`;
+  // Defer heavy computation so the spinner renders first
+  setTimeout(() => {
+    const dismissed = _getDismissed();
+    _dupPairsCache = _findDuplicates(allClienti).filter(p => !dismissed.has(p.key));
+    const badge = document.getElementById('dup-badge');
+    if (badge) { badge.textContent = _dupPairsCache.length || ''; badge.style.display = _dupPairsCache.length > 0 ? 'inline-flex' : 'none'; }
+    _renderDupList(_dupPairsCache);
+  }, 30);
+}
 
-  const badge = document.getElementById('dup-badge');
-  if (badge) { badge.textContent = pairs.length || ''; badge.style.display = pairs.length > 0 ? 'inline-flex' : 'none'; }
+function filterDuplicati() {
+  if (!_dupPairsCache) return;
+  const q = (document.getElementById('dup-search')?.value || '').toLowerCase().trim();
+  if (!q) { _renderDupList(_dupPairsCache); return; }
+  const filtered = _dupPairsCache.filter(p => {
+    const text = [p.a.nome, p.a.cognome, p.a.telefono, p.b.nome, p.b.cognome, p.b.telefono]
+      .map(s => (s||'').toLowerCase()).join(' ');
+    return text.includes(q);
+  });
+  _renderDupList(filtered);
+}
+
+function _renderDupList(pairs) {
+  const container = document.getElementById('dup-list');
+  if (!container) return;
 
   if (pairs.length === 0) {
     container.innerHTML = `<div class="empty"><i class="fas fa-check-circle" style="color:#16a34a"></i>Nessun duplicato trovato</div>`;
@@ -1455,8 +1482,8 @@ function renderDuplicati() {
   }
 
   container.innerHTML = pairs.map(p => {
-    const tA = allTessere.find(t => t.cliente_id === p.a.id);
-    const tB = allTessere.find(t => t.cliente_id === p.b.id);
+    const tA = allTessere.find(t => String(t.cliente_id) === String(p.a.id));
+    const tB = allTessere.find(t => String(t.cliente_id) === String(p.b.id));
     const cardId = 'dup-' + p.key.replace('|','-');
     return `<div class="dup-card" id="${cardId}">
       <div class="dup-card-hdr">
@@ -1494,11 +1521,11 @@ function dismissDuplicate(key) {
 let _mergeA = null, _mergeB = null;
 
 function openMergeModal(idA, idB) {
-  _mergeA = allClienti.find(c => c.id === idA);
-  _mergeB = allClienti.find(c => c.id === idB);
+  _mergeA = allClienti.find(c => String(c.id) === String(idA));
+  _mergeB = allClienti.find(c => String(c.id) === String(idB));
   if (!_mergeA || !_mergeB) return;
-  const tA = allTessere.find(t => t.cliente_id === idA);
-  const tB = allTessere.find(t => t.cliente_id === idB);
+  const tA = allTessere.find(t => String(t.cliente_id) === String(idA));
+  const tB = allTessere.find(t => String(t.cliente_id) === String(idB));
 
   function optHtml(id, c, tessera, defaultChecked) {
     return `<label class="merge-option${defaultChecked?' selected':''}" id="merge-opt-${id}">
@@ -1508,7 +1535,7 @@ function openMergeModal(idA, idB) {
       ${c.telefono ? `<div class="merge-opt-row"><i class="fas fa-phone"></i>${esc(c.telefono)}</div>` : ''}
       ${c.email    ? `<div class="merge-opt-row"><i class="fas fa-envelope"></i>${esc(c.email)}</div>` : ''}
       ${c.emporio  ? `<div class="merge-opt-row"><i class="fas fa-store"></i>${esc(c.emporio)}</div>` : ''}
-      <div class="merge-opt-row muted" style="font-size:10px">ID …${c.id.slice(-6)}</div>
+      <div class="merge-opt-row muted" style="font-size:10px">ID …${String(c.id).slice(-6)}</div>
     </label>`;
   }
 
