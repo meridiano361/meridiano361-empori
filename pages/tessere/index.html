@@ -502,13 +502,13 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   <div class="small-modal-panel">
     <h3 id="msg-modal-title">Nuovo messaggio</h3>
     <div class="field-label" style="margin-bottom:4px">Tipo</div>
-    <select class="field-select" id="msg-tipo" style="margin-bottom:10px">
-      <option value="benvenuto">Benvenuto</option>
-      <option value="compleanno">Compleanno</option>
-      <option value="compleanno_ambassador">Compleanno Ambassador</option>
-      <option value="completamento">Sconto completamento</option>
-      <option value="altro">Altro</option>
-    </select>
+    <input class="field-input" id="msg-tipo" list="msg-tipo-list" placeholder="Es. benvenuto, compleanno, promo…" autocomplete="off" style="margin-bottom:10px">
+    <datalist id="msg-tipo-list">
+      <option value="benvenuto">
+      <option value="compleanno">
+      <option value="compleanno_ambassador">
+      <option value="altro">
+    </datalist>
     <div class="field-label" style="margin-bottom:4px">Titolo</div>
     <input class="field-input" id="msg-titolo" style="margin-bottom:10px" placeholder="Titolo template">
     <div class="field-label" style="margin-bottom:4px">Testo</div>
@@ -1104,10 +1104,9 @@ function renderAnalisi() {
 // ── Messaggi WA ───────────────────────────────────────────────────────────────
 function renderMsgList() {
   const el = document.getElementById('msg-list');
-  const tipoLab = {benvenuto:'Benvenuto',compleanno:'Compleanno',compleanno_ambassador:'Compleanno Ambassador',completamento:'Sconto completamento',altro:'Altro'};
   el.innerHTML = allMsgTemplates.map(m => `
     <div class="msg-card">
-      <div class="msg-tipo">${tipoLab[m.tipo]||m.tipo}</div>
+      <div class="msg-tipo">${esc(m.tipo||'')}</div>
       <div class="msg-titolo">${esc(m.titolo)}</div>
       <div class="msg-testo">${esc(m.testo)}</div>
       <div class="msg-actions">
@@ -1121,9 +1120,15 @@ function openMsgModal(id) {
   editingMsgId = id;
   const m = id ? allMsgTemplates.find(x => x.id === id) : null;
   document.getElementById('msg-modal-title').textContent = m ? 'Modifica messaggio' : 'Nuovo messaggio';
-  document.getElementById('msg-tipo').value = m?.tipo || 'benvenuto';
+  document.getElementById('msg-tipo').value = m?.tipo || '';
   document.getElementById('msg-titolo').value = m?.titolo || '';
   document.getElementById('msg-testo').value = m?.testo || '';
+  // Aggiorna datalist con i tipi già esistenti
+  const dl = document.getElementById('msg-tipo-list');
+  const existing = [...new Set(allMsgTemplates.map(t => t.tipo).filter(Boolean))];
+  const fixed = ['benvenuto','compleanno','compleanno_ambassador','altro'];
+  const all = [...new Set([...fixed, ...existing])];
+  dl.innerHTML = all.map(t => `<option value="${esc(t)}">`).join('');
   document.getElementById('msg-modal').classList.add('open');
 }
 function closeMsgModal() { document.getElementById('msg-modal').classList.remove('open'); }
@@ -1134,7 +1139,7 @@ async function saveMsg() {
     testo: document.getElementById('msg-testo').value.trim(),
     updated_at: new Date().toISOString(),
   };
-  if (!payload.titolo || !payload.testo) { showToast('Compila tutti i campi'); return; }
+  if (!payload.tipo || !payload.titolo || !payload.testo) { showToast('Compila tutti i campi'); return; }
   if (editingMsgId) {
     await _sb.from('tessere_messaggi').update(payload).eq('id', editingMsgId);
     const m = allMsgTemplates.find(x => x.id === editingMsgId);
