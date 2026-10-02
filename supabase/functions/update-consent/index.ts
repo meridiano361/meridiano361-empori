@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await db
       .from("clienti")
-      .select("id, nome, cognome, emporio, consenso_privacy, consenso_privacy_data")
+      .select("id, nome, cognome, data_nascita, citta, email, telefono, emporio, consenso_privacy, consenso_privacy_data")
       .eq("consent_token", token)
       .single();
 
@@ -32,6 +32,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       nome: data.nome,
       cognome: data.cognome,
+      data_nascita: data.data_nascita,
+      citta: data.citta,
+      email: data.email,
+      telefono: data.telefono,
       emporio: data.emporio,
       consenso_privacy: data.consenso_privacy,
       consenso_privacy_data: data.consenso_privacy_data,
