@@ -356,6 +356,10 @@ function getCurrentPageId(){ return 'calendario'; }
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:4px"><i class="fas fa-calendar-day" style="margin-right:4px"></i>Periodo</div>
         <div id="ev-detail-periodo-val" style="font-size:15px;font-weight:700;color:#1e293b"></div>
       </div>
+      <div id="ev-detail-ordini" style="display:none">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:4px"><i class="fas fa-truck" style="margin-right:4px"></i>Ordini a fornitore</div>
+        <div id="ev-detail-ordini-val" style="font-size:15px;font-weight:700;color:#1e293b"></div>
+      </div>
       <div id="ev-detail-meccanica" style="display:none">
         <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:4px"><i class="fas fa-cogs" style="margin-right:4px"></i>Meccanica</div>
         <div id="ev-detail-meccanica-val" style="font-size:13px;font-weight:600;color:#475569;line-height:1.5;background:#f8fafc;border-radius:8px;padding:10px 12px"></div>
@@ -432,12 +436,22 @@ function getCurrentPageId(){ return 'calendario'; }
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
-          <label class="form-label">Data inizio</label>
+          <label class="form-label">Data inizio campagna</label>
           <input type="date" id="f-data-ini" class="form-input">
         </div>
         <div>
-          <label class="form-label">Data fine</label>
+          <label class="form-label">Data fine campagna</label>
           <input type="date" id="f-data-fin" class="form-input">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label"><i class="fas fa-truck" style="margin-right:4px;color:#64748b"></i>Inizio ordini a fornitore</label>
+          <input type="date" id="f-data-ordini-ini" class="form-input">
+        </div>
+        <div>
+          <label class="form-label"><i class="fas fa-truck" style="margin-right:4px;color:#64748b"></i>Fine ordini a fornitore</label>
+          <input type="date" id="f-data-ordini-fin" class="form-input">
         </div>
       </div>
       <div>
@@ -1205,6 +1219,10 @@ function openDetail(evId){
   const periodoVal = document.getElementById('ev-detail-periodo-val');
   if(di){ periodoEl.style.display='block'; periodoVal.textContent=(df&&df!==di)?`${di} → ${df}`:di; }
   else { periodoEl.style.display='none'; }
+  const doi = fmtDate(ev.data_inizio_ordini), dof = fmtDate(ev.data_fine_ordini);
+  const ordEl = document.getElementById('ev-detail-ordini');
+  if(doi){ ordEl.style.display='block'; document.getElementById('ev-detail-ordini-val').textContent=(dof&&dof!==doi)?`${doi} → ${dof}`:doi; }
+  else { ordEl.style.display='none'; }
   const mecEl = document.getElementById('ev-detail-meccanica');
   if(ev.meccanica){ mecEl.style.display='block'; document.getElementById('ev-detail-meccanica-val').textContent=ev.meccanica; }
   else { mecEl.style.display='none'; }
@@ -1231,8 +1249,10 @@ function openForm(evId){
   document.getElementById('f-settore').value   = ev?.settore||'G';
   document.getElementById('f-tipologia').value = ev?.tipologia||'';
   document.getElementById('f-meccanica').value = ev?.meccanica||'';
-  document.getElementById('f-data-ini').value  = ev?.data_inizio||'';
-  document.getElementById('f-data-fin').value  = ev?.data_fine||'';
+  document.getElementById('f-data-ini').value        = ev?.data_inizio||'';
+  document.getElementById('f-data-fin').value        = ev?.data_fine||'';
+  document.getElementById('f-data-ordini-ini').value = ev?.data_inizio_ordini||'';
+  document.getElementById('f-data-ordini-fin').value = ev?.data_fine_ordini||'';
   _pendingInfoFile = null;
   const savedUrl = ev?.link_info||'';
   if(savedUrl){
@@ -1335,8 +1355,10 @@ async function saveEvento(){
     settore:         document.getElementById('f-settore').value,
     tipologia:       document.getElementById('f-tipologia').value||null,
     meccanica:       document.getElementById('f-meccanica').value.trim()||null,
-    data_inizio:     document.getElementById('f-data-ini').value||null,
-    data_fine:       document.getElementById('f-data-fin').value||null,
+    data_inizio:          document.getElementById('f-data-ini').value||null,
+    data_fine:            document.getElementById('f-data-fin').value||null,
+    data_inizio_ordini:   document.getElementById('f-data-ordini-ini').value||null,
+    data_fine_ordini:     document.getElementById('f-data-ordini-fin').value||null,
     link_info:       infoUrl||null,
     link_materiali:  matUrl||null,
     link_esterno:    document.getElementById('f-link-esterno').value.trim()||null,

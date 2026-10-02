@@ -108,7 +108,10 @@ async function sendPush(
   return { sent, failed };
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  const soloOrdini = body.solo_ordini === true;
+
   const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")  ?? "";
   const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
   const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
@@ -141,6 +144,47 @@ Deno.serve(async () => {
       ?.destinatari?.includes(gruppo) ?? false;
 
   if (VAPID_PUB && VAPID_PRIV) webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
+
+  // ── 0. Ordini a fornitore che iniziano domani → push a responsabile acquisti ──
+  if (VAPID_PUB && VAPID_PRIV) {
+    const { data: campagneOrdini } = await db
+      .from("campagne_commerciali")
+      .select("id, titolo, tipologia, data_inizio_ordini, pdv_data")
+      .eq("data_inizio_ordini", tomorrowStr);
+
+    for (const c of campagneOrdini ?? []) {
+      const { data: respAcquisti } = await db
+        .from("operatori")
+        .select("id")
+        .eq("is_resp_acquisti", true)
+        .eq("attivo", true);
+
+      const respIds = (respAcquisti ?? []).map((r: { id: string }) => r.id);
+      if (!respIds.length) { log.push(`[ordini] no resp_acquisti`); continue; }
+
+      const { data: subs } = await db
+        .from("push_subscriptions")
+        .select("endpoint, subscription")
+        .in("operatore_id", respIds);
+      if (!subs?.length) { log.push(`[ordini] no subs for resp_acquisti`); continue; }
+
+      const payload = JSON.stringify({
+        title: `Ordini fornitore domani`,
+        body:  `Campagna "${c.titolo}"${c.tipologia ? " ("+c.tipologia+")" : ""}: inizio ordini domani.`,
+        url:   "/pages/calendario/index.html",
+      });
+      const r = await sendPush(db, subs, payload, { urgency: "high", TTL: 86400 }, log);
+      push_sent += r.sent; push_failed += r.failed;
+      log.push(`[ordini] ${c.titolo}: ${r.sent} push`);
+    }
+  }
+
+  if (soloOrdini) {
+    return new Response(
+      JSON.stringify({ push_sent, push_failed, email_sent, log }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   // ── 1. Campagne che iniziano domani → push a tutti gli operatori ─────────────
   if (isActive("campagna_push_1g")) {
