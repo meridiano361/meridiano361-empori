@@ -57,7 +57,11 @@ Deno.serve(async (req) => {
 
     const { error: updErr } = await db
       .from("clienti")
-      .update({ consenso_privacy: true, consenso_privacy_data: new Date().toISOString() })
+      .update({
+        consenso_privacy: true,
+        consenso_privacy_modalita: "online",
+        consenso_privacy_data: new Date().toISOString(),
+      })
       .eq("consent_token", token);
 
     if (updErr) return new Response(JSON.stringify({ error: "Errore aggiornamento" }), { status: 500, headers: CORS });

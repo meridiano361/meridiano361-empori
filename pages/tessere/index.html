@@ -149,6 +149,12 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 /* ── WA buttons ── */
 .wa-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:#25d366;color:#fff;font-size:12px;font-weight:700;text-decoration:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif;transition:background .12s}
 .wa-btn:hover{background:#1ebe5c}
+.consent-toggle{display:flex;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px;user-select:none}
+.ct-opt{flex:1;padding:9px 10px;font-size:12px;font-weight:700;text-align:center;color:#94a3b8;background:#f8fafc;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;border-right:1.5px solid #e2e8f0;transition:all .15s}
+.ct-opt:last-child{border-right:none}
+.ct-opt:hover:not(.ct-active-offline):not(.ct-active-online){background:#f1f5f9;color:#64748b}
+.ct-active-offline{background:#16a34a!important;color:#fff!important}
+.ct-active-online{background:#0ea5e9!important;color:#fff!important}
 
 /* ── Storico ── */
 .sconto-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
@@ -478,7 +484,15 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <!-- Privacy consenso -->
     <div class="panel-sec" id="privacy-section" style="display:none">
       <div class="panel-sec-title"><i class="fas fa-shield-halved"></i> Privacy &amp; Consenso news</div>
-      <div id="privacy-status" style="margin-bottom:10px"></div>
+      <div class="consent-toggle">
+        <div class="ct-opt" id="ct-offline" onclick="setConsentModalita('offline')">
+          <i class="fas fa-file-signature"></i> Cartaceo
+        </div>
+        <div class="ct-opt" id="ct-online" onclick="setConsentModalita('online')">
+          <i class="fas fa-link"></i> Online
+        </div>
+      </div>
+      <div id="consent-date" style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:8px;display:none"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="copyConsentLink()"><i class="fas fa-copy"></i> Copia link</button>
         <button class="btn btn-sm" id="btn-wa-consent" style="background:#25d366;color:#fff;border:none;display:none" onclick="sendConsentWa()"><i class="fab fa-whatsapp"></i> Invia via WA</button>
@@ -544,6 +558,8 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 let _sb, _user;
 let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
 let _editingConsentToken = null;
+let _consentModalita = 'offline'; // 'offline' | 'online'
+let _consentActive = false;       // true se il consenso è stato registrato
 let filteredList = [];
 let activeTab = 'clienti';
 let filterTipo = 'tutti', filterEmporio = 'tutti';
@@ -912,6 +928,8 @@ function openClienteModal(clienteId) {
     document.getElementById('privacy-section').style.display = 'none';
     document.getElementById('btn-elimina').style.display = 'none';
     _editingConsentToken = null;
+    _consentActive = false;
+    _consentModalita = 'offline';
     document.getElementById('btn-salva-altro').style.display = '';
     document.getElementById('btn-nuova-tessera').style.display = 'none';
     document.getElementById('tessere-storico-section').style.display = 'none';
@@ -980,18 +998,41 @@ const CONSENT_BASE = 'https://meridiano361-empori.vercel.app/pages/consenso/';
 
 function renderPrivacySection(c) {
   document.getElementById('privacy-section').style.display = '';
-  const consented = c.consenso_privacy;
-  const dataStr = c.consenso_privacy_data
-    ? new Date(c.consenso_privacy_data).toLocaleDateString('it-IT', {day:'numeric',month:'long',year:'numeric'})
-    : '';
-  const statusEl = document.getElementById('privacy-status');
-  if (consented) {
-    statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:10px 12px;color:#16a34a;font-size:13px;font-weight:700"><i class="fas fa-circle-check" style="font-size:16px"></i><div>Consenso registrato${dataStr ? `<br><span style="font-size:11px;font-weight:600;color:#64748b">${dataStr}</span>` : ''}</div></div>`;
-  } else {
-    statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:10px 12px;color:#ea580c;font-size:13px;font-weight:700"><i class="fas fa-circle-exclamation" style="font-size:16px"></i>Consenso non ancora firmato</div>`;
-  }
+  _consentActive   = !!c.consenso_privacy;
+  _consentModalita = c.consenso_privacy_modalita || 'offline';
+  _updateConsentToggle(c.consenso_privacy_data);
   const phone = (c.telefono || '').replace(/[^\d]/g,'');
   document.getElementById('btn-wa-consent').style.display = phone ? '' : 'none';
+}
+
+function _updateConsentToggle(dataIso) {
+  const offlineEl = document.getElementById('ct-offline');
+  const onlineEl  = document.getElementById('ct-online');
+  const dateEl    = document.getElementById('consent-date');
+  if (!offlineEl || !onlineEl) return;
+  offlineEl.className = 'ct-opt' + (_consentActive && _consentModalita === 'offline' ? ' ct-active-offline' : '');
+  onlineEl.className  = 'ct-opt' + (_consentActive && _consentModalita === 'online'  ? ' ct-active-online'  : '');
+  if (_consentActive && dataIso) {
+    const d = new Date(dataIso).toLocaleDateString('it-IT', {day:'numeric',month:'long',year:'numeric'});
+    dateEl.textContent = `Firmato il ${d}`;
+    dateEl.style.display = '';
+  } else if (_consentActive) {
+    dateEl.textContent = 'Consenso registrato';
+    dateEl.style.display = '';
+  } else {
+    dateEl.textContent = 'Clicca per registrare il consenso cartaceo';
+    dateEl.style.display = '';
+    dateEl.style.color = '#94a3b8';
+  }
+}
+
+function setConsentModalita(m) {
+  _consentModalita = m;
+  _consentActive   = true;
+  _updateConsentToggle(null);
+  // Aggiorna il dato in memoria per mostrare la data dopo il salvataggio
+  const dateEl = document.getElementById('consent-date');
+  if (dateEl) { dateEl.textContent = 'Consenso registrato — salva per confermare'; dateEl.style.color = '#64748b'; }
 }
 
 function _consentUrl() {
@@ -1031,6 +1072,8 @@ async function saveCliente(closeAfter = true) {
     provincia:  document.getElementById('f-provincia').value.trim() || null,
     wa:         document.getElementById('f-ha-wa').checked,
     emporio:    document.getElementById('f-emporio').value,
+    consenso_privacy_modalita: _consentModalita,
+    ...(_consentActive ? { consenso_privacy: true } : {}),
   };
   const tesseraPayload = {
     tipo:                        document.getElementById('f-tipo').value,
