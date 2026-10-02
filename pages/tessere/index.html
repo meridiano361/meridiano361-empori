@@ -233,6 +233,19 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .dup-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:10px;font-weight:900;border-radius:20px;padding:1px 6px;margin-left:4px;min-width:18px;line-height:1.6}
 @media(max-width:600px){.dup-pair{grid-template-columns:1fr}.dup-vs{display:none}}
 
+/* ── Consensi ── */
+.cons-table{width:100%;border-collapse:collapse;font-size:13px}
+.cons-table th{font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;text-align:left;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;white-space:nowrap}
+.cons-table td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#1e293b}
+.cons-table tr:last-child td{border-bottom:none}
+.cons-table tr:hover td{background:#f8fafc;cursor:pointer}
+.cons-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.cons-badge.online{background:#e0f2fe;color:#0369a1}
+.cons-badge.offline{background:#f0fdf4;color:#15803d}
+.cons-badge.nessuno{background:#f1f5f9;color:#94a3b8}
+.cons-stat-pill{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;text-align:center;font-size:12px;white-space:nowrap}
+.cons-stat-pill strong{display:block;font-size:18px;font-weight:900;line-height:1.1}
+
 /* ── Merge modal ── */
 .merge-modal-panel{background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
 .merge-modal-hdr{padding:16px 20px;border-bottom:1px solid #f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
@@ -263,6 +276,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <button class="tab-btn active" data-tab="clienti" onclick="showTab('clienti')">Clienti</button>
       <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
       <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
+      <button class="tab-btn" data-tab="consensi" onclick="showTab('consensi')">Consensi</button>
       <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
     </div>
     <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo cliente</button>
@@ -371,6 +385,37 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   <div id="tab-messaggi" style="display:none">
     <button class="btn btn-red btn-sm" style="margin-bottom:14px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
     <div id="msg-list"></div>
+  </div>
+
+  <!-- TAB CONSENSI -->
+  <div id="tab-consensi" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Registro consensi privacy</div>
+        <div style="font-size:12px;color:#64748b">Tutti i consensi raccolti, cartacei e online</div>
+      </div>
+      <div id="consensi-stats" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <div class="search-wrap" style="flex:1;min-width:160px">
+        <i class="fas fa-search"></i>
+        <input type="text" id="consensi-search" placeholder="Cerca nome, cognome…" oninput="filterConsensi()" autocomplete="off">
+      </div>
+      <div class="chip-group" id="cons-mod-chips">
+        <div class="chip active" onclick="setConsMod('tutti')">Tutti</div>
+        <div class="chip" onclick="setConsMod('online')"><i class="fas fa-link" style="font-size:10px;margin-right:3px"></i>Online</div>
+        <div class="chip" onclick="setConsMod('offline')"><i class="fas fa-file-signature" style="font-size:10px;margin-right:3px"></i>Cartaceo</div>
+        <div class="chip" onclick="setConsMod('nessuno')"><i class="fas fa-circle-xmark" style="font-size:10px;margin-right:3px"></i>Non raccolto</div>
+      </div>
+      <div class="chip-group" id="cons-emp-chips">
+        <div class="chip active" onclick="setConsEmporio('tutti')">Tutti</div>
+        <div class="chip" onclick="setConsEmporio('cremona')">Cremona</div>
+        <div class="chip" onclick="setConsEmporio('casalmaggiore')">Casalmaggiore</div>
+        <div class="chip" onclick="setConsEmporio('viadana')">Viadana</div>
+        <div class="chip" onclick="setConsEmporio('reggio emilia')">Reggio E.</div>
+      </div>
+    </div>
+    <div id="consensi-list"></div>
   </div>
 
   <!-- TAB DUPLICATI -->
@@ -508,6 +553,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="copyConsentLink()"><i class="fas fa-copy"></i> Copia link</button>
         <button class="btn btn-sm" id="btn-wa-consent" style="background:#25d366;color:#fff;border:none;display:none" onclick="sendConsentWa()"><i class="fab fa-whatsapp"></i> Invia via WA</button>
+        <button class="btn btn-outline btn-sm" id="btn-revoca-consent" style="display:none;color:#ef4444;border-color:#fca5a5" onclick="revocaConsenso()"><i class="fas fa-ban"></i> Revoca</button>
       </div>
     </div>
 
@@ -632,12 +678,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCliente
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
   activeTab = tab;
-  ['clienti','analisi','messaggi','duplicati'].forEach(t => {
+  ['clienti','analisi','messaggi','consensi','duplicati'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
   document.getElementById('fab-new').style.display = tab === 'clienti' ? '' : 'none';
   if (tab === 'duplicati') renderDuplicati();
+  if (tab === 'consensi') renderConsensi();
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -1061,6 +1108,8 @@ function _updateConsentToggle(dataIso) {
   if (!offlineEl || !onlineEl) return;
   offlineEl.className = 'ct-opt' + (_consentActive && _consentModalita === 'offline' ? ' ct-active-offline' : '');
   onlineEl.className  = 'ct-opt' + (_consentActive && _consentModalita === 'online'  ? ' ct-active-online'  : '');
+  const revocaBtn = document.getElementById('btn-revoca-consent');
+  if (revocaBtn) revocaBtn.style.display = _consentActive ? '' : 'none';
   if (_consentActive && dataIso) {
     const d = new Date(dataIso).toLocaleDateString('it-IT', {day:'numeric',month:'long',year:'numeric'});
     dateEl.textContent = `Firmato il ${d}`;
@@ -1082,6 +1131,23 @@ function setConsentModalita(m) {
   // Aggiorna il dato in memoria per mostrare la data dopo il salvataggio
   const dateEl = document.getElementById('consent-date');
   if (dateEl) { dateEl.textContent = 'Consenso registrato — salva per confermare'; dateEl.style.color = '#64748b'; }
+}
+
+async function revocaConsenso() {
+  if (!editingClienteId) return;
+  if (!confirm('Revocare il consenso privacy per questo cliente? Il dato verrà azzerato.')) return;
+  const { error } = await _sb.from('clienti').update({
+    consenso_privacy: false,
+    consenso_privacy_data: null,
+    consenso_privacy_modalita: 'offline',
+  }).eq('id', editingClienteId);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  _consentActive = false;
+  _consentModalita = 'offline';
+  const c = allClienti.find(x => String(x.id) === String(editingClienteId));
+  if (c) { c.consenso_privacy = false; c.consenso_privacy_data = null; c.consenso_privacy_modalita = 'offline'; }
+  _updateConsentToggle(null);
+  showToast('Consenso revocato');
 }
 
 function _consentUrl() {
@@ -1140,10 +1206,17 @@ async function saveCliente(closeAfter = true) {
   if (editingClienteId) {
     const {error:e1} = await _sb.from('clienti').update(clientePayload).eq('id', editingClienteId);
     if (e1) { showToast('Errore: ' + e1.message); return; }
-    const {error:e2} = await _sb.from('tessere').update(tesseraPayload).eq('id', editingTesseraId);
-    if (e2) { showToast('Errore: ' + e2.message); return; }
-    Object.assign(allClienti.find(c => String(c.id) === String(editingClienteId)) || {}, {...clientePayload, id:editingClienteId});
-    Object.assign(allTessere.find(t => t.id === editingTesseraId) || {}, {...tesseraPayload, id:editingTesseraId});
+    if (editingTesseraId) {
+      const {error:e2} = await _sb.from('tessere').update(tesseraPayload).eq('id', editingTesseraId);
+      if (e2) { showToast('Errore: ' + e2.message); return; }
+    }
+    // Re-fetch dal DB per garantire dati freschi in lista
+    const [{data:fc}, {data:ft}] = await Promise.all([
+      _sb.from('clienti').select('*').eq('id', editingClienteId).single(),
+      _sb.from('tessere').select('*').eq('cliente_id', editingClienteId),
+    ]);
+    if (fc) { const i = allClienti.findIndex(c => String(c.id) === String(editingClienteId)); if (i >= 0) allClienti[i] = fc; }
+    if (ft) { allTessere = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId)); allTessere.push(...ft); }
     showToast('Cliente aggiornato ✓');
   } else {
     const {data:nc, error:e1} = await _sb.from('clienti').insert(clientePayload).select().single();
@@ -1500,6 +1573,109 @@ async function nuovaTessera() {
 }
 
 init();
+
+// ── CONSENSI ──────────────────────────────────────────────────────────────
+let _consModFilter = 'tutti';
+let _consEmpFilter = 'tutti';
+
+function setConsMod(v) {
+  _consModFilter = v;
+  document.querySelectorAll('#cons-mod-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  renderConsensi();
+}
+function setConsEmporio(v) {
+  _consEmpFilter = v;
+  document.querySelectorAll('#cons-emp-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  renderConsensi();
+}
+function filterConsensi() { renderConsensi(); }
+
+function renderConsensi() {
+  const q = (document.getElementById('consensi-search')?.value || '').toLowerCase().trim();
+  const tessereMap = _buildTessereMap();
+
+  // Build rows: one per client with tessera
+  let rows = allClienti
+    .filter(c => tessereMap.has(c.id))
+    .map(c => {
+      const t = tessereMap.get(c.id);
+      return { c, emporio: t?.emporio || '' };
+    });
+
+  // Filter emporio
+  if (_consEmpFilter !== 'tutti') rows = rows.filter(r => r.emporio === _consEmpFilter);
+
+  // Filter modalità
+  if (_consModFilter !== 'tutti') {
+    rows = rows.filter(r => {
+      const mod = r.c.consenso_privacy ? (r.c.consenso_privacy_modalita || 'offline') : 'nessuno';
+      return mod === _consModFilter;
+    });
+  }
+
+  // Filter search
+  if (q) rows = rows.filter(r => ((r.c.nome||'')+' '+(r.c.cognome||'')).toLowerCase().includes(q));
+
+  // Sort: consenso sì → data desc, poi no consenso
+  rows.sort((a, b) => {
+    if (a.c.consenso_privacy && !b.c.consenso_privacy) return -1;
+    if (!a.c.consenso_privacy && b.c.consenso_privacy) return 1;
+    const dA = a.c.consenso_privacy_data || '';
+    const dB = b.c.consenso_privacy_data || '';
+    return dB.localeCompare(dA);
+  });
+
+  // Stats
+  const tot = allClienti.filter(c => tessereMap.has(c.id)).length;
+  const conOnline  = allClienti.filter(c => c.consenso_privacy && c.consenso_privacy_modalita === 'online').length;
+  const conOffline = allClienti.filter(c => c.consenso_privacy && (c.consenso_privacy_modalita === 'offline' || !c.consenso_privacy_modalita)).length;
+  const nessuno    = tot - conOnline - conOffline;
+  document.getElementById('consensi-stats').innerHTML = `
+    <div class="cons-stat-pill"><strong>${conOnline + conOffline}</strong>Con consenso</div>
+    <div class="cons-stat-pill" style="border-color:#bae6fd"><strong style="color:#0369a1">${conOnline}</strong>Online</div>
+    <div class="cons-stat-pill" style="border-color:#86efac"><strong style="color:#15803d">${conOffline}</strong>Cartaceo</div>
+    <div class="cons-stat-pill"><strong style="color:#94a3b8">${nessuno}</strong>Non raccolto</div>
+  `;
+
+  const container = document.getElementById('consensi-list');
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty"><i class="fas fa-shield-halved"></i>Nessun risultato</div>`;
+    return;
+  }
+
+  const tableRows = rows.map(({ c }) => {
+    const hasCons = !!c.consenso_privacy;
+    const mod = hasCons ? (c.consenso_privacy_modalita || 'offline') : 'nessuno';
+    const badgeLabel = { online:'Online', offline:'Cartaceo', nessuno:'Non raccolto' }[mod];
+    const badgeIcon  = { online:'fa-link', offline:'fa-file-signature', nessuno:'fa-circle-xmark' }[mod];
+    const dataStr = c.consenso_privacy_data
+      ? (() => { const p = c.consenso_privacy_data.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; })()
+      : '—';
+    return `<tr onclick="openClienteModal('${c.id}')">
+      <td style="font-weight:700">${esc((c.cognome||'')+' '+(c.nome||'')).trim()}</td>
+      <td><span class="cons-badge ${mod}"><i class="fas ${badgeIcon}"></i>${badgeLabel}</span></td>
+      <td style="color:#64748b">${dataStr}</td>
+      <td style="color:#94a3b8;font-size:12px">${esc(c.emporio||'—')}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+      <table class="cons-table">
+        <thead><tr>
+          <th>Cliente</th>
+          <th>Modalità</th>
+          <th>Data</th>
+          <th>Emporio</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:12px;color:#94a3b8;text-align:right;margin-top:6px">${rows.length} clienti</div>
+  `;
+}
 
 // ── DUPLICATI ─────────────────────────────────────────────────────────────
 const _DUP_KEY = 'm361_dup_dismissed';
