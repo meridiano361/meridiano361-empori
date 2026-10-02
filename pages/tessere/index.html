@@ -480,15 +480,32 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
   <!-- TAB TESSERE -->
   <div id="tab-tessere" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Tutte le tessere fedeltà</div>
-        <div style="font-size:12px;color:#64748b">Ordinate per numero tessera — dal 2019 ad oggi</div>
+        <div style="font-size:12px;color:#64748b">dal 2019 ad oggi</div>
       </div>
       <div id="tess-count" style="font-size:12px;color:#94a3b8"></div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-      <span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Anno</span>
+    <!-- Cerca -->
+    <div style="margin-bottom:10px">
+      <input type="text" id="tess-search" placeholder="Cerca N° tessera, cognome, nome, città…" oninput="renderTessereTab()"
+        style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;outline:none">
+    </div>
+    <!-- Emporio chips -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
+      <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Emporio</span>
+      <div class="chip-group" id="tess-emp-chips">
+        <div class="chip active" onclick="setTessereEmporio('tutti')">Tutti</div>
+        <div class="chip" onclick="setTessereEmporio('cremona')">Cremona</div>
+        <div class="chip" onclick="setTessereEmporio('casalmaggiore')">Casalmaggiore</div>
+        <div class="chip" onclick="setTessereEmporio('viadana')">Viadana</div>
+        <div class="chip" onclick="setTessereEmporio('reggio emilia')">Reggio E.</div>
+      </div>
+    </div>
+    <!-- Anno chips -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
+      <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Anno</span>
       <div class="chip-group" id="tess-anno-chips">
         <div class="chip active" onclick="setTessereAnno('tutti')">Tutti</div>
         <div class="chip" onclick="setTessereAnno('2019')">2019</div>
@@ -499,12 +516,35 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div class="chip" onclick="setTessereAnno('2024')">2024</div>
         <div class="chip" onclick="setTessereAnno('2025')">2025</div>
       </div>
-      <div class="chip-group" id="tess-emp-chips">
-        <div class="chip active" onclick="setTessereEmporio('tutti')">Tutti</div>
-        <div class="chip" onclick="setTessereEmporio('cremona')">Cremona</div>
-        <div class="chip" onclick="setTessereEmporio('casalmaggiore')">Casalmaggiore</div>
-        <div class="chip" onclick="setTessereEmporio('viadana')">Viadana</div>
-        <div class="chip" onclick="setTessereEmporio('reggio emilia')">Reggio E.</div>
+    </div>
+    <!-- Tipo + Stato chips -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Tipo</span>
+        <div class="chip-group" id="tess-tipo-chips">
+          <div class="chip active" onclick="setTessereTipo('tutti')">Tutti</div>
+          <div class="chip" onclick="setTessereTipo('standard')">Standard</div>
+          <div class="chip" onclick="setTessereTipo('ambassador')">Ambassador</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Stato</span>
+        <div class="chip-group" id="tess-stato-chips">
+          <div class="chip active" onclick="setTessereStato('tutti')">Tutti</div>
+          <div class="chip" onclick="setTessereStato('attiva')">Attive</div>
+          <div class="chip" onclick="setTessereStato('completa')">Complete</div>
+          <div class="chip" onclick="setTessereStato('archiviata')">Archiviate</div>
+        </div>
+      </div>
+    </div>
+    <!-- Ordina buttons -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+      <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Ordina</span>
+      <div class="chip-group" id="tess-sort-chips">
+        <div class="chip active" onclick="setTessereSort('numero')">N° Tessera</div>
+        <div class="chip" onclick="setTessereSort('cognome')">Cognome</div>
+        <div class="chip" onclick="setTessereSort('citta')">Città</div>
+        <div class="chip" onclick="setTessereSort('data')">Data</div>
       </div>
     </div>
     <div id="tess-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Caricamento…</div></div>
@@ -1812,33 +1852,84 @@ function renderAnalisiEta() {
 }
 
 // ── Tab Tessere ────────────────────────────────────────────────────────────────
-let _tessereAnno = 'tutti';
+let _tessereAnno    = 'tutti';
 let _tessereEmpFilt = 'tutti';
+let _tessereTipo    = 'tutti';
+let _tessereStato   = 'tutti';
+let _tessereSort    = 'numero';
 
-function setTessereAnno(v) {
-  _tessereAnno = v;
-  document.querySelectorAll('#tess-anno-chips .chip').forEach(c => c.classList.remove('active'));
+function _setChip(groupId, value, fn) {
+  fn(value);
+  document.querySelectorAll(`#${groupId} .chip`).forEach(c => c.classList.remove('active'));
   event.target.classList.add('active');
   renderTessereTab();
 }
-function setTessereEmporio(v) {
-  _tessereEmpFilt = v;
-  document.querySelectorAll('#tess-emp-chips .chip').forEach(c => c.classList.remove('active'));
-  event.target.classList.add('active');
-  renderTessereTab();
-}
+function setTessereAnno(v)    { _setChip('tess-anno-chips',  v, x => _tessereAnno    = x); }
+function setTessereEmporio(v) { _setChip('tess-emp-chips',   v, x => _tessereEmpFilt = x); }
+function setTessereTipo(v)    { _setChip('tess-tipo-chips',  v, x => _tessereTipo    = x); }
+function setTessereStato(v)   { _setChip('tess-stato-chips', v, x => _tessereStato   = x); }
+function setTessereSort(v)    { _setChip('tess-sort-chips',  v, x => _tessereSort    = x); }
 
 function renderTessereTab() {
   const container = document.getElementById('tess-list');
   if (!container) return;
+  const q = (document.getElementById('tess-search')?.value || '').trim().toLowerCase();
+
   let tessere = [...allTessere];
-  if (_tessereAnno !== 'tutti') tessere = tessere.filter(t => (t.data_emissione||'').startsWith(_tessereAnno));
-  if (_tessereEmpFilt !== 'tutti') tessere = tessere.filter(t => t.emporio === _tessereEmpFilt);
+
+  // Filters
+  if (_tessereAnno !== 'tutti')
+    tessere = tessere.filter(t => (t.data_emissione||'').startsWith(_tessereAnno));
+  if (_tessereEmpFilt !== 'tutti')
+    tessere = tessere.filter(t => t.emporio === _tessereEmpFilt);
+  if (_tessereTipo !== 'tutti')
+    tessere = tessere.filter(t => (t.tipo||'standard') === _tessereTipo);
+  if (_tessereStato !== 'tutti') {
+    tessere = tessere.filter(t => {
+      const isCompl  = (t.timbri_attuali||0) >= TIMBRI_MAX;
+      const isAttiva = t.attiva !== false;
+      if (_tessereStato === 'attiva')    return isAttiva && !isCompl;
+      if (_tessereStato === 'completa')  return isCompl;
+      if (_tessereStato === 'archiviata') return !isAttiva && !isCompl;
+      return true;
+    });
+  }
+  if (q) {
+    tessere = tessere.filter(t => {
+      if ((t.codice_tessera||'').toLowerCase().includes(q)) return true;
+      const c = allClienti.find(x => String(x.id) === String(t.cliente_id));
+      if (!c) return false;
+      return (c.cognome||'').toLowerCase().includes(q) ||
+             (c.nome||'').toLowerCase().includes(q) ||
+             (c.citta||'').toLowerCase().includes(q);
+    });
+  }
+
+  // Sort
   tessere.sort((a, b) => {
-    const na = parseInt(a.codice_tessera||'0', 10) || 0;
-    const nb = parseInt(b.codice_tessera||'0', 10) || 0;
-    return na - nb;
+    if (_tessereSort === 'numero') {
+      const na = parseInt(a.codice_tessera||'0', 10) || 0;
+      const nb = parseInt(b.codice_tessera||'0', 10) || 0;
+      return na - nb;
+    }
+    const ca = allClienti.find(x => String(x.id) === String(a.cliente_id));
+    const cb = allClienti.find(x => String(x.id) === String(b.cliente_id));
+    if (_tessereSort === 'cognome') {
+      const sa = `${(ca?.cognome||'')} ${(ca?.nome||'')}`.toLowerCase();
+      const sb = `${(cb?.cognome||'')} ${(cb?.nome||'')}`.toLowerCase();
+      return sa.localeCompare(sb, 'it');
+    }
+    if (_tessereSort === 'citta') {
+      const sa = (ca?.citta||'').toLowerCase();
+      const sb = (cb?.citta||'').toLowerCase();
+      return sa.localeCompare(sb, 'it');
+    }
+    if (_tessereSort === 'data') {
+      return (a.data_emissione||'').localeCompare(b.data_emissione||'');
+    }
+    return 0;
   });
+
   const countEl = document.getElementById('tess-count');
   if (countEl) countEl.textContent = tessere.length + ' tessere';
   if (!tessere.length) {
@@ -2358,7 +2449,6 @@ function _renderMergeBody() {
       const owner = _mergeTessereA.find(x => x.id === t.id) ? nA : nB;
       const isCompl = (t.timbri_attuali||0) >= TIMBRI_MAX;
       const isAttiva = _mergeTessereAttiva.has(t.id);
-      const waIcon = t.ha_whatsapp ? '<i class="fab fa-whatsapp" style="color:#25d366"></i>' : '<span style="color:#cbd5e1">—</span>';
       const statoCell = isCompl
         ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#f1f5f9;color:#94a3b8;font-weight:700">Completa</span>'
         : `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;font-weight:700;color:${isAttiva?'#7c3aed':'#94a3b8'}">
@@ -2369,9 +2459,6 @@ function _renderMergeBody() {
         <td style="font-weight:700;color:#334155">${esc(capEmporio(t.emporio||''))}</td>
         <td style="font-weight:800;color:var(--amb)">${esc(t.codice_tessera||'—')}</td>
         <td style="color:#64748b">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
-        <td style="color:#64748b;text-align:center">${t.timbri_attuali||0}/${TIMBRI_MAX}</td>
-        <td style="text-align:center">${waIcon}</td>
-        <td style="color:#64748b;font-size:11px">${esc(owner)}</td>
         <td style="text-align:center">${statoCell}</td>
       </tr>`;
     }).join('');
@@ -2384,9 +2471,6 @@ function _renderMergeBody() {
             <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">Emporio</th>
             <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">N°</th>
             <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">Emissione</th>
-            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:center">Timbri</th>
-            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:center">WA</th>
-            <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:left">Da</th>
             <th style="padding:6px 10px;font-size:10px;color:#94a3b8;font-weight:800;text-align:center">Stato</th>
           </tr></thead>
           <tbody>${tessRows}</tbody>
