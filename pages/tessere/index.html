@@ -764,6 +764,17 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 // ── State ───────────────────────────────────────────────────────────────────
 let _sb, _user;
 let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
+// ── Lookup-map cache ──────────────────────────────────────────────────────────
+let _tessereMapCache = null;
+let _tessereCodsMapCache = null;
+let _clientiMapCache = null;
+function _invalidateMaps() { _tessereMapCache = null; _tessereCodsMapCache = null; _clientiMapCache = null; }
+function _getTessereMap()     { if (!_tessereMapCache)     _tessereMapCache     = _buildTessereMap();     return _tessereMapCache; }
+function _getTessereCodsMap() { if (!_tessereCodsMapCache) _tessereCodsMapCache = _buildTessereCodsMap(); return _tessereCodsMapCache; }
+function _getClientiMap()     { if (!_clientiMapCache)     _clientiMapCache     = new Map(allClienti.map(c => [String(c.id), c])); return _clientiMapCache; }
+// ── Paginated client list ─────────────────────────────────────────────────────
+const _CL_PAGE = 60;
+let _clPage = 0;
 let _editingConsentToken = null;
 let _consentModalita = 'offline'; // 'offline' | 'online'
 let _consentActive = false;       // true se il consenso è stato registrato
@@ -799,35 +810,39 @@ async function init() {
 }
 
 async function loadAll() {
-  // Supabase default limit = 1000; fetch in pages to get all records
-  async function fetchAll(query) {
-    const PAGE = 1000;
-    let all = [], offset = 0;
-    while (true) {
-      const { data, error } = await query.range(offset, offset + PAGE - 1);
-      if (error || !data) break;
-      all = all.concat(data);
-      if (data.length < PAGE) break;
-      offset += PAGE;
-    }
-    return all;
+  const PAGE = 1000;
+
+  // Fetch count then all pages in parallel — much faster than sequential paging
+  async function fetchAllParallel(table, selectStr, orderFields) {
+    let q = _sb.from(table).select('*', { count: 'exact', head: true });
+    const { count } = await q;
+    if (!count) return [];
+    const pages = Math.ceil(count / PAGE);
+    const fetches = Array.from({ length: pages }, (_, i) => {
+      let q = _sb.from(table).select(selectStr);
+      if (orderFields) orderFields.forEach(([col, opts]) => { q = q.order(col, opts || {}); });
+      return q.range(i * PAGE, (i + 1) * PAGE - 1).then(r => r.data || []);
+    });
+    const chunks = await Promise.all(fetches);
+    return chunks.flat();
   }
 
   const [allC, allT, s, m] = await Promise.all([
-    fetchAll(_sb.from('clienti').select('*').order('cognome').order('nome')),
-    fetchAll(_sb.from('tessere').select('*')),
-    _sb.from('tessere_sconti').select('*').order('data_utilizzo', {ascending:false}),
+    fetchAllParallel('clienti', '*', [['cognome'], ['nome']]),
+    fetchAllParallel('tessere', '*', null),
+    _sb.from('tessere_sconti').select('*').order('data_utilizzo', { ascending: false }),
     _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
-  allClienti       = allC;
-  allTessere       = allT;
-  allSconti        = s.data || [];
-  allMsgTemplates  = m.data || [];
+  allClienti      = allC;
+  allTessere      = allT;
+  allSconti       = s.data || [];
+  allMsgTemplates = m.data || [];
+  _invalidateMaps();
   applyFilters();
-  renderAnalisi();
   renderMsgList();
   _refreshConsentMsgPreview();
-  _updateDupBadge();
+  // Defer O(n²) dup-check so it doesn't block first render
+  setTimeout(_updateDupBadge, 0);
 }
 
 // ── Escape per chiudere pannello ─────────────────────────────────────────────
@@ -846,6 +861,7 @@ function showTab(tab) {
   if (tab === 'tessere') renderTessereTab();
   if (tab === 'messaggi') _refreshConsentMsgPreview();
   if (tab === 'compleanni') renderCompleanni();
+  if (tab === 'analisi') renderAnalisi();
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -906,9 +922,10 @@ function _buildTessereCodsMap() {
 }
 
 function applyFilters() {
+  _clPage = 0;
   const q = document.getElementById('search-input')?.value?.toLowerCase().trim() || '';
-  const tessereMap = _buildTessereMap();
-  const tessereCodsMap = _buildTessereCodsMap();
+  const tessereMap = _getTessereMap();
+  const tessereCodsMap = _getTessereCodsMap();
 
   filteredList = allClienti.filter(c => {
     const t = tessereMap.get(c.id);
@@ -946,12 +963,12 @@ function applyFilters() {
     return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''), 'it');
   });
 
-  renderClientList(tessereMap);
+  renderClientList(tessereMap, true);
   renderStatsBar(tessereMap);
 }
 
 function renderStatsBar(tessereMap) {
-  if (!tessereMap) tessereMap = _buildTessereMap();
+  if (!tessereMap) tessereMap = _getTessereMap();
   const ft = filteredList.map(c => tessereMap.get(c.id)).filter(Boolean);
   document.getElementById('sb-vis').textContent  = filteredList.length;
   document.getElementById('sb-wa').textContent   = ft.filter(t => t.ha_whatsapp).length;
@@ -1012,9 +1029,13 @@ function setView(v) {
 }
 
 // ── Render client list ────────────────────────────────────────────────────────
-function renderClientList(tessereMap) {
+function _loadMoreClienti() {
+  _clPage++;
+  renderClientList(_getTessereMap(), false);
+}
+
+function renderClientList(tessereMap, reset) {
   const el = document.getElementById('client-list');
-  // applica classe vista anche senza click manuale
   el.classList.remove('view-list','view-compact');
   if (viewMode === 'list')    el.classList.add('view-list');
   if (viewMode === 'compact') el.classList.add('view-compact');
@@ -1031,7 +1052,9 @@ function renderClientList(tessereMap) {
       <button class="qtog ${t.messaggio_benvenuto_inviato?'on':''}" onclick="quickToggle('${t.id}','messaggio_benvenuto_inviato',event)">✉️ Benvenuto</button>
     </div>`;
 
-  el.innerHTML = filteredList.map(c => {
+  const visible = filteredList.slice(0, (_clPage + 1) * _CL_PAGE);
+  const remaining = filteredList.length - visible.length;
+  const cards = visible.map(c => {
     const t = tessereMap.get(c.id);
     const isAmb = t.tipo === 'ambassador';
     const empLab = {cremona:'CR',casalmaggiore:'CA',viadana:'VI','reggio emilia':'RE'}[t.emporio] || capEmporio(t.emporio);
@@ -1093,6 +1116,13 @@ function renderClientList(tessereMap) {
       ${toggles(t)}
     </div>`;
   }).join('');
+  el.innerHTML = cards + (remaining > 0
+    ? `<div style="text-align:center;padding:14px 0">
+        <button class="btn btn-outline" onclick="_loadMoreClienti()" style="font-size:13px">
+          Mostra altri ${Math.min(remaining, _CL_PAGE)} <span style="color:#94a3b8;font-weight:400">(${remaining} rimanenti)</span>
+        </button>
+       </div>`
+    : '');
 }
 
 function getBirthdayStr(data_nascita) {
@@ -1243,7 +1273,6 @@ async function deleteSconto(id) {
   await _sb.from('tessere_sconti').delete().eq('id', id);
   allSconti = allSconti.filter(s => s.id !== id);
   renderStorico();
-  renderAnalisi();
 }
 
 // ── WA buttons ────────────────────────────────────────────────────────────────
@@ -1442,6 +1471,7 @@ async function saveCliente(closeAfter = true) {
     ]);
     if (fc) { const i = allClienti.findIndex(c => String(c.id) === String(editingClienteId)); if (i >= 0) allClienti[i] = fc; }
     if (ft) { allTessere = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId)); allTessere.push(...ft); }
+    _invalidateMaps();
     showToast('Cliente aggiornato ✓');
   } else {
     const {data:nc, error:e1} = await _sb.from('clienti').insert(clientePayload).select().single();
@@ -1450,12 +1480,12 @@ async function saveCliente(closeAfter = true) {
     if (e2) { showToast('Errore: ' + e2.message); return; }
     allClienti.push(nc);
     allTessere.push(nt);
+    _invalidateMaps();
     showToast('Cliente aggiunto ✓');
     if (!closeAfter) { openClienteModal(null); return; }
   }
   closeClienteModal();
   applyFilters();
-  renderAnalisi();
 }
 
 async function deleteCliente() {
@@ -1472,9 +1502,9 @@ async function deleteCliente() {
   allClienti = allClienti.filter(c => String(c.id) !== String(editingClienteId));
   allTessere = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId));
   allSconti  = allSconti.filter(s => !tIds.includes(s.tessera_id));
+  _invalidateMaps();
   closeClienteModal();
   applyFilters();
-  renderAnalisi();
   showToast('Cliente eliminato');
 }
 
@@ -1891,7 +1921,7 @@ function renderTessereTab() {
   if (q) {
     tessere = tessere.filter(t => {
       if ((t.codice_tessera||'').toLowerCase().includes(q)) return true;
-      const c = allClienti.find(x => String(x.id) === String(t.cliente_id));
+      const c = _getClientiMap().get(String(t.cliente_id));
       if (!c) return false;
       return (c.cognome||'').toLowerCase().includes(q) ||
              (c.nome||'').toLowerCase().includes(q) ||
@@ -1906,8 +1936,9 @@ function renderTessereTab() {
       const nb = parseInt(b.codice_tessera||'0', 10) || 0;
       return na - nb;
     }
-    const ca = allClienti.find(x => String(x.id) === String(a.cliente_id));
-    const cb = allClienti.find(x => String(x.id) === String(b.cliente_id));
+    const cm = _getClientiMap();
+    const ca = cm.get(String(a.cliente_id));
+    const cb = cm.get(String(b.cliente_id));
     if (_tessereSort === 'cognome') {
       const sa = `${(ca?.cognome||'')} ${(ca?.nome||'')}`.toLowerCase();
       const sb = `${(cb?.cognome||'')} ${(cb?.nome||'')}`.toLowerCase();
@@ -1931,8 +1962,9 @@ function renderTessereTab() {
     return;
   }
   const empLab = {cremona:'Cremona',casalmaggiore:'Casalmaggiore',viadana:'Viadana','reggio emilia':'Reggio E.'};
+  const _cm = _getClientiMap();
   const rows = tessere.map(t => {
-    const c = allClienti.find(x => String(x.id) === String(t.cliente_id));
+    const c = _cm.get(String(t.cliente_id));
     const isAttiva  = t.attiva !== false;
     const isCompl   = (t.timbri_attuali||0) >= TIMBRI_MAX;
     let stato;
