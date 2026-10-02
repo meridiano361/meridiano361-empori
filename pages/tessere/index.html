@@ -246,6 +246,29 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .cons-stat-pill{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;text-align:center;font-size:12px;white-space:nowrap}
 .cons-stat-pill strong{display:block;font-size:18px;font-weight:900;line-height:1.1}
 
+/* ── Sort ── */
+.sort-btn{padding:4px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#64748b;font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .12s;white-space:nowrap}
+.sort-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* ── Tessere tab ── */
+.tess-table{width:100%;border-collapse:collapse;font-size:13px}
+.tess-table th{font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;text-align:left;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;white-space:nowrap}
+.tess-table td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.tess-table tr:last-child td{border-bottom:none}
+.tess-table tr:hover td{background:#f8fafc;cursor:pointer}
+.tess-stato{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:2px 7px;border-radius:10px}
+.tess-stato.attiva{background:#dcfce7;color:#15803d}
+.tess-stato.completa{background:#f1f5f9;color:#94a3b8}
+.tess-stato.archiviata{background:#fef9c3;color:#854d0e}
+
+/* ── Fasce età ── */
+.eta-bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.eta-bar-label{font-size:12px;font-weight:700;color:#334155;width:52px;flex-shrink:0;text-align:right}
+.eta-bar-track{flex:1;height:14px;background:#f1f5f9;border-radius:7px;overflow:hidden}
+.eta-bar-fill{height:100%;background:var(--red);border-radius:7px;transition:width .4s}
+.eta-bar-num{font-size:12px;font-weight:800;color:#475569;width:28px;flex-shrink:0;text-align:right}
+.eta-bar-pct{font-size:11px;color:#94a3b8;width:34px;flex-shrink:0}
+
 /* ── Merge modal ── */
 .merge-modal-panel{background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
 .merge-modal-hdr{padding:16px 20px;border-bottom:1px solid #f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
@@ -278,6 +301,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
       <button class="tab-btn" data-tab="consensi" onclick="showTab('consensi')">Consensi</button>
       <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
+      <button class="tab-btn" data-tab="tessere" onclick="showTab('tessere')">Tessere</button>
     </div>
     <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo cliente</button>
   </div>
@@ -339,15 +363,27 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <button class="filtro-btn" id="fc-benvenuto-no" onclick="setFiltroCaratt('benvenuto','no')">No</button>
       </div>
     </div>
-    <!-- Barra azioni (solo CSV + vista, senza numeri) -->
-    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px">
+    <!-- Barra azioni: filtro città + sort + CSV + vista -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <div class="filtro-gruppo" style="flex:1;min-width:130px;max-width:220px">
+        <span class="filtro-label">Città</span>
+        <input type="text" id="fc-citta-input" placeholder="es. Cremona, Brescia…" autocomplete="off"
+               style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;color:#475569;padding:2px 4px;outline:none;width:130px"
+               oninput="setFiltroCitta(this.value)">
+      </div>
+      <div style="display:flex;gap:3px;align-items:center">
+        <span style="font-size:11px;font-weight:700;color:#94a3b8;margin-right:2px">Ordina:</span>
+        <button class="sort-btn active" id="sort-btn-cognome" onclick="setSort('cognome')">Cognome</button>
+        <button class="sort-btn" id="sort-btn-nome" onclick="setSort('nome')">Nome</button>
+        <button class="sort-btn" id="sort-btn-nascita" onclick="setSort('nascita')">Età</button>
+      </div>
       <!-- elementi nascosti ma presenti per il JS applyFilters -->
       <span id="sb-vis" style="display:none"></span>
       <span id="sb-wa" style="display:none"></span>
       <span id="sb-bc" style="display:none"></span>
       <span id="sb-benv" style="display:none"></span>
       <span id="sb-amb" style="display:none"></span>
-      <button onclick="exportCSV()" class="btn btn-outline btn-sm"><i class="fas fa-download"></i> CSV</button>
+      <button onclick="exportCSV()" class="btn btn-outline btn-sm" style="margin-left:auto"><i class="fas fa-download"></i> CSV</button>
       <div class="view-toggle">
         <button class="view-btn" id="vbtn-grid" onclick="setView('grid')" title="Griglia"><i class="fas fa-grip"></i></button>
         <button class="view-btn" id="vbtn-compact" onclick="setView('compact')" title="Compatta"><i class="fas fa-table-cells-large"></i></button>
@@ -370,6 +406,10 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
       <div class="section-title">Per emporio</div>
       <table class="analisi-table" id="emp-table"><tbody></tbody></table>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="section-title">Fasce di età</div>
+      <div id="analisi-eta"><div style="font-size:13px;color:#94a3b8">Caricamento…</div></div>
     </div>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
       <div class="section-title">Compleanni questo mese</div>
@@ -416,6 +456,38 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       </div>
     </div>
     <div id="consensi-list"></div>
+  </div>
+
+  <!-- TAB TESSERE -->
+  <div id="tab-tessere" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Tutte le tessere fedeltà</div>
+        <div style="font-size:12px;color:#64748b">Ordinate per numero tessera — dal 2019 ad oggi</div>
+      </div>
+      <div id="tess-count" style="font-size:12px;color:#94a3b8"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <span style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap">Anno</span>
+      <div class="chip-group" id="tess-anno-chips">
+        <div class="chip active" onclick="setTessereAnno('tutti')">Tutti</div>
+        <div class="chip" onclick="setTessereAnno('2019')">2019</div>
+        <div class="chip" onclick="setTessereAnno('2020')">2020</div>
+        <div class="chip" onclick="setTessereAnno('2021')">2021</div>
+        <div class="chip" onclick="setTessereAnno('2022')">2022</div>
+        <div class="chip" onclick="setTessereAnno('2023')">2023</div>
+        <div class="chip" onclick="setTessereAnno('2024')">2024</div>
+        <div class="chip" onclick="setTessereAnno('2025')">2025</div>
+      </div>
+      <div class="chip-group" id="tess-emp-chips">
+        <div class="chip active" onclick="setTessereEmporio('tutti')">Tutti</div>
+        <div class="chip" onclick="setTessereEmporio('cremona')">Cremona</div>
+        <div class="chip" onclick="setTessereEmporio('casalmaggiore')">Casalmaggiore</div>
+        <div class="chip" onclick="setTessereEmporio('viadana')">Viadana</div>
+        <div class="chip" onclick="setTessereEmporio('reggio emilia')">Reggio E.</div>
+      </div>
+    </div>
+    <div id="tess-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Caricamento…</div></div>
   </div>
 
   <!-- TAB DUPLICATI -->
@@ -483,8 +555,8 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="date"></div>
         <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel"></div>
         <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
-        <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città"></div>
-        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR"></div>
+        <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città" oninput="autoProvincia()" onblur="autoProvincia()"></div>
+        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR" title="Si compila automaticamente dalla città"></div>
       </div>
     </div>
 
@@ -630,6 +702,8 @@ let filteredList = [];
 let activeTab = 'clienti';
 let filterTipo = 'tutti', filterEmporio = 'tutti';
 let filterCaratt = {wa:null, news:null, cellulare:null, email:null, compleanno:null, benvenuto:null};
+let filterCitta = '';
+let sortBy = 'cognome'; // 'cognome' | 'nome' | 'nascita'
 let editingTesseraId = null;
 let editingClienteId = null;
 let currentTipo = 'standard';
@@ -678,13 +752,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCliente
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
   activeTab = tab;
-  ['clienti','analisi','messaggi','consensi','duplicati'].forEach(t => {
+  ['clienti','analisi','messaggi','consensi','tessere','duplicati'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
   document.getElementById('fab-new').style.display = tab === 'clienti' ? '' : 'none';
   if (tab === 'duplicati') renderDuplicati();
   if (tab === 'consensi') renderConsensi();
+  if (tab === 'tessere') renderTessereTab();
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -708,6 +783,19 @@ function setFiltroCaratt(cat, val) {
     if (!btn) return;
     btn.classList.remove('active-si','active-no');
     if (filterCaratt[cat] === v) btn.classList.add(v === 'si' ? 'active-si' : 'active-no');
+  });
+  applyFilters();
+}
+
+function setFiltroCitta(v) {
+  filterCitta = (v || '').trim().toLowerCase();
+  applyFilters();
+}
+
+function setSort(v) {
+  sortBy = v;
+  ['cognome','nome','nascita'].forEach(s => {
+    document.getElementById('sort-btn-'+s)?.classList.toggle('active', s === v);
   });
   applyFilters();
 }
@@ -754,11 +842,22 @@ function applyFilters() {
     if (fc.compleanno === 'no'  &&  c.data_nascita)              return false;
     if (fc.benvenuto  === 'si'  && !t.messaggio_benvenuto_inviato) return false;
     if (fc.benvenuto  === 'no'  &&  t.messaggio_benvenuto_inviato) return false;
+    if (filterCitta) {
+      const fc = filterCitta;
+      if (!((c.citta||'').toLowerCase().includes(fc) || (c.provincia||'').toLowerCase().includes(fc))) return false;
+    }
     if (q) {
-      const hay = [c.nome, c.cognome, c.telefono, c.email, tessereCodsMap.get(c.id)||'', c.citta].join(' ').toLowerCase();
+      const hay = [c.nome, c.cognome, c.telefono, c.email, tessereCodsMap.get(c.id)||'', c.citta, c.provincia].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
+  });
+
+  // Ordinamento
+  filteredList.sort((a, b) => {
+    if (sortBy === 'nome')    return (a.nome||'').localeCompare(b.nome||'', 'it');
+    if (sortBy === 'nascita') return (a.data_nascita||'9999').localeCompare(b.data_nascita||'9999');
+    return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''), 'it');
   });
 
   renderClientList(tessereMap);
@@ -1303,6 +1402,8 @@ function renderAnalisi() {
     }).join('');
   }
 
+  renderAnalisiEta();
+
   // Ultimi sconti
   const recEl = document.getElementById('recent-sconti');
   const recent = allSconti.slice(0, 10);
@@ -1569,6 +1670,210 @@ async function nuovaTessera() {
     showToast('Nuova tessera creata!');
   } catch(e) {
     alert('Errore: ' + e.message);
+  }
+}
+
+// ── Fasce di età ─────────────────────────────────────────────────────────────
+function renderAnalisiEta() {
+  const el = document.getElementById('analisi-eta');
+  if (!el) return;
+  const thisYear = new Date().getFullYear();
+  const tessereMap = _buildTessereMap();
+  const conNascita = allClienti.filter(c => c.data_nascita && tessereMap.has(c.id));
+  const senzaNascita = allClienti.filter(c => !c.data_nascita && tessereMap.has(c.id)).length;
+  if (!conNascita.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessun dato di nascita disponibile</div>';
+    return;
+  }
+  const fasce = [
+    {label:'<20',  min:0,  max:19},
+    {label:'20-29',min:20, max:29},
+    {label:'30-39',min:30, max:39},
+    {label:'40-49',min:40, max:49},
+    {label:'50-59',min:50, max:59},
+    {label:'60-69',min:60, max:69},
+    {label:'70+',  min:70, max:200},
+  ];
+  const counts = fasce.map(f => {
+    const n = conNascita.filter(c => {
+      const age = thisYear - new Date(c.data_nascita).getFullYear();
+      return age >= f.min && age <= f.max;
+    }).length;
+    return {...f, count: n};
+  });
+  const maxN = Math.max(...counts.map(x => x.count), 1);
+  const total = conNascita.length;
+  const etaMedia = Math.round(conNascita.reduce((acc, c) => acc + (thisYear - new Date(c.data_nascita).getFullYear()), 0) / total);
+  el.innerHTML = counts.map(f => {
+    const pct = Math.round(f.count / maxN * 100);
+    const perc = Math.round(f.count / total * 100);
+    return `<div class="eta-bar-wrap">
+      <div class="eta-bar-label">${f.label}</div>
+      <div class="eta-bar-track"><div class="eta-bar-fill" style="width:${pct}%"></div></div>
+      <div class="eta-bar-num">${f.count}</div>
+      <div class="eta-bar-pct">${perc}%</div>
+    </div>`;
+  }).join('') + `<div style="font-size:12px;color:#64748b;margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
+    <span>Età media: <strong>${etaMedia} anni</strong></span>
+    ${senzaNascita > 0 ? `<span style="color:#94a3b8">${senzaNascita} senza data di nascita</span>` : ''}
+  </div>`;
+}
+
+// ── Tab Tessere ────────────────────────────────────────────────────────────────
+let _tessereAnno = 'tutti';
+let _tessereEmpFilt = 'tutti';
+
+function setTessereAnno(v) {
+  _tessereAnno = v;
+  document.querySelectorAll('#tess-anno-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTessereTab();
+}
+function setTessereEmporio(v) {
+  _tessereEmpFilt = v;
+  document.querySelectorAll('#tess-emp-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTessereTab();
+}
+
+function renderTessereTab() {
+  const container = document.getElementById('tess-list');
+  if (!container) return;
+  let tessere = [...allTessere];
+  if (_tessereAnno !== 'tutti') tessere = tessere.filter(t => (t.data_emissione||'').startsWith(_tessereAnno));
+  if (_tessereEmpFilt !== 'tutti') tessere = tessere.filter(t => t.emporio === _tessereEmpFilt);
+  tessere.sort((a, b) => {
+    const na = parseInt(a.codice_tessera||'0', 10) || 0;
+    const nb = parseInt(b.codice_tessera||'0', 10) || 0;
+    return na - nb;
+  });
+  const countEl = document.getElementById('tess-count');
+  if (countEl) countEl.textContent = tessere.length + ' tessere';
+  if (!tessere.length) {
+    container.innerHTML = '<div class="empty"><i class="fas fa-id-card"></i><p>Nessuna tessera trovata</p></div>';
+    return;
+  }
+  const empLab = {cremona:'Cremona',casalmaggiore:'Casalmaggiore',viadana:'Viadana','reggio emilia':'Reggio E.'};
+  const rows = tessere.map(t => {
+    const c = allClienti.find(x => String(x.id) === String(t.cliente_id));
+    const isAttiva  = t.attiva !== false;
+    const isCompl   = (t.timbri_attuali||0) >= TIMBRI_MAX;
+    let stato;
+    if (isAttiva && !isCompl) stato = '<span class="tess-stato attiva"><i class="fas fa-circle-check"></i>Attiva</span>';
+    else if (isCompl)         stato = '<span class="tess-stato completa"><i class="fas fa-circle-check"></i>Completa</span>';
+    else                      stato = '<span class="tess-stato archiviata"><i class="fas fa-box-archive"></i>Archiviata</span>';
+    const nome = c ? `<span style="font-weight:700">${esc(c.cognome||'')} ${esc(c.nome||'')}</span>` : '<span style="color:#94a3b8">–</span>';
+    const cid  = c ? `'${t.cliente_id}'` : 'null';
+    return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
+      <td><strong style="color:var(--amb);font-size:14px">${esc(t.codice_tessera||'—')}</strong></td>
+      <td>${nome}${c&&c.citta?`<div style="font-size:11px;color:#94a3b8">${esc(c.citta)}</div>`:''}</td>
+      <td style="color:#64748b;font-size:12px">${empLab[t.emporio]||esc(t.emporio||'–')}</td>
+      <td><span class="tipo-badge tipo-${t.tipo==='ambassador'?'ambassador':'standard'}" style="font-size:9px">${t.tipo==='ambassador'?'Amb':'Std'}</span></td>
+      <td style="color:#64748b;font-size:12px">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
+      <td>${stato}</td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;overflow-x:auto">
+      <table class="tess-table">
+        <thead><tr>
+          <th>N° Tessera</th>
+          <th>Cliente</th>
+          <th>Emporio</th>
+          <th>Tipo</th>
+          <th>Iscrizione</th>
+          <th>Stato</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Autocompletamento provincia da città ──────────────────────────────────────
+const _CITTA_PROV = {
+  // Lombardia
+  'milano':'MI','bergamo':'BG','brescia':'BS','como':'CO',
+  'cremona':'CR','casalmaggiore':'CR','crema':'CR','soresina':'CR','piadena':'CR',
+  'rivarolo del re':'CR','isola dovarese':'CR','bozzolo':'MN',
+  'lecco':'LC','lodi':'LO','mantova':'MN','monza':'MB','pavia':'PV',
+  'sondrio':'SO','varese':'VA','busto arsizio':'VA','gallarate':'VA','saronno':'VA',
+  'viadana':'MN','suzzara':'MN','gonzaga':'MN','ostiglia':'MN','guidizzolo':'MN',
+  'volta mantovana':'MN','castiglione delle stiviere':'MN',
+  'desenzano del garda':'BS','salo\'':'BS','gardone val trompia':'BS',
+  'vigevano':'PV','voghera':'PV','abbiategrasso':'MI','rho':'MI',
+  'sesto san giovanni':'MI','corsico':'MI','cinisello balsamo':'MI',
+  'seriate':'BG','treviglio':'BG','romano di lombardia':'BG',
+  // Emilia-Romagna
+  'reggio emilia':'RE','reggio nell\'emilia':'RE',
+  'modena':'MO','parma':'PR','piacenza':'PC','bologna':'BO',
+  'ferrara':'FE','ravenna':'RA','forlì':'FC','forli':'FC',
+  'cesena':'FC','rimini':'RN','guastalla':'RE','correggio':'RE',
+  'carpi':'MO','sassuolo':'MO','mirandola':'MO',
+  'fidenza':'PR','salsomaggiore terme':'PR',
+  'imola':'BO','faenza':'RA','lugo':'RA',
+  // Piemonte
+  'torino':'TO','asti':'AT','cuneo':'CN','novara':'NO',
+  'vercelli':'VC','alessandria':'AL','biella':'BI','verbania':'VB',
+  'alba':'CN','bra':'CN','ivrea':'TO','pinerolo':'TO','moncalieri':'TO',
+  // Veneto
+  'verona':'VR','vicenza':'VI','padova':'PD','venezia':'VE',
+  'treviso':'TV','rovigo':'RO','belluno':'BL','mestre':'VE',
+  'bassano del grappa':'VI','schio':'VI','thiene':'VI','conegliano':'TV',
+  // Trentino-AA
+  'trento':'TN','bolzano':'BZ','bozen':'BZ','rovereto':'TN',
+  // Friuli-VG
+  'trieste':'TS','udine':'UD','pordenone':'PN','gorizia':'GO',
+  // Liguria
+  'genova':'GE','la spezia':'SP','savona':'SV','imperia':'IM',
+  'sanremo':'IM','san remo':'IM','ventimiglia':'IM',
+  // Toscana
+  'firenze':'FI','siena':'SI','arezzo':'AR','pisa':'PI',
+  'livorno':'LI','lucca':'LU','pistoia':'PT','prato':'PO',
+  'grosseto':'GR','massa':'MS','carrara':'MS','viareggio':'LU','empoli':'FI',
+  // Umbria
+  'perugia':'PG','terni':'TR','foligno':'PG','spoleto':'PG',
+  // Marche
+  'ancona':'AN','pesaro':'PU','macerata':'MC','ascoli piceno':'AP',
+  'fermo':'FM','senigallia':'AN','jesi':'AN','fabriano':'AN',
+  // Lazio
+  'roma':'RM','latina':'LT','frosinone':'FR','viterbo':'VT',
+  'rieti':'RI','tivoli':'RM','velletri':'RM','civitavecchia':'RM',
+  // Abruzzo
+  'l\'aquila':'AQ','aquila':'AQ','pescara':'PE','chieti':'CH','teramo':'TE',
+  // Molise
+  'campobasso':'CB','isernia':'IS',
+  // Campania
+  'napoli':'NA','salerno':'SA','caserta':'CE','benevento':'BN','avellino':'AV',
+  'torre del greco':'NA','giugliano in campania':'NA','castellammare di stabia':'NA',
+  // Puglia
+  'bari':'BA','taranto':'TA','lecce':'LE','brindisi':'BR','foggia':'FG',
+  'barletta':'BT','andria':'BT','trani':'BT','altamura':'BA','molfetta':'BA',
+  // Basilicata
+  'potenza':'PZ','matera':'MT',
+  // Calabria
+  'catanzaro':'CZ','reggio calabria':'RC','reggio di calabria':'RC',
+  'cosenza':'CS','vibo valentia':'VV','crotone':'KR',
+  // Sicilia
+  'palermo':'PA','catania':'CT','messina':'ME','agrigento':'AG',
+  'siracusa':'SR','trapani':'TP','caltanissetta':'CL','enna':'EN',
+  'ragusa':'RG','salina':'ME','milazzo':'ME','marsala':'TP','vittoria':'RG',
+  // Sardegna
+  'cagliari':'CA','sassari':'SS','nuoro':'NU','oristano':'OR',
+  'iglesias':'SU','carbonia':'SU',
+};
+
+function autoProvincia() {
+  const cittaEl = document.getElementById('f-citta');
+  const provEl  = document.getElementById('f-provincia');
+  if (!cittaEl || !provEl) return;
+  if (provEl.value.trim()) return; // non sovrascrivere se già compilata
+  const citta = (cittaEl.value || '').trim().toLowerCase();
+  if (!citta) return;
+  const prov = _CITTA_PROV[citta];
+  if (prov) {
+    provEl.value = prov;
+    provEl.style.borderColor = '#16a34a';
+    setTimeout(() => { if (provEl) provEl.style.borderColor = ''; }, 1500);
   }
 }
 
