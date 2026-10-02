@@ -533,6 +533,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <option value="compleanno_ambassador">
       <option value="altro">
     </datalist>
+    <div class="field-label" style="margin-bottom:4px">Destinatari</div>
+    <select class="field-select" id="msg-destinatari" style="margin-bottom:10px">
+      <option value="tutti">Tutti i clienti</option>
+      <option value="standard">Solo Standard</option>
+      <option value="ambassador">Solo Ambassador</option>
+      <option value="wa">Con WhatsApp attivo</option>
+      <option value="news">Con newsletter attiva</option>
+    </select>
     <div class="field-label" style="margin-bottom:4px">Titolo</div>
     <input class="field-input" id="msg-titolo" style="margin-bottom:10px" placeholder="Titolo template">
     <div class="field-label" style="margin-bottom:4px">Testo</div>
@@ -982,9 +990,18 @@ function renderWaButtons(cliente) {
     wrap.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessun numero per aprire WA</div>';
     return;
   }
-  const relevant = allMsgTemplates.filter(m =>
-    m.tipo !== 'compleanno_ambassador' || currentTipo === 'ambassador'
-  );
+  const tessera = allTessere.find(t => String(t.cliente_id) === String(editingClienteId));
+  const hasWa   = !!(cliente.wa || tessera?.ha_whatsapp);
+  const hasNews = !!(tessera?.vuole_news_whatsapp);
+  const relevant = allMsgTemplates.filter(m => {
+    const d = m.destinatari || 'tutti';
+    if (d === 'tutti')       return true;
+    if (d === 'standard')    return currentTipo === 'standard';
+    if (d === 'ambassador')  return currentTipo === 'ambassador';
+    if (d === 'wa')          return hasWa;
+    if (d === 'news')        return hasNews;
+    return true;
+  });
   wrap.innerHTML = relevant.map(m => {
     const testo = encodeURIComponent(m.testo);
     return `<a class="wa-btn" href="https://wa.me/39${phone}?text=${testo}" target="_blank" rel="noopener" style="margin-bottom:6px;display:inline-flex">
@@ -1201,27 +1218,39 @@ function renderAnalisi() {
 }
 
 // ── Messaggi WA ───────────────────────────────────────────────────────────────
+const DEST_LABEL = { tutti:'Tutti', standard:'Solo Standard', ambassador:'Solo Ambassador', wa:'Con WhatsApp', news:'Con newsletter' };
+const DEST_COLOR = { tutti:'#475569', standard:'#0ea5e9', ambassador:'#7c3aed', wa:'#25d366', news:'#f59e0b' };
+
 function renderMsgList() {
   const el = document.getElementById('msg-list');
-  el.innerHTML = allMsgTemplates.map(m => `
+  el.innerHTML = allMsgTemplates.map(m => {
+    const dest = m.destinatari || 'tutti';
+    const destLabel = DEST_LABEL[dest] || dest;
+    const destColor = DEST_COLOR[dest] || '#475569';
+    return `
     <div class="msg-card">
-      <div class="msg-tipo">${esc(m.tipo||'')}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
+        <div class="msg-tipo">${esc(m.tipo||'')}</div>
+        <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;background:${destColor}22;color:${destColor}">${destLabel}</span>
+      </div>
       <div class="msg-titolo">${esc(m.titolo)}</div>
       <div class="msg-testo">${esc(m.testo)}</div>
       <div class="msg-actions">
         <button class="btn btn-outline btn-sm" onclick="openMsgModal('${m.id}')"><i class="fas fa-pen"></i> Modifica</button>
         <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="deleteMsg('${m.id}')"><i class="fas fa-trash"></i></button>
       </div>
-    </div>`).join('') || '<div class="empty"><i class="fas fa-comment-slash"></i><p>Nessun template</p></div>';
+    </div>`;
+  }).join('') || '<div class="empty"><i class="fas fa-comment-slash"></i><p>Nessun template</p></div>';
 }
 
 function openMsgModal(id) {
   editingMsgId = id;
   const m = id ? allMsgTemplates.find(x => x.id === id) : null;
   document.getElementById('msg-modal-title').textContent = m ? 'Modifica messaggio' : 'Nuovo messaggio';
-  document.getElementById('msg-tipo').value = m?.tipo || '';
-  document.getElementById('msg-titolo').value = m?.titolo || '';
-  document.getElementById('msg-testo').value = m?.testo || '';
+  document.getElementById('msg-tipo').value         = m?.tipo || '';
+  document.getElementById('msg-destinatari').value  = m?.destinatari || 'tutti';
+  document.getElementById('msg-titolo').value        = m?.titolo || '';
+  document.getElementById('msg-testo').value         = m?.testo || '';
   // Aggiorna datalist con i tipi già esistenti
   const dl = document.getElementById('msg-tipo-list');
   const existing = [...new Set(allMsgTemplates.map(t => t.tipo).filter(Boolean))];
@@ -1233,10 +1262,11 @@ function openMsgModal(id) {
 function closeMsgModal() { document.getElementById('msg-modal').classList.remove('open'); }
 async function saveMsg() {
   const payload = {
-    tipo: document.getElementById('msg-tipo').value,
-    titolo: document.getElementById('msg-titolo').value.trim(),
-    testo: document.getElementById('msg-testo').value.trim(),
-    updated_at: new Date().toISOString(),
+    tipo:         document.getElementById('msg-tipo').value,
+    destinatari:  document.getElementById('msg-destinatari').value || 'tutti',
+    titolo:       document.getElementById('msg-titolo').value.trim(),
+    testo:        document.getElementById('msg-testo').value.trim(),
+    updated_at:   new Date().toISOString(),
   };
   if (!payload.tipo || !payload.titolo || !payload.testo) { showToast('Compila tutti i campi'); return; }
   if (editingMsgId) {
