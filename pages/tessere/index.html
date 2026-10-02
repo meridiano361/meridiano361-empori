@@ -475,6 +475,16 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <textarea class="field-textarea" id="f-note" placeholder="Note interne…" style="width:100%"></textarea>
     </div>
 
+    <!-- Privacy consenso -->
+    <div class="panel-sec" id="privacy-section" style="display:none">
+      <div class="panel-sec-title"><i class="fas fa-shield-halved"></i> Privacy &amp; Consenso news</div>
+      <div id="privacy-status" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="copyConsentLink()"><i class="fas fa-copy"></i> Copia link</button>
+        <button class="btn btn-sm" id="btn-wa-consent" style="background:#25d366;color:#fff;border:none;display:none" onclick="sendConsentWa()"><i class="fab fa-whatsapp"></i> Invia via WA</button>
+      </div>
+    </div>
+
     <!-- WA quick messages -->
     <div class="panel-sec" id="wa-section" style="display:none">
       <div class="panel-sec-title"><i class="fab fa-whatsapp"></i> Messaggi WhatsApp rapidi</div>
@@ -533,6 +543,7 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 // ── State ───────────────────────────────────────────────────────────────────
 let _sb, _user;
 let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
+let _editingConsentToken = null;
 let filteredList = [];
 let activeTab = 'clienti';
 let filterTipo = 'tutti', filterEmporio = 'tutti';
@@ -871,6 +882,8 @@ function openClienteModal(clienteId) {
     renderStorico();
     renderWaButtons(c);
     renderStoricoTessere(clienteId);
+    _editingConsentToken = c.consent_token || null;
+    renderPrivacySection(c);
   } else {
     document.getElementById('detail-mode').textContent = '';
     document.getElementById('detail-title').textContent = 'Nuovo cliente';
@@ -896,7 +909,9 @@ function openClienteModal(clienteId) {
     document.getElementById('f-benvenuto').checked = false;
     document.getElementById('storico-section').style.display = 'none';
     document.getElementById('wa-section').style.display = 'none';
+    document.getElementById('privacy-section').style.display = 'none';
     document.getElementById('btn-elimina').style.display = 'none';
+    _editingConsentToken = null;
     document.getElementById('btn-salva-altro').style.display = '';
     document.getElementById('btn-nuova-tessera').style.display = 'none';
     document.getElementById('tessere-storico-section').style.display = 'none';
@@ -958,6 +973,48 @@ function renderWaButtons(cliente) {
       <i class="fab fa-whatsapp"></i> ${esc(m.titolo)}
     </a><br>`;
   }).join('');
+}
+
+// ── Privacy consenso ─────────────────────────────────────────────────────────
+const CONSENT_BASE = 'https://meridiano361-empori.vercel.app/pages/consenso/';
+
+function renderPrivacySection(c) {
+  document.getElementById('privacy-section').style.display = '';
+  const consented = c.consenso_privacy;
+  const dataStr = c.consenso_privacy_data
+    ? new Date(c.consenso_privacy_data).toLocaleDateString('it-IT', {day:'numeric',month:'long',year:'numeric'})
+    : '';
+  const statusEl = document.getElementById('privacy-status');
+  if (consented) {
+    statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:10px 12px;color:#16a34a;font-size:13px;font-weight:700"><i class="fas fa-circle-check" style="font-size:16px"></i><div>Consenso registrato${dataStr ? `<br><span style="font-size:11px;font-weight:600;color:#64748b">${dataStr}</span>` : ''}</div></div>`;
+  } else {
+    statusEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:10px 12px;color:#ea580c;font-size:13px;font-weight:700"><i class="fas fa-circle-exclamation" style="font-size:16px"></i>Consenso non ancora firmato</div>`;
+  }
+  const phone = (c.telefono || '').replace(/[^\d]/g,'');
+  document.getElementById('btn-wa-consent').style.display = phone ? '' : 'none';
+}
+
+function _consentUrl() {
+  return _editingConsentToken ? `${CONSENT_BASE}?t=${_editingConsentToken}` : null;
+}
+
+function copyConsentLink() {
+  const url = _consentUrl();
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => showToast('Link copiato ✓')).catch(() => {
+    prompt('Copia il link:', url);
+  });
+}
+
+function sendConsentWa() {
+  const url = _consentUrl();
+  if (!url) return;
+  const c = allClienti.find(x => x.consent_token === _editingConsentToken);
+  const phone = (c?.telefono || '').replace(/[^\d]/g,'');
+  if (!phone) return;
+  const nome = c?.nome || '';
+  const text = `Ciao ${nome}! Per ricevere le nostre news e offerte via WhatsApp, clicca qui per esprimere il tuo consenso: ${url}`;
+  window.open(`https://wa.me/39${phone}?text=${encodeURIComponent(text)}`, '_blank');
 }
 
 // ── Save cliente ──────────────────────────────────────────────────────────────

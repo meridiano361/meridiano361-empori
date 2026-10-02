@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Consenso privacy — Empori Meridiano 361</title>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Nunito',sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:#fff;border-radius:20px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.12);overflow:hidden}
+    .card-header{background:#B5453A;padding:28px 24px 22px;text-align:center;color:#fff}
+    .logo-circle{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;letter-spacing:-.5px}
+    .store-name{font-size:13px;font-weight:700;opacity:.8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+    .greeting{font-size:22px;font-weight:900;line-height:1.2}
+    .card-body{padding:24px}
+    .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:10px}
+    .privacy-box{background:#f8fafc;border-radius:12px;padding:16px;font-size:13px;color:#475569;line-height:1.6;margin-bottom:20px}
+    .privacy-box ul{padding-left:18px;margin-top:6px}
+    .privacy-box li{margin-bottom:4px}
+    .consent-btn{width:100%;padding:16px;border:none;border-radius:14px;background:#16a34a;color:#fff;font-family:'Nunito',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s,transform .1s;box-shadow:0 4px 16px rgba(22,163,74,.3)}
+    .consent-btn:active{transform:scale(.97)}
+    .consent-btn:hover{background:#15803d}
+    .consent-btn:disabled{background:#94a3b8;box-shadow:none;cursor:default}
+    .already-badge{display:flex;align-items:center;gap:10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:14px 16px;color:#16a34a;font-size:14px;font-weight:700}
+    .already-badge i{font-size:22px}
+    .success-state{text-align:center;padding:10px 0 6px}
+    .success-icon{font-size:56px;margin-bottom:12px;display:block}
+    .success-title{font-size:20px;font-weight:900;color:#16a34a;margin-bottom:6px}
+    .success-sub{font-size:14px;color:#64748b;line-height:1.5}
+    .error-state{text-align:center;padding:10px 0}
+    .error-icon{font-size:48px;margin-bottom:12px;display:block}
+    .error-msg{font-size:15px;color:#ef4444;font-weight:700;margin-bottom:6px}
+    .error-sub{font-size:13px;color:#94a3b8}
+    .loading{text-align:center;padding:30px;color:#94a3b8;font-size:14px}
+    .spinner{display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#B5453A;border-radius:50%;animation:spin .7s linear infinite;margin-bottom:8px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .footer-note{text-align:center;font-size:11px;color:#94a3b8;margin-top:16px;padding:0 24px 20px}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div class="logo-circle">M</div>
+    <div class="store-name" id="store-name">Empori Meridiano 361</div>
+    <div class="greeting" id="greeting">Caricamento…</div>
+  </div>
+
+  <div class="card-body">
+    <div id="state-loading" class="loading">
+      <div class="spinner"></div><br>Verifica link…
+    </div>
+
+    <div id="state-error" style="display:none" class="error-state">
+      <span class="error-icon">⚠️</span>
+      <div class="error-msg">Link non valido</div>
+      <div class="error-sub">Il link potrebbe essere scaduto o non corretto. Chiedi al personale dell'emporio di generarne uno nuovo.</div>
+    </div>
+
+    <div id="state-already" style="display:none">
+      <div class="already-badge">
+        <i class="fas fa-circle-check"></i>
+        <div>
+          <div>Consenso già registrato</div>
+          <div id="already-date" style="font-size:12px;font-weight:600;color:#64748b;margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="state-form" style="display:none">
+      <div class="section-title">Informativa privacy</div>
+      <div class="privacy-box">
+        <strong>Meridiano 361 S.r.l.</strong> utilizzerà i tuoi dati personali per:
+        <ul>
+          <li>Inviarti news, promozioni e aggiornamenti tramite WhatsApp</li>
+          <li>Gestire la tua tessera fedeltà</li>
+          <li>Comunicazioni legate ai servizi degli empori</li>
+        </ul>
+        <div style="margin-top:8px;font-size:12px;color:#94a3b8">I tuoi dati non saranno ceduti a terzi. Puoi revocare il consenso in qualsiasi momento contattando l'emporio.</div>
+      </div>
+      <button class="consent-btn" id="consent-btn" onclick="submitConsent()">
+        <i class="fas fa-check"></i> Acconsento
+      </button>
+    </div>
+
+    <div id="state-success" style="display:none" class="success-state">
+      <span class="success-icon">✅</span>
+      <div class="success-title">Grazie!</div>
+      <div class="success-sub">Il tuo consenso è stato registrato.<br>Riceverai le nostre news su WhatsApp.</div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footer-note" style="display:none">
+    Puoi revocare il consenso in qualsiasi momento contattando il tuo emporio di riferimento.
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+const FNURL = 'https://hsalynvxazxqtmsvjrzc.supabase.co/functions/v1/update-consent';
+const ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+
+let _token = null;
+
+function show(id) {
+  ['state-loading','state-error','state-already','state-form','state-success'].forEach(s =>
+    document.getElementById(s).style.display = s === id ? '' : 'none'
+  );
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('it-IT', { day:'numeric', month:'long', year:'numeric' });
+}
+
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  _token = params.get('t');
+  if (!_token) { show('state-error'); return; }
+
+  try {
+    const res = await fetch(`${FNURL}?t=${encodeURIComponent(_token)}`, {
+      headers: { 'Authorization': `Bearer ${ANON}` }
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) { show('state-error'); return; }
+
+    const nome = [data.nome, data.cognome].filter(Boolean).join(' ');
+    document.getElementById('greeting').textContent = `Ciao, ${nome}!`;
+    if (data.emporio) {
+      const emp = data.emporio.charAt(0).toUpperCase() + data.emporio.slice(1);
+      document.getElementById('store-name').textContent = `Emporio di ${emp}`;
+    }
+
+    if (data.consenso_privacy) {
+      document.getElementById('already-date').textContent = data.consenso_privacy_data
+        ? `Firmato il ${fmtDate(data.consenso_privacy_data)}` : '';
+      show('state-already');
+    } else {
+      show('state-form');
+      document.getElementById('footer-note').style.display = '';
+    }
+  } catch(e) {
+    show('state-error');
+  }
+}
+
+async function submitConsent() {
+  const btn = document.getElementById('consent-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Invio…';
+
+  try {
+    const res = await fetch(FNURL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON}` },
+      body: JSON.stringify({ token: _token }),
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      show('state-success');
+      document.getElementById('footer-note').style.display = '';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Acconsento';
+      alert('Si è verificato un errore. Riprova o contatta il personale.');
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Acconsento';
+    alert('Errore di connessione. Riprova.');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
