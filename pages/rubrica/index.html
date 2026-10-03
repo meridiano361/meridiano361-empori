@@ -194,7 +194,7 @@
         <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel" oninput="this.value=this.value.replace(/[^\d+]/g,'')"></div>
         <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
         <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città" oninput="autoProvincia()" onblur="autoProvincia()"></div>
-        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR" title="Si compila automaticamente dalla città"></div>
+        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR" maxlength="2" title="Sigla provincia (2 lettere)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,2)" onblur="this.value=this.value.toUpperCase()"></div>
       </div>
     </div>
 
@@ -557,33 +557,87 @@ function creaTessera() {
 }
 
 // ── Autocomplete provincia ────────────────────────────────────────────────────
+// Fonte: ISTAT / tuttitalia.it — 110 province (inclusa riforma Sardegna gen. 2026)
+// Chiavi in minuscolo + varianti senza accento per robustezza
 const PROV_MAP = {
-  'cremona':'CR','brescia':'BS','mantova':'MN','bergamo':'BG','milano':'MI','lodi':'LO',
-  'pavia':'PV','como':'CO','varese':'VA','lecco':'LC','sondrio':'SO','monza e brianza':'MB',
-  'piacenza':'PC','parma':'PR','reggio emilia':'RE','modena':'MO','bologna':'BO','ferrara':'FE',
-  'ravenna':'RA','forlì-cesena':'FC','rimini':'RN','pesaro e urbino':'PU','ancona':'AN',
-  'macerata':'MC','ascoli piceno':'AP','fermo':'FM','roma':'RM','viterbo':'VT','rieti':'RI',
-  'latina':'LT','frosinone':'FR','torino':'TO','vercelli':'VC','novara':'NO','cuneo':'CN',
-  'asti':'AT','alessandria':'AL','biella':'BI','verbano-cusio-ossola':'VB','venezia':'VE',
-  'padova':'PD','verona':'VR','vicenza':'VI','treviso':'TV','belluno':'BL','rovigo':'RO',
-  'udine':'UD','gorizia':'GO','trieste':'TS','pordenone':'PN','trento':'TN','bolzano':'BZ',
-  'genova':'GE','savona':'SV','imperia':'IM','la spezia':'SP','firenze':'FI','prato':'PO',
-  'pistoia':'PT','livorno':'LI','pisa':'PI','lucca':'LU','massa-carrara':'MS','arezzo':'AR',
-  'siena':'SI','grosseto':'GR','perugia':'PG','terni':'TR','napoli':'NA','caserta':'CE',
-  'salerno':'SA','avellino':'AV','benevento':'BN','bari':'BA','lecce':'LE','taranto':'TA',
-  'brindisi':'BR','foggia':'FG','barletta-andria-trani':'BT','potenza':'PZ','matera':'MT',
-  'cosenza':'CS','catanzaro':'CZ','reggio calabria':'RC','crotone':'KR','vibo valentia':'VV',
-  'palermo':'PA','catania':'CT','messina':'ME','siracusa':'SR','ragusa':'RG','agrigento':'AG',
-  'caltanissetta':'CL','enna':'EN','trapani':'TP','cagliari':'CA','sassari':'SS','nuoro':'NU',
-  'oristano':'OR','campobasso':'CB','isernia':'IS',"l'aquila":'AQ','pescara':'PE','chieti':'CH',
-  'teramo':'TE',
+  // Piemonte
+  'torino':'TO','vercelli':'VC','novara':'NO','cuneo':'CN','asti':'AT',
+  'alessandria':'AL','biella':'BI','verbano-cusio-ossola':'VB','verbano cusio ossola':'VB',
+  // Valle d'Aosta
+  'aosta':'AO',"valle d'aosta":'AO','valle daosta':'AO',
+  // Lombardia
+  'bergamo':'BG','brescia':'BS','como':'CO','cremona':'CR','lecco':'LC',
+  'lodi':'LO','mantova':'MN','milano':'MI',
+  'monza e della brianza':'MB','monza e brianza':'MB',
+  'pavia':'PV','sondrio':'SO','varese':'VA',
+  // Trentino-Alto Adige
+  'trento':'TN','bolzano':'BZ',
+  // Veneto
+  'belluno':'BL','padova':'PD','rovigo':'RO','treviso':'TV',
+  'venezia':'VE','verona':'VR','vicenza':'VI',
+  // Friuli-Venezia Giulia
+  'gorizia':'GO','pordenone':'PN','trieste':'TS','udine':'UD',
+  // Liguria
+  'genova':'GE','imperia':'IM','la spezia':'SP','savona':'SV',
+  // Emilia-Romagna
+  'bologna':'BO','ferrara':'FE',
+  "forlì-cesena":'FC','forli-cesena':'FC',"forlì cesena":'FC','forli cesena':'FC',
+  'modena':'MO','parma':'PR','piacenza':'PC','ravenna':'RA',
+  'reggio emilia':'RE','rimini':'RN',
+  // Toscana
+  'arezzo':'AR','firenze':'FI','grosseto':'GR','livorno':'LI',
+  'lucca':'LU','massa-carrara':'MS','massa carrara':'MS',
+  'pisa':'PI','pistoia':'PT','prato':'PO','siena':'SI',
+  // Umbria
+  'perugia':'PG','terni':'TR',
+  // Marche
+  'ancona':'AN','ascoli piceno':'AP','fermo':'FM',
+  'macerata':'MC','pesaro e urbino':'PU','pesaro':'PU',
+  // Lazio
+  'frosinone':'FR','latina':'LT','rieti':'RI','roma':'RM','viterbo':'VT',
+  // Abruzzo
+  'chieti':'CH',"l'aquila":'AQ','l aquila':'AQ','aquila':'AQ',
+  'pescara':'PE','teramo':'TE',
+  // Molise
+  'campobasso':'CB','isernia':'IS',
+  // Campania
+  'avellino':'AV','benevento':'BN','caserta':'CE','napoli':'NA','salerno':'SA',
+  // Puglia
+  'bari':'BA','barletta-andria-trani':'BT','barletta andria trani':'BT',
+  'brindisi':'BR','foggia':'FG','lecce':'LE','taranto':'TA',
+  // Basilicata
+  'matera':'MT','potenza':'PZ',
+  // Calabria
+  'catanzaro':'CZ','cosenza':'CS','crotone':'KR',
+  'reggio calabria':'RC','reggio di calabria':'RC','vibo valentia':'VV',
+  // Sicilia
+  'agrigento':'AG','caltanissetta':'CL','catania':'CT','enna':'EN',
+  'messina':'ME','palermo':'PA','ragusa':'RG','siracusa':'SR','trapani':'TP',
+  // Sardegna — riforma gen. 2026 (ISTAT)
+  'cagliari':'CA','nuoro':'NU','oristano':'OR','sassari':'SS',
+  'ogliastra':'OG','medio campidano':'VS',
+  'sulcis iglesiente':'SU','carbonia-iglesias':'SU',
+  'gallura':'OT','gallura nord-est sardegna':'OT','olbia-tempio':'OT',
 };
-const CITTA_PROV = {'salina':'MN','viadana':'MN','casalmaggiore':'CR','soresina':'CR','crema':'CR'};
+const CITTA_PROV = {
+  // Emporì serviti (Cremona, Casalmaggiore, Viadana, Reggio Emilia)
+  'casalmaggiore':'CR','soresina':'CR','crema':'CR',
+  'viadana':'MN','sabbioneta':'MN','salina':'MN',
+  // Puglia — BAT ha tre capoluoghi
+  'barletta':'BT','andria':'BT','trani':'BT',
+  // Sardegna — capoluoghi nuove province (gen. 2026)
+  'olbia':'OT','lanusei':'OG','sanluri':'VS','villacidro':'VS',
+  'carbonia':'SU','iglesias':'SU',
+};
+function _normProv(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+}
 function autoProvincia() {
-  const citta = document.getElementById('f-citta').value.trim().toLowerCase();
+  const raw  = document.getElementById('f-citta').value.trim();
   const provEl = document.getElementById('f-provincia');
   if (provEl.value) return;
-  const p = CITTA_PROV[citta] || PROV_MAP[citta];
+  const norm = _normProv(raw);
+  const p = CITTA_PROV[norm] || PROV_MAP[norm] || CITTA_PROV[raw.toLowerCase()] || PROV_MAP[raw.toLowerCase()];
   if (p) provEl.value = p;
 }
 
