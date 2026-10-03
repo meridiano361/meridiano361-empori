@@ -1001,7 +1001,7 @@ function exportCSV() {
   filteredList.forEach(c => {
     const t = tessereMap.get(c.id) || {};
     rows.push([
-      c.cognome||'', c.nome||'', t.tipo||'', t.emporio||'',
+      titleCase(c.cognome), titleCase(c.nome), t.tipo||'', t.emporio||'',
       c.telefono||'', c.email||'', c.data_nascita||'', c.citta||'', c.provincia||'',
       t.ha_whatsapp?'Sì':'No', t.vuole_news_whatsapp?'Sì':'No',
       t.in_lista_broadcast_whatsapp?'Sì':'No', t.messaggio_benvenuto_inviato?'Sì':'No',
@@ -1065,7 +1065,7 @@ function renderClientList(tessereMap, reset) {
       <div class="client-card" onclick="openClienteModal('${c.id}')">
         <div>
           <div class="client-card-top">
-            <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
+            <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
             <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}">${isAmb?'Amb':'Std'}</span>
             <span style="font-size:11px;font-weight:700;color:#94a3b8">${empLab}</span>
             ${c.telefono ? `<span style="font-size:12px;color:#64748b"><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : '<span style="font-size:12px;color:#fca5a5">no tel.</span>'}
@@ -1082,7 +1082,7 @@ function renderClientList(tessereMap, reset) {
       return `
       <div class="client-card" onclick="openClienteModal('${c.id}')">
         <div class="client-card-top">
-          <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
+          <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
           <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}" style="font-size:9px">${isAmb?'Amb':'Std'}</span>
           <span style="font-size:10px;font-weight:700;color:#94a3b8">${empLab}</span>
         </div>
@@ -1098,7 +1098,7 @@ function renderClientList(tessereMap, reset) {
     return `
     <div class="client-card" onclick="openClienteModal('${c.id}')">
       <div class="client-card-top">
-        <span class="client-nome">${esc(c.cognome)} ${esc(c.nome)}</span>
+        <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
         <span class="tipo-badge tipo-${isAmb?'ambassador':'standard'}">${isAmb?'Ambassador':'Standard'}</span>
         <span style="font-size:11px;font-weight:700;color:#94a3b8">${empLab}</span>
       </div>
@@ -1156,7 +1156,7 @@ function openClienteModal(clienteId) {
     editingTesseraId = t?.id || null;
     currentTipo = t?.tipo || 'standard';
     const isAmb = currentTipo === 'ambassador';
-    const nomeCompleto = `${c.cognome || ''} ${c.nome}`.trim();
+    const nomeCompleto = `${titleCase(c.cognome)} ${titleCase(c.nome)}`.trim();
     const initials = [(c.cognome||c.nome||'?')[0], (c.nome||'')[0]].filter(Boolean).join('').toUpperCase();
 
     document.getElementById('detail-mode').textContent = 'Modifica cliente';
@@ -1530,7 +1530,7 @@ function renderCompleanni() {
         return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9" onclick="openClienteModal('${c.id}')" style="cursor:pointer">
           <span style="font-size:20px">${isToday ? '🎂' : '🗓️'}</span>
           <div style="flex:1">
-            <strong style="font-size:14px">${esc(c.cognome)} ${esc(c.nome)}</strong>
+            <strong style="font-size:14px">${escName(c.cognome)} ${escName(c.nome)}</strong>
             ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>' : ''}
             <br>
             <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]}${isToday ? ' — <strong style="color:#B5453A">Oggi!</strong>' : ''}</span>
@@ -1582,7 +1582,7 @@ function renderAnalisi() {
       const c = allClienti.find(x => String(x.id) === String(t?.cliente_id));
       return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9">
         <span class="sconto-value">${esc(s.valore_sconto)}</span>
-        <div style="flex:1"><strong style="font-size:13px">${c ? esc(c.cognome)+' '+esc(c.nome) : '–'}</strong><br>
+        <div style="flex:1"><strong style="font-size:13px">${c ? escName(c.cognome)+' '+escName(c.nome) : '–'}</strong><br>
         <span style="font-size:12px;color:#64748b">${fmtDate(s.data_utilizzo)}
         ${s.giorni_completamento != null ? ` • ${s.giorni_completamento} gg`:''}</span></div>
       </div>`;
@@ -1666,6 +1666,11 @@ function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function titleCase(s) {
+  if (!s) return '';
+  return String(s).trim().split(/\s+/).map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ');
+}
+function escName(s) { return esc(titleCase(s)); }
 function fmtDate(d) {
   if (!d) return '–';
   const dt = new Date(d);
@@ -1971,7 +1976,7 @@ function renderTessereTab() {
     if (isAttiva && !isCompl) stato = '<span class="tess-stato attiva"><i class="fas fa-circle-check"></i>Attiva</span>';
     else if (isCompl)         stato = '<span class="tess-stato completa"><i class="fas fa-circle-check"></i>Completa</span>';
     else                      stato = '<span class="tess-stato archiviata"><i class="fas fa-box-archive"></i>Archiviata</span>';
-    const nome = c ? `<span style="font-weight:700">${esc(c.cognome||'')} ${esc(c.nome||'')}</span>` : '<span style="color:#94a3b8">–</span>';
+    const nome = c ? `<span style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</span>` : '<span style="color:#94a3b8">–</span>';
     const cid  = c ? `'${t.cliente_id}'` : 'null';
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
       <td><strong style="color:var(--amb);font-size:14px">${esc(t.codice_tessera||'—')}</strong></td>
@@ -2168,7 +2173,7 @@ function renderConsensi() {
       ? (() => { const p = c.consenso_privacy_data.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; })()
       : '—';
     return `<tr onclick="openClienteModal('${c.id}')">
-      <td style="font-weight:700">${esc((c.cognome||'')+' '+(c.nome||'')).trim()}</td>
+      <td style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</td>
       <td><span class="cons-badge ${mod}"><i class="fas ${badgeIcon}"></i>${badgeLabel}</span></td>
       <td style="color:#64748b">${dataStr}</td>
       <td style="color:#94a3b8;font-size:12px">${esc(capEmporio(c.emporio)||'—')}</td>
@@ -2223,7 +2228,7 @@ function exportConsensiCsv() {
       ? (() => { const p = c.consenso_privacy_data.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; })()
       : '';
     const row = [
-      c.cognome||'', c.nome||'',
+      titleCase(c.cognome), titleCase(c.nome),
       hasCons ? 'Sì' : 'No',
       mod, data,
       capEmporio(c.emporio||''),
@@ -2340,7 +2345,7 @@ function _dupColHtml(c, tessere, other) {
     ? tessere.map(t => `<div class="dup-col-row tessera"><i class="fas fa-id-card"></i>N° ${esc(t.codice_tessera||'?')}${t.attiva===false?' <span style="font-size:10px;opacity:.6">(completa)</span>':''}</div>`).join('')
     : '<div class="dup-col-row muted"><i class="fas fa-id-card"></i>Nessuna tessera</div>';
   return `<div class="dup-col">
-    <div class="dup-col-name${nameMatch?' match':''}">${esc((c.nome||'')+' '+(c.cognome||''))}</div>
+    <div class="dup-col-name${nameMatch?' match':''}">${escName(c.nome)} ${escName(c.cognome)}</div>
     ${c.telefono
       ? `<div class="dup-col-row${telMatch?' match':''}"><i class="fas fa-phone"></i>${esc(c.telefono)}</div>`
       : '<div class="dup-col-row muted"><i class="fas fa-phone"></i>—</div>'}
@@ -2487,8 +2492,8 @@ function openMergeModal(idA, idB) {
 }
 
 function _renderMergeBody() {
-  const nA = esc(((_mergeA.nome||'')+' '+(_mergeA.cognome||'')).trim());
-  const nB = esc(((_mergeB.nome||'')+' '+(_mergeB.cognome||'')).trim());
+  const nA = `${escName(_mergeA.cognome)} ${escName(_mergeA.nome)}`.trim();
+  const nB = `${escName(_mergeB.cognome)} ${escName(_mergeB.nome)}`.trim();
 
   let rows = '';
   MERGE_FIELDS.forEach(f => {
@@ -2596,8 +2601,8 @@ async function confirmMerge() {
   if (!_mergeA || !_mergeB) return;
   const keep   = _mergeRecord === 'a' ? _mergeA : _mergeB;
   const remove = _mergeRecord === 'a' ? _mergeB : _mergeA;
-  const keepName   = ((keep.nome||'')+' '+(keep.cognome||'')).trim();
-  const removeName = ((remove.nome||'')+' '+(remove.cognome||'')).trim();
+  const keepName   = `${titleCase(keep.cognome)} ${titleCase(keep.nome)}`.trim();
+  const removeName = `${titleCase(remove.cognome)} ${titleCase(remove.nome)}`.trim();
 
   if (!confirm(`Unire "${removeName}" in "${keepName}"?\n\nIl record "${removeName}" (ID ${remove.id}) verrà eliminato definitivamente.`)) return;
 
