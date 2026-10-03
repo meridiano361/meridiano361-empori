@@ -1627,11 +1627,11 @@ function renderStoricoTessere(clienteId) {
   if (!el) return;
 
   const cliente   = allClienti.find(c => String(c.id) === String(clienteId));
-  // Ordine: dalla più vecchia (iscrizione) alla più recente (rinnovi)
+  // Ordine: dalla più recente (in cima) alla più vecchia (in fondo)
   const tessereDB = allTessere
     .filter(x => String(x.cliente_id) === String(clienteId))
-    .sort((a, b) => (a.data_emissione||a.created_at||'') < (b.data_emissione||b.created_at||'') ? -1 : 1);
-  const tipoTessera = tessereDB[tessereDB.length - 1]?.tipo || currentTipo || 'standard';
+    .sort((a, b) => (b.data_emissione||b.created_at||'') < (a.data_emissione||a.created_at||'') ? -1 : 1);
+  const tipoTessera = tessereDB[0]?.tipo || currentTipo || 'standard';
 
   // ── Sezione DB ──
   let htmlDB = '';
@@ -1643,8 +1643,9 @@ function renderStoricoTessere(clienteId) {
       if (isAttiva)        { statoLabel='Attiva';     statoColor='#16a34a'; statoIcon='fa-circle-check'; }
       else if (isEsaurita) { statoLabel='Esaurita';   statoColor='#94a3b8'; statoIcon='fa-circle-xmark'; }
       else                 { statoLabel='Archiviata'; statoColor='#cbd5e1'; statoIcon='fa-circle-dot'; }
-      const isFirst  = idx === 0;
-      const nRinnovo = idx; // 1° rinnovo, 2° rinnovo...
+      const chronoIdx = tessereDB.length - 1 - idx; // 0 = più vecchia (iscrizione)
+      const isFirst  = chronoIdx === 0;
+      const nRinnovo = chronoIdx;
       const motivoHtml = !isFirst && t.motivo_rinnovo ? ` <span style="font-size:10px;color:${_motivoColor(t.motivo_rinnovo)};font-weight:600">· ${_motivoLabel(t.motivo_rinnovo)}</span>` : '';
       const ordLabel = isFirst
         ? `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:#dcfce7;color:#16a34a"><i class="fas fa-star" style="font-size:9px"></i> Iscrizione</span>`
