@@ -190,7 +190,7 @@
       <div class="field-grid">
         <div><div class="field-label">Nome *</div><input class="field-input" id="f-nome" placeholder="Nome"></div>
         <div><div class="field-label">Cognome</div><input class="field-input" id="f-cognome" placeholder="Cognome"></div>
-        <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="date"></div>
+        <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="text" placeholder="GG/MM/AAAA" maxlength="10" inputmode="numeric" oninput="_fmtNascita(this)"></div>
         <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel" oninput="this.value=this.value.replace(/[^\d+]/g,'')"></div>
         <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
         <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città" oninput="autoProvincia()" onblur="autoProvincia()"></div>
@@ -444,7 +444,7 @@ function openPanel(id) {
 
     document.getElementById('f-nome').value     = c.nome || '';
     document.getElementById('f-cognome').value  = c.cognome || '';
-    document.getElementById('f-nascita').value  = c.data_nascita || '';
+    document.getElementById('f-nascita').value  = _isoToIt(c.data_nascita);
     document.getElementById('f-telefono').value = c.telefono || '';
     document.getElementById('f-email').value    = c.email || '';
     document.getElementById('f-citta').value    = c.citta || '';
@@ -500,7 +500,7 @@ async function saveCliente() {
   const payload = {
     nome:      nome || cognome,
     cognome:   cognome || nome,
-    data_nascita: document.getElementById('f-nascita').value || null,
+    data_nascita: _itToIso(document.getElementById('f-nascita').value),
     telefono:  document.getElementById('f-telefono').value.replace(/[^\d+]/g,'') || null,
     email:     document.getElementById('f-email').value.trim() || null,
     citta:     document.getElementById('f-citta').value.trim() || null,
@@ -588,6 +588,22 @@ function autoProvincia() {
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
+function _isoToIt(iso) {
+  if (!iso) return '';
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+function _itToIso(it) {
+  if (!it) return null;
+  const m = it.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+function _fmtNascita(el) {
+  let v = el.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 4) v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+  else if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+  el.value = v;
+}
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -682,16 +698,18 @@ function renderMergeBody() {
   document.getElementById('mrec-body').innerHTML = MERGE_FIELDS_RUB.map(f => {
     const vA = _mergeA[f.key] || '';
     const vB = _mergeB[f.key] || '';
+    const dispA = f.key === 'data_nascita' ? _isoToIt(vA) : vA;
+    const dispB = f.key === 'data_nascita' ? _isoToIt(vB) : vB;
     const selA = _mergeSel[f.key] !== 'B';
     return `<div class="mrec-row">
       <div class="mrec-label">${f.label}</div>
       <div class="mrec-opt${selA ? ' sel' : ''}" onclick="selectMergeOpt('${f.key}','A')">
         <input type="radio" ${selA ? 'checked' : ''} readonly>
-        <span>${vA ? esc(vA) : '<span style="color:#cbd5e1">–</span>'}</span>
+        <span>${dispA ? esc(dispA) : '<span style="color:#cbd5e1">–</span>'}</span>
       </div>
       <div class="mrec-opt${!selA ? ' sel' : ''}" onclick="selectMergeOpt('${f.key}','B')">
         <input type="radio" ${!selA ? 'checked' : ''} readonly>
-        <span>${vB ? esc(vB) : '<span style="color:#cbd5e1">–</span>'}</span>
+        <span>${dispB ? esc(dispB) : '<span style="color:#cbd5e1">–</span>'}</span>
       </div>
     </div>`;
   }).join('');
