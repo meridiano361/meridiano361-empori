@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <title>Rubrica Clienti</title>
+  <script src="../../scripts/nav-script.js"></script>
+  <style>
+    :root { --red:#B5453A; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Nunito',sans-serif; background:#f8fafc; }
+    .page-wrap { padding-top:56px; min-height:100vh; transition:margin-right .26s; }
+    .page-wrap.panel-open { margin-right:460px; }
+    @media(max-width:700px){ .page-wrap.panel-open { margin-right:0; } }
+
+    /* Top bar */
+    .top-bar { background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .search-wrap { position:relative; flex:1; min-width:180px; max-width:360px; }
+    .search-wrap i { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:13px; }
+    .search-input { width:100%; padding:8px 10px 8px 30px; border:1px solid #e2e8f0; border-radius:10px; font-size:13px; font-family:inherit; outline:none; }
+    .search-input:focus { border-color:#B5453A; }
+    .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; border:none; font-family:inherit; transition:opacity .12s; }
+    .btn:hover { opacity:.88; }
+    .btn-red { background:var(--red); color:#fff; }
+    .btn-outline { background:#fff; border:1px solid #e2e8f0; color:#1e293b; }
+    .btn-sm { padding:5px 10px; font-size:12px; border-radius:8px; }
+
+    /* Stats bar */
+    .stats-bar { display:flex; gap:8px; padding:8px 16px; flex-wrap:wrap; }
+    .sb-chip { font-size:11px; font-weight:700; color:#64748b; background:#f1f5f9; border-radius:8px; padding:4px 10px; white-space:nowrap; }
+    .sb-chip span { color:#1e293b; }
+
+    /* List area */
+    .list-area { padding:12px 16px 80px; }
+
+    /* Client card */
+    .client-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:8px; }
+    .client-list.view-list { grid-template-columns:1fr; }
+    .client-list.view-compact { grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:4px; }
+    .client-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; cursor:pointer; transition:box-shadow .12s, border-color .12s; }
+    .client-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); border-color:#cbd5e1; }
+    .client-nome { font-size:14px; font-weight:800; color:#1e293b; }
+    .client-card-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px; }
+    .client-card-sub { display:flex; gap:8px; flex-wrap:wrap; font-size:12px; color:#64748b; margin-top:2px; }
+    .tess-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px; background:#dcfce7; color:#16a34a; }
+    .no-tess-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px; background:#f1f5f9; color:#94a3b8; }
+    .empty { text-align:center; padding:40px 20px; color:#94a3b8; }
+    .empty i { font-size:32px; margin-bottom:10px; display:block; }
+
+    /* Side panel */
+    .side-panel { position:fixed; top:56px; right:0; bottom:0; width:460px; background:#fff; border-left:1px solid #e2e8f0; box-shadow:-6px 0 24px rgba(0,0,0,.07); z-index:400; display:flex; flex-direction:column; transform:translateX(100%); transition:transform .26s cubic-bezier(.4,0,.2,1); }
+    .side-panel.open { transform:translateX(0); }
+    @media(max-width:700px){ .side-panel { top:0; width:100%; box-shadow:none; border-left:none; } }
+    .panel-hdr { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid #e2e8f0; background:#fff; flex-shrink:0; }
+    .panel-hdr-info { flex:1; min-width:0; }
+    .panel-hdr-mode { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; }
+    .panel-hdr-name { font-size:15px; font-weight:800; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .panel-body { flex:1; overflow-y:auto; }
+    .panel-footer { padding:10px 14px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; gap:8px; align-items:center; flex-shrink:0; }
+    .panel-footer .spacer { flex:1; }
+    .panel-sec { padding:12px 18px; border-bottom:1px solid #f1f5f9; }
+    .panel-sec-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--red); margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+    .panel-sec-title i { font-size:11px; opacity:.7; }
+    .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .field-grid.single { grid-template-columns:1fr; }
+    .field-label { font-size:10px; font-weight:700; color:#64748b; margin-bottom:3px; text-transform:uppercase; letter-spacing:.04em; }
+    .field-input { width:100%; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; outline:none; }
+    .field-input:focus { border-color:var(--red); }
+    .field-textarea { width:100%; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; font-family:inherit; outline:none; resize:vertical; min-height:60px; }
+    .field-textarea:focus { border-color:var(--red); }
+
+    /* Hero */
+    .client-hero { display:flex; align-items:center; gap:12px; padding:16px 18px; background:linear-gradient(135deg,#1e293b 0%,#334155 100%); color:#fff; }
+    .client-hero.has-tess { background:linear-gradient(135deg,#15803d 0%,#16a34a 100%); }
+    .client-initials { width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:800; flex-shrink:0; }
+    .client-hero-name { font-size:16px; font-weight:800; }
+    .client-hero-sub { font-size:12px; opacity:.75; margin-top:2px; }
+
+    /* FAB */
+    .fab { position:fixed; bottom:24px; right:24px; width:52px; height:52px; border-radius:50%; background:var(--red); color:#fff; border:none; cursor:pointer; font-size:22px; box-shadow:0 4px 16px rgba(0,0,0,.18); z-index:300; display:flex; align-items:center; justify-content:center; transition:transform .12s; }
+    .fab:hover { transform:scale(1.08); }
+
+    /* Toast */
+    .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e293b; color:#fff; padding:10px 20px; border-radius:10px; font-size:13px; font-weight:700; opacity:0; transition:all .25s; z-index:1000; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* View toggle */
+    .view-btn { padding:5px 8px; border:1px solid #e2e8f0; border-radius:7px; background:#fff; cursor:pointer; font-size:13px; color:#64748b; }
+    .view-btn.active { background:var(--red); color:#fff; border-color:var(--red); }
+
+    /* Tessera section in panel */
+    .tess-link-section { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:12px 18px; border-bottom:1px solid #f1f5f9; }
+  </style>
+</head>
+<body>
+
+<div class="page-wrap" id="page-wrap">
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="search-wrap">
+      <i class="fas fa-magnifying-glass"></i>
+      <input class="search-input" id="search-input" type="text" placeholder="Cerca nome, telefono, email, città…" oninput="applyFilters()">
+    </div>
+    <select id="sort-sel" onchange="applyFilters()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer;font-family:inherit">
+      <option value="cognome">A-Z cognome</option>
+      <option value="nome">A-Z nome</option>
+      <option value="citta">Città</option>
+    </select>
+    <button class="view-btn active" id="vb-grid" onclick="setView('grid')" title="Griglia"><i class="fas fa-grip"></i></button>
+    <button class="view-btn" id="vb-list" onclick="setView('list')" title="Lista"><i class="fas fa-list"></i></button>
+    <button class="view-btn" id="vb-compact" onclick="setView('compact')" title="Compatta"><i class="fas fa-table-cells-large"></i></button>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="sb-chip">Totale <span id="sb-tot">–</span></div>
+    <div class="sb-chip">Con telefono <span id="sb-tel">–</span></div>
+    <div class="sb-chip">Con email <span id="sb-email">–</span></div>
+    <div class="sb-chip">Con tessera <span id="sb-tess">–</span></div>
+  </div>
+
+  <!-- List -->
+  <div class="list-area">
+    <div class="client-list" id="client-list">
+      <div class="empty"><i class="fas fa-spinner fa-spin"></i><p>Caricamento…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Side panel -->
+<div class="side-panel" id="cliente-overlay">
+  <div class="panel-hdr">
+    <button onclick="closePanel()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8;padding:4px;flex-shrink:0"><i class="fas fa-xmark"></i></button>
+    <div class="panel-hdr-info">
+      <div class="panel-hdr-mode" id="detail-mode"></div>
+      <div class="panel-hdr-name" id="detail-title">Nuovo contatto</div>
+    </div>
+    <button id="btn-elimina-hdr" onclick="deleteCliente()" class="btn btn-sm" style="display:none;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;flex-shrink:0" title="Elimina"><i class="fas fa-trash"></i></button>
+    <button onclick="saveCliente()" class="btn btn-red btn-sm" style="flex-shrink:0"><i class="fas fa-check"></i> Salva</button>
+  </div>
+
+  <div class="panel-body">
+    <!-- Hero -->
+    <div class="client-hero" id="client-hero">
+      <div class="client-initials" id="client-initials">+</div>
+      <div>
+        <div class="client-hero-name" id="client-hero-name">Nuovo contatto</div>
+        <div class="client-hero-sub" id="client-hero-sub"></div>
+      </div>
+    </div>
+
+    <!-- Tessera status -->
+    <div class="tess-link-section" id="tess-link-section" style="display:none">
+      <i class="fas fa-id-card" style="color:#16a34a;font-size:15px"></i>
+      <span id="tess-link-label" style="font-size:13px;font-weight:700;color:#1e293b;flex:1"></span>
+      <a id="btn-vai-tessera" href="#" class="btn btn-sm" style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;text-decoration:none" target="_blank"><i class="fas fa-arrow-up-right-from-square"></i> Apri in Tessere</a>
+    </div>
+    <div class="tess-link-section" id="crea-tess-section" style="display:none">
+      <i class="fas fa-id-card-clip" style="color:#94a3b8;font-size:15px"></i>
+      <span style="font-size:13px;color:#64748b;flex:1">Nessuna tessera fedeltà</span>
+      <button class="btn btn-sm btn-outline" onclick="creaTessera()"><i class="fas fa-plus"></i> Crea tessera</button>
+    </div>
+
+    <!-- Anagrafica -->
+    <div class="panel-sec">
+      <div class="panel-sec-title"><i class="fas fa-user"></i> Anagrafica</div>
+      <div class="field-grid">
+        <div><div class="field-label">Nome *</div><input class="field-input" id="f-nome" placeholder="Nome"></div>
+        <div><div class="field-label">Cognome</div><input class="field-input" id="f-cognome" placeholder="Cognome"></div>
+        <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="date"></div>
+        <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel"></div>
+        <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
+        <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città" oninput="autoProvincia()" onblur="autoProvincia()"></div>
+        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR" title="Si compila automaticamente dalla città"></div>
+      </div>
+    </div>
+
+    <!-- Note -->
+    <div class="panel-sec">
+      <div class="panel-sec-title"><i class="fas fa-note-sticky"></i> Note</div>
+      <textarea class="field-textarea field-input" id="f-note" placeholder="Note interne…" style="width:100%"></textarea>
+    </div>
+  </div>
+
+  <div class="panel-footer">
+    <button id="btn-elimina" onclick="deleteCliente()" class="btn btn-sm" style="display:none;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5"><i class="fas fa-trash"></i> Elimina</button>
+    <div class="spacer"></div>
+    <button onclick="saveCliente()" class="btn btn-red btn-sm"><i class="fas fa-check"></i> Salva</button>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab-new" onclick="openPanel(null)" title="Nuovo contatto"><i class="fas fa-plus"></i></button>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+'use strict';
+const SB_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+let _sb;
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let _user = null;
+async function checkAuth() {
+  const stored = sessionStorage.getItem('m361_user') || localStorage.getItem('m361_user');
+  if (!stored) { redirectLogin(); return; }
+  try { _user = JSON.parse(stored); } catch { redirectLogin(); return; }
+  if (!_user?.username) { redirectLogin(); return; }
+}
+function redirectLogin() {
+  const ret = encodeURIComponent(location.href);
+  location.href = (location.pathname.includes('/pages/') ? '../../' : '') + 'login.html?return=' + ret;
+}
+
+// ── Data ──────────────────────────────────────────────────────────────────────
+let allClienti = [];
+let tessereSet = new Set(); // IDs clienti che hanno almeno una tessera
+let filteredList = [];
+let _clPage = 0;
+const CL_PAGE = 60;
+
+let _clientiMap = null;
+function _getClientiMap() {
+  if (!_clientiMap) _clientiMap = new Map(allClienti.map(c => [String(c.id), c]));
+  return _clientiMap;
+}
+function _invalidateMaps() { _clientiMap = null; }
+
+async function loadAll() {
+  const PAGE = 1000;
+  const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,note,consenso_privacy,consenso_privacy_modalita';
+
+  const [r1, r2] = await Promise.all([
+    _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(0, PAGE - 1),
+    _sb.from('tessere').select('cliente_id').range(0, PAGE - 1),
+  ]);
+
+  allClienti = r1.data || [];
+  tessereSet  = new Set((r2.data || []).map(t => String(t.cliente_id)));
+  _invalidateMaps();
+  applyFilters();
+
+  const needC = (r1.data?.length ?? 0) >= PAGE;
+  const needT = (r2.data?.length ?? 0) >= PAGE;
+  if (needC || needT) _loadRemaining(C_COLS, PAGE, needC ? PAGE : null, needT ? PAGE : null);
+}
+
+async function _loadRemaining(C_COLS, PAGE, offC, offT) {
+  while (offC !== null || offT !== null) {
+    const [rC, rT] = await Promise.all([
+      offC !== null ? _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(offC, offC + PAGE - 1) : Promise.resolve({ data: [] }),
+      offT !== null ? _sb.from('tessere').select('cliente_id').range(offT, offT + PAGE - 1) : Promise.resolve({ data: [] }),
+    ]);
+    const chunkC = rC.data || [], chunkT = rT.data || [];
+    if (chunkC.length) { allClienti = allClienti.concat(chunkC); _invalidateMaps(); }
+    if (chunkT.length) chunkT.forEach(t => tessereSet.add(String(t.cliente_id)));
+    offC = (offC !== null && chunkC.length >= PAGE) ? offC + PAGE : null;
+    offT = (offT !== null && chunkT.length >= PAGE) ? offT + PAGE : null;
+    applyFilters(true);
+  }
+}
+
+// ── Filters & Render ──────────────────────────────────────────────────────────
+let viewMode = 'grid';
+function setView(v) {
+  viewMode = v;
+  ['grid','list','compact'].forEach(x => document.getElementById('vb-'+x).classList.toggle('active', x === v));
+  renderList(false);
+}
+
+function applyFilters(keepPage = false) {
+  if (!keepPage) _clPage = 0;
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+  const sort = document.getElementById('sort-sel')?.value || 'cognome';
+
+  filteredList = allClienti.filter(c => {
+    if (!q) return true;
+    return [c.nome, c.cognome, c.telefono, c.email, c.citta, c.provincia].join(' ').toLowerCase().includes(q);
+  });
+
+  filteredList.sort((a, b) => {
+    if (sort === 'nome')   return (a.nome||'').localeCompare(b.nome||'', 'it');
+    if (sort === 'citta')  return (a.citta||'').localeCompare(b.citta||'', 'it');
+    return ((a.cognome||'')+(a.nome||'')).localeCompare((b.cognome||'')+(b.nome||''), 'it');
+  });
+
+  renderList(true);
+  renderStats();
+}
+
+function renderStats() {
+  const vis = filteredList;
+  document.getElementById('sb-tot').textContent   = vis.length;
+  document.getElementById('sb-tel').textContent   = vis.filter(c => c.telefono).length;
+  document.getElementById('sb-email').textContent = vis.filter(c => c.email).length;
+  document.getElementById('sb-tess').textContent  = vis.filter(c => tessereSet.has(String(c.id))).length;
+}
+
+function renderList(reset) {
+  if (reset) _clPage = 0; // handled by applyFilters
+  const el = document.getElementById('client-list');
+  el.className = 'client-list' + (viewMode === 'list' ? ' view-list' : viewMode === 'compact' ? ' view-compact' : '');
+
+  if (!filteredList.length) {
+    el.innerHTML = '<div class="empty"><i class="fas fa-users"></i><p>Nessun contatto trovato</p></div>';
+    return;
+  }
+
+  const visible = filteredList.slice(0, (_clPage + 1) * CL_PAGE);
+  const remaining = filteredList.length - visible.length;
+
+  el.innerHTML = visible.map(c => {
+    const hasTess = tessereSet.has(String(c.id));
+    const bday = getBdayStr(c.data_nascita);
+
+    if (viewMode === 'compact') {
+      return `<div class="client-card" onclick="openPanel('${c.id}')">
+        <div class="client-card-top">
+          <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
+          ${hasTess ? '<span class="tess-badge">Tessera</span>' : ''}
+        </div>
+        <div class="client-card-sub">
+          ${c.telefono ? `<span>${esc(c.telefono)}</span>` : '<span style="color:#fca5a5">no tel.</span>'}
+          ${c.citta ? `<span>${esc(c.citta)}</span>` : ''}
+        </div>
+      </div>`;
+    }
+
+    if (viewMode === 'list') {
+      return `<div class="client-card" onclick="openPanel('${c.id}')">
+        <div class="client-card-top">
+          <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
+          ${hasTess ? '<span class="tess-badge">Tessera</span>' : '<span class="no-tess-badge">No tessera</span>'}
+          ${c.telefono ? `<span style="font-size:12px;color:#64748b"><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : ''}
+          ${c.email ? `<span style="font-size:12px;color:#94a3b8">${esc(c.email)}</span>` : ''}
+          ${c.citta ? `<span style="font-size:12px;color:#94a3b8">${esc(c.citta)}</span>` : ''}
+          ${bday ? `<span style="font-size:12px">${bday}</span>` : ''}
+        </div>
+      </div>`;
+    }
+
+    return `<div class="client-card" onclick="openPanel('${c.id}')">
+      <div class="client-card-top">
+        <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
+        ${hasTess ? '<span class="tess-badge">Tessera</span>' : '<span class="no-tess-badge">No tessera</span>'}
+      </div>
+      <div class="client-card-sub">
+        ${c.telefono ? `<span><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : '<span style="color:#fca5a5">nessun tel.</span>'}
+        ${c.email ? `<span>${esc(c.email)}</span>` : ''}
+        ${c.citta ? `<span>${esc(c.citta)}</span>` : ''}
+        ${bday ? `<span><i class="fas fa-cake-candles" style="font-size:10px"></i> ${bday}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('') + (remaining > 0
+    ? `<div style="text-align:center;padding:14px 0;grid-column:1/-1">
+        <button class="btn btn-outline" onclick="_loadMore()">
+          Mostra altri ${Math.min(remaining, CL_PAGE)} <span style="color:#94a3b8;font-weight:400">(${remaining} rimanenti)</span>
+        </button></div>`
+    : '');
+}
+
+function _loadMore() { _clPage++; renderList(false); }
+
+// ── Panel ─────────────────────────────────────────────────────────────────────
+let _editingId = null;
+
+function openPanel(id) {
+  _editingId = id || null;
+  document.getElementById('cliente-overlay').classList.add('open');
+  document.getElementById('page-wrap').classList.add('panel-open');
+
+  if (id) {
+    const c = _getClientiMap().get(String(id));
+    if (!c) return;
+    const hasTess = tessereSet.has(String(id));
+    const nomeCompleto = `${titleCase(c.cognome)} ${titleCase(c.nome)}`.trim();
+    const initials = [(c.cognome||c.nome||'?')[0],(c.nome||'')[0]].filter(Boolean).join('').toUpperCase();
+
+    document.getElementById('detail-mode').textContent = 'Modifica contatto';
+    document.getElementById('detail-title').textContent = nomeCompleto;
+    const hero = document.getElementById('client-hero');
+    hero.className = 'client-hero' + (hasTess ? ' has-tess' : '');
+    document.getElementById('client-initials').textContent = initials || '?';
+    document.getElementById('client-hero-name').textContent = nomeCompleto;
+    document.getElementById('client-hero-sub').textContent = hasTess ? 'Cliente con tessera fedeltà' : 'Contatto senza tessera';
+
+    document.getElementById('f-nome').value     = c.nome || '';
+    document.getElementById('f-cognome').value  = c.cognome || '';
+    document.getElementById('f-nascita').value  = c.data_nascita || '';
+    document.getElementById('f-telefono').value = c.telefono || '';
+    document.getElementById('f-email').value    = c.email || '';
+    document.getElementById('f-citta').value    = c.citta || '';
+    document.getElementById('f-provincia').value = c.provincia || '';
+    document.getElementById('f-note').value     = c.note || '';
+
+    document.getElementById('btn-elimina').style.display     = '';
+    document.getElementById('btn-elimina-hdr').style.display = '';
+
+    // Tessera section
+    if (hasTess) {
+      document.getElementById('tess-link-section').style.display  = '';
+      document.getElementById('crea-tess-section').style.display  = 'none';
+      document.getElementById('tess-link-label').textContent = 'Ha la tessera fedeltà';
+      const tessereUrl = (location.href.includes('/pages/') ? '../tessere/index.html' : 'pages/tessere/index.html') + '?cliente=' + id;
+      document.getElementById('btn-vai-tessera').href = tessereUrl;
+    } else {
+      document.getElementById('tess-link-section').style.display  = 'none';
+      document.getElementById('crea-tess-section').style.display  = '';
+    }
+  } else {
+    document.getElementById('detail-mode').textContent  = '';
+    document.getElementById('detail-title').textContent = 'Nuovo contatto';
+    const hero = document.getElementById('client-hero');
+    hero.className = 'client-hero';
+    document.getElementById('client-initials').textContent  = '+';
+    document.getElementById('client-hero-name').textContent = 'Nuovo contatto';
+    document.getElementById('client-hero-sub').textContent  = '';
+
+    ['f-nome','f-cognome','f-nascita','f-telefono','f-email','f-citta','f-provincia','f-note'].forEach(id =>
+      document.getElementById(id).value = '');
+
+    document.getElementById('btn-elimina').style.display     = 'none';
+    document.getElementById('btn-elimina-hdr').style.display = 'none';
+    document.getElementById('tess-link-section').style.display = 'none';
+    document.getElementById('crea-tess-section').style.display = 'none';
+    setTimeout(() => document.getElementById('f-nome')?.focus(), 100);
+  }
+}
+
+function closePanel() {
+  document.getElementById('cliente-overlay').classList.remove('open');
+  document.getElementById('page-wrap').classList.remove('panel-open');
+  _editingId = null;
+}
+
+// ── Save / Delete ─────────────────────────────────────────────────────────────
+async function saveCliente() {
+  const nome    = document.getElementById('f-nome').value.trim();
+  const cognome = document.getElementById('f-cognome').value.trim();
+  if (!nome && !cognome) { showToast('Inserisci almeno il nome'); return; }
+
+  const payload = {
+    nome:      nome || cognome,
+    cognome:   cognome || nome,
+    data_nascita: document.getElementById('f-nascita').value || null,
+    telefono:  document.getElementById('f-telefono').value.trim() || null,
+    email:     document.getElementById('f-email').value.trim() || null,
+    citta:     document.getElementById('f-citta').value.trim() || null,
+    provincia: document.getElementById('f-provincia').value.trim() || null,
+    note:      document.getElementById('f-note').value.trim() || null,
+  };
+
+  if (_editingId) {
+    const { error } = await _sb.from('clienti').update(payload).eq('id', _editingId).select();
+    if (error) { showToast('Errore: ' + error.message); return; }
+    const c = _getClientiMap().get(String(_editingId));
+    if (c) Object.assign(c, payload);
+    _invalidateMaps();
+  } else {
+    const { data, error } = await _sb.from('clienti').insert(payload).select().single();
+    if (error) { showToast('Errore: ' + error.message); return; }
+    if (data) { allClienti.push(data); _invalidateMaps(); }
+  }
+
+  closePanel();
+  applyFilters();
+  showToast('Salvato ✓');
+}
+
+async function deleteCliente() {
+  if (!_editingId) return;
+  const c = _getClientiMap().get(String(_editingId));
+  const nome = c ? `${titleCase(c.cognome)} ${titleCase(c.nome)}`.trim() : 'questo contatto';
+  if (!confirm(`Eliminare ${nome}?`)) return;
+  if (!confirm('Conferma: questa azione elimina anche eventuali tessere collegate. Continuare?')) return;
+
+  const { data: tess } = await _sb.from('tessere').select('id').eq('cliente_id', _editingId);
+  for (const t of (tess || [])) {
+    await _sb.from('tessere_sconti').delete().eq('tessera_id', t.id);
+    await _sb.from('tessere').delete().eq('id', t.id);
+  }
+  await _sb.from('clienti').delete().eq('id', _editingId);
+  allClienti = allClienti.filter(c => String(c.id) !== String(_editingId));
+  tessereSet.delete(String(_editingId));
+  _invalidateMaps();
+  closePanel();
+  applyFilters();
+  showToast('Contatto eliminato');
+}
+
+function creaTessera() {
+  if (!_editingId) return;
+  const url = (location.href.includes('/pages/') ? '../tessere/index.html' : 'pages/tessere/index.html') + '?new_tess=' + _editingId;
+  location.href = url;
+}
+
+// ── Autocomplete provincia ────────────────────────────────────────────────────
+const PROV_MAP = {
+  'cremona':'CR','brescia':'BS','mantova':'MN','bergamo':'BG','milano':'MI','lodi':'LO',
+  'pavia':'PV','como':'CO','varese':'VA','lecco':'LC','sondrio':'SO','monza e brianza':'MB',
+  'piacenza':'PC','parma':'PR','reggio emilia':'RE','modena':'MO','bologna':'BO','ferrara':'FE',
+  'ravenna':'RA','forlì-cesena':'FC','rimini':'RN','pesaro e urbino':'PU','ancona':'AN',
+  'macerata':'MC','ascoli piceno':'AP','fermo':'FM','roma':'RM','viterbo':'VT','rieti':'RI',
+  'latina':'LT','frosinone':'FR','torino':'TO','vercelli':'VC','novara':'NO','cuneo':'CN',
+  'asti':'AT','alessandria':'AL','biella':'BI','verbano-cusio-ossola':'VB','venezia':'VE',
+  'padova':'PD','verona':'VR','vicenza':'VI','treviso':'TV','belluno':'BL','rovigo':'RO',
+  'udine':'UD','gorizia':'GO','trieste':'TS','pordenone':'PN','trento':'TN','bolzano':'BZ',
+  'genova':'GE','savona':'SV','imperia':'IM','la spezia':'SP','firenze':'FI','prato':'PO',
+  'pistoia':'PT','livorno':'LI','pisa':'PI','lucca':'LU','massa-carrara':'MS','arezzo':'AR',
+  'siena':'SI','grosseto':'GR','perugia':'PG','terni':'TR','napoli':'NA','caserta':'CE',
+  'salerno':'SA','avellino':'AV','benevento':'BN','bari':'BA','lecce':'LE','taranto':'TA',
+  'brindisi':'BR','foggia':'FG','barletta-andria-trani':'BT','potenza':'PZ','matera':'MT',
+  'cosenza':'CS','catanzaro':'CZ','reggio calabria':'RC','crotone':'KR','vibo valentia':'VV',
+  'palermo':'PA','catania':'CT','messina':'ME','siracusa':'SR','ragusa':'RG','agrigento':'AG',
+  'caltanissetta':'CL','enna':'EN','trapani':'TP','cagliari':'CA','sassari':'SS','nuoro':'NU',
+  'oristano':'OR','campobasso':'CB','isernia':'IS',"l'aquila":'AQ','pescara':'PE','chieti':'CH',
+  'teramo':'TE',
+};
+const CITTA_PROV = {'salina':'MN','viadana':'MN','casalmaggiore':'CR','soresina':'CR','crema':'CR'};
+function autoProvincia() {
+  const citta = document.getElementById('f-citta').value.trim().toLowerCase();
+  const provEl = document.getElementById('f-provincia');
+  if (provEl.value) return;
+  const p = CITTA_PROV[citta] || PROV_MAP[citta];
+  if (p) provEl.value = p;
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function titleCase(s) {
+  if (!s) return '';
+  return String(s).trim().split(/\s+/).map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '').join(' ');
+}
+function escName(s) { return esc(titleCase(s)); }
+
+function getBdayStr(data_nascita) {
+  if (!data_nascita) return null;
+  const d = new Date(data_nascita);
+  const today = new Date();
+  if (d.getMonth() === today.getMonth() && d.getDate() === today.getDate()) return '🎂 Oggi!';
+  const thisYear = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+  const diff = (thisYear - today) / (1000*60*60*24);
+  if (diff >= 0 && diff <= 7) return `🎂 tra ${Math.ceil(diff)} gg`;
+  return null;
+}
+
+let _toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkAuth();
+  _sb = window.supabase.createClient(SB_URL, SB_KEY);
+  loadAll();
+});
+</script>
+</body>
+</html>

@@ -144,6 +144,7 @@
       { id: 'ordini',       label: 'Ordini',       icon: 'fa-bag-shopping',   href: 'pages/ordini/ordini.html',               section: 'ordini',  active: true  },
       { id: 'prenotazioni', label: 'Prenotazioni', icon: 'fa-calendar-check', href: 'pages/prenotazioni/prenotazioni.html',   section: null,      active: true  },
       { id: 'tessere',      label: 'Tessere',      icon: 'fa-id-card',        href: 'pages/tessere/index.html',               section: null,      active: false },
+      { id: 'rubrica',      label: 'Rubrica',      icon: 'fa-address-book',   href: 'pages/rubrica/index.html',               section: null,      active: true  },
       { id: 'info',         label: 'Info',         icon: 'fa-message',        href: 'pages/info/info.html',            section: null,      active: true  },
       { id: 'preventivi',   label: 'Preventivi',   icon: 'fa-file-invoice',   href: 'pages/ordini/preventivi.html',    section: null,      active: true  },
     ]},

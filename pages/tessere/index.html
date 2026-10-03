@@ -822,6 +822,22 @@ async function init() {
     return;
   }
   await loadAll();
+
+  // Parametro ?new_tess=ID — apre form nuova tessera per cliente esistente dalla Rubrica
+  const params = new URLSearchParams(location.search);
+  const newTessId = params.get('new_tess');
+  if (newTessId) {
+    const existing = allClienti.find(c => String(c.id) === String(newTessId));
+    if (existing) {
+      openClienteModal(newTessId);
+    } else {
+      // cliente non ancora in memoria (caricamento progressivo): riprova dopo
+      setTimeout(() => {
+        const c2 = allClienti.find(c => String(c.id) === String(newTessId));
+        if (c2) openClienteModal(newTessId);
+      }, 2000);
+    }
+  }
 }
 
 async function loadAll() {
