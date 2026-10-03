@@ -425,10 +425,38 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Compleanni</div>
         <div style="font-size:12px;color:#64748b">Clienti con compleanno questo mese</div>
       </div>
-      <div id="compleanni-count" style="font-size:12px;color:#94a3b8"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="compleanni-count" style="font-size:12px;color:#94a3b8"></div>
+        <button id="bd-send-btn" class="btn btn-sm" onclick="openBdQueue()"
+          style="background:#25d366;color:#fff;border:none;display:none">
+          <i class="fab fa-whatsapp"></i> <span id="bd-send-label">Invia auguri</span>
+        </button>
+      </div>
     </div>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px">
       <div id="birthday-list-tab"></div>
+    </div>
+  </div>
+
+  <!-- MODAL CODA AUGURI -->
+  <div class="small-modal" id="bd-queue-modal" style="display:none">
+    <div class="small-modal-panel" style="max-width:380px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin:0;font-size:16px;font-weight:800">Auguri in coda</h3>
+        <button onclick="closeBdQueue()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div id="bd-queue-progress" style="font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px"></div>
+      <div id="bd-queue-card" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="bd-queue-wa" class="btn btn-sm" onclick="bdQueueOpenWA()"
+          style="flex:1;background:#25d366;color:#fff;border:none;font-size:14px">
+          <i class="fab fa-whatsapp"></i> Apri WhatsApp
+        </button>
+        <button id="bd-queue-next" class="btn btn-outline btn-sm" onclick="bdQueueNext()" style="flex:1;font-size:14px">
+          Prossimo <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1296,10 +1324,9 @@ function renderWaButtons(cliente) {
     return true;
   });
   wrap.innerHTML = relevant.map(m => {
-    const testo = encodeURIComponent(m.testo);
-    return `<a class="wa-btn" href="https://wa.me/39${phone}?text=${testo}" target="_blank" rel="noopener" style="margin-bottom:6px;display:inline-flex">
+    return `<button class="wa-btn" onclick="_openWAMsg('${phone}','${m.id}')" style="margin-bottom:6px;display:inline-flex;cursor:pointer;border:none">
       <i class="fab fa-whatsapp"></i> ${esc(m.titolo)}
-    </a><br>`;
+    </button><br>`;
   }).join('');
 }
 
@@ -1509,39 +1536,175 @@ async function deleteCliente() {
 }
 
 // ── Compleanni ────────────────────────────────────────────────────────────────
+let _bdSelected = new Set(); // IDs clienti selezionati per invio bulk
+let _bdList = [];            // lista corrente (usata dalla coda)
+let _bdQueueIdx = 0;
+
+function _openWAMsg(tel, msgId) {
+  const msg = allMsgTemplates.find(m => String(m.id) === String(msgId));
+  if (!msg) return;
+  window.open(`https://wa.me/39${tel.replace(/[^\d]/g,'')}?text=${encodeURIComponent(msg.testo||'')}`, '_blank');
+}
+
+function _bdWaUrl(c) {
+  const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
+  const isAmb = t?.tipo === 'ambassador';
+  const testo = isAmb
+    ? (allMsgTemplates.find(m => m.tipo === 'compleanno_ambassador')?.testo || '')
+    : (allMsgTemplates.find(m => m.tipo === 'compleanno')?.testo || '');
+  const tel = (c.telefono || '').replace(/[^\d]/g, '');
+  return `https://wa.me/39${tel}?text=${encodeURIComponent(testo)}`;
+}
+
+function _bdUpdateSendBtn() {
+  const btn   = document.getElementById('bd-send-btn');
+  const label = document.getElementById('bd-send-label');
+  if (!btn) return;
+  const n = [..._bdSelected].filter(id => {
+    const c = _getClientiMap().get(String(id));
+    return c?.telefono;
+  }).length;
+  btn.style.display = n > 0 ? '' : 'none';
+  if (label) label.textContent = n === 1 ? 'Invia auguri' : `Invia auguri (${n})`;
+}
+
+function bdToggle(id, checked) {
+  if (checked) _bdSelected.add(id); else _bdSelected.delete(id);
+  _bdUpdateSendBtn();
+  // aggiorna checkbox "seleziona tutti"
+  const all = document.getElementById('bd-select-all');
+  if (all) all.indeterminate = _bdSelected.size > 0 && _bdSelected.size < _bdList.filter(c=>c.telefono).length;
+}
+
+function bdSelectAll(checked) {
+  _bdList.filter(c => c.telefono).forEach(c => {
+    if (checked) _bdSelected.add(c.id); else _bdSelected.delete(c.id);
+  });
+  // aggiorna tutte le checkbox
+  document.querySelectorAll('.bd-check').forEach(cb => {
+    const id = cb.dataset.id;
+    cb.checked = _bdSelected.has(id) || _bdSelected.has(Number(id));
+  });
+  _bdUpdateSendBtn();
+}
+
 function renderCompleanni() {
   const today = new Date();
   const thisMonth = today.getMonth();
-  const bdList = allClienti.filter(c => {
+  _bdList = allClienti.filter(c => {
     if (!c.data_nascita) return false;
     return new Date(c.data_nascita).getMonth() === thisMonth;
   }).sort((a,b) => new Date(a.data_nascita).getDate() - new Date(b.data_nascita).getDate());
 
+  // Ripulisci selezione per clienti non più in lista
+  const validIds = new Set(_bdList.map(c => c.id));
+  for (const id of _bdSelected) { if (!validIds.has(id) && !validIds.has(Number(id))) _bdSelected.delete(id); }
+
   const countEl = document.getElementById('compleanni-count');
-  if (countEl) countEl.textContent = bdList.length ? `${bdList.length} clienti` : '';
+  if (countEl) countEl.textContent = _bdList.length ? `${_bdList.length} clienti` : '';
+
+  _bdUpdateSendBtn();
 
   const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
-  const html = bdList.length
-    ? bdList.map(c => {
-        const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
-        const d = new Date(c.data_nascita);
-        const isToday = d.getDate() === today.getDate();
-        const isAmb = t?.tipo === 'ambassador';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9" onclick="openClienteModal('${c.id}')" style="cursor:pointer">
-          <span style="font-size:20px">${isToday ? '🎂' : '🗓️'}</span>
-          <div style="flex:1">
-            <strong style="font-size:14px">${escName(c.cognome)} ${escName(c.nome)}</strong>
-            ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>' : ''}
-            <br>
-            <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]}${isToday ? ' — <strong style="color:#B5453A">Oggi!</strong>' : ''}</span>
-          </div>
-          ${c.telefono ? `<a class="wa-btn" href="https://wa.me/39${c.telefono.replace(/[^\d]/g,'')}?text=${encodeURIComponent(isAmb ? allMsgTemplates.find(m=>m.tipo==='compleanno_ambassador')?.testo||'' : allMsgTemplates.find(m=>m.tipo==='compleanno')?.testo||'')}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i></a>` : ''}
-        </div>`;
-      }).join('')
-    : '<div style="font-size:13px;color:#94a3b8">Nessun compleanno questo mese</div>';
+  const hasTel = _bdList.filter(c => c.telefono);
+
+  let html = '';
+  if (!_bdList.length) {
+    html = '<div style="font-size:13px;color:#94a3b8">Nessun compleanno questo mese</div>';
+  } else {
+    // Riga "seleziona tutti" se ci sono clienti con telefono
+    if (hasTel.length > 1) {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:2px solid #e2e8f0;margin-bottom:4px">
+        <input type="checkbox" id="bd-select-all" onchange="bdSelectAll(this.checked)"
+          style="width:16px;height:16px;accent-color:#25d366;cursor:pointer;flex-shrink:0">
+        <span style="font-size:12px;font-weight:700;color:#64748b">Seleziona tutti (${hasTel.length} con WhatsApp)</span>
+      </div>`;
+    }
+    html += _bdList.map(c => {
+      const d = new Date(c.data_nascita);
+      const isToday = d.getDate() === today.getDate();
+      const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
+      const isAmb = t?.tipo === 'ambassador';
+      const isSel = _bdSelected.has(c.id) || _bdSelected.has(String(c.id));
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        ${c.telefono
+          ? `<input type="checkbox" class="bd-check" data-id="${c.id}" ${isSel?'checked':''} onchange="bdToggle('${c.id}',this.checked)"
+              style="width:16px;height:16px;accent-color:#25d366;cursor:pointer;flex-shrink:0">`
+          : `<span style="width:16px;flex-shrink:0"></span>`}
+        <span style="font-size:20px;flex-shrink:0">${isToday ? '🎂' : '🗓️'}</span>
+        <div style="flex:1;cursor:pointer;min-width:0" onclick="openClienteModal('${c.id}')">
+          <strong style="font-size:14px">${escName(c.cognome)} ${escName(c.nome)}</strong>
+          ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>' : ''}
+          <br>
+          <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]}${isToday ? ' — <strong style="color:#B5453A">Oggi!</strong>' : ''}</span>
+        </div>
+        ${c.telefono
+          ? `<button class="wa-btn" onclick="window.open(_bdWaUrl(_getClientiMap().get('${c.id}')||_getClientiMap().get(${c.id})),'_blank')" title="Invia auguri via WhatsApp"><i class="fab fa-whatsapp"></i></button>`
+          : `<span style="font-size:11px;color:#cbd5e1">no tel.</span>`}
+      </div>`;
+    }).join('');
+  }
 
   const tabEl = document.getElementById('birthday-list-tab');
   if (tabEl) tabEl.innerHTML = html;
+}
+
+function openBdQueue() {
+  const queue = _bdList.filter(c => c.telefono && (_bdSelected.has(c.id) || _bdSelected.has(String(c.id))));
+  if (!queue.length) return;
+  _bdQueue = queue;
+  _bdQueueIdx = 0;
+  document.getElementById('bd-queue-modal').style.display = '';
+  _bdQueueRender();
+}
+
+let _bdQueue = [];
+
+function _bdQueueRender() {
+  const c = _bdQueue[_bdQueueIdx];
+  if (!c) { closeBdQueue(); return; }
+  const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
+  const isAmb = t?.tipo === 'ambassador';
+  const d = new Date(c.data_nascita);
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+  const isToday = d.getDate() === new Date().getDate();
+  const testo = isAmb
+    ? (allMsgTemplates.find(m => m.tipo === 'compleanno_ambassador')?.testo || '')
+    : (allMsgTemplates.find(m => m.tipo === 'compleanno')?.testo || '');
+
+  document.getElementById('bd-queue-progress').textContent = `${_bdQueueIdx + 1} di ${_bdQueue.length}`;
+  document.getElementById('bd-queue-card').innerHTML = `
+    <div style="font-size:28px;margin-bottom:8px">${isToday ? '🎂' : '🗓️'}</div>
+    <div style="font-weight:800;font-size:17px;margin-bottom:4px">${escName(c.cognome)} ${escName(c.nome)}</div>
+    ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-bottom:8px;display:inline-block">Ambassador</span>' : ''}
+    <div style="font-size:13px;color:#64748b;margin-bottom:10px">${d.getDate()} ${mesi[d.getMonth()]}${isToday ? ' — <strong style="color:#B5453A">Oggi!</strong>' : ''}</div>
+    ${testo ? `<div style="font-size:12px;color:#475569;background:#f1f5f9;border-radius:8px;padding:8px 10px;text-align:left;white-space:pre-wrap;max-height:80px;overflow:auto">${esc(testo)}</div>` : ''}
+  `;
+
+  const nextBtn = document.getElementById('bd-queue-next');
+  if (_bdQueueIdx >= _bdQueue.length - 1) {
+    nextBtn.innerHTML = '<i class="fas fa-check"></i> Fine';
+    nextBtn.onclick = closeBdQueue;
+  } else {
+    nextBtn.innerHTML = 'Prossimo <i class="fas fa-arrow-right"></i>';
+    nextBtn.onclick = bdQueueNext;
+  }
+}
+
+function bdQueueOpenWA() {
+  const c = _bdQueue[_bdQueueIdx];
+  if (!c) return;
+  window.open(_bdWaUrl(c), '_blank');
+}
+
+function bdQueueNext() {
+  _bdQueueIdx++;
+  if (_bdQueueIdx >= _bdQueue.length) { closeBdQueue(); return; }
+  _bdQueueRender();
+}
+
+function closeBdQueue() {
+  document.getElementById('bd-queue-modal').style.display = 'none';
 }
 
 // ── Analisi ───────────────────────────────────────────────────────────────────
