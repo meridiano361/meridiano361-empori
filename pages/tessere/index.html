@@ -451,6 +451,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <option value="2023">2023</option>
         <option value="2024">2024</option>
         <option value="2025">2025</option>
+        <option value="2026">2026</option>
       </select>
       <select id="tess-tipo-sel" onchange="_tessereTipo=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Tutti i tipi</option>
@@ -462,6 +463,11 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <option value="attiva">Attive</option>
         <option value="completa">Complete</option>
         <option value="archiviata">Archiviate</option>
+      </select>
+      <select id="tess-attiv-sel" onchange="_tessereAttivita=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+        <option value="tutti">Iscrizioni + Rinnovi</option>
+        <option value="iscrizione">Solo iscrizioni</option>
+        <option value="rinnovo">Solo rinnovi</option>
       </select>
       <select id="tess-sort-sel" onchange="_tessereSort=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="numero">Ordina: N° Tessera</option>
@@ -1578,27 +1584,37 @@ function renderStoricoTessere(clienteId) {
   if (!el) return;
 
   const cliente   = allClienti.find(c => String(c.id) === String(clienteId));
+  // Ordine: dalla più vecchia (iscrizione) alla più recente (rinnovi)
   const tessereDB = allTessere
     .filter(x => String(x.cliente_id) === String(clienteId))
-    .sort((a, b) => (b.data_emissione||b.created_at||'') > (a.data_emissione||a.created_at||'') ? 1 : -1);
-  const tipoTessera = tessereDB[0]?.tipo || currentTipo || 'standard';
+    .sort((a, b) => (a.data_emissione||a.created_at||'') < (b.data_emissione||b.created_at||'') ? -1 : 1);
+  const tipoTessera = tessereDB[tessereDB.length - 1]?.tipo || currentTipo || 'standard';
 
   // ── Sezione DB ──
   let htmlDB = '';
   if (tessereDB.length > 0) {
-    htmlDB = tessereDB.map(t => {
+    htmlDB = tessereDB.map((t, idx) => {
       const isAttiva   = t.attiva !== false;
       const isEsaurita = (t.timbri_attuali || 0) >= TIMBRI_MAX;
       let statoLabel, statoColor, statoIcon;
       if (isAttiva)        { statoLabel='Attiva';     statoColor='#16a34a'; statoIcon='fa-circle-check'; }
       else if (isEsaurita) { statoLabel='Esaurita';   statoColor='#94a3b8'; statoIcon='fa-circle-xmark'; }
       else                 { statoLabel='Archiviata'; statoColor='#cbd5e1'; statoIcon='fa-circle-dot'; }
+      const isFirst  = idx === 0;
+      const nRinnovo = idx; // 1° rinnovo, 2° rinnovo...
+      const ordLabel = isFirst
+        ? `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:#dcfce7;color:#16a34a"><i class="fas fa-star" style="font-size:9px"></i> Iscrizione</span>`
+        : `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:#dbeafe;color:#2563eb"><i class="fas fa-rotate" style="font-size:9px"></i> ${nRinnovo}° rinnovo</span>`;
       const codice  = t.codice_tessera ? `N° <strong>${esc(t.codice_tessera)}</strong>` : '<span style="color:#cbd5e1">—</span>';
       const dataEm  = t.data_emissione ? fmtDate(t.data_emissione) : '—';
       const dataRin = t.data_rinnovo   ? ` → ${fmtDate(t.data_rinnovo)}` : '';
       const timbri  = t.timbri_attuali != null ? ` <span style="color:#94a3b8;font-size:10px">${t.timbri_attuali}/${TIMBRI_MAX}</span>` : '';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
-        <div style="min-width:0"><div style="font-weight:700;color:#1e293b">${codice}${timbri}</div><div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div></div>
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">${ordLabel}</div>
+          <div style="font-weight:700;color:#1e293b">${codice}${timbri}</div>
+          <div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div>
+        </div>
         <span style="font-size:11px;font-weight:800;color:${statoColor};white-space:nowrap"><i class="fas ${statoIcon}" style="font-size:10px"></i> ${statoLabel}</span>
       </div>`;
     }).join('');
@@ -1738,11 +1754,23 @@ function renderAnalisiEta() {
 }
 
 // ── Tab Tessere ────────────────────────────────────────────────────────────────
-let _tessereAnno    = 'tutti';
-let _tessereEmpFilt = 'tutti';
-let _tessereTipo    = 'tutti';
-let _tessereStato   = 'tutti';
-let _tessereSort    = 'numero';
+let _tessereAnno     = 'tutti';
+let _tessereEmpFilt  = 'tutti';
+let _tessereTipo     = 'tutti';
+let _tessereStato    = 'tutti';
+let _tessereAttivita = 'tutti';
+let _tessereSort     = 'numero';
+
+// La prima tessera emessa per cliente = iscrizione; le successive = rinnovi
+function _buildIscrizioniSet() {
+  const first = new Map(); // cliente_id → tessera con data_emissione più antica
+  allTessere.forEach(t => {
+    const d = t.data_emissione || t.created_at || '';
+    const ex = first.get(t.cliente_id);
+    if (!ex || d < (ex.data_emissione || ex.created_at || '')) first.set(t.cliente_id, t);
+  });
+  return new Set([...first.values()].map(t => t.id));
+}
 
 
 function renderTessereTab() {
@@ -1750,6 +1778,7 @@ function renderTessereTab() {
   if (!container) return;
   const q = (document.getElementById('tess-search')?.value || '').trim().toLowerCase();
 
+  const iscrizioniSet = _buildIscrizioniSet();
   let tessere = [...allTessere];
 
   // Filters
@@ -1763,11 +1792,16 @@ function renderTessereTab() {
     tessere = tessere.filter(t => {
       const isCompl  = (t.timbri_attuali||0) >= TIMBRI_MAX;
       const isAttiva = t.attiva !== false;
-      if (_tessereStato === 'attiva')    return isAttiva && !isCompl;
-      if (_tessereStato === 'completa')  return isCompl;
+      if (_tessereStato === 'attiva')     return isAttiva && !isCompl;
+      if (_tessereStato === 'completa')   return isCompl;
       if (_tessereStato === 'archiviata') return !isAttiva && !isCompl;
       return true;
     });
+  }
+  if (_tessereAttivita !== 'tutti') {
+    tessere = tessere.filter(t =>
+      _tessereAttivita === 'iscrizione' ? iscrizioniSet.has(t.id) : !iscrizioniSet.has(t.id)
+    );
   }
   if (q) {
     tessere = tessere.filter(t => {
@@ -1806,8 +1840,13 @@ function renderTessereTab() {
     return 0;
   });
 
+  const nIscr = tessere.filter(t => iscrizioniSet.has(t.id)).length;
+  const nRinn = tessere.length - nIscr;
   const countEl = document.getElementById('tess-count');
-  if (countEl) countEl.textContent = tessere.length + ' tessere';
+  if (countEl) countEl.innerHTML = `<span style="color:#64748b">${tessere.length} tessere</span>`
+    + (nIscr > 0 ? ` &nbsp;<span style="font-size:11px;background:#dcfce7;color:#16a34a;border-radius:20px;padding:1px 8px;font-weight:700">${nIscr} iscrizioni</span>` : '')
+    + (nRinn > 0 ? ` <span style="font-size:11px;background:#dbeafe;color:#2563eb;border-radius:20px;padding:1px 8px;font-weight:700">${nRinn} rinnovi</span>` : '');
+
   if (!tessere.length) {
     container.innerHTML = '<div class="empty"><i class="fas fa-id-card"></i><p>Nessuna tessera trovata</p></div>';
     return;
@@ -1818,10 +1857,14 @@ function renderTessereTab() {
     const c = _cm.get(String(t.cliente_id));
     const isAttiva  = t.attiva !== false;
     const isCompl   = (t.timbri_attuali||0) >= TIMBRI_MAX;
+    const isIscriz  = iscrizioniSet.has(t.id);
     let stato;
     if (isAttiva && !isCompl) stato = '<span class="tess-stato attiva"><i class="fas fa-circle-check"></i>Attiva</span>';
     else if (isCompl)         stato = '<span class="tess-stato completa"><i class="fas fa-circle-check"></i>Completa</span>';
     else                      stato = '<span class="tess-stato archiviata"><i class="fas fa-box-archive"></i>Archiviata</span>';
+    const attivBadge = isIscriz
+      ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;white-space:nowrap"><i class="fas fa-star" style="font-size:9px"></i> Iscrizione</span>`
+      : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dbeafe;color:#2563eb;white-space:nowrap"><i class="fas fa-rotate" style="font-size:9px"></i> Rinnovo</span>`;
     const nome = c ? `<span style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</span>` : '<span style="color:#94a3b8">–</span>';
     const cid  = c ? `'${t.cliente_id}'` : 'null';
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
@@ -1829,6 +1872,7 @@ function renderTessereTab() {
       <td>${nome}${c&&c.citta?`<div style="font-size:11px;color:#94a3b8">${esc(c.citta)}</div>`:''}</td>
       <td style="color:#64748b;font-size:12px">${empLab[t.emporio]||esc(capEmporio(t.emporio)||'–')}</td>
       <td><span class="tipo-badge tipo-${t.tipo==='ambassador'?'ambassador':'standard'}" style="font-size:9px">${t.tipo==='ambassador'?'Amb':'Std'}</span></td>
+      <td>${attivBadge}</td>
       <td style="color:#64748b;font-size:12px">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
       <td>${stato}</td>
     </tr>`;
@@ -1841,7 +1885,8 @@ function renderTessereTab() {
           <th>Cliente</th>
           <th>Emporio</th>
           <th>Tipo</th>
-          <th>Iscrizione</th>
+          <th>Attività</th>
+          <th>Data emissione</th>
           <th>Stato</th>
         </tr></thead>
         <tbody>${rows}</tbody>
