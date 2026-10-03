@@ -1,4 +1,4 @@
-const CACHE_NAME = 'm361-empori-v13';
+const CACHE_NAME = 'm361-empori-v14';
 
 const PRECACHE_URLS = [
   '/',
@@ -8,6 +8,7 @@ const PRECACHE_URLS = [
   '/assets/style/nav-style.css',
   '/assets/style/responsive.css',
   '/scripts/nav-script.js',
+  '/pages/rubrica/index.html',
   '/scripts/guide.js',
   '/assets/images/logom361_rosso.jpg',
   '/faviconm361.png',
