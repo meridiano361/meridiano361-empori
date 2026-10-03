@@ -4069,7 +4069,50 @@ async function saveDay() {
   pomOraChiusura = payload.pom_ora_chiusura;
   showChiusuraBadge('pom', payload.pom_ora_chiusura);
   if (tipo === 'solo_mattino') { matOraChiusura = payload.mat_ora_chiusura; showChiusuraBadge('mat', payload.mat_ora_chiusura); }
-  alert('Foglio di giornata salvato ✓');
+  _showConfronto(payload);
+}
+
+/* ── CONFRONTO ANNO PRECEDENTE ── */
+async function _showConfronto(payload) {
+  const totOggi = (payload.mat_corrispettivi || 0) + (payload.pom_corrispettivi || 0);
+  const {y, m, d} = selectedDate;
+  const m1 = m + 1;
+  const keyPrec = currentEmp + '_' + (y - 1) + '_' + m1 + '_' + d;
+
+  const { data } = await db.from('cassa_giorni')
+    .select('mat_corrispettivi,pom_corrispettivi')
+    .eq('chiave', keyPrec)
+    .maybeSingle();
+
+  const fmt = v => '€ ' + Number(v).toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const pop = document.getElementById('cfr-popup');
+
+  if (!data) {
+    document.getElementById('cfr-emoji').textContent = '📊';
+    document.getElementById('cfr-title').textContent = 'Giornata salvata ✓';
+    document.getElementById('cfr-sub').textContent   = 'Nessun dato per il ' + (d) + '/' + m1 + '/' + (y-1);
+    document.getElementById('cfr-nums').innerHTML    = 'Corrispettivi oggi: <strong>' + fmt(totOggi) + '</strong>';
+  } else {
+    const totPrec = (data.mat_corrispettivi || 0) + (data.pom_corrispettivi || 0);
+    const diff    = totOggi - totPrec;
+    const meglio  = diff >= 0;
+    const pct     = totPrec > 0 ? Math.abs(diff / totPrec * 100).toFixed(1) : null;
+    document.getElementById('cfr-emoji').textContent = meglio ? '😊' : '😔';
+    document.getElementById('cfr-title').textContent = meglio ? 'Meglio dell\'anno scorso!' : 'Sotto l\'anno scorso';
+    document.getElementById('cfr-sub').textContent   = 'Giornata salvata ✓';
+    document.getElementById('cfr-nums').innerHTML =
+      '<span style="color:#64748b">Oggi (' + d + '/' + m1 + '/' + y + ')</span><br>' +
+      '<strong style="font-size:18px">' + fmt(totOggi) + '</strong>' +
+      '<br><br>' +
+      '<span style="color:#64748b">Stesso giorno ' + (y-1) + '</span><br>' +
+      '<strong>' + fmt(totPrec) + '</strong>' +
+      '<br><br>' +
+      '<span style="color:' + (meglio ? '#16a34a' : '#dc2626') + ';font-size:15px;font-weight:800">' +
+        (meglio ? '+' : '') + fmt(diff) +
+        (pct !== null ? ' (' + (meglio ? '+' : '-') + pct + '%)' : '') +
+      '</span>';
+  }
+  pop.style.display = 'flex';
 }
 
 /* ── INIT ── */
@@ -5441,6 +5484,17 @@ document.addEventListener('click', () => {
     <p id="cdlg-msg" style="margin:0 0 22px;font-size:15px;line-height:1.5;color:#1e293b"></p>
     <textarea id="cdlg-input" rows="3" style="display:none;width:100%;box-sizing:border-box;border:1.5px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;resize:vertical;margin-bottom:16px" placeholder=""></textarea>
     <div id="cdlg-btns" style="display:flex;gap:8px"></div>
+  </div>
+</div>
+
+<!-- Popup confronto anno precedente -->
+<div id="cfr-popup" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:22px;padding:30px 28px 24px;min-width:270px;max-width:320px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.32)">
+    <div id="cfr-sub" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#16a34a;margin-bottom:6px"></div>
+    <div id="cfr-emoji" style="font-size:68px;line-height:1;margin:4px 0 10px"></div>
+    <div id="cfr-title" style="font-size:17px;font-weight:800;color:#1e293b;margin-bottom:14px"></div>
+    <div id="cfr-nums" style="font-size:14px;color:#475569;line-height:1.7;margin-bottom:22px"></div>
+    <button onclick="document.getElementById('cfr-popup').style.display='none'" style="background:#1e293b;color:#fff;border:none;border-radius:11px;padding:11px 36px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">OK</button>
   </div>
 </div>
 </body>
