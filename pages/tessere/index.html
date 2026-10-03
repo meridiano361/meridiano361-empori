@@ -834,37 +834,50 @@ async function init() {
 
 async function loadAll() {
   const PAGE = 1000;
+  const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at';
 
-  async function fetchAll(table, selectStr, orderFields) {
-    let all = [], offset = 0;
-    while (true) {
-      let q = _sb.from(table).select(selectStr);
-      if (orderFields) orderFields.forEach(([col, opts]) => { q = q.order(col, opts || {}); });
-      const { data, error } = await q.range(offset, offset + PAGE - 1);
-      if (error || !data || !data.length) break;
-      all = all.concat(data);
-      if (data.length < PAGE) break;
-      offset += PAGE;
-    }
-    return all;
-  }
-
-  // clienti e tessere in parallelo tra loro
-  const [allC, allT, m] = await Promise.all([
-    fetchAll('clienti', '*', [['cognome'], ['nome']]),
-    fetchAll('tessere', '*', null),
+  // Prima pagina di clienti + tessere + messaggi in parallelo → render immediato
+  const [r1, r2, m] = await Promise.all([
+    _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(0, PAGE - 1),
+    _sb.from('tessere').select(T_COLS).range(0, PAGE - 1),
     _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
-  allClienti      = allC;
-  allTessere      = allT;
+
+  allClienti      = r1.data || [];
+  allTessere      = r2.data || [];
   allMsgTemplates = m.data || [];
   _invalidateMaps();
   applyFilters();
   renderMsgList();
   _refreshConsentMsgPreview();
-  // Defer heavy operations: non bloccano il primo render
   setTimeout(_updateDupBadge, 500);
-  setTimeout(loadStoricoExcel, 1500); // dopo che i dati principali sono mostrati
+  setTimeout(loadStoricoExcel, 1500);
+
+  // Pagine successive caricate in background senza bloccare l'UI
+  const needC = (r1.data?.length ?? 0) >= PAGE;
+  const needT = (r2.data?.length ?? 0) >= PAGE;
+  if (needC || needT) {
+    _loadRemainingPages(C_COLS, T_COLS, PAGE, needC ? PAGE : null, needT ? PAGE : null);
+  }
+}
+
+async function _loadRemainingPages(C_COLS, T_COLS, PAGE, offC, offT) {
+  while (offC !== null || offT !== null) {
+    const [rC, rT] = await Promise.all([
+      offC !== null ? _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(offC, offC + PAGE - 1) : Promise.resolve({ data: [] }),
+      offT !== null ? _sb.from('tessere').select(T_COLS).range(offT, offT + PAGE - 1)                               : Promise.resolve({ data: [] }),
+    ]);
+    const chunkC = rC.data || [];
+    const chunkT = rT.data || [];
+    if (chunkC.length) allClienti = allClienti.concat(chunkC);
+    if (chunkT.length) allTessere = allTessere.concat(chunkT);
+    offC = (offC !== null && chunkC.length >= PAGE) ? offC + PAGE : null;
+    offT = (offT !== null && chunkT.length >= PAGE) ? offT + PAGE : null;
+    _invalidateMaps();
+    applyFilters(true); // aggiorna senza resettare la paginazione
+  }
+  _updateDupBadge();
 }
 let _scontiLoaded = false;
 async function _ensureSconti() {
@@ -950,8 +963,8 @@ function _buildTessereCodsMap() {
   return map;
 }
 
-function applyFilters() {
-  _clPage = 0;
+function applyFilters(keepPage = false) {
+  if (!keepPage) _clPage = 0;
   const q = document.getElementById('search-input')?.value?.toLowerCase().trim() || '';
   const tessereMap = _getTessereMap();
   const tessereCodsMap = _getTessereCodsMap();
