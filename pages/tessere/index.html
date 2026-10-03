@@ -832,26 +832,26 @@ async function init() {
 }
 
 async function loadAll() {
-  const PAGE = 1000;
+  const PAGE = 2000;
 
-  // Fetch count then all pages in parallel — much faster than sequential paging
-  async function fetchAllParallel(table, selectStr, orderFields) {
-    let q = _sb.from(table).select('*', { count: 'exact', head: true });
-    const { count } = await q;
-    if (!count) return [];
-    const pages = Math.ceil(count / PAGE);
-    const fetches = Array.from({ length: pages }, (_, i) => {
+  async function fetchAll(table, selectStr, orderFields) {
+    let all = [], offset = 0;
+    while (true) {
       let q = _sb.from(table).select(selectStr);
       if (orderFields) orderFields.forEach(([col, opts]) => { q = q.order(col, opts || {}); });
-      return q.range(i * PAGE, (i + 1) * PAGE - 1).then(r => r.data || []);
-    });
-    const chunks = await Promise.all(fetches);
-    return chunks.flat();
+      const { data, error } = await q.range(offset, offset + PAGE - 1);
+      if (error || !data || !data.length) break;
+      all = all.concat(data);
+      if (data.length < PAGE) break;
+      offset += PAGE;
+    }
+    return all;
   }
 
+  // clienti e tessere in parallelo tra loro
   const [allC, allT, m] = await Promise.all([
-    fetchAllParallel('clienti', '*', [['cognome'], ['nome']]),
-    fetchAllParallel('tessere', '*', null),
+    fetchAll('clienti', '*', [['cognome'], ['nome']]),
+    fetchAll('tessere', '*', null),
     _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
   allClienti      = allC;
