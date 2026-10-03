@@ -1552,8 +1552,10 @@ function _bdWaUrl(c) {
   const testo = isAmb
     ? (allMsgTemplates.find(m => m.tipo === 'compleanno_ambassador')?.testo || '')
     : (allMsgTemplates.find(m => m.tipo === 'compleanno')?.testo || '');
+  const nome = titleCase(c.nome || c.cognome || '');
+  const testoFinal = testo.replace(/\{nome\}/gi, nome);
   const tel = (c.telefono || '').replace(/[^\d]/g, '');
-  return `https://wa.me/39${tel}?text=${encodeURIComponent(testo)}`;
+  return `https://wa.me/39${tel}?text=${encodeURIComponent(testoFinal)}`;
 }
 
 function _bdUpdateSendBtn() {
@@ -1668,9 +1670,11 @@ function _bdQueueRender() {
   const d = new Date(c.data_nascita);
   const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
   const isToday = d.getDate() === new Date().getDate();
-  const testo = isAmb
+  const testoRaw = isAmb
     ? (allMsgTemplates.find(m => m.tipo === 'compleanno_ambassador')?.testo || '')
     : (allMsgTemplates.find(m => m.tipo === 'compleanno')?.testo || '');
+  const nomeReale = titleCase(c.nome || c.cognome || '');
+  const testo = testoRaw.replace(/\{nome\}/gi, nomeReale);
 
   document.getElementById('bd-queue-progress').textContent = `${_bdQueueIdx + 1} di ${_bdQueue.length}`;
   document.getElementById('bd-queue-card').innerHTML = `
