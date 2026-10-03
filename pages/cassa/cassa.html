@@ -4074,13 +4074,13 @@ async function saveDay() {
 
 /* ── CONFRONTO ANNO PRECEDENTE ── */
 async function _showConfronto(payload) {
-  const totOggi = (payload.mat_corrispettivi || 0) + (payload.pom_corrispettivi || 0);
+  const totOggi = payload.turno_type === 'solo_mattino' ? (payload.mat_corrispettivi || 0) : (payload.pom_corrispettivi || 0);
   const {y, m, d} = selectedDate;
   const m1 = m + 1;
   const keyPrec = currentEmp + '_' + (y - 1) + '_' + m1 + '_' + d;
 
   const { data } = await db.from('cassa_giorni')
-    .select('mat_corrispettivi,pom_corrispettivi')
+    .select('mat_corrispettivi,pom_corrispettivi,turno_type')
     .eq('chiave', keyPrec)
     .maybeSingle();
 
@@ -4093,7 +4093,7 @@ async function _showConfronto(payload) {
     document.getElementById('cfr-sub').textContent   = 'Nessun dato per il ' + (d) + '/' + m1 + '/' + (y-1);
     document.getElementById('cfr-nums').innerHTML    = 'Corrispettivi oggi: <strong>' + fmt(totOggi) + '</strong>';
   } else {
-    const totPrec = (data.mat_corrispettivi || 0) + (data.pom_corrispettivi || 0);
+    const totPrec = data.turno_type === 'solo_mattino' ? (data.mat_corrispettivi || 0) : (data.pom_corrispettivi || 0);
     const diff    = totOggi - totPrec;
     const meglio  = diff >= 0;
     const pct     = totPrec > 0 ? Math.abs(diff / totPrec * 100).toFixed(1) : null;
