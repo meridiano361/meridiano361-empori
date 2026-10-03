@@ -202,6 +202,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .small-modal-panel{background:#fff;border-radius:14px;width:100%;max-width:400px;padding:20px}
 .small-modal-panel h3{font-size:16px;font-weight:800;color:#1e293b;margin-bottom:14px}
 
+/* ── Rinnovo motivo options ── */
+.rinnovo-opt{display:flex;align-items:center;gap:12px;padding:11px 14px;border:2px solid #e2e8f0;border-radius:11px;cursor:pointer;transition:border-color .12s,background .12s;margin-bottom:8px}
+.rinnovo-opt:hover{border-color:#cbd5e1;background:#f8fafc}
+.rinnovo-opt.selected{border-color:var(--red);background:#fef2f2}
+.rinnovo-opt-icon{font-size:18px;width:22px;text-align:center;flex-shrink:0}
+.rinnovo-opt-label{font-size:13px;font-weight:700;color:#1e293b}
+.rinnovo-opt-sub{font-size:11px;color:#94a3b8;font-weight:400;margin-top:1px}
+
 /* ── Toast ── */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:700;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
@@ -512,6 +520,41 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<!-- RINNOVO MODAL -->
+<div class="small-modal" id="rinnovo-modal">
+  <div class="small-modal-panel" style="max-width:360px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <h3 style="margin:0">Nuova tessera — motivo</h3>
+      <button onclick="closeRinnovoModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <p style="font-size:13px;color:#64748b;margin-bottom:16px">Perché viene creata questa nuova tessera?</p>
+    <div onclick="selectMotivo(event)">
+      <div class="rinnovo-opt" data-motivo="completata">
+        <div class="rinnovo-opt-icon" style="color:#16a34a"><i class="fas fa-circle-check"></i></div>
+        <div><div class="rinnovo-opt-label">Tessera completata</div><div class="rinnovo-opt-sub">Tutti i timbri esauriti, il cliente ricomincia</div></div>
+      </div>
+      <div class="rinnovo-opt" data-motivo="persa">
+        <div class="rinnovo-opt-icon" style="color:#f59e0b"><i class="fas fa-triangle-exclamation"></i></div>
+        <div><div class="rinnovo-opt-label">Tessera persa o danneggiata</div><div class="rinnovo-opt-sub">Sostituzione della tessera fisica</div></div>
+      </div>
+      <div class="rinnovo-opt" data-motivo="upgrade">
+        <div class="rinnovo-opt-icon" style="color:#7c3aed"><i class="fas fa-arrow-up"></i></div>
+        <div><div class="rinnovo-opt-label">Cambio tipo tessera</div><div class="rinnovo-opt-sub">Es. upgrade da Standard ad Ambassador</div></div>
+      </div>
+      <div class="rinnovo-opt" data-motivo="altro">
+        <div class="rinnovo-opt-icon" style="color:#94a3b8"><i class="fas fa-ellipsis"></i></div>
+        <div><div class="rinnovo-opt-label">Altro motivo</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-outline btn-sm" onclick="closeRinnovoModal()" style="flex:1">Annulla</button>
+      <button class="btn btn-red btn-sm" id="btn-conferma-rinnovo" onclick="_confermaRinnovo()" style="flex:1;opacity:.4;pointer-events:none">
+        <i class="fas fa-plus"></i> Crea tessera
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- CLIENT SIDE PANEL -->
 <div class="side-panel" id="cliente-overlay">
   <!-- Header -->
@@ -750,7 +793,7 @@ async function init() {
 async function loadAll() {
   const PAGE = 1000;
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo';
 
   // Prima pagina di clienti + tessere + messaggi in parallelo → render immediato
   const [r1, r2, m] = await Promise.all([
@@ -1602,9 +1645,10 @@ function renderStoricoTessere(clienteId) {
       else                 { statoLabel='Archiviata'; statoColor='#cbd5e1'; statoIcon='fa-circle-dot'; }
       const isFirst  = idx === 0;
       const nRinnovo = idx; // 1° rinnovo, 2° rinnovo...
+      const motivoHtml = !isFirst && t.motivo_rinnovo ? ` <span style="font-size:10px;color:${_motivoColor(t.motivo_rinnovo)};font-weight:600">· ${_motivoLabel(t.motivo_rinnovo)}</span>` : '';
       const ordLabel = isFirst
         ? `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:#dcfce7;color:#16a34a"><i class="fas fa-star" style="font-size:9px"></i> Iscrizione</span>`
-        : `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:#dbeafe;color:#2563eb"><i class="fas fa-rotate" style="font-size:9px"></i> ${nRinnovo}° rinnovo</span>`;
+        : `<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:#dbeafe;color:#2563eb"><i class="fas fa-rotate" style="font-size:9px"></i> ${nRinnovo}° rinnovo</span>${motivoHtml}`;
       const codice  = t.codice_tessera ? `N° <strong>${esc(t.codice_tessera)}</strong>` : '<span style="color:#cbd5e1">—</span>';
       const dataEm  = t.data_emissione ? fmtDate(t.data_emissione) : '—';
       const dataRin = t.data_rinnovo   ? ` → ${fmtDate(t.data_rinnovo)}` : '';
@@ -1676,9 +1720,36 @@ function renderStoricoTessere(clienteId) {
   el.innerHTML = htmlDB + htmlExcel;
 }
 
-async function nuovaTessera() {
+let _selectedMotivo = null;
+
+function selectMotivo(e) {
+  const opt = e.target.closest('.rinnovo-opt');
+  if (!opt) return;
+  document.querySelectorAll('#rinnovo-modal .rinnovo-opt').forEach(o => o.classList.remove('selected'));
+  opt.classList.add('selected');
+  _selectedMotivo = opt.dataset.motivo;
+  const btn = document.getElementById('btn-conferma-rinnovo');
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = 'auto';
+}
+
+function nuovaTessera() {
   if (!editingClienteId) return;
-  if (!confirm('Archiviare la tessera attuale e creare una nuova tessera per questo cliente?')) return;
+  _selectedMotivo = null;
+  document.querySelectorAll('#rinnovo-modal .rinnovo-opt').forEach(o => o.classList.remove('selected'));
+  const btn = document.getElementById('btn-conferma-rinnovo');
+  btn.style.opacity = '.4';
+  btn.style.pointerEvents = 'none';
+  document.getElementById('rinnovo-modal').classList.add('open');
+}
+
+function closeRinnovoModal() {
+  document.getElementById('rinnovo-modal').classList.remove('open');
+}
+
+async function _confermaRinnovo() {
+  if (!_selectedMotivo || !editingClienteId) return;
+  closeRinnovoModal();
   try {
     if (editingTesseraId) {
       await _sb.from('tessere').update({ attiva: false }).eq('id', editingTesseraId);
@@ -1686,21 +1757,24 @@ async function nuovaTessera() {
       if (cur) cur.attiva = false;
     }
     const newPayload = {
-      cliente_id:    editingClienteId,
-      tipo:          currentTipo,
-      emporio:       document.getElementById('f-emporio').value,
-      attiva:        true,
+      cliente_id:     editingClienteId,
+      tipo:           currentTipo,
+      emporio:        document.getElementById('f-emporio').value,
+      attiva:         true,
       data_emissione: new Date().toISOString().slice(0, 10),
       timbri_attuali: 0,
+      motivo_rinnovo: _selectedMotivo,
     };
     const { data: nt, error } = await _sb.from('tessere').insert(newPayload).select().single();
     if (error) throw error;
     allTessere.push(nt);
+    _invalidateMaps();
     editingTesseraId = nt.id;
     document.getElementById('f-codice').value    = '';
     document.getElementById('f-emissione').value = nt.data_emissione;
     document.getElementById('f-rinnovo').value   = '';
     renderStoricoTessere(editingClienteId);
+    if (activeTab === 'tessere') renderTessereTab();
     showToast('Nuova tessera creata!');
   } catch(e) {
     alert('Errore: ' + e.message);
@@ -1760,6 +1834,13 @@ let _tessereTipo     = 'tutti';
 let _tessereStato    = 'tutti';
 let _tessereAttivita = 'tutti';
 let _tessereSort     = 'numero';
+
+function _motivoLabel(m) {
+  return {completata:'Completata',persa:'Persa/Danneggiata',upgrade:'Cambio tipo',altro:'Altro'}[m] || m;
+}
+function _motivoColor(m) {
+  return {completata:'#16a34a',persa:'#f59e0b',upgrade:'#7c3aed',altro:'#94a3b8'}[m] || '#94a3b8';
+}
 
 // La prima tessera emessa per cliente = iscrizione; le successive = rinnovi
 function _buildIscrizioniSet() {
@@ -1862,9 +1943,12 @@ function renderTessereTab() {
     if (isAttiva && !isCompl) stato = '<span class="tess-stato attiva"><i class="fas fa-circle-check"></i>Attiva</span>';
     else if (isCompl)         stato = '<span class="tess-stato completa"><i class="fas fa-circle-check"></i>Completa</span>';
     else                      stato = '<span class="tess-stato archiviata"><i class="fas fa-box-archive"></i>Archiviata</span>';
+    const motivoSub = !isIscriz && t.motivo_rinnovo
+      ? `<div style="font-size:10px;color:${_motivoColor(t.motivo_rinnovo)};margin-top:2px;font-weight:600">${_motivoLabel(t.motivo_rinnovo)}</div>`
+      : '';
     const attivBadge = isIscriz
       ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#16a34a;white-space:nowrap"><i class="fas fa-star" style="font-size:9px"></i> Iscrizione</span>`
-      : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dbeafe;color:#2563eb;white-space:nowrap"><i class="fas fa-rotate" style="font-size:9px"></i> Rinnovo</span>`;
+      : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dbeafe;color:#2563eb;white-space:nowrap"><i class="fas fa-rotate" style="font-size:9px"></i> Rinnovo</span>${motivoSub}`;
     const nome = c ? `<span style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</span>` : '<span style="color:#94a3b8">–</span>';
     const cid  = c ? `'${t.cliente_id}'` : 'null';
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
