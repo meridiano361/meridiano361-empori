@@ -1800,7 +1800,10 @@ function openMsgModal(id) {
   editingMsgId = id;
   const m = id ? allMsgTemplates.find(x => x.id === id) : null;
   document.getElementById('msg-modal-title').textContent = m ? 'Modifica messaggio' : 'Nuovo messaggio';
-  document.getElementById('msg-tipo').value         = m?.tipo || '';
+  const tipoEl = document.getElementById('msg-tipo');
+  tipoEl.value    = m?.tipo || '';
+  tipoEl.readOnly = !!m;
+  tipoEl.style.background = m ? '#f1f5f9' : '';
   document.getElementById('msg-destinatari').value  = m?.destinatari || 'tutti';
   document.getElementById('msg-titolo').value        = m?.titolo || '';
   document.getElementById('msg-testo').value         = m?.testo || '';
@@ -1815,19 +1818,20 @@ function openMsgModal(id) {
 function closeMsgModal() { document.getElementById('msg-modal').classList.remove('open'); }
 async function saveMsg() {
   const payload = {
-    tipo:         document.getElementById('msg-tipo').value,
-    destinatari:  document.getElementById('msg-destinatari').value || 'tutti',
-    titolo:       document.getElementById('msg-titolo').value.trim(),
-    testo:        document.getElementById('msg-testo').value.trim(),
-    updated_at:   new Date().toISOString(),
+    tipo:        document.getElementById('msg-tipo').value.trim(),
+    destinatari: document.getElementById('msg-destinatari').value || 'tutti',
+    titolo:      document.getElementById('msg-titolo').value.trim(),
+    testo:       document.getElementById('msg-testo').value.trim(),
   };
   if (!payload.tipo || !payload.titolo || !payload.testo) { showToast('Compila tutti i campi'); return; }
   if (editingMsgId) {
-    await _sb.from('tessere_messaggi').update(payload).eq('id', editingMsgId);
+    const { error } = await _sb.from('tessere_messaggi').update(payload).eq('id', editingMsgId).select();
+    if (error) { showToast('Errore salvataggio: ' + error.message); return; }
     const m = allMsgTemplates.find(x => x.id === editingMsgId);
     if (m) Object.assign(m, payload);
   } else {
-    const {data} = await _sb.from('tessere_messaggi').insert(payload).select().single();
+    const { data, error } = await _sb.from('tessere_messaggi').insert(payload).select().single();
+    if (error) { showToast('Errore salvataggio: ' + error.message); return; }
     if (data) allMsgTemplates.push(data);
   }
   closeMsgModal();
