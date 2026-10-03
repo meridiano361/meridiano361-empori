@@ -2810,8 +2810,11 @@ async function confirmMerge() {
     const mergedFields = {};
     MERGE_FIELDS.forEach(f => {
       const chosen = _mergeSelections[f.key] === 'b' ? _mergeB : _mergeA;
-      mergedFields[f.key] = chosen[f.key] || null;
+      const v = chosen[f.key];
+      mergedFields[f.key] = (v !== undefined && v !== '') ? v : null;
     });
+    // wa è NOT NULL: garantisci un valore booleano
+    if (mergedFields.wa === null || mergedFields.wa === undefined) mergedFields.wa = false;
     const { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
     if (updErr) throw updErr;
 
