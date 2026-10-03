@@ -94,6 +94,25 @@
 
     /* Tessera section in panel */
     .tess-link-section { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:12px 18px; border-bottom:1px solid #f1f5f9; }
+
+    /* Card selection */
+    .client-card.selected { border-color:var(--red); background:#fff5f5; box-shadow:0 0 0 2px rgba(181,69,58,.12); }
+    .card-check { width:16px; height:16px; accent-color:var(--red); cursor:pointer; flex-shrink:0; margin-top:2px; }
+
+    /* Merge action bar */
+    .merge-bar { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#1e293b; color:#fff; padding:10px 18px; border-radius:12px; font-size:13px; font-weight:700; z-index:500; display:none; align-items:center; gap:10px; box-shadow:0 6px 20px rgba(0,0,0,.28); white-space:nowrap; }
+    .merge-bar.visible { display:flex; }
+
+    /* Merge modal */
+    .mrec-modal { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:700; display:none; align-items:flex-start; justify-content:center; padding:16px; overflow-y:auto; }
+    .mrec-modal.open { display:flex; }
+    .mrec-panel { background:#fff; border-radius:16px; width:100%; max-width:600px; margin:auto; overflow:hidden; }
+    .mrec-row { display:grid; grid-template-columns:76px 1fr 1fr; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9; }
+    .mrec-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#94a3b8; }
+    .mrec-opt { border:2px solid #e2e8f0; border-radius:9px; padding:8px 10px; cursor:pointer; font-size:13px; transition:border-color .12s,background .12s; color:#475569; min-height:38px; display:flex; align-items:center; gap:8px; }
+    .mrec-opt:hover { border-color:#94a3b8; }
+    .mrec-opt.sel { border-color:var(--red); background:#fef2f2; color:#1e293b; font-weight:700; }
+    .mrec-opt input[type=radio] { accent-color:var(--red); width:14px; height:14px; flex-shrink:0; }
   </style>
 </head>
 <body>
@@ -195,6 +214,34 @@
 
 <!-- FAB -->
 <button class="fab" id="fab-new" onclick="openPanel(null)" title="Nuovo contatto"><i class="fas fa-plus"></i></button>
+
+<!-- Merge bar -->
+<div class="merge-bar" id="merge-bar">
+  <span id="merge-count-lbl">0 selezionati</span>
+  <button class="btn btn-sm" style="background:var(--red);color:#fff" onclick="openMergeModal()"><i class="fas fa-code-merge"></i> Unisci</button>
+  <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)" onclick="clearSelection()"><i class="fas fa-xmark"></i></button>
+</div>
+
+<!-- Merge modal -->
+<div class="mrec-modal" id="mrec-modal">
+  <div class="mrec-panel">
+    <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">
+      <i class="fas fa-code-merge" style="color:var(--red)"></i>
+      <strong style="font-size:15px;flex:1">Unisci contatti</strong>
+      <button onclick="closeMergeModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8;padding:4px"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div style="padding:10px 18px 4px;display:grid;grid-template-columns:76px 1fr 1fr;gap:8px;align-items:center">
+      <div></div>
+      <div id="mrec-hdr-a" style="font-size:11px;font-weight:800;text-transform:uppercase;color:#64748b;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+      <div id="mrec-hdr-b" style="font-size:11px;font-weight:800;text-transform:uppercase;color:#64748b;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+    </div>
+    <div id="mrec-body" style="padding:0 18px 8px;max-height:60vh;overflow-y:auto"></div>
+    <div style="padding:12px 18px;border-top:1px solid #f1f5f9;display:flex;gap:8px;justify-content:flex-end;background:#f8fafc;border-radius:0 0 16px 16px">
+      <button class="btn btn-outline" onclick="closeMergeModal()">Annulla</button>
+      <button class="btn btn-red" onclick="confirmMerge()"><i class="fas fa-code-merge"></i> Unisci</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -303,7 +350,7 @@ function renderStats() {
 }
 
 function renderList(reset) {
-  if (reset) _clPage = 0; // handled by applyFilters
+  if (reset) _clPage = 0;
   const el = document.getElementById('client-list');
   el.className = 'client-list' + (viewMode === 'list' ? ' view-list' : viewMode === 'compact' ? ' view-compact' : '');
 
@@ -318,10 +365,13 @@ function renderList(reset) {
   el.innerHTML = visible.map(c => {
     const hasTess = tessereSet.has(String(c.id));
     const bday = getBdayStr(c.data_nascita);
+    const isSel = _selectedIds.has(String(c.id));
+    const chk = `<input type="checkbox" class="card-check" ${isSel ? 'checked' : ''} onclick="toggleSelect('${c.id}',event)" title="Seleziona per unione">`;
 
     if (viewMode === 'compact') {
-      return `<div class="client-card" onclick="openPanel('${c.id}')">
+      return `<div class="client-card${isSel ? ' selected' : ''}" onclick="openPanel('${c.id}')">
         <div class="client-card-top">
+          ${chk}
           <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
           ${hasTess ? '<span class="tess-badge">Tessera</span>' : ''}
         </div>
@@ -333,8 +383,9 @@ function renderList(reset) {
     }
 
     if (viewMode === 'list') {
-      return `<div class="client-card" onclick="openPanel('${c.id}')">
+      return `<div class="client-card${isSel ? ' selected' : ''}" onclick="openPanel('${c.id}')">
         <div class="client-card-top">
+          ${chk}
           <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
           ${hasTess ? '<span class="tess-badge">Tessera</span>' : '<span class="no-tess-badge">No tessera</span>'}
           ${c.telefono ? `<span style="font-size:12px;color:#64748b"><i class="fas fa-phone" style="font-size:10px"></i> ${esc(c.telefono)}</span>` : ''}
@@ -345,8 +396,9 @@ function renderList(reset) {
       </div>`;
     }
 
-    return `<div class="client-card" onclick="openPanel('${c.id}')">
+    return `<div class="client-card${isSel ? ' selected' : ''}" onclick="openPanel('${c.id}')">
       <div class="client-card-top">
+        ${chk}
         <span class="client-nome">${escName(c.cognome)} ${escName(c.nome)}</span>
         ${hasTess ? '<span class="tess-badge">Tessera</span>' : '<span class="no-tess-badge">No tessera</span>'}
       </div>
@@ -494,15 +546,8 @@ async function deleteCliente() {
   showToast('Contatto eliminato');
 }
 
-// Apre url in una finestra popup affiancata (metà destra dello schermo).
-// 'popup' bypassa il meccanismo di URL capture della PWA installata.
 function _apriAffiancato(url) {
-  const sw = screen.availWidth  || window.screen.width;
-  const sh = screen.availHeight || window.screen.height;
-  const sl = screen.availLeft   || 0;
-  const st = screen.availTop    || 0;
-  const w  = Math.floor(sw / 2);
-  window.open(url, '_blank', `popup,noopener,noreferrer,width=${w},height=${sh},left=${sl + w},top=${st}`);
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function creaTessera() {
@@ -571,6 +616,126 @@ function showToast(msg) {
   el.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Merge ─────────────────────────────────────────────────────────────────────
+let _selectedIds = new Set();
+let _mergeA = null, _mergeB = null;
+let _mergeSel = {};
+
+const MERGE_FIELDS_RUB = [
+  { key: 'nome',         label: 'Nome' },
+  { key: 'cognome',      label: 'Cognome' },
+  { key: 'telefono',     label: 'Telefono' },
+  { key: 'email',        label: 'Email' },
+  { key: 'data_nascita', label: 'Data nascita' },
+  { key: 'citta',        label: 'Città' },
+  { key: 'provincia',    label: 'Provincia' },
+  { key: 'note',         label: 'Note' },
+];
+
+function toggleSelect(id, e) {
+  e.stopPropagation();
+  const sid = String(id);
+  if (_selectedIds.has(sid)) {
+    _selectedIds.delete(sid);
+  } else {
+    if (_selectedIds.size >= 2) { showToast('Seleziona al massimo 2 contatti'); return; }
+    _selectedIds.add(sid);
+  }
+  renderList(false);
+  renderMergeBar();
+}
+
+function renderMergeBar() {
+  const n = _selectedIds.size;
+  document.getElementById('merge-count-lbl').textContent = n + (n === 1 ? ' selezionato' : ' selezionati');
+  document.getElementById('merge-bar').classList.toggle('visible', n > 0);
+}
+
+function clearSelection() {
+  _selectedIds.clear();
+  renderList(false);
+  renderMergeBar();
+}
+
+function openMergeModal() {
+  if (_selectedIds.size !== 2) { showToast('Seleziona esattamente 2 contatti'); return; }
+  const map = _getClientiMap();
+  const [idA, idB] = [..._selectedIds];
+  _mergeA = map.get(idA);
+  _mergeB = map.get(idB);
+  if (!_mergeA || !_mergeB) return;
+
+  _mergeSel = {};
+  MERGE_FIELDS_RUB.forEach(f => {
+    _mergeSel[f.key] = (_mergeB[f.key] && !_mergeA[f.key]) ? 'B' : 'A';
+  });
+
+  document.getElementById('mrec-hdr-a').textContent = `${titleCase(_mergeA.cognome)} ${titleCase(_mergeA.nome)}`.trim();
+  document.getElementById('mrec-hdr-b').textContent = `${titleCase(_mergeB.cognome)} ${titleCase(_mergeB.nome)}`.trim();
+  renderMergeBody();
+  document.getElementById('mrec-modal').classList.add('open');
+}
+
+function renderMergeBody() {
+  document.getElementById('mrec-body').innerHTML = MERGE_FIELDS_RUB.map(f => {
+    const vA = _mergeA[f.key] || '';
+    const vB = _mergeB[f.key] || '';
+    const selA = _mergeSel[f.key] !== 'B';
+    return `<div class="mrec-row">
+      <div class="mrec-label">${f.label}</div>
+      <div class="mrec-opt${selA ? ' sel' : ''}" onclick="selectMergeOpt('${f.key}','A')">
+        <input type="radio" ${selA ? 'checked' : ''} readonly>
+        <span>${vA ? esc(vA) : '<span style="color:#cbd5e1">–</span>'}</span>
+      </div>
+      <div class="mrec-opt${!selA ? ' sel' : ''}" onclick="selectMergeOpt('${f.key}','B')">
+        <input type="radio" ${!selA ? 'checked' : ''} readonly>
+        <span>${vB ? esc(vB) : '<span style="color:#cbd5e1">–</span>'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectMergeOpt(key, side) {
+  _mergeSel[key] = side;
+  renderMergeBody();
+}
+
+function closeMergeModal() {
+  document.getElementById('mrec-modal').classList.remove('open');
+}
+
+async function confirmMerge() {
+  if (!_mergeA || !_mergeB) return;
+  const keepId = _mergeA.id;
+  const dropId = _mergeB.id;
+
+  const payload = {};
+  MERGE_FIELDS_RUB.forEach(f => {
+    const src = _mergeSel[f.key] === 'B' ? _mergeB : _mergeA;
+    payload[f.key] = src[f.key] || null;
+  });
+
+  const { error: eUp } = await _sb.from('clienti').update(payload).eq('id', keepId);
+  if (eUp) { showToast('Errore: ' + eUp.message); return; }
+
+  await _sb.from('tessere').update({ cliente_id: keepId }).eq('cliente_id', dropId);
+
+  const { error: eDel } = await _sb.from('clienti').delete().eq('id', dropId);
+  if (eDel) { showToast('Errore: ' + eDel.message); return; }
+
+  Object.assign(_mergeA, payload);
+  allClienti = allClienti.filter(c => String(c.id) !== String(dropId));
+  if (tessereSet.has(String(dropId))) {
+    tessereSet.add(String(keepId));
+    tessereSet.delete(String(dropId));
+  }
+  _invalidateMaps();
+  closeMergeModal();
+  clearSelection();
+  applyFilters();
+  showToast('Contatti uniti ✓');
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
