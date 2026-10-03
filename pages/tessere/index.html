@@ -717,11 +717,6 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <div id="wa-btn-list"></div>
     </div>
 
-    <!-- Storico sconti -->
-    <div class="panel-sec" id="storico-section" style="display:none">
-      <div class="panel-sec-title"><i class="fas fa-clock-rotate-left"></i> Storico sconti</div>
-      <div id="storico-list"></div>
-    </div>
   </div>
 
   <!-- Footer con pulsanti salva -->
@@ -834,7 +829,6 @@ async function init() {
     return;
   }
   await loadAll();
-  loadStoricoExcel(); // carica in background
 }
 
 async function loadAll() {
@@ -855,22 +849,28 @@ async function loadAll() {
     return chunks.flat();
   }
 
-  const [allC, allT, s, m] = await Promise.all([
+  const [allC, allT, m] = await Promise.all([
     fetchAllParallel('clienti', '*', [['cognome'], ['nome']]),
     fetchAllParallel('tessere', '*', null),
-    _sb.from('tessere_sconti').select('*').order('data_utilizzo', { ascending: false }),
     _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
   allClienti      = allC;
   allTessere      = allT;
-  allSconti       = s.data || [];
   allMsgTemplates = m.data || [];
   _invalidateMaps();
   applyFilters();
   renderMsgList();
   _refreshConsentMsgPreview();
-  // Defer O(n²) dup-check so it doesn't block first render
-  setTimeout(_updateDupBadge, 0);
+  // Defer heavy operations: non bloccano il primo render
+  setTimeout(_updateDupBadge, 500);
+  setTimeout(loadStoricoExcel, 1500); // dopo che i dati principali sono mostrati
+}
+let _scontiLoaded = false;
+async function _ensureSconti() {
+  if (_scontiLoaded) return;
+  _scontiLoaded = true;
+  const { data } = await _sb.from('tessere_sconti').select('*').order('data_utilizzo', { ascending: false });
+  allSconti = data || [];
 }
 
 // ── Escape per chiudere pannello ─────────────────────────────────────────────
@@ -1218,14 +1218,12 @@ function openClienteModal(clienteId) {
     document.getElementById('f-benvenuto').checked = t?.messaggio_benvenuto_inviato || false;
     document.getElementById('f-note').value = t?.note || '';
 
-    document.getElementById('storico-section').style.display = '';
     document.getElementById('wa-section').style.display = '';
     document.getElementById('btn-elimina').style.display = '';
     document.getElementById('btn-salva-altro').style.display = 'none';
     document.getElementById('btn-nuova-tessera').style.display = '';
     document.getElementById('tessere-storico-section').style.display = '';
 
-    renderStorico();
     renderWaButtons(c);
     renderStoricoTessere(clienteId);
     _editingConsentToken = c.consent_token || null;
@@ -1253,7 +1251,6 @@ function openClienteModal(clienteId) {
     document.getElementById('f-news-wa').checked = false;
     document.getElementById('f-lista-wa').checked = false;
     document.getElementById('f-benvenuto').checked = false;
-    document.getElementById('storico-section').style.display = 'none';
     document.getElementById('wa-section').style.display = 'none';
     document.getElementById('privacy-section').style.display = 'none';
     document.getElementById('btn-elimina').style.display = 'none';
@@ -1277,31 +1274,6 @@ function updateWaField() {
 }
 
 // ── Storico ───────────────────────────────────────────────────────────────────
-function renderStorico() {
-  const list = document.getElementById('storico-list');
-  const sconti = allSconti.filter(s => s.tessera_id === editingTesseraId);
-  if (!sconti.length) {
-    list.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessuno sconto utilizzato</div>';
-    return;
-  }
-  list.innerHTML = sconti.map(s => `
-    <div class="sconto-item">
-      <div>
-        <div class="sconto-value">${esc(s.valore_sconto)}</div>
-        <div class="sconto-date">Usato il ${fmtDate(s.data_utilizzo)}</div>
-        ${s.giorni_completamento != null ? `<div class="sconto-days">${s.giorni_completamento} giorni per completare</div>` : ''}
-        ${s.note ? `<div class="sconto-days">${esc(s.note)}</div>` : ''}
-      </div>
-      <button class="delete-btn" onclick="deleteSconto('${s.id}')" title="Elimina"><i class="fas fa-trash"></i></button>
-    </div>`).join('');
-}
-
-async function deleteSconto(id) {
-  if (!confirm('Eliminare questo sconto?')) return;
-  await _sb.from('tessere_sconti').delete().eq('id', id);
-  allSconti = allSconti.filter(s => s.id !== id);
-  renderStorico();
-}
 
 // ── WA buttons ────────────────────────────────────────────────────────────────
 function renderWaButtons(cliente) {
@@ -1528,7 +1500,7 @@ async function deleteCliente() {
   await _sb.from('clienti').delete().eq('id', editingClienteId);
   allClienti = allClienti.filter(c => String(c.id) !== String(editingClienteId));
   allTessere = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId));
-  allSconti  = allSconti.filter(s => !tIds.includes(s.tessera_id));
+  allSconti  = allSconti.filter(s => !tIds.includes(s.tessera_id)); // aggiorna cache se già caricata
   _invalidateMaps();
   closeClienteModal();
   applyFilters();
@@ -1738,23 +1710,26 @@ function renderAnalisi() {
 
   renderAnalisiEta();
 
-  // Ultimi sconti
+  // Ultimi sconti — carica lazy al primo accesso
   const recEl = document.getElementById('recent-sconti');
-  const recent = allSconti.slice(0, 10);
-  if (!recent.length) {
-    recEl.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessuno sconto registrato</div>';
-  } else {
-    recEl.innerHTML = recent.map(s => {
-      const t = allTessere.find(x => x.id === s.tessera_id);
-      const c = allClienti.find(x => String(x.id) === String(t?.cliente_id));
-      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9">
-        <span class="sconto-value">${esc(s.valore_sconto)}</span>
-        <div style="flex:1"><strong style="font-size:13px">${c ? escName(c.cognome)+' '+escName(c.nome) : '–'}</strong><br>
-        <span style="font-size:12px;color:#64748b">${fmtDate(s.data_utilizzo)}
-        ${s.giorni_completamento != null ? ` • ${s.giorni_completamento} gg`:''}</span></div>
-      </div>`;
-    }).join('');
-  }
+  recEl.innerHTML = '<div style="font-size:13px;color:#94a3b8">Caricamento…</div>';
+  _ensureSconti().then(() => {
+    const recent = allSconti.slice(0, 10);
+    if (!recent.length) {
+      recEl.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessuno sconto registrato</div>';
+    } else {
+      recEl.innerHTML = recent.map(s => {
+        const t = allTessere.find(x => x.id === s.tessera_id);
+        const c = allClienti.find(x => String(x.id) === String(t?.cliente_id));
+        return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9">
+          <span class="sconto-value">${esc(s.valore_sconto)}</span>
+          <div style="flex:1"><strong style="font-size:13px">${c ? escName(c.cognome)+' '+escName(c.nome) : '–'}</strong><br>
+          <span style="font-size:12px;color:#64748b">${fmtDate(s.data_utilizzo)}
+          ${s.giorni_completamento != null ? ` • ${s.giorni_completamento} gg`:''}</span></div>
+        </div>`;
+      }).join('');
+    }
+  });
 }
 
 // ── Messaggi WA ───────────────────────────────────────────────────────────────
@@ -2004,7 +1979,6 @@ async function nuovaTessera() {
     document.getElementById('f-codice').value    = '';
     document.getElementById('f-emissione').value = nt.data_emissione;
     document.getElementById('f-rinnovo').value   = '';
-    renderStorico();
     renderStoricoTessere(editingClienteId);
     showToast('Nuova tessera creata!');
   } catch(e) {
