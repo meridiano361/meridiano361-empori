@@ -1137,6 +1137,28 @@ async function renderCondPanel(campId, camp) {
     ? '<textarea id="note-' + campId + '" class="camp-cond-note" onblur="saveNoteCommerciali(\'' + campId + '\')" placeholder="Condizioni di pagamento, rimborsi spedizione, premi fedeltà…">' + esc(note) + '</textarea>'
     : (note ? '<div class="camp-cond-note">' + esc(note) + '</div>' : '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuna nota</span>');
 
+  // ── NOTE RESP ACQUISTI ──
+  const { data: noteRespRows } = await DB.from('preordini_note_resp').select('*').eq('campagna_id', campId);
+  let noteRespHtml = '';
+  if (_iAmAdmin) {
+    const noteMap = {};
+    (noteRespRows || []).forEach(n => { if (n.testo) noteMap[n.emporio_codice] = n.testo; });
+    if (Object.keys(noteMap).length) {
+      noteRespHtml = Object.entries(noteMap).map(([emp, txt]) =>
+        '<div style="margin-bottom:8px"><span style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase">' + esc(emp) + '</span>' +
+        '<div class="camp-cond-note" style="margin-top:4px;background:#f8fafc;border-radius:6px;padding:6px 8px;border:1px solid #e2e8f0">' + esc(txt) + '</div></div>'
+      ).join('');
+    } else {
+      noteRespHtml = '<span style="font-size:11px;color:#94a3b8;font-style:italic">Nessuna nota dai responsabili acquisti</span>';
+    }
+  } else {
+    const myNote = (noteRespRows || []).find(n => n.emporio_codice === mioEmpCodice);
+    noteRespHtml = '<textarea id="nota-resp-' + campId + '" class="camp-cond-note" ' +
+      'onblur="saveNotaResp(\'' + campId + '\')" ' +
+      'placeholder="Inserisci qui le tue note per questo preordine (ordini speciali, preferenze clienti, memo acquisti…)">' +
+      esc(myNote?.testo || '') + '</textarea>';
+  }
+
   // ── ALLEGATI ──
   const { data: allegati } = await DB.from('preordini_allegati').select('*').eq('campagna_id', campId).order('created_at');
   let allegHtml = '';
@@ -1162,6 +1184,7 @@ async function renderCondPanel(campId, camp) {
       '<div><h4>Scaglioni sconto</h4>' + scagHtml + '</div>' +
       (soglieHtml ? '<div><h4>Soglie categoria</h4>' + soglieHtml + '</div>' : '') +
     '</div>' +
+    '<div class="camp-allegati"><h4>' + (_iAmAdmin ? 'Note responsabili acquisti' : 'Le mie note') + '</h4>' + noteRespHtml + '</div>' +
     '<div class="camp-allegati"><h4>Allegati (' + (allegati?.length || 0) + ')</h4><div id="allegati-list-' + campId + '">' + allegHtml + '</div></div>';
 }
 
@@ -1169,6 +1192,16 @@ async function saveNoteCommerciali(campId) {
   const ta = document.getElementById('note-' + campId);
   if (!ta) return;
   await DB.from('preordini_campagne').update({ note_commerciali: ta.value || null }).eq('id', campId);
+}
+
+async function saveNotaResp(campId) {
+  const ta = document.getElementById('nota-resp-' + campId);
+  if (!ta || !mioEmpCodice) return;
+  const testo = ta.value.trim() || null;
+  await DB.from('preordini_note_resp').upsert(
+    { campagna_id: campId, emporio_codice: mioEmpCodice, testo, updated_at: new Date().toISOString() },
+    { onConflict: 'campagna_id,emporio_codice' }
+  );
 }
 
 async function uploadAllegato(campId, input) {
