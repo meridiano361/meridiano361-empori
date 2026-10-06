@@ -1404,13 +1404,15 @@ function pvpBlur(el) {
 const pvpM361Timers = {};
 function onPvpM361(rigaId, input) {
   clearTimeout(pvpM361Timers[rigaId]);
+  const raw = input.value; // cattura PRIMA che pvpBlur riformatti
   pvpM361Timers[rigaId] = setTimeout(async () => {
-    const val = input.value.trim() ? parseFloat(input.value.replace(',','.')) : null;
+    const val = raw.trim() ? (parseFloat(raw.replace(',','.')) || null) : null;
     const { error } = await DB.from('preordini_righe').update({ pvp_m361: val }).eq('id', rigaId);
     if (!error) {
       const r = righe.find(x => x.id === rigaId);
       if (r) r.pvp_m361 = val;
       input.dataset.raw = val != null ? val : '';
+      aggiornaScontoBanner();
     }
   }, 700);
 }
@@ -1418,13 +1420,15 @@ function onPvpM361(rigaId, input) {
 const pvpConsTimers = {};
 function onPvpCons(rigaId, input) {
   clearTimeout(pvpConsTimers[rigaId]);
+  const raw = input.value; // cattura PRIMA che pvpBlur riformatti
   pvpConsTimers[rigaId] = setTimeout(async () => {
-    const val = input.value.trim() ? parseFloat(input.value.replace(',','.')) : null;
+    const val = raw.trim() ? (parseFloat(raw.replace(',','.')) || null) : null;
     const { error } = await DB.from('preordini_righe').update({ pvp_consigliato: val }).eq('id', rigaId);
     if (!error) {
       const r = righe.find(x => x.id === rigaId);
       if (r) r.pvp_consigliato = val;
       input.dataset.raw = val != null ? val : '';
+      aggiornaScontoBanner();
     }
   }, 700);
 }
