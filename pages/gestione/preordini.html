@@ -2046,7 +2046,35 @@ function renderTable() {
     if (hasTotOrd) {
       html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#16A34A;background:#f0fdf4">' + (subTot || '') + '</td>';
     }
-    for (let i = 0; i < nStorCols; i++) html += '<td style="background:#f1f5f9"></td>';
+    // Subtotale storico per fornitore
+    if (_iAmAdmin) {
+      STOR_ANNI.forEach(y => {
+        ['CR','CA','VI'].forEach(sede => {
+          const storA = { CR: STORICO_CR, CA: STORICO_CA, VI: STORICO_VI }[sede];
+          const storV = { CR: STORICO_CR_VEND, CA: STORICO_CA_VEND, VI: STORICO_VI_VEND }[sede];
+          let tA = 0, tV = 0;
+          grp.forEach(r => { tA += storA[r.codice]?.[y] || 0; tV += storV[r.codice]?.[y] || 0; });
+          html += '<td style="text-align:center;background:#f1f5f9;padding:2px 1px">' +
+            '<div style="font-size:9px;color:#64748b;font-weight:700;line-height:1.4">' + (tA || '—') + '</div>' +
+            '<div style="height:1px;background:#e2e8f0;margin:0 2px"></div>' +
+            '<div style="font-size:9px;color:#16a34a;font-weight:700;line-height:1.4">' + (tV || '—') + '</div>' +
+            '</td>';
+        });
+      });
+    } else {
+      STOR_ANNI.forEach(y => {
+        let tA = 0, tV = 0;
+        grp.forEach(r => {
+          tA += storicoManuale[r.codice]?.[mioEmpCodice]?.[y]?.a || 0;
+          tV += storicoManuale[r.codice]?.[mioEmpCodice]?.[y]?.v || 0;
+        });
+        html += '<td style="text-align:center;background:#f1f5f9;padding:2px 1px">' +
+          '<div style="font-size:9px;color:#64748b;font-weight:700;line-height:1.4">' + (tA || '—') + '</div>' +
+          '<div style="height:1px;background:#e2e8f0;margin:0 2px"></div>' +
+          '<div style="font-size:9px;color:#16a34a;font-weight:700;line-height:1.4">' + (tV || '—') + '</div>' +
+          '</td>';
+      });
+    }
     const subIncPct = gEurTotal > 0 && subEur > 0 ? (subEur / gEurTotal * 100).toFixed(1) + '%' : '';
     html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#166534;background:#f0fdf4">' + (subEur > 0 ? fmtEuro(subEur) : '') + '</td>';
     html += '<td style="text-align:right;font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe">' + subIncPct + '</td>';
