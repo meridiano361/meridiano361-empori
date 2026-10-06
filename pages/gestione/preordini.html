@@ -3180,30 +3180,26 @@ function _confirmDemetra() {
 
 function _doExportDemetra(selezionati, conTotale) {
   const baseName = (campagna?.nome || 'preordine').replace(/\s+/g,'_').toLowerCase();
+  const _dem = rows => new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const _dl  = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); };
+
   selezionati.forEach(emp => {
     const rows = ['Codice;Quantita'];
     righe.forEach(r => {
       const oc = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
-      if (oc > 0) rows.push(csvQ(r.codice) + ';' + oc);
+      if (oc > 0) rows.push((r.codice || '') + ';' + oc);
     });
     if (rows.length === 1) return;
-    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = baseName + '_' + emp.codice.toLowerCase() + '_demetra.csv';
-    a.click();
+    _dl(_dem(rows), baseName + '_' + emp.codice.toLowerCase() + '_demetra.csv');
   });
+
   if (conTotale) {
     const rows = ['Codice;Quantita'];
     righe.forEach(r => {
       const tot = selezionati.reduce((s, emp) => s + (parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0), 0);
-      if (tot > 0) rows.push(csvQ(r.codice) + ';' + tot);
+      if (tot > 0) rows.push((r.codice || '') + ';' + tot);
     });
-    if (rows.length > 1) {
-      const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = baseName + '_totale_demetra.csv';
-      a.click();
-    }
+    if (rows.length > 1) _dl(_dem(rows), baseName + '_totale_demetra.csv');
   }
 }
 
