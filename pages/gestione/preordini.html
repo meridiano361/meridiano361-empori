@@ -1161,7 +1161,6 @@ async function renderCondPanel(campId, camp) {
       (dateHtml ? '<div><h4>Date</h4>' + dateHtml + '</div>' : '') +
       '<div><h4>Scaglioni sconto</h4>' + scagHtml + '</div>' +
       (soglieHtml ? '<div><h4>Soglie categoria</h4>' + soglieHtml + '</div>' : '') +
-      '<div><h4>Note commerciali</h4>' + noteHtml + '</div>' +
     '</div>' +
     '<div class="camp-allegati"><h4>Allegati (' + (allegati?.length || 0) + ')</h4><div id="allegati-list-' + campId + '">' + allegHtml + '</div></div>';
 }
@@ -3104,6 +3103,8 @@ async function deleteCampagna(id, nome) {
     await DB.from('preordini_righe').delete().eq('campagna_id', id);
   }
   await DB.from('preordini_empori').delete().eq('campagna_id', id);
+  // Elimina allegati DB (i file in storage rimangono nel bucket ma sono orfani)
+  await DB.from('preordini_allegati').delete().eq('campagna_id', id);
   const { error } = await DB.from('preordini_campagne').delete().eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
   await loadHub();
