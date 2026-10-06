@@ -1809,7 +1809,7 @@ function renderTable() {
   const nEmp = emporiVis.length;
   const hasTotOrd = _iAmAdmin && nEmp > 1;
   const STOR_ANNI_VIS = ALL_STOR_ANNI.filter(y => filtroAnniStor.has(y));
-  const nStorSedi = _iAmAdmin ? 3 : 1;
+  const nStorSedi = _iAmAdmin ? 4 : 1; // 3 sedi + 1 colonna TOT per anno
   const nStorCols = STOR_ANNI_VIS.length * nStorSedi; // sedi × anni visibili
   const totalCols = 7 + nEmp + (hasTotOrd ? 1 : 0) + nStorCols + 2; // +2: € IMP + % inc.
 
@@ -1851,11 +1851,16 @@ function renderTable() {
     : [{ lbl: mioEmpCodice, bdr:'border-left:2px solid #64748b;' }];
   let h2 = '<tr>';
   STOR_ANNI.forEach((y, yi) => {
+    const isLastYear = yi === STOR_ANNI.length - 1;
     STOR_SEDI.forEach((s, si) => {
       const bL = s.bdr;
-      const bR = (yi === STOR_ANNI.length - 1 && si === STOR_SEDI.length - 1) ? 'border-right:2px solid #64748b;' : '';
+      const bR = (!_iAmAdmin && isLastYear && si === STOR_SEDI.length - 1) ? 'border-right:2px solid #64748b;' : '';
       h2 += '<th class="th-stor-year" style="min-width:' + (_iAmAdmin ? 38 : 52) + 'px;' + bL + bR + '">' + s.lbl + ' <span style="opacity:.6;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
     });
+    if (_iAmAdmin) {
+      const bR = isLastYear ? 'border-right:2px solid #64748b;' : '';
+      h2 += '<th class="th-stor-year" style="min-width:44px;background:#0a2318;color:#4ade80;font-weight:800;' + bR + '">TOT <span style="opacity:.7;font-size:8px">\'</span>' + String(y).slice(2) + '</th>';
+    }
   });
   h2 += '</tr>';
   thead.innerHTML = h1 + h2;
@@ -1987,20 +1992,28 @@ function renderTable() {
 
       // STORICO
       if (_iAmAdmin) {
-        // Admin: storico hardcoded CR/CA/VI
+        // Admin: storico CR/CA/VI + colonna TOT per anno
         STOR_ANNI.forEach((y, yi) => {
+          let totA = null, totV = null;
           ['CR','CA','VI'].forEach((sede, si) => {
             const s   = storBySede[sede];
             const acq = s.a[y];
             const vnd = s.v[y];
             const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
-            const bR  = (yi === STOR_ANNI.length - 1 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
-            html += '<td class="td-stor" style="' + bL + bR + '">' +
+            html += '<td class="td-stor" style="' + bL + '">' +
               '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
               '<div class="stor-div"></div>' +
               '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd">' + (vnd != null ? vnd : '—') + '</span></div>' +
               '</td>';
+            if (acq != null) totA = (totA || 0) + acq;
+            if (vnd != null) totV = (totV || 0) + vnd;
           });
+          const bR = yi === STOR_ANNI.length - 1 ? 'border-right:2px solid #94a3b8;' : '';
+          html += '<td class="td-stor" style="background:#081d10;' + bR + '">' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="color:#6ee7b7;font-weight:800">' + (totA != null ? totA : '—') + '</span></div>' +
+            '<div class="stor-div"></div>' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="color:#4ade80;font-weight:800">' + (totV != null ? totV : '—') + '</span></div>' +
+            '</td>';
         });
       } else {
         // Resp_acquisti: solo il proprio emporio, modificabile
@@ -2046,20 +2059,27 @@ function renderTable() {
     if (hasTotOrd) {
       html += '<td style="text-align:right;font-family:\'Nunito\',monospace;color:#16A34A;background:#f0fdf4">' + (subTot || '') + '</td>';
     }
-    // Subtotale storico per fornitore
+    // Subtotale storico per fornitore (CR, CA, VI + TOT per anno)
     if (_iAmAdmin) {
       STOR_ANNI.forEach(y => {
+        let totA = 0, totV = 0;
         ['CR','CA','VI'].forEach(sede => {
           const storA = { CR: STORICO_CR, CA: STORICO_CA, VI: STORICO_VI }[sede];
           const storV = { CR: STORICO_CR_VEND, CA: STORICO_CA_VEND, VI: STORICO_VI_VEND }[sede];
           let tA = 0, tV = 0;
           grp.forEach(r => { tA += storA[r.codice]?.[y] || 0; tV += storV[r.codice]?.[y] || 0; });
+          totA += tA; totV += tV;
           html += '<td style="text-align:center;background:#f1f5f9;padding:2px 1px">' +
             '<div style="font-size:9px;color:#64748b;font-weight:700;line-height:1.4">' + (tA || '—') + '</div>' +
             '<div style="height:1px;background:#e2e8f0;margin:0 2px"></div>' +
             '<div style="font-size:9px;color:#16a34a;font-weight:700;line-height:1.4">' + (tV || '—') + '</div>' +
             '</td>';
         });
+        html += '<td style="text-align:center;background:#e8f5ec;padding:2px 1px">' +
+          '<div style="font-size:9px;color:#166534;font-weight:800;line-height:1.4">' + (totA || '—') + '</div>' +
+          '<div style="height:1px;background:#bbf7d0;margin:0 2px"></div>' +
+          '<div style="font-size:9px;color:#16a34a;font-weight:800;line-height:1.4">' + (totV || '—') + '</div>' +
+          '</td>';
       });
     } else {
       STOR_ANNI.forEach(y => {
@@ -2106,18 +2126,26 @@ function renderTable() {
       if (hasTotOrd) html += '<td></td>';
       if (_iAmAdmin) {
         STOR_ANNI.forEach((y, yi) => {
+          let totA = null, totV = null;
           ['CR','CA','VI'].forEach((sede, si) => {
             const s   = storBySede[sede];
             const acq = s.a[y];
             const vnd = s.v[y];
             const bL  = (si === 0) ? 'border-left:2px solid #94a3b8;' : '';
-            const bR  = (yi === STOR_ANNI.length - 1 && si === 2) ? 'border-right:2px solid #94a3b8;' : '';
-            html += '<td class="td-stor" style="' + bL + bR + '">' +
+            html += '<td class="td-stor" style="' + bL + '">' +
               '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq">' + (acq != null ? acq : '—') + '</span></div>' +
               '<div class="stor-div"></div>' +
               '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd">' + (vnd != null ? vnd : '—') + '</span></div>' +
               '</td>';
+            if (acq != null) totA = (totA || 0) + acq;
+            if (vnd != null) totV = (totV || 0) + vnd;
           });
+          const bR = yi === STOR_ANNI.length - 1 ? 'border-right:2px solid #94a3b8;' : '';
+          html += '<td class="td-stor" style="background:#081d10;' + bR + '">' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-a">A</span><span class="stor-acq" style="color:#6ee7b7;font-weight:800">' + (totA != null ? totA : '—') + '</span></div>' +
+            '<div class="stor-div"></div>' +
+            '<div class="stor-row"><span class="stor-lbl stor-lbl-v">V</span><span class="stor-vnd" style="color:#4ade80;font-weight:800">' + (totV != null ? totV : '—') + '</span></div>' +
+            '</td>';
         });
       } else {
         const emp = mioEmpCodice;
@@ -2152,29 +2180,35 @@ function renderTable() {
   if (hasTotOrd) {
     foot += '<td style="text-align:right;color:#4ade80;font-family:\'Nunito\',monospace;font-size:13px;background:#0f3d1e">' + (gTot || '') + '</td>';
   }
-  // Storico footer: totale pezzi (A/V) e valore stimato per ogni anno × sede
+  // Storico footer: totale pezzi (A/V) per sede + colonna TOT per anno
   if (_iAmAdmin) {
     STOR_ANNI.forEach((y, yi) => {
+      const isLastYear = yi === STOR_ANNI.length - 1;
+      let gA = 0, gV = 0, gEur = 0;
       ['CR','CA','VI'].forEach((sede, si) => {
         const bL = si === 0 ? 'border-left:2px solid #4a5568;' : '';
-        const bR = (yi === STOR_ANNI.length - 1 && si === 2) ? 'border-right:2px solid #4a5568;' : '';
         const storA = { CR: STORICO_CR, CA: STORICO_CA, VI: STORICO_VI }[sede];
         const storV = { CR: STORICO_CR_VEND, CA: STORICO_CA_VEND, VI: STORICO_VI_VEND }[sede];
-        let tA = 0, tV = 0, tEur = 0;
+        let tA = 0, tV = 0;
         righeFiltered.forEach(r => {
-          const a = storA[r.codice]?.[y] ?? 0;
-          const v = storV[r.codice]?.[y] ?? 0;
-          tA += (a || 0);
-          tV += (v || 0);
-          tEur += (a || 0) * (parseFloat(r.pvp_corrente) || 0);
+          tA += storA[r.codice]?.[y] || 0;
+          tV += storV[r.codice]?.[y] || 0;
         });
-        foot += '<td style="text-align:center;background:#1e293b;padding:2px 1px;vertical-align:middle;' + bL + bR + '">' +
+        gA += tA; gV += tV;
+        foot += '<td style="text-align:center;background:#1e293b;padding:2px 1px;vertical-align:middle;' + bL + '">' +
           '<div style="font-size:9px;color:#94a3b8;font-weight:700;line-height:1.4">' + (tA || '—') + '</div>' +
           '<div style="height:1px;background:#334155;margin:1px 2px"></div>' +
           '<div style="font-size:9px;color:#4ade80;font-weight:700;line-height:1.4">' + (tV || '—') + '</div>' +
-          (tEur > 0 ? '<div style="font-size:8px;color:#fbbf24;font-weight:600;line-height:1.3">' + fmtEuro(tEur) + '</div>' : '') +
           '</td>';
       });
+      righeFiltered.forEach(r => { gEur += (STORICO_CR[r.codice]?.[y] || 0) * (parseFloat(r.pvp_corrente) || 0); });
+      const bR = isLastYear ? 'border-right:2px solid #4a5568;' : '';
+      foot += '<td style="text-align:center;background:#0a2318;padding:2px 1px;vertical-align:middle;' + bR + '">' +
+        '<div style="font-size:9px;color:#6ee7b7;font-weight:800;line-height:1.4">' + (gA || '—') + '</div>' +
+        '<div style="height:1px;background:#14532d;margin:1px 2px"></div>' +
+        '<div style="font-size:9px;color:#4ade80;font-weight:800;line-height:1.4">' + (gV || '—') + '</div>' +
+        (gEur > 0 ? '<div style="font-size:8px;color:#fbbf24;font-weight:700;line-height:1.3">' + fmtEuro(gEur) + '</div>' : '') +
+        '</td>';
     });
   } else {
     const emp = mioEmpCodice;
@@ -2185,8 +2219,7 @@ function renderTable() {
       righeFiltered.forEach(r => {
         const a = storicoManuale[r.codice]?.[emp]?.[y]?.a ?? 0;
         const v = storicoManuale[r.codice]?.[emp]?.[y]?.v ?? 0;
-        tA += (a || 0);
-        tV += (v || 0);
+        tA += (a || 0); tV += (v || 0);
         tEur += (a || 0) * (parseFloat(r.pvp_corrente) || 0);
       });
       foot += '<td style="text-align:center;background:#1e293b;padding:2px 1px;vertical-align:middle;' + bL + bR + '">' +
