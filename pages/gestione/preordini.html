@@ -2452,6 +2452,35 @@ function aggiornaScontoBanner() {
     html += '</div>';
   });
 
+  // ── Chip proiezione vendita ──
+  let totAcq = 0, totRicavoIvaInc = 0;
+  righe.forEach(r => {
+    const pvpAcq  = parseFloat(r.pvp_corrente) || 0;
+    const pvpVend = parseFloat(r.pvp_m361) || parseFloat(r.pvp_consigliato) || pvpAcq;
+    emporiVis.forEach(emp => {
+      const qty = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
+      totAcq          += qty * pvpAcq;
+      totRicavoIvaInc += qty * pvpVend;
+    });
+  });
+  if (totAcq > 0 || totRicavoIvaInc > 0) {
+    const IVA = 1.10;
+    const totRicavoIvaEscl = totRicavoIvaInc / IVA;
+    const margine          = totRicavoIvaEscl - totAcq;
+    const marginePct       = totRicavoIvaEscl > 0 ? (margine / totRicavoIvaEscl * 100).toFixed(1) : 0;
+    const mCol = margine >= 0 ? '#16a34a' : '#dc2626';
+    html += '<div class="sconto-chip" style="background:#f0fdf4;border-color:#bbf7d0;gap:6px">' +
+      '<span style="font-size:10px;font-weight:800;color:#166534">📈 PROIEZIONE</span>' +
+      '<span style="font-size:9px;color:#64748b">Acq.</span><span style="font-weight:800;color:#1e293b">' + fmtEuro(totAcq) + '</span>' +
+      '<span style="color:#94a3b8">→</span>' +
+      '<span style="font-size:9px;color:#64748b">Ricavo IVA incl.</span><span style="font-weight:800;color:#0369a1">' + fmtEuro(totRicavoIvaInc) + '</span>' +
+      '<span style="font-size:9px;color:#64748b">IVA escl. (10%)</span><span style="font-weight:800;color:#1e293b">' + fmtEuro(totRicavoIvaEscl) + '</span>' +
+      '<span style="color:#94a3b8">→</span>' +
+      '<span style="font-size:9px;color:#64748b">Margine</span>' +
+      '<span style="font-weight:900;color:' + mCol + '">' + fmtEuro(margine) + ' (' + marginePct + '%)</span>' +
+      '</div>';
+  }
+
   const wasHidden = banner.classList.contains('hidden');
   banner.innerHTML = html;
   banner.classList.remove('hidden');
@@ -2640,6 +2669,59 @@ function renderRiepilogo() {
     (campagna.scaglioni?.some(t => t.pct > 0))
   );
 
+  // ── Card proiezione vendita ────────────────────────────────────────
+  {
+    const IVA = 1.10;
+    let totAcq = 0, totRicavoIvaInc = 0;
+    righe.forEach(r => {
+      const pvpAcq  = parseFloat(r.pvp_corrente) || 0;
+      const pvpVend = parseFloat(r.pvp_m361) || parseFloat(r.pvp_consigliato) || pvpAcq;
+      emporiVis.forEach(emp => {
+        const qty = parseFloat(quantitaMap[r.id]?.[emp.codice]?.ordine_corrente) || 0;
+        totAcq          += qty * pvpAcq;
+        totRicavoIvaInc += qty * pvpVend;
+      });
+    });
+    let projHtml = '';
+    if (totRicavoIvaInc > 0) {
+      const totRicavoIvaEscl = totRicavoIvaInc / IVA;
+      const margine          = totRicavoIvaEscl - totAcq;
+      const marginePct       = totRicavoIvaEscl > 0 ? (margine / totRicavoIvaEscl * 100).toFixed(1) : 0;
+      const mCol = margine >= 0 ? '#16a34a' : '#dc2626';
+      projHtml = '<div style="border:2px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:14px;background:#f0fdf4">' +
+        '<div style="font-size:12px;font-weight:900;color:#166534;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">📈 Proiezione vendita (se vendi tutto)</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">' +
+
+        '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px">' +
+        '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Acquisto (IVA escl.)</div>' +
+        '<div style="font-size:18px;font-weight:900;color:#1e293b">' + fmtEuro(totAcq) + '</div>' +
+        '<div style="font-size:10px;color:#94a3b8;margin-top:2px">Costo d\'acquisto × quantità ordinate</div>' +
+        '</div>' +
+
+        '<div style="background:white;border:1px solid #bfdbfe;border-radius:10px;padding:14px">' +
+        '<div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ricavo IVA incl.</div>' +
+        '<div style="font-size:18px;font-weight:900;color:#1d4ed8">' + fmtEuro(totRicavoIvaInc) + '</div>' +
+        '<div style="font-size:10px;color:#94a3b8;margin-top:2px">PVP M361 × quantità ordinate</div>' +
+        '</div>' +
+
+        '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px">' +
+        '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ricavo IVA escl. (÷ 1,10)</div>' +
+        '<div style="font-size:18px;font-weight:900;color:#1e293b">' + fmtEuro(totRicavoIvaEscl) + '</div>' +
+        '<div style="font-size:10px;color:#94a3b8;margin-top:2px">Applicata IVA 10% alimentari</div>' +
+        '</div>' +
+
+        '<div style="background:white;border:2px solid ' + mCol + '40;border-radius:10px;padding:14px">' +
+        '<div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Margine lordo (IVA escl.)</div>' +
+        '<div style="font-size:18px;font-weight:900;color:' + mCol + '">' + fmtEuro(margine) + '</div>' +
+        '<div style="font-size:13px;font-weight:800;color:' + mCol + ';margin-top:2px">' + marginePct + '% sul ricavo</div>' +
+        '<div style="font-size:10px;color:#94a3b8;margin-top:2px">Ricavo IVA escl. − Costo acquisto</div>' +
+        '</div>' +
+
+        '</div></div>';
+    }
+    commEl.innerHTML = projHtml;
+  }
+
   if (hasCond && emporiVis.length > 0) {
     const tiers = (campagna.scaglioni?.filter(t => t.min || t.pct) || []).sort((a, b) => a.min - b.min);
     const orgGroups = empOriByOrg(emporiVis);
@@ -2753,9 +2835,7 @@ function renderRiepilogo() {
       }
       cardHtml += '</div>'; // end org wrapper
     }); // end orgGroups.forEach
-    commEl.innerHTML = cardHtml;
-  } else {
-    commEl.innerHTML = '';
+    commEl.innerHTML += cardHtml;
   }
 
   // ── Thead row 1: Categoria | [EMP colspan=2]... | TOT PZ | € IMP | % inc.
