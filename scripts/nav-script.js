@@ -855,6 +855,12 @@ function buildNav() {
   }
 
   function applyReadonlyMode() {
+    // Utenti con accesso speciale su sezioni specifiche: non applicare mai la sola lettura.
+    const _roUser  = JSON.parse(localStorage.getItem('m361_user') || 'null');
+    const _roEmail = (_roUser?.email || '').toLowerCase().trim();
+    const _roPath  = window.location.pathname.toLowerCase();
+    if (['m.porrino@meridiano361.it'].includes(_roEmail) && _roPath.includes('preventivi')) return;
+
     // Inietta CSS che nasconde/blocca tutti gli elementi di modifica
     if (document.getElementById('m361-readonly-styles')) return;
     const style = document.createElement('style');
