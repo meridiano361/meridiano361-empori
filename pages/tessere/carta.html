@@ -72,8 +72,9 @@ body{font-family:'Nunito',sans-serif;background:linear-gradient(160deg,#fff7f7 0
 const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 const TIMBRI_MAX = 12;
-const EURO_PER_TIMBRO = 25;
-const SCONTO_CICLO = 20;
+// Regole per tipo tessera
+function euroPerTimbro(tipo) { return tipo === 'ambassador' ? 30 : 25; }
+function scontoCiclo(tipo)   { return tipo === 'ambassador' ? 25 : 20; }
 
 function fmtDate(s) {
   if (!s) return '';
@@ -111,6 +112,8 @@ async function loadCard() {
   const timbri = t.timbri_attuali || 0;
   const saldo = t.saldo_sconto || 0;
   const totale = t.totale_spesa || 0;
+  const EURO_PER_TIMBRO = euroPerTimbro(t.tipo);
+  const SCONTO_CICLO    = scontoCiclo(t.tipo);
   const timbriRimanenti = TIMBRI_MAX - timbri;
   const euroRimanenti = timbriRimanenti * EURO_PER_TIMBRO;
   const pct = Math.min((timbri / TIMBRI_MAX) * 100, 100);

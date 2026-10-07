@@ -3050,11 +3050,13 @@ async function confirmMerge() {
 }
 
 // ── TESSERE DIGITALI ──────────────────────────────────────────────────────────
-const DIG_EURO_TIMBRO = 25;
-const DIG_TIMBRI_MAX  = 12;
-const DIG_SCONTO      = 20;
+const DIG_TIMBRI_MAX = 12;
+// Regole per tipo: Standard €25→€20, Ambassador €30→€25
+function digEuroTimbro(tipo) { return tipo === 'ambassador' ? 30 : 25; }
+function digSconto(tipo)     { return tipo === 'ambassador' ? 25 : 20; }
 
 let _digSpesaTesseraId = null;
+let _digSpesaTipo      = 'standard';
 
 function renderDigitale() {
   const grid = document.getElementById('dig-grid');
@@ -3091,12 +3093,13 @@ function renderDigitale() {
         : `<div class="dig-stamp"></div>`
     ).join('');
 
+    const euroTimbro = digEuroTimbro(t.tipo);
     const rimasti = DIG_TIMBRI_MAX - timbri;
     const progressTxt = timbri === 0
       ? `Nessun timbro ancora`
       : timbri >= DIG_TIMBRI_MAX
         ? `Tessera completa! 🎉`
-        : `${timbri}/${DIG_TIMBRI_MAX} timbri · ancora €${rimasti * DIG_EURO_TIMBRO} per completare`;
+        : `${timbri}/${DIG_TIMBRI_MAX} timbri · ancora €${rimasti * euroTimbro} per completare`;
 
     const saldoBadge = saldo > 0
       ? `<div class="dig-saldo"><i class="fas fa-gift"></i> €${saldo.toFixed(0)} di sconto</div><br>`
@@ -3136,11 +3139,12 @@ function apriSpesaModal(tesseraId) {
   const cMap = new Map(allClienti.map(c => [c.id, c]));
   const t = tMap.get(tesseraId);
   const c = t ? cMap.get(t.cliente_id) : null;
+  _digSpesaTipo = t?.tipo || 'standard';
   const nomeCompleto = c ? `${c.nome || ''} ${c.cognome || ''}`.trim() : 'Cliente';
 
   document.getElementById('spesa-modal-nome').textContent = `Spesa di ${nomeCompleto}`;
   document.getElementById('spesa-modal-sub').textContent =
-    `Timbri attuali: ${t?.timbri_attuali || 0}/${DIG_TIMBRI_MAX} · ogni €${DIG_EURO_TIMBRO} = 1 timbro`;
+    `Timbri attuali: ${t?.timbri_attuali || 0}/${DIG_TIMBRI_MAX} · ogni €${digEuroTimbro(_digSpesaTipo)} = 1 timbro`;
   document.getElementById('spesa-importo').value = '';
   document.getElementById('spesa-preview').textContent = '';
   const box = document.getElementById('wa-success-box');
@@ -3157,12 +3161,13 @@ function chiudiSpesaModal() {
 
 function aggiornaPreviewSpesa() {
   const importo = parseFloat(document.getElementById('spesa-importo').value) || 0;
-  const timbri = Math.floor(importo / DIG_EURO_TIMBRO);
+  const et = digEuroTimbro(_digSpesaTipo);
+  const timbri = Math.floor(importo / et);
   const prev = document.getElementById('spesa-preview');
   if (importo <= 0) { prev.textContent = ''; return; }
   prev.innerHTML = timbri > 0
     ? `<strong style="color:#B5453A">+${timbri} timbro${timbri > 1 ? 'i' : ''}</strong>`
-    : `Servono almeno €${DIG_EURO_TIMBRO} per guadagnare 1 timbro`;
+    : `Servono almeno €${et} per guadagnare 1 timbro`;
 }
 
 async function salvaSpesa() {
@@ -3183,14 +3188,17 @@ async function salvaSpesa() {
   const waWin = (tel && t?.token) ? window.open('about:blank', '_blank') : null;
 
   try {
-    const timbriNuovi    = Math.floor(importo / DIG_EURO_TIMBRO);
+    const tipo           = t.tipo || 'standard';
+    const euroTimbro     = digEuroTimbro(tipo);
+    const scontoPerCiclo = digSconto(tipo);
+    const timbriNuovi    = Math.floor(importo / euroTimbro);
     let   timbriAttuali  = (t.timbri_attuali || 0) + timbriNuovi;
     let   scontoGenerato = 0;
     let   saldoSconto    = t.saldo_sconto || 0;
 
     if (timbriAttuali >= DIG_TIMBRI_MAX) {
       const cicli    = Math.floor(timbriAttuali / DIG_TIMBRI_MAX);
-      scontoGenerato = cicli * DIG_SCONTO;
+      scontoGenerato = cicli * scontoPerCiclo;
       saldoSconto   += scontoGenerato;
       timbriAttuali  = timbriAttuali % DIG_TIMBRI_MAX;
     }
