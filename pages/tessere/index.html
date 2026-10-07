@@ -590,8 +590,8 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div><div class="field-label">Nome *</div><input class="field-input" id="f-nome" placeholder="Nome"></div>
         <div><div class="field-label">Cognome</div><input class="field-input" id="f-cognome" placeholder="Cognome"></div>
         <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="date"></div>
-        <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel" oninput="this.value=this.value.replace(/[^\d+]/g,'')"></div>
-        <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
+        <div style="grid-column:1/-1"><div id="contatti-telefoni-wrap"></div></div>
+        <div style="grid-column:1/-1"><div id="contatti-emails-wrap"></div></div>
         <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città" oninput="autoProvincia()" onblur="autoProvincia()"></div>
         <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR" title="Si compila automaticamente dalla città"></div>
       </div>
@@ -764,6 +764,8 @@ let editingMsgId = null;
 let _tessPage = 0;          // pagina corrente lista tessere
 const TESS_PER_PAGE = 60;   // righe per pagina
 let _searchDebounceTimer = null;
+let _editTelefoni = [];     // [preferito, extra1, extra2, …]
+let _editEmails   = [];     // [preferito, extra1, extra2, …]
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -801,7 +803,7 @@ async function init() {
 
 async function loadAll() {
   const PAGE = 1000;
-  const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
+  const C_COLS = 'id,cognome,nome,telefono,telefoni_extra,wa,email,emails_extra,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
   const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo';
 
   // Prima pagina di clienti + tessere + messaggi in parallelo → render immediato
@@ -893,6 +895,57 @@ function _buildTessereCodsMap() {
 }
 
 // ── Open/Close cliente side panel ────────────────────────────────────────────
+function _renderContattiUI() {
+  const renderList = (tipo, arr, wrapId, placeholder, inputType) => {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const label = tipo === 'telefono' ? 'Cellulare' : 'Email';
+    const rows = arr.map((v, i) => `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <button type="button" title="${i===0?'Preferito':'Rendi preferito'}"
+          onclick="_setPreferitoContatto('${tipo}',${i})"
+          style="border:none;background:none;cursor:pointer;font-size:16px;padding:0;flex-shrink:0;opacity:${i===0?'1':'.35'}">${i===0?'⭐':'☆'}</button>
+        <input class="field-input" style="flex:1;margin:0" type="${inputType}" placeholder="${placeholder}"
+          value="${esc(v)}"
+          oninput="_editContatto('${tipo}',${i},this.value)"
+          ${inputType==='tel'?`pattern="[0-9+]*" inputmode="tel"`:''}
+        >
+        <button type="button" onclick="_removeContatto('${tipo}',${i})"
+          style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:14px;padding:2px 4px;flex-shrink:0" title="Rimuovi">✕</button>
+      </div>`).join('');
+    wrap.innerHTML = `
+      <div class="field-label" style="margin-bottom:4px">${label}</div>
+      ${rows}
+      <button type="button" onclick="_addContatto('${tipo}')"
+        style="font-size:11px;color:#64748b;background:none;border:1px dashed #cbd5e1;border-radius:7px;padding:3px 10px;cursor:pointer;margin-top:2px;font-family:inherit">
+        + Aggiungi ${tipo === 'telefono' ? 'numero' : 'email'}
+      </button>`;
+  };
+  renderList('telefono', _editTelefoni, 'contatti-telefoni-wrap', '3XX…', 'tel');
+  renderList('email',    _editEmails,   'contatti-emails-wrap',   'email@…', 'email');
+}
+function _addContatto(tipo) {
+  if (tipo === 'telefono') _editTelefoni.push(''); else _editEmails.push('');
+  _renderContattiUI();
+  // focus sull'ultimo input aggiunto
+  const wrapId = tipo === 'telefono' ? 'contatti-telefoni-wrap' : 'contatti-emails-wrap';
+  setTimeout(() => { const ins = document.querySelectorAll(`#${wrapId} input`); ins[ins.length-1]?.focus(); }, 50);
+}
+function _removeContatto(tipo, idx) {
+  if (tipo === 'telefono') _editTelefoni.splice(idx, 1); else _editEmails.splice(idx, 1);
+  _renderContattiUI();
+}
+function _setPreferitoContatto(tipo, idx) {
+  const arr = tipo === 'telefono' ? _editTelefoni : _editEmails;
+  if (idx === 0) return;
+  const [el] = arr.splice(idx, 1); arr.unshift(el);
+  _renderContattiUI();
+}
+function _editContatto(tipo, idx, val) {
+  if (tipo === 'telefono') { _editTelefoni[idx] = val.replace(/[^\d+]/g,''); }
+  else                     { _editEmails[idx]   = val.trim().toLowerCase(); }
+}
+
 function openClienteModal(clienteId) {
   editingClienteId = clienteId;
   editingTesseraId = null;
@@ -930,8 +983,11 @@ function openClienteModal(clienteId) {
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-cognome').value = c.cognome || '';
     document.getElementById('f-nascita').value = c.data_nascita || '';
-    document.getElementById('f-telefono').value = c.telefono || '';
-    document.getElementById('f-email').value = c.email || '';
+    _editTelefoni = [c.telefono || '', ...(Array.isArray(c.telefoni_extra) ? c.telefoni_extra : [])].filter((v,i) => i===0 || v);
+    _editEmails   = [c.email || '',   ...(Array.isArray(c.emails_extra)   ? c.emails_extra   : [])].filter((v,i) => i===0 || v);
+    if (!_editTelefoni.length) _editTelefoni = [''];
+    if (!_editEmails.length)   _editEmails   = [''];
+    _renderContattiUI();
     document.getElementById('f-citta').value = c.citta || '';
     document.getElementById('f-provincia').value = c.provincia || '';
     document.getElementById('f-tipo').value = currentTipo;
@@ -967,8 +1023,11 @@ function openClienteModal(clienteId) {
     document.getElementById('client-hero-name').textContent = 'Nuovo cliente';
     document.getElementById('client-hero-sub').textContent = '';
 
-    ['f-nome','f-cognome','f-nascita','f-telefono','f-email','f-citta','f-provincia','f-codice','f-note'].forEach(id =>
+    ['f-nome','f-cognome','f-nascita','f-citta','f-provincia','f-codice','f-note'].forEach(id =>
       document.getElementById(id).value = '');
+    _editTelefoni = [''];
+    _editEmails   = [''];
+    _renderContattiUI();
     document.getElementById('f-emissione').value = new Date().toISOString().slice(0,10);
     document.getElementById('f-rinnovo').value = '';
     document.getElementById('f-tipo').value = 'standard';
@@ -1158,16 +1217,25 @@ async function saveConsentMsg() {
 async function saveCliente(closeAfter = true) {
   const nome = document.getElementById('f-nome').value.trim();
   if (!nome) { showToast('Inserisci il nome'); return; }
+  // Leggi valori aggiornati dagli input DOM (sync _editContatto può non coprire ogni caso)
+  document.querySelectorAll('#contatti-telefoni-wrap input').forEach((el,i) => { _editTelefoni[i] = el.value.replace(/[^\d+]/g,''); });
+  document.querySelectorAll('#contatti-emails-wrap input').forEach((el,i)   => { _editEmails[i]   = el.value.trim().toLowerCase(); });
+  const telPref  = _editTelefoni[0] || null;
+  const telExtra = _editTelefoni.slice(1).filter(Boolean);
+  const emailPref  = _editEmails[0] || null;
+  const emailExtra = _editEmails.slice(1).filter(Boolean);
   const clientePayload = {
     nome,
-    cognome:    document.getElementById('f-cognome').value.trim() || null,
-    data_nascita: document.getElementById('f-nascita').value || null,
-    telefono:   document.getElementById('f-telefono').value.replace(/[^\d+]/g,'') || null,
-    email:      document.getElementById('f-email').value.trim().toLowerCase() || null,
-    citta:      document.getElementById('f-citta').value.trim() || null,
-    provincia:  document.getElementById('f-provincia').value.trim() || null,
-    wa:         document.getElementById('f-ha-wa').checked,
-    emporio:    document.getElementById('f-emporio').value,
+    cognome:         document.getElementById('f-cognome').value.trim() || null,
+    data_nascita:    document.getElementById('f-nascita').value || null,
+    telefono:        telPref,
+    telefoni_extra:  telExtra,
+    email:           emailPref,
+    emails_extra:    emailExtra,
+    citta:           document.getElementById('f-citta').value.trim() || null,
+    provincia:       document.getElementById('f-provincia').value.trim() || null,
+    wa:              document.getElementById('f-ha-wa').checked,
+    emporio:         document.getElementById('f-emporio').value,
     consenso_privacy_modalita: _consentModalita,
     ...(_consentActive ? { consenso_privacy: true } : {}),
   };
