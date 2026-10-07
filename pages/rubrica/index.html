@@ -132,6 +132,7 @@
     <button class="view-btn" id="vb-grid" onclick="setView('grid')" title="Griglia"><i class="fas fa-grip"></i></button>
     <button class="view-btn active" id="vb-list" onclick="setView('list')" title="Lista"><i class="fas fa-list"></i></button>
     <button class="view-btn" id="vb-compact" onclick="setView('compact')" title="Compatta"><i class="fas fa-table-cells-large"></i></button>
+    <button onclick="openPanel(null)" style="padding:7px 14px;background:#B5453A;color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;white-space:nowrap"><i class="fas fa-plus"></i> Nuovo contatto</button>
   </div>
 
   <!-- Stats bar -->
@@ -211,9 +212,6 @@
     <button onclick="saveCliente()" class="btn btn-red btn-sm"><i class="fas fa-check"></i> Salva</button>
   </div>
 </div>
-
-<!-- FAB -->
-<button class="fab" id="fab-new" onclick="openPanel(null)" title="Nuovo contatto"><i class="fas fa-plus"></i></button>
 
 <!-- Merge bar -->
 <div class="merge-bar" id="merge-bar">
@@ -692,17 +690,69 @@ function showToast(msg) {
 let _selectedIds = new Set();
 let _mergeA = null, _mergeB = null;
 let _mergeSel = {};
+let _rubTelList   = []; // {valore, source, checked, preferito}
+let _rubEmailList = [];
 
 const MERGE_FIELDS_RUB = [
   { key: 'nome',         label: 'Nome' },
   { key: 'cognome',      label: 'Cognome' },
-  { key: 'telefono',     label: 'Telefono' },
-  { key: 'email',        label: 'Email' },
   { key: 'data_nascita', label: 'Data nascita' },
   { key: 'citta',        label: 'Città' },
   { key: 'provincia',    label: 'Provincia' },
   { key: 'note',         label: 'Note' },
 ];
+
+function _buildRubContattiList(cA, cB, tipo) {
+  const fromA = tipo === 'telefono'
+    ? [cA.telefono, ...(Array.isArray(cA.telefoni_extra) ? cA.telefoni_extra : [])].filter(Boolean)
+    : [cA.email,    ...(Array.isArray(cA.emails_extra)   ? cA.emails_extra   : [])].filter(Boolean);
+  const fromB = tipo === 'telefono'
+    ? [cB.telefono, ...(Array.isArray(cB.telefoni_extra) ? cB.telefoni_extra : [])].filter(Boolean)
+    : [cB.email,    ...(Array.isArray(cB.emails_extra)   ? cB.emails_extra   : [])].filter(Boolean);
+  const list = [], seen = new Set();
+  fromA.forEach(v => { if (!seen.has(v)) { seen.add(v); list.push({valore:v, source:'a', checked:true, preferito:list.length===0}); } });
+  fromB.forEach(v => {
+    if (seen.has(v)) { const ex=list.find(r=>r.valore===v); if(ex) ex.source='ab'; }
+    else { seen.add(v); list.push({valore:v, source:'b', checked:true, preferito:list.length===0}); }
+  });
+  return list;
+}
+
+function _renderRubContattiSection(lista, tipo, labelTitle) {
+  if (!lista.length) return `<div style="font-size:11px;font-weight:800;text-transform:uppercase;color:#94a3b8;letter-spacing:.05em;padding:8px 0 4px">${labelTitle}</div><p style="font-size:12px;color:#94a3b8;margin:0 0 8px">Nessun dato</p>`;
+  const srcBadge = s => s==='ab'
+    ? `<span style="font-size:9px;background:#fef3c7;color:#92400e;border-radius:5px;padding:1px 5px;font-weight:700">A+B</span>`
+    : `<span style="font-size:9px;background:${s==='a'?'#dbeafe':'#f0fdf4'};color:${s==='a'?'#1d4ed8':'#15803d'};border-radius:5px;padding:1px 5px;font-weight:700">da ${s.toUpperCase()}</span>`;
+  const rows = lista.map((item, i) => `
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+      <input type="checkbox" ${item.checked?'checked':''} onchange="_toggleRubContatto('${tipo}',${i},this.checked)"
+        style="accent-color:#B5453A;width:15px;height:15px;flex-shrink:0">
+      <button type="button" onclick="_setPreferitoRub('${tipo}',${i})"
+        title="${item.preferito?'Preferito':'Rendi preferito'}"
+        style="border:none;background:none;cursor:pointer;font-size:15px;padding:0;flex-shrink:0;opacity:${item.preferito?'1':'.3'}">${item.preferito?'⭐':'☆'}</button>
+      <span style="font-size:13px;font-weight:${item.preferito?'700':'500'};color:${item.checked?'#1e293b':'#94a3b8'};flex:1;text-decoration:${item.checked?'none':'line-through'}">${esc(item.valore)}</span>
+      ${srcBadge(item.source)}
+    </div>`).join('');
+  return `<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#94a3b8;letter-spacing:.05em;padding:8px 0 4px">${labelTitle} <span style="font-size:9px;color:#b0bec5;font-weight:600;text-transform:none">&nbsp;⭐ = preferito (usato per ricerche e WA)</span></div>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px;margin-bottom:6px">${rows}</div>`;
+}
+
+function _toggleRubContatto(tipo, idx, checked) {
+  const list = tipo === 'telefono' ? _rubTelList : _rubEmailList;
+  list[idx].checked = checked;
+  if (!checked && list[idx].preferito) {
+    list[idx].preferito = false;
+    const first = list.find(x => x.checked);
+    if (first) first.preferito = true;
+  }
+  renderMergeBody();
+}
+function _setPreferitoRub(tipo, idx) {
+  const list = tipo === 'telefono' ? _rubTelList : _rubEmailList;
+  if (!list[idx].checked) list[idx].checked = true;
+  list.forEach((x,i) => x.preferito = i === idx);
+  renderMergeBody();
+}
 
 function toggleSelect(id, e) {
   e.stopPropagation();
@@ -741,15 +791,30 @@ function openMergeModal() {
   MERGE_FIELDS_RUB.forEach(f => {
     _mergeSel[f.key] = (_mergeB[f.key] && !_mergeA[f.key]) ? 'B' : 'A';
   });
+  // Lista contatti base (senza extra, caricati subito)
+  _rubTelList   = _buildRubContattiList(_mergeA, _mergeB, 'telefono');
+  _rubEmailList = _buildRubContattiList(_mergeA, _mergeB, 'email');
 
   document.getElementById('mrec-hdr-a').textContent = `${titleCase(_mergeA.cognome)} ${titleCase(_mergeA.nome)}`.trim();
   document.getElementById('mrec-hdr-b').textContent = `${titleCase(_mergeB.cognome)} ${titleCase(_mergeB.nome)}`.trim();
   renderMergeBody();
   document.getElementById('mrec-modal').classList.add('open');
+
+  // Carica colonne extra per entrambi i clienti (migrazione potrebbe non essere stata fatta)
+  Promise.all([
+    _sb.from('clienti').select('id,telefoni_extra,emails_extra').eq('id', idA).single(),
+    _sb.from('clienti').select('id,telefoni_extra,emails_extra').eq('id', idB).single(),
+  ]).then(([rA, rB]) => {
+    if (rA.data) _mergeA = {..._mergeA, ...rA.data};
+    if (rB.data) _mergeB = {..._mergeB, ...rB.data};
+    _rubTelList   = _buildRubContattiList(_mergeA, _mergeB, 'telefono');
+    _rubEmailList = _buildRubContattiList(_mergeA, _mergeB, 'email');
+    renderMergeBody();
+  });
 }
 
 function renderMergeBody() {
-  document.getElementById('mrec-body').innerHTML = MERGE_FIELDS_RUB.map(f => {
+  const fieldRows = MERGE_FIELDS_RUB.map(f => {
     const vA = _mergeA[f.key] || '';
     const vB = _mergeB[f.key] || '';
     const dispA = f.key === 'data_nascita' ? _isoToIt(vA) : vA;
@@ -767,6 +832,13 @@ function renderMergeBody() {
       </div>
     </div>`;
   }).join('');
+
+  const contattiSection = `<div style="border-top:1px solid #f1f5f9;padding-top:8px;margin-top:4px">
+    ${_renderRubContattiSection(_rubTelList,   'telefono', 'Cellulari')}
+    ${_renderRubContattiSection(_rubEmailList, 'email',    'Email')}
+  </div>`;
+
+  document.getElementById('mrec-body').innerHTML = fieldRows + contattiSection;
 }
 
 function selectMergeOpt(key, side) {
@@ -788,8 +860,22 @@ async function confirmMerge() {
     const src = _mergeSel[f.key] === 'B' ? _mergeB : _mergeA;
     payload[f.key] = src[f.key] || null;
   });
+  // Telefoni
+  const telChecked = _rubTelList.filter(x => x.checked).map(x => x.valore);
+  const telPref = (_rubTelList.find(x => x.preferito && x.checked) || _rubTelList.find(x => x.checked))?.valore || null;
+  payload.telefono       = telPref;
+  payload.telefoni_extra = telChecked.filter(v => v !== telPref);
+  // Email
+  const emailChecked = _rubEmailList.filter(x => x.checked).map(x => x.valore);
+  const emailPref = (_rubEmailList.find(x => x.preferito && x.checked) || _rubEmailList.find(x => x.checked))?.valore || null;
+  payload.email       = emailPref;
+  payload.emails_extra = emailChecked.filter(v => v !== emailPref);
 
-  const { error: eUp } = await _sb.from('clienti').update(payload).eq('id', keepId);
+  let { error: eUp } = await _sb.from('clienti').update(payload).eq('id', keepId);
+  if (eUp && eUp.message && eUp.message.includes('does not exist')) {
+    const {telefoni_extra:_te, emails_extra:_ee, ...payloadBase} = payload;
+    ({ error: eUp } = await _sb.from('clienti').update(payloadBase).eq('id', keepId));
+  }
   if (eUp) { showToast('Errore: ' + eUp.message); return; }
 
   await _sb.from('tessere').update({ cliente_id: keepId }).eq('cliente_id', dropId);
