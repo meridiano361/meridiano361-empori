@@ -810,7 +810,14 @@ function buildNav() {
 
   function applicaPermessiPagina(mappa, currentId) {
     if (!currentId || !mappa) return;
-    const perm = mappa[currentId];
+    // Alcune pagine condividono il path con sezioni padre (es. preventivi è in /ordini/).
+    // Se la pagina corrente ha un ID specifico diverso da currentId, usiamo i permessi
+    // di quell'ID specifico — se non esistono, la pagina è libera (nessuna restrizione).
+    const _actualPath = window.location.pathname.toLowerCase();
+    const _specificItem = ALL_ITEMS.find(i =>
+      i.id !== currentId && i.href && _actualPath.endsWith(i.href.replace(/^\.?\//, '').toLowerCase())
+    );
+    const perm = _specificItem ? (mappa[_specificItem.id] ?? null) : mappa[currentId];
     if (!perm) return;
 
     // Helper: esegue fn subito se DOM già pronto, altrimenti aspetta DOMContentLoaded
