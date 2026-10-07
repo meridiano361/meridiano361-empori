@@ -1484,16 +1484,22 @@ let _bdSelected = new Set(); // IDs clienti selezionati per invio bulk
 let _bdList = [];            // lista corrente (usata dalla coda)
 let _bdQueueIdx = 0;
 
+function _decodeTplText(raw) {
+  const ta = document.createElement('textarea');
+  ta.innerHTML = raw || '';
+  return ta.value;
+}
+
 function _openWAMsg(tel, msgId) {
   const msg = allMsgTemplates.find(m => String(m.id) === String(msgId));
   if (!msg) return;
-  window.open(`https://wa.me/39${tel.replace(/[^\d]/g,'')}?text=${encodeURIComponent(msg.testo||'')}`, '_blank');
+  window.open(`https://wa.me/39${tel.replace(/[^\d]/g,'')}?text=${encodeURIComponent(_decodeTplText(msg.testo))}`, '_blank');
 }
 
 function _bdWaUrlByTipo(c, tipo) {
-  const testo = allMsgTemplates.find(m => m.tipo === tipo)?.testo || '';
+  const testo = _decodeTplText(allMsgTemplates.find(m => m.tipo === tipo)?.testo || '');
   const nome = titleCase(c.nome || c.cognome || '');
-  const testoFinal = testo.replace(/\{nome\}/gi, nome);
+  const testoFinal = testo.replace(/\{nome\}/gi, () => nome);
   const tel = (c.telefono || '').replace(/[^\d]/g, '');
   return `https://wa.me/39${tel}?text=${encodeURIComponent(testoFinal)}`;
 }
@@ -3111,7 +3117,7 @@ function renderDigitale() {
       <div class="dig-stamps">${stampsHtml}</div>
       <div class="dig-progress-text">${progressTxt}</div>
       <div class="dig-actions">
-        <button class="btn btn-red btn-sm" onclick="apriSpesaModal(${t.id})">
+        <button class="btn btn-red btn-sm" onclick="apriSpesaModal('${t.id}')">
           <i class="fas fa-euro-sign"></i> Registra Spesa
         </button>
         ${tel && t.token ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
