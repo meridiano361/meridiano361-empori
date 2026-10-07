@@ -115,28 +115,41 @@ function verificaEmporioAccesso(recordEmporio) {
 }
 
 /**
- * Blocca e preimposta un <select> di emporio per l'utente loggato.
- * Non fa nulla se admin o se il select non esiste.
+ * Preimposta (e opzionalmente blocca) un <select> di emporio per l'utente loggato.
  * @param {string} selectId - ID del select element
+ * @param {object} [opts]
+ * @param {boolean} [opts.lock] - Se true blocca il select (default: true per non-admin,
+ *                                false per admin). Passare { lock: false } nei form di
+ *                                creazione dove l'utente deve poter cambiare emporio.
  */
-function inizializzaSelectEmporio(selectId) {
-  if (isAdmin()) return;
+function inizializzaSelectEmporio(selectId, opts) {
   const select = document.getElementById(selectId);
   if (!select) return;
   const emporio = getEmporioLoggato();
   if (!emporio) return;
-  // Match case-insensitive
+
+  // Determina se bloccare: default = blocca non-admin, non bloccare admin
+  const lockDefault = !isAdmin();
+  const lock = (opts && opts.lock !== undefined) ? opts.lock : lockDefault;
+
+  // Per admin senza opzione esplicita: salta del tutto (comportamento filtri)
+  if (isAdmin() && (!opts || opts.lock === undefined)) return;
+
+  // Pre-imposta il valore
   const opt = Array.from(select.options).find(o =>
     o.value.trim().toLowerCase() === emporio.trim().toLowerCase()
   );
   if (opt) select.value = opt.value;
-  select.disabled = true;
-  if (!select.parentElement.querySelector('.auth-emp-nota')) {
-    const nota = document.createElement('small');
-    nota.className = 'auth-emp-nota';
-    nota.textContent = '(il tuo emporio)';
-    nota.style.cssText =
-      'color:#94a3b8;font-size:11px;margin-left:8px;display:inline-block;vertical-align:middle';
-    select.parentElement.appendChild(nota);
+
+  if (lock) {
+    select.disabled = true;
+    if (!select.parentElement.querySelector('.auth-emp-nota')) {
+      const nota = document.createElement('small');
+      nota.className = 'auth-emp-nota';
+      nota.textContent = '(il tuo emporio)';
+      nota.style.cssText =
+        'color:#94a3b8;font-size:11px;margin-left:8px;display:inline-block;vertical-align:middle';
+      select.parentElement.appendChild(nota);
+    }
   }
 }
