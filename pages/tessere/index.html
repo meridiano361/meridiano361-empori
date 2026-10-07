@@ -5,6 +5,8 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="manifest" href="/manifest.json">
 <link rel="stylesheet" href="../../assets/style/nav-style.css">
+<link rel="preconnect" href="https://hsalynvxazxqtmsvjrzc.supabase.co">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tessere Fedeltà</title>
@@ -877,12 +879,48 @@ async function init() {
   }
 }
 
+const _CACHE_KEY = 'm361_tess_v2';
+const _CACHE_TTL = 90 * 1000; // 90 secondi — render istantaneo, refresh silenzioso
+
+function _saveCache(clienti, tessere, messaggi) {
+  try {
+    sessionStorage.setItem(_CACHE_KEY, JSON.stringify({ ts: Date.now(), clienti, tessere, messaggi }));
+  } catch(e) {}
+}
+function _loadCache() {
+  try {
+    const c = JSON.parse(sessionStorage.getItem(_CACHE_KEY) || 'null');
+    if (c && Date.now() - c.ts < _CACHE_TTL) return c;
+  } catch(e) {}
+  return null;
+}
+
 async function loadAll() {
-  const PAGE = 1000;
+  const PAGE   = 1000;
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
   const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto';
 
-  // Prima pagina di clienti + tessere + messaggi in parallelo → render immediato
+  // Se c'è una cache fresca → render immediato, poi aggiorna in background
+  const cached = _loadCache();
+  if (cached) {
+    allClienti      = cached.clienti;
+    allTessere      = cached.tessere;
+    allMsgTemplates = cached.messaggi;
+    _invalidateMaps();
+    renderTessereTab();
+    renderMsgList();
+    _refreshConsentMsgPreview();
+    setTimeout(_updateDupBadge, 0);
+    // Aggiornamento silenzioso in background
+    _fetchFromNetwork(C_COLS, T_COLS, PAGE, true);
+    return;
+  }
+
+  // Prima visita / cache scaduta → fetch + render
+  await _fetchFromNetwork(C_COLS, T_COLS, PAGE, false);
+}
+
+async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
   const [r1, r2, m] = await Promise.all([
     _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(0, PAGE - 1),
     _sb.from('tessere').select(T_COLS).range(0, PAGE - 1),
@@ -893,17 +931,29 @@ async function loadAll() {
   allTessere      = r2.data || [];
   allMsgTemplates = m.data || [];
   _invalidateMaps();
-  renderTessereTab();
-  renderMsgList();
-  _refreshConsentMsgPreview();
-  setTimeout(_updateDupBadge, 500);
-  setTimeout(loadStoricoExcel, 1500);
 
-  // Pagine successive caricate in background senza bloccare l'UI
+  if (!silent) {
+    renderTessereTab();
+    renderMsgList();
+    _refreshConsentMsgPreview();
+    setTimeout(_updateDupBadge, 300);
+    setTimeout(loadStoricoExcel, 1200);
+  }
+
+  // Pagine successive
   const needC = (r1.data?.length ?? 0) >= PAGE;
   const needT = (r2.data?.length ?? 0) >= PAGE;
   if (needC || needT) {
-    _loadRemainingPages(C_COLS, T_COLS, PAGE, needC ? PAGE : null, needT ? PAGE : null);
+    await _loadRemainingPages(C_COLS, T_COLS, PAGE, needC ? PAGE : null, needT ? PAGE : null);
+  }
+
+  _saveCache(allClienti, allTessere, allMsgTemplates);
+
+  if (silent) {
+    _invalidateMaps();
+    if (activeTab === 'tessere') renderTessereTab();
+    else if (activeTab === 'digitale') renderDigitale();
+    _updateDupBadge();
   }
 }
 
@@ -1357,6 +1407,7 @@ async function saveCliente(closeAfter = true) {
     if (fc) { const i = allClienti.findIndex(c => String(c.id) === String(editingClienteId)); if (i >= 0) allClienti[i] = fc; }
     if (ft) { allTessere = allTessere.filter(t => String(t.cliente_id) !== String(editingClienteId)); allTessere.push(...ft); }
     _invalidateMaps();
+    _saveCache(allClienti, allTessere, allMsgTemplates);
     showToast('Cliente aggiornato ✓');
   } else {
     let {data:nc, error:e1} = await _sb.from('clienti').insert(clientePayload).select().single();
@@ -1370,6 +1421,7 @@ async function saveCliente(closeAfter = true) {
     allClienti.push(nc);
     allTessere.push(nt);
     _invalidateMaps();
+    _saveCache(allClienti, allTessere, allMsgTemplates);
     showToast('Cliente aggiunto ✓');
     if (!closeAfter) { openClienteModal(null); return; }
   }
@@ -1397,6 +1449,7 @@ async function _deleteClienteById(cid, closePanel) {
   allTessere = allTessere.filter(t => String(t.cliente_id) !== String(cid));
   allSconti  = allSconti.filter(s => !tIds.includes(s.tessera_id));
   _invalidateMaps();
+  _saveCache(allClienti, allTessere, allMsgTemplates);
   if (closePanel) closeClienteModal();
   if (activeTab === 'tessere') renderTessereTab();
   if (activeTab === 'compleanni') renderCompleanni();
