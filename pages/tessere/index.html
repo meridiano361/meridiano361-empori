@@ -143,7 +143,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .sconto-banner strong{color:#166534;font-size:14px}
 
 /* ── Tab Digitale ── */
-.dig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.dig-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .dig-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px}
 .dig-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .dig-initials{width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -350,9 +350,11 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
       <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
       <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
-      <button class="tab-btn" data-tab="digitale" onclick="showTab('digitale')">Digitale</button>
     </div>
-    <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo cliente</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button onclick="apriDigPanel()" class="btn btn-sm" style="background:#1e293b;color:#fff;font-weight:800"><i class="fas fa-mobile-screen-button"></i> Digitale</button>
+      <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo</button>
+    </div>
   </div>
 
   <!-- TAB ANALISI -->
@@ -545,22 +547,29 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <div id="dup-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Analisi in corso…</div></div>
   </div>
 
-  <!-- TAB DIGITALE -->
-  <div id="tab-digitale" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Tessere Digitali</div>
-        <div style="font-size:12px;color:#64748b">Registra spese e invia il link taccuino al cliente via WhatsApp</div>
-      </div>
-    </div>
-    <div class="dig-search-wrap">
-      <i class="fas fa-search"></i>
-      <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice tessera…" oninput="renderDigitale()" autocomplete="off">
-    </div>
-    <div class="dig-grid" id="dig-grid"></div>
-  </div>
 </div>
 
+
+<!-- CASSETTO DIGITALE -->
+<div id="dig-backdrop" onclick="chiudiDigPanel()" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:450"></div>
+<div id="dig-panel" style="position:fixed;top:56px;right:0;bottom:0;width:420px;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-6px 0 32px rgba(0,0,0,.1);z-index:460;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+    <div>
+      <div style="font-size:15px;font-weight:900;color:#1e293b">Tessere Digitali</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:1px">Registra spese · invia link WA</div>
+    </div>
+    <button onclick="chiudiDigPanel()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8;padding:4px"><i class="fas fa-xmark"></i></button>
+  </div>
+  <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;flex-shrink:0">
+    <div class="dig-search-wrap" style="margin-bottom:0">
+      <i class="fas fa-search"></i>
+      <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice…" oninput="renderDigitale()" autocomplete="off">
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px 16px">
+    <div id="dig-grid"></div>
+  </div>
+</div>
 
 <!-- MODAL REGISTRA SPESA -->
 <div class="spesa-modal" id="spesa-modal" onclick="if(event.target===this)chiudiSpesaModal()">
@@ -983,12 +992,17 @@ async function _ensureSconti() {
 }
 
 // ── Escape per chiudere pannello ─────────────────────────────────────────────
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeClienteModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('dig-backdrop').style.display !== 'none') { chiudiDigPanel(); return; }
+    closeClienteModal();
+  }
+});
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
   activeTab = tab;
-  ['analisi','messaggi','consensi','tessere','duplicati','compleanni','digitale'].forEach(t => {
+  ['analisi','messaggi','consensi','tessere','duplicati','compleanni'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
@@ -999,7 +1013,16 @@ function showTab(tab) {
   if (tab === 'messaggi') _refreshConsentMsgPreview();
   if (tab === 'compleanni') renderCompleanni();
   if (tab === 'analisi') renderAnalisi();
-  if (tab === 'digitale') renderDigitale();
+}
+
+function apriDigPanel() {
+  document.getElementById('dig-panel').style.transform = 'translateX(0)';
+  document.getElementById('dig-backdrop').style.display = '';
+  renderDigitale();
+}
+function chiudiDigPanel() {
+  document.getElementById('dig-panel').style.transform = 'translateX(100%)';
+  document.getElementById('dig-backdrop').style.display = 'none';
 }
 
 function _buildTessereMap() {
