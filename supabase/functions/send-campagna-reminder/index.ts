@@ -1,5 +1,14 @@
 import webpush from "npm:web-push@3";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  loadRules,
+  resolveOperatorIds,
+  resolveEmails,
+  sendPushBatch,
+  sendEmailViaResend,
+  type NotificaRule,
+  type VapidConfig,
+} from "../_shared/notifiche_lib.ts";
 
 const PDV_TO_EMPORIO: Record<string, string> = {
   CR:  "cremona",
@@ -16,32 +25,6 @@ const PDV_LABELS: Record<string, string> = {
   WEB: "Web",
 };
 
-// Settore campagna → colonna referente in operatori
-const SETTORE_TO_REFERENTE: Record<string, string> = {
-  A: "referente_alimentari",
-  C: "referente_casa",
-  M: "referente_moda",
-  N: "referente_cosmesi",
-};
-
-// ── Email via Resend ──────────────────────────────────────────────────────────
-async function sendEmail(to: string, subject: string, html: string) {
-  const apiKey = Deno.env.get("RESEND_API_KEY");
-  if (!apiKey) return;
-  try {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: "M361 Empori <notifiche@meridiano361.it>",
-        to: [to],
-        subject,
-        html,
-      }),
-    });
-  } catch (_) { /* ignora errori email */ }
-}
-
 function fmtDateIt(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
   const mesi = ["","gennaio","febbraio","marzo","aprile","maggio","giugno",
@@ -49,9 +32,9 @@ function fmtDateIt(dateStr: string): string {
   return `${parseInt(d)} ${mesi[parseInt(m)]} ${y}`;
 }
 
-function emailHtmlCampagna(titoloCampagna: string, tipologia: string | null, dataInizio: string, pdvLabel: string): string {
-  const tipoStr = tipologia ? ` (${tipologia})` : "";
-  const dataFmt = fmtDateIt(dataInizio);
+function emailHtmlCampagna(titoloCampagna: string, tipologia: string | null, dataInizio: string, pdvLabel: string, giorniStr: string): string {
+  const tipoStr  = tipologia ? ` (${tipologia})` : "";
+  const dataFmt  = fmtDateIt(dataInizio);
   return `
 <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
   <div style="background:#1e293b;color:#fff;padding:20px;border-radius:12px 12px 0 0">
@@ -60,7 +43,7 @@ function emailHtmlCampagna(titoloCampagna: string, tipologia: string | null, dat
   </div>
   <div style="padding:20px;background:#fff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px">
     <p style="font-size:16px;font-weight:700;color:#1e293b;margin:0 0 4px">${titoloCampagna}${tipoStr}</p>
-    <p style="color:#64748b;font-size:14px;margin:0 0 16px">inizia tra <strong>3 giorni</strong>, il <strong>${dataFmt}</strong>.</p>
+    <p style="color:#64748b;font-size:14px;margin:0 0 16px">inizia ${giorniStr}, il <strong>${dataFmt}</strong>.</p>
     <p style="font-size:14px;color:#475569;margin:0 0 20px">Assicurati che l'emporio sia pronto: materiali, vetrine e scorte in ordine.</p>
     <a href="https://meridiano361-empori.vercel.app/pages/calendario-commerciale/calendario-commerciale.html"
        style="display:inline-block;background:#1e293b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">
@@ -70,42 +53,73 @@ function emailHtmlCampagna(titoloCampagna: string, tipologia: string | null, dat
 </div>`;
 }
 
-// Restituisce gli ID degli operatori che sono referenti del settore di una campagna
-async function getIdReferentiSettore(
+// ── Helper push per campagna (usa resolveOperatorIds + sendPushBatch) ─────────
+async function sendCampagnaPush(
   db: ReturnType<typeof createClient>,
-  settore: string,
+  vapid: VapidConfig,
+  rule: NotificaRule,
+  campagna: Record<string, unknown>,
   emporio: string,
-): Promise<string[]> {
-  const colonna = SETTORE_TO_REFERENTE[settore];
-  if (!colonna) return []; // es. settore G (Generale) — nessun referente specifico
-  const { data } = await db
-    .from("operatori")
-    .select("id")
-    .eq("attivo", true)
-    .eq(colonna, true)
-    .ilike("emporio", emporio);
-  return (data ?? []).map((r: { id: string }) => r.id);
-}
-
-async function sendPush(
-  db: ReturnType<typeof createClient>,
-  subsQuery: { endpoint: string; subscription: unknown }[],
-  payload: string,
-  opts: { urgency: string; TTL: number },
+  pdvLabel: string,
+  giorni: number,
   log: string[],
 ): Promise<{ sent: number; failed: number }> {
-  let sent = 0, failed = 0;
-  for (const row of subsQuery) {
-    try {
-      await webpush.sendNotification(row.subscription as webpush.PushSubscription, payload, opts);
-      sent++;
-    } catch (e: unknown) {
-      const st = (e as { statusCode?: number })?.statusCode;
-      if (st === 404 || st === 410) await db.from("push_subscriptions").delete().eq("endpoint", row.endpoint);
-      else { failed++; log.push(`err(${st}): ${String(e).slice(0, 80)}`); }
-    }
+  const opIds = await resolveOperatorIds(db, rule.destinatari ?? "Responsabile emporio", { emporio, settore: campagna.settore as string });
+  if (!opIds.length) {
+    log.push(`[${rule.id}] ${pdvLabel}: no operatori`);
+    return { sent: 0, failed: 0 };
   }
-  return { sent, failed };
+
+  const { data: subs } = await db
+    .from("push_subscriptions")
+    .select("operatore_id, endpoint, subscription")
+    .in("operatore_id", opIds);
+
+  const giorniLabel = giorni === 0 ? "oggi" : giorni === 1 ? "domani" : `tra ${giorni} giorni`;
+  const titolo = (rule.nome ?? `Campagna ${giorniLabel} — ${pdvLabel}`)
+    .replace(/\{pdv\}/g, pdvLabel)
+    .replace(/\{giorni\}/g, String(giorni));
+  const corpo = (rule.descrizione ?? `"${campagna.titolo}"${campagna.tipologia ? " (" + campagna.tipologia + ")" : ""} inizia ${giorniLabel}.`)
+    .replace(/\{titolo\}/g, String(campagna.titolo ?? ""))
+    .replace(/\{pdv\}/g, pdvLabel)
+    .replace(/\{giorni\}/g, String(giorni));
+
+  const payload = {
+    title: titolo,
+    body: corpo,
+    url: "/pages/calendario-commerciale/calendario-commerciale.html",
+  };
+
+  const r = await sendPushBatch(db, subs ?? [], payload, vapid, log);
+  log.push(`[${rule.id}] push ${pdvLabel}: ${r.sent} sent`);
+  return r;
+}
+
+// ── Helper email per campagna ─────────────────────────────────────────────────
+async function sendCampagnaEmail(
+  db: ReturnType<typeof createClient>,
+  rule: NotificaRule,
+  campagna: Record<string, unknown>,
+  emporio: string,
+  pdvLabel: string,
+  giorni: number,
+  log: string[],
+): Promise<number> {
+  const emailList = await resolveEmails(db, rule.destinatari ?? "Responsabile emporio", { emporio, settore: campagna.settore as string });
+  if (!emailList.length) {
+    log.push(`[${rule.id}] ${pdvLabel}: no emails`);
+    return 0;
+  }
+
+  const giorniStr = giorni === 0 ? "oggi" : giorni === 1 ? "domani" : `tra ${giorni} giorni`;
+  const subject = `${rule.nome ?? "Promemoria campagna"}: ${campagna.titolo} — Emporio ${pdvLabel}`;
+  const html    = emailHtmlCampagna(campagna.titolo as string, campagna.tipologia as string | null, campagna.data_inizio as string, pdvLabel, giorniStr);
+
+  for (const addr of emailList) {
+    await sendEmailViaResend(addr, subject, html);
+  }
+  log.push(`[${rule.id}] email ${pdvLabel}: ${emailList.length} inviati`);
+  return emailList.length;
 }
 
 Deno.serve(async (req) => {
@@ -115,6 +129,8 @@ Deno.serve(async (req) => {
   const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")  ?? "";
   const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
   const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
+
+  const vapid: VapidConfig = { pub: VAPID_PUB, priv: VAPID_PRIV, subject: VAPID_SUB };
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -126,26 +142,20 @@ Deno.serve(async (req) => {
 
   const today = new Date();
   const fmtDate = (d: Date) => d.toISOString().split("T")[0];
+
   const dateTomorrow = new Date(today); dateTomorrow.setDate(today.getDate() + 1);
-  const date3days    = new Date(today); date3days.setDate(today.getDate() + 3);
   const tomorrowStr  = fmtDate(dateTomorrow);
-  const in3daysStr   = fmtDate(date3days);
+  const todayStr     = fmtDate(today);
 
-  log.push(`Today: ${fmtDate(today)}, tomorrow: ${tomorrowStr}, in3days: ${in3daysStr}`);
-
-  // Leggi configurazione notifiche (con destinatari)
-  const { data: configs } = await db.from("notifiche_config")
-    .select("id, attiva, destinatari, canale, giorni_anticipo")
-    .eq("evento", "campagna");
-
-  const isActive     = (id: string) => configs?.find((c: { id: string; attiva: boolean }) => c.id === id)?.attiva !== false;
-  const hasDestGroup = (id: string, gruppo: string) =>
-    (configs?.find((c: { id: string }) => c.id === id) as { destinatari?: string } | undefined)
-      ?.destinatari?.includes(gruppo) ?? false;
+  log.push(`Today: ${todayStr}, tomorrow: ${tomorrowStr}`);
 
   if (VAPID_PUB && VAPID_PRIV) webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
 
-  // ── 0. Ordini a fornitore che iniziano domani → push a responsabile acquisti ──
+  // Carica TUTTE le regole campagna
+  const rules = await loadRules(db, "campagna");
+  log.push(`Regole campagna: ${rules.length}`);
+
+  // ── 0. Ordini a fornitore che iniziano domani → push a responsabili acquisti ──
   if (VAPID_PUB && VAPID_PRIV) {
     const { data: campagneOrdini } = await db
       .from("campagne_commerciali")
@@ -164,16 +174,16 @@ Deno.serve(async (req) => {
 
       const { data: subs } = await db
         .from("push_subscriptions")
-        .select("endpoint, subscription")
+        .select("operatore_id, endpoint, subscription")
         .in("operatore_id", respIds);
       if (!subs?.length) { log.push(`[ordini] no subs for resp_acquisti`); continue; }
 
-      const payload = JSON.stringify({
+      const payload = {
         title: `Ordini fornitore domani`,
-        body:  `Campagna "${c.titolo}"${c.tipologia ? " ("+c.tipologia+")" : ""}: inizio ordini domani.`,
+        body:  `Campagna "${c.titolo}"${c.tipologia ? " (" + c.tipologia + ")" : ""}: inizio ordini domani.`,
         url:   "/pages/calendario/index.html",
-      });
-      const r = await sendPush(db, subs, payload, { urgency: "high", TTL: 86400 }, log);
+      };
+      const r = await sendPushBatch(db, subs, payload, vapid, log);
       push_sent += r.sent; push_failed += r.failed;
       log.push(`[ordini] ${c.titolo}: ${r.sent} push`);
     }
@@ -186,109 +196,75 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ── 1. Campagne che iniziano domani → push a tutti gli operatori ─────────────
-  if (isActive("campagna_push_1g")) {
-    const { data: campagneDomani } = await db
-      .from("campagne_commerciali")
-      .select("id, titolo, tipologia, settore, pdv_data")
-      .eq("data_inizio", tomorrowStr);
+  // ── Elabora campagne per ogni regola con quando_tipo='giorni' ────────────────
+  const rulesGiorni = rules.filter(r => r.quando_tipo === "giorni" && r.giorni_anticipo != null);
+  const rulesOggi   = rules.filter(r => r.quando_tipo === "giorno_stesso");
 
-    for (const c of campagneDomani ?? []) {
+  // Raccogli tutte le date target necessarie (es. +1, +3, ...)
+  const giorniSet = new Set<number>(rulesGiorni.map(r => r.giorni_anticipo!));
+
+  for (const giorni of giorniSet) {
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + giorni);
+    const targetStr = fmtDate(targetDate);
+
+    const { data: campagneTarget } = await db
+      .from("campagne_commerciali")
+      .select("id, titolo, tipologia, settore, data_inizio, pdv_data")
+      .eq("data_inizio", targetStr);
+
+    for (const c of campagneTarget ?? []) {
       const pdvData = (c.pdv_data ?? {}) as Record<string, { aderisce?: boolean }>;
+
       for (const [pdv, emporio] of Object.entries(PDV_TO_EMPORIO)) {
         if (!pdvData[pdv]?.aderisce) continue;
+        const pdvLabel = PDV_LABELS[pdv] ?? pdv;
 
-        let recipientIds: string[] | null = null;
+        // Tutte le regole con questo giorni_anticipo
+        const matchingRules = rulesGiorni.filter(r => r.giorni_anticipo === giorni);
 
-        // Se la regola è configurata per "Referente del settore della campagna", filtra per settore
-        if (hasDestGroup("campagna_push_1g", "Referente del settore della campagna")) {
-          recipientIds = await getIdReferentiSettore(db, c.settore || "G", emporio);
-          if (!recipientIds.length) { log.push(`[1d-push] ${pdv}: no referenti settore ${c.settore}`); continue; }
+        for (const rule of matchingRules) {
+          if (rule.canale === "push" || rule.canale === "entrambi" || !rule.canale) {
+            if (VAPID_PUB && VAPID_PRIV) {
+              const r = await sendCampagnaPush(db, vapid, rule, c, emporio, pdvLabel, giorni, log);
+              push_sent += r.sent; push_failed += r.failed;
+            }
+          }
+          if (rule.canale === "email" || rule.canale === "entrambi") {
+            const n = await sendCampagnaEmail(db, rule, c, emporio, pdvLabel, giorni, log);
+            email_sent += n;
+          }
         }
-
-        const subQ = recipientIds
-          ? db.from("push_subscriptions").select("endpoint, subscription").in("operatore_id", recipientIds)
-          : db.from("push_subscriptions").select("endpoint, subscription").ilike("emporio", emporio);
-        const { data: subs } = await subQ;
-        if (!subs?.length) { log.push(`[1d-push] ${pdv}: no subs`); continue; }
-
-        const payload = JSON.stringify({
-          title: `Campagna domani — ${PDV_LABELS[pdv]}`,
-          body:  `"${c.titolo}"${c.tipologia ? " ("+c.tipologia+")" : ""} parte domani. Pronti?`,
-          url:   "/pages/calendario-commerciale/calendario-commerciale.html",
-        });
-        const r = await sendPush(db, subs, payload, { urgency: "high", TTL: 86400 }, log);
-        push_sent += r.sent; push_failed += r.failed;
-        log.push(`[1d-push] ${c.titolo} → ${pdv}: ${subs.length}`);
       }
     }
   }
 
-  // ── 2. Campagne che iniziano fra 3 giorni ────────────────────────────────────
-  const { data: campagne3g } = await db
-    .from("campagne_commerciali")
-    .select("id, titolo, tipologia, settore, data_inizio, pdv_data")
-    .eq("data_inizio", in3daysStr);
+  // ── Campagne che iniziano oggi ────────────────────────────────────────────────
+  if (rulesOggi.length) {
+    const { data: campagneOggi } = await db
+      .from("campagne_commerciali")
+      .select("id, titolo, tipologia, settore, data_inizio, pdv_data")
+      .eq("data_inizio", todayStr);
 
-  for (const c of campagne3g ?? []) {
-    const pdvData = (c.pdv_data ?? {}) as Record<string, { aderisce?: boolean }>;
+    for (const c of campagneOggi ?? []) {
+      const pdvData = (c.pdv_data ?? {}) as Record<string, { aderisce?: boolean }>;
 
-    for (const [pdv, emporio] of Object.entries(PDV_TO_EMPORIO)) {
-      if (!pdvData[pdv]?.aderisce) continue;
+      for (const [pdv, emporio] of Object.entries(PDV_TO_EMPORIO)) {
+        if (!pdvData[pdv]?.aderisce) continue;
+        const pdvLabel = PDV_LABELS[pdv] ?? pdv;
 
-      // 2a. Push
-      if (isActive("campagna_push_3g") && VAPID_PUB && VAPID_PRIV) {
-        let recipientIds: string[] | null = null;
-
-        if (hasDestGroup("campagna_push_3g", "Referente del settore della campagna")) {
-          recipientIds = await getIdReferentiSettore(db, c.settore || "G", emporio);
-        } else {
-          // default: solo resp_emporio
-          const { data: resps } = await db.from("operatori")
-            .select("id").eq("is_resp_emporio", true).eq("attivo", true).ilike("emporio", emporio);
-          recipientIds = (resps ?? []).map((r: { id: string }) => r.id);
-        }
-
-        if (recipientIds?.length) {
-          const { data: subs } = await db.from("push_subscriptions")
-            .select("endpoint, subscription").in("operatore_id", recipientIds);
-          const payload = JSON.stringify({
-            title: `Campagna fra 3 giorni — ${PDV_LABELS[pdv]}`,
-            body:  `"${c.titolo}"${c.tipologia ? " ("+c.tipologia+")" : ""} inizia il ${in3daysStr}.`,
-            url:   "/pages/calendario-commerciale/calendario-commerciale.html",
-          });
-          const r = await sendPush(db, subs ?? [], payload, { urgency: "normal", TTL: 86400 * 2 }, log);
-          push_sent += r.sent; push_failed += r.failed;
-          log.push(`[3d-push] ${c.titolo} → ${pdv}: ${subs?.length ?? 0}`);
-        }
-      }
-
-      // 2b. Email
-      if (isActive("campagna_email_3g")) {
-        let ops: { email: string }[] = [];
-
-        if (hasDestGroup("campagna_email_3g", "Referente del settore della campagna")) {
-          const refIds = await getIdReferentiSettore(db, c.settore || "G", emporio);
-          if (refIds.length) {
-            const { data } = await db.from("operatori")
-              .select("email").in("id", refIds).not("email", "is", null);
-            ops = data ?? [];
+        for (const rule of rulesOggi) {
+          if (rule.canale === "push" || rule.canale === "entrambi" || !rule.canale) {
+            if (VAPID_PUB && VAPID_PRIV) {
+              const r = await sendCampagnaPush(db, vapid, rule, c, emporio, pdvLabel, 0, log);
+              push_sent += r.sent; push_failed += r.failed;
+            }
           }
-        } else {
-          const { data } = await db.from("operatori")
-            .select("email").eq("attivo", true).ilike("emporio", emporio).not("email", "is", null);
-          ops = data ?? [];
+          if (rule.canale === "email" || rule.canale === "entrambi") {
+            const n = await sendCampagnaEmail(db, rule, c, emporio, pdvLabel, 0, log);
+            email_sent += n;
+          }
         }
-
-        if (!ops.length) { log.push(`[3d-email] ${pdv}: no emails`); continue; }
-        const subject = `Tra 3 giorni inizia: ${c.titolo} — Emporio ${PDV_LABELS[pdv]}`;
-        const html    = emailHtmlCampagna(c.titolo, c.tipologia, c.data_inizio, PDV_LABELS[pdv]);
-        for (const op of ops) {
-          if (!op.email) continue;
-          await sendEmail(op.email, subject, html);
-          email_sent++;
-        }
-        log.push(`[3d-email] ${c.titolo} → ${pdv}: ${ops.length} email`);
       }
     }
   }

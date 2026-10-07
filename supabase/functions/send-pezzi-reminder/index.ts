@@ -1,5 +1,11 @@
-import webpush from "npm:web-push@3";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  italyNow,
+  loadRules,
+  matchesWeekly,
+  resolveAndSend,
+  type VapidConfig,
+} from "../_shared/notifiche_lib.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -13,63 +19,67 @@ Deno.serve(async (req) => {
   const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
   const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
 
+  const vapid: VapidConfig = { pub: VAPID_PUB, priv: VAPID_PRIV, subject: VAPID_SUB };
+
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Verifica ora italiana: deve essere le 9:00 (UTC+2 estate / UTC+1 inverno)
-  const now = new Date();
-  const itHour = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Rome" })).getHours();
-  if (itHour !== 9) {
-    return new Response(JSON.stringify({ skipped: true, itHour }), {
-      headers: { "Content-Type": "application/json", ...CORS },
-    });
-  }
+  const log: string[] = [];
+  const { hour, weekday, year } = italyNow();
 
-  // Calcola settimana ISO appena conclusa (lunedì = inizio settimana, ricorda la settimana precedente)
-  const lun = new Date(now);
-  lun.setDate(lun.getDate() - 7); // settimana scorsa
+  // Calcola settimana ISO corrente
+  const now = new Date();
   const isoWeek = (() => {
-    const d = new Date(lun); d.setHours(12, 0, 0, 0);
+    const d = new Date(now); d.setHours(12, 0, 0, 0);
     d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
     const w1 = new Date(d.getFullYear(), 0, 4);
     return 1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
   })();
 
-  const titolo = "📊 Compilazione settimanale";
-  const testo  = `Inserisci i pezzi e il venduto della settimana ${isoWeek} in Commerciale → Settimanale.`;
+  log.push(`italyNow: hour=${hour} weekday=${weekday} year=${year} isoWeek=${isoWeek}`);
 
-  // Inserisci in-app notification (visibile a tutti al prossimo accesso)
-  await db.from("notifiche").insert({
-    titolo, testo, target: "tutti", mittente: "sistema",
-  });
+  const rules = await loadRules(db, "pezzi");
+  log.push(`Regole trovate: ${rules.length}`);
 
-  const results = { push_sent: 0, push_failed: 0, errors: [] as string[] };
+  const results = { push_sent: 0, push_failed: 0, emails: 0, rules_matched: 0, log };
 
-  if (VAPID_PUB && VAPID_PRIV) {
-    try {
-      webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
-      const { data: subs } = await db.from("push_subscriptions").select("endpoint,subscription,operatore_nome");
-      for (const s of subs ?? []) {
-        try {
-          await webpush.sendNotification(s.subscription as webpush.PushSubscription, JSON.stringify({
-            title: titolo, body: testo, icon: "/icons/icon-192.png", url: "/pages/cassa/cassa.html"
-          }));
-          results.push_sent++;
-        } catch (e: unknown) {
-          const status = (e as { statusCode?: number })?.statusCode;
-          if (status === 404 || status === 410) {
-            await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-          } else {
-            results.push_failed++;
-            results.errors.push(String(e).slice(0, 100));
-          }
-        }
-      }
-    } catch (e: unknown) {
-      results.errors.push("VAPID: " + String(e));
+  for (const rule of rules) {
+    if (rule.quando_tipo !== "settimana") {
+      log.push(`[${rule.id}] skipped: quando_tipo=${rule.quando_tipo}`);
+      continue;
     }
+
+    if (!matchesWeekly(rule, hour, weekday)) {
+      log.push(`[${rule.id}] no match: giorno_settimana=${rule.giorno_settimana} ora_invio=${rule.ora_invio}`);
+      continue;
+    }
+
+    results.rules_matched++;
+    log.push(`[${rule.id}] MATCH`);
+
+    const titolo = rule.nome ?? "Compilazione settimanale";
+    const corpo  = rule.descrizione ?? `Inserisci i pezzi e il venduto della settimana ${isoWeek} in Commerciale → Settimanale.`;
+
+    // Inserisci notifica in-app
+    await db.from("notifiche").insert({
+      titolo,
+      testo: corpo,
+      target: "tutti",
+      mittente: "sistema",
+    });
+
+    const r = await resolveAndSend(db, rule, vapid, log, {
+      title: titolo,
+      body: corpo,
+      url: "/pages/cassa/cassa.html",
+      tag: `m361-pezzi-w${isoWeek}-${year}`,
+    });
+
+    results.push_sent   += r.sent;
+    results.push_failed += r.failed;
+    results.emails      += r.emails;
   }
 
   return new Response(JSON.stringify({ ok: true, isoWeek, ...results }), {

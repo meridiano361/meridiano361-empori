@@ -1,5 +1,10 @@
 import webpush from "npm:web-push@3";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  loadRules,
+  resolveAndSend,
+  type VapidConfig,
+} from "../_shared/notifiche_lib.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +19,12 @@ type Body = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+
+  const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")  ?? "";
+  const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
+  const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
+
+  const vapid: VapidConfig = { pub: VAPID_PUB, priv: VAPID_PRIV, subject: VAPID_SUB };
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -47,15 +58,15 @@ Deno.serve(async (req) => {
   let totale = 0;
 
   if (righe?.length) {
-    const catIds = righe.filter(r => r.catalog_product_id).map(r => r.catalog_product_id);
+    const catIds = righe.filter((r: { catalog_product_id: unknown }) => r.catalog_product_id).map((r: { catalog_product_id: unknown }) => r.catalog_product_id);
     if (catIds.length) {
       const { data: catProds } = await db
         .from("rifornimento_catalogo")
         .select("id, pvp")
         .in("id", catIds);
-      const priceMap = new Map((catProds ?? []).map(p => [p.id, p.pvp]));
-      righe.forEach(r => {
-        const pvp = priceMap.get(r.catalog_product_id);
+      const priceMap = new Map((catProds ?? []).map((p: { id: unknown; pvp: number }) => [p.id, p.pvp]));
+      righe.forEach((r: { catalog_product_id: unknown; quantity: number }) => {
+        const pvp = priceMap.get(r.catalog_product_id) as number | undefined;
         if (pvp && r.quantity) totale += pvp * r.quantity;
       });
     }
@@ -66,13 +77,11 @@ Deno.serve(async (req) => {
   const APP_URL  = "https://meridiano361-empori.vercel.app";
   const propUrl  = `${APP_URL}/pages/rifornimento/proposta.html?id=${proposta_id}`;
 
-  const results = { push_sent: 0, push_failed: 0, email_sent: false, errors: [] as string[] };
+  const log: string[] = [];
+  const results = { push_sent: 0, push_failed: 0, emails: 0, errors: [] as string[] };
 
-  // ── Helper push ─────────────────────────────────────────────────────────
-  async function sendPush(operatoreIds: number[], titolo: string, testo: string) {
-    const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")  ?? "";
-    const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
-    const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
+  // ── Helper legacy push (per casi senza regola configurata) ──────────────────
+  async function sendPushLegacy(operatoreIds: number[], titolo: string, testo: string) {
     if (!VAPID_PUB || !VAPID_PRIV) return;
     webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
     const { data: subs } = await db
@@ -94,8 +103,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Helper email ─────────────────────────────────────────────────────────
-  async function sendEmail(to: string, subject: string, html: string) {
+  // ── Helper legacy email ───────────────────────────────────────────────────
+  async function sendEmailLegacy(to: string, subject: string, html: string) {
     const apiKey = Deno.env.get("RESEND_API_KEY");
     if (!apiKey) return;
     try {
@@ -104,71 +113,104 @@ Deno.serve(async (req) => {
         headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({ from: "M361 Empori <notifiche@meridiano361.it>", to: [to], subject, html }),
       });
-      results.email_sent = true;
     } catch (_) { /* ignora */ }
   }
 
-  // ── nuova / modificata → notifica a Emilio ──────────────────────────────
+  // ── nuova / modificata → usa regole o fallback a Emilio ────────────────────
   if (tipo === "nuova" || tipo === "modificata") {
     const tipoLabel = tipo === "nuova" ? "Nuova proposta" : "Proposta aggiornata";
-    const titolo    = `${tipoLabel} — ${prop.emporio}`;
-    const testo     = `${prop.created_by} · ${nProdotti} prodotti · Totale stimato ${fmtEuro(totale)} · v${prop.versione}`;
+    const defTitolo = `${tipoLabel} — ${prop.emporio}`;
+    const defTesto  = `${prop.created_by} · ${nProdotti} prodotti · Totale stimato ${fmtEuro(totale)} · v${prop.versione}`;
 
-    // Notifica in-app
-    await db.from("notifiche").insert({ titolo, testo, target: "tutti", mittente: prop.created_by || prop.emporio });
+    await db.from("notifiche").insert({ titolo: defTitolo, testo: defTesto, target: "tutti", mittente: prop.created_by || prop.emporio });
 
-    // Push a Emilio
-    const EMILIO_EMAIL = "e.mazzolari@meridiano361.it";
-    const { data: emilioOp } = await db.from("operatori").select("id").eq("email", EMILIO_EMAIL).single();
-    if (emilioOp) await sendPush([emilioOp.id], titolo, testo);
+    const rulesArrivo = (await loadRules(db, "fornitura")).filter(r => r.quando_tipo === "arrivo");
 
-    // Email a Emilio
-    await sendEmail(
-      "e.mazzolari@meridiano361.it",
-      titolo,
-      emailHtmlCoordinatore(prop, nProdotti, totale, propUrl, tipo, fmtEuro, fmtDt),
-    );
+    if (rulesArrivo.length) {
+      for (const rule of rulesArrivo) {
+        const titolo = rule.nome ?? defTitolo;
+        const corpo  = (rule.descrizione ?? defTesto)
+          .replace(/\{tipo\}/g, tipo)
+          .replace(/\{nota\}/g, nota_evasione);
 
-    // Log
+        const r = await resolveAndSend(db, rule, vapid, log, {
+          title: titolo,
+          body: corpo,
+          url: propUrl,
+        });
+        results.push_sent   += r.sent;
+        results.push_failed += r.failed;
+        results.emails      += r.emails;
+      }
+    } else {
+      // Fallback: push + email a Emilio
+      const EMILIO_EMAIL = "e.mazzolari@meridiano361.it";
+      const { data: emilioOp } = await db.from("operatori").select("id").eq("email", EMILIO_EMAIL).single();
+      if (emilioOp) await sendPushLegacy([emilioOp.id], defTitolo, defTesto);
+
+      await sendEmailLegacy(
+        EMILIO_EMAIL,
+        defTitolo,
+        emailHtmlCoordinatore(prop, nProdotti, totale, propUrl, tipo, fmtEuro, fmtDt),
+      );
+    }
+
     await db.from("rifornimento_notif_log").insert([
-      { proposta_id, versione: prop.versione, tipo: "push",  evento: tipo, destinatario: "emilio", stato: results.push_sent > 0 ? "sent" : "skipped" },
-      { proposta_id, versione: prop.versione, tipo: "email", evento: tipo, destinatario: "e.mazzolari@meridiano361.it", stato: results.email_sent ? "sent" : "skipped" },
+      { proposta_id, versione: prop.versione, tipo: "push",  evento: tipo, destinatario: "regola/emilio", stato: results.push_sent > 0 ? "sent" : "skipped" },
+      { proposta_id, versione: prop.versione, tipo: "email", evento: tipo, destinatario: "regola/emilio", stato: results.emails > 0 ? "sent" : "skipped" },
     ]);
   }
 
-  // ── evasa → notifica ai responsabili ────────────────────────────────────
+  // ── evasa → usa regole o fallback ai responsabili autorizzati ──────────────
   if (tipo === "evasa") {
-    const titolo = `Ordine evaso — ${prop.emporio}`;
-    const noteStr = nota_evasione ? ` · Note: ${nota_evasione}` : "";
-    const testo  = `Il tuo ordine è stato caricato su Amshop${noteStr}`;
+    const defTitolo = `Ordine evaso — ${prop.emporio}`;
+    const noteStr   = nota_evasione ? ` · Note: ${nota_evasione}` : "";
+    const defTesto  = `Il tuo ordine è stato caricato su Amshop${noteStr}`;
 
-    // Push ai responsabili autorizzati
-    const { data: autorizzati } = await db
-      .from("rifornimento_autorizzati")
-      .select("operatore_id")
-      .eq("emporio", prop.emporio);
+    const rulesEvasa = (await loadRules(db, "fornitura")).filter(r => r.quando_tipo === "arrivo");
 
-    const opIds = (autorizzati ?? []).map((a: { operatore_id: number }) => a.operatore_id);
-    if (opIds.length) await sendPush(opIds, titolo, testo);
+    if (rulesEvasa.length) {
+      for (const rule of rulesEvasa) {
+        const titolo = rule.nome ?? defTitolo;
+        const corpo  = (rule.descrizione ?? defTesto)
+          .replace(/\{tipo\}/g, tipo)
+          .replace(/\{nota\}/g, nota_evasione);
 
-    // Email ai responsabili
-    if (opIds.length) {
-      const { data: ops } = await db.from("operatori").select("email").in("id", opIds);
-      for (const op of ops ?? []) {
-        if (op.email) {
-          await sendEmail(op.email, titolo, emailHtmlResponsabile(prop, nota_evasione, propUrl, fmtDt));
+        const r = await resolveAndSend(db, rule, vapid, log, {
+          title: titolo,
+          body: corpo,
+          url: propUrl,
+        }, { emporio: prop.emporio });
+        results.push_sent   += r.sent;
+        results.push_failed += r.failed;
+        results.emails      += r.emails;
+      }
+    } else {
+      // Fallback: push + email ai responsabili autorizzati
+      const { data: autorizzati } = await db
+        .from("rifornimento_autorizzati")
+        .select("operatore_id")
+        .eq("emporio", prop.emporio);
+
+      const opIds = (autorizzati ?? []).map((a: { operatore_id: number }) => a.operatore_id);
+      if (opIds.length) {
+        await sendPushLegacy(opIds, defTitolo, defTesto);
+        const { data: ops } = await db.from("operatori").select("email").in("id", opIds);
+        for (const op of ops ?? []) {
+          if (op.email) {
+            await sendEmailLegacy(op.email, defTitolo, emailHtmlResponsabile(prop, nota_evasione, propUrl, fmtDt));
+          }
         }
       }
     }
 
-    // Log
     await db.from("rifornimento_notif_log").insert({
       proposta_id, versione: prop.versione, tipo: "email", evento: "evasa",
-      destinatario: "responsabili", stato: results.email_sent ? "sent" : "skipped",
+      destinatario: "responsabili", stato: results.emails > 0 ? "sent" : "skipped",
     });
   }
 
-  return new Response(JSON.stringify(results), { headers: { "Content-Type": "application/json", ...CORS } });
+  return new Response(JSON.stringify({ ...results, log }), { headers: { "Content-Type": "application/json", ...CORS } });
 });
 
 // ── Template email coordinatore ──────────────────────────────────────────────

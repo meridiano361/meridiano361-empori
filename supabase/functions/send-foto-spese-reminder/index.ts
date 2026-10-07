@@ -1,5 +1,12 @@
 import webpush from "npm:web-push@3";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  loadRules,
+  resolveOperatorIds,
+  getPushSubs,
+  sendPushBatch,
+  type VapidConfig,
+} from "../_shared/notifiche_lib.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +19,8 @@ Deno.serve(async (req) => {
   const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")  ?? "";
   const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
   const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
+
+  const vapid: VapidConfig = { pub: VAPID_PUB, priv: VAPID_PRIV, subject: VAPID_SUB };
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -37,6 +46,8 @@ Deno.serve(async (req) => {
     });
   }
 
+  const log: string[] = [];
+
   // Ultimi 7 giorni: cerca fogli con spese ma senza foto e non esenti
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -47,7 +58,7 @@ Deno.serve(async (req) => {
     .gte("created_at", sevenDaysAgo.toISOString());
 
   if (!records?.length) {
-    return new Response(JSON.stringify({ ok: true, checked: 0 }), {
+    return new Response(JSON.stringify({ ok: true, checked: 0, log }), {
       headers: { "Content-Type": "application/json", ...CORS },
     });
   }
@@ -76,12 +87,20 @@ Deno.serve(async (req) => {
   }
 
   if (emporiDaRicordare.size === 0) {
-    return new Response(JSON.stringify({ ok: true, nothingToDo: true }), {
+    return new Response(JSON.stringify({ ok: true, nothingToDo: true, log }), {
       headers: { "Content-Type": "application/json", ...CORS },
     });
   }
 
-  const results = { notified: 0, push_sent: 0, push_failed: 0, errors: [] as string[], dryrun };
+  // Carica regole (evento='spese', fallback a 'fornitura' per retrocompatibilità)
+  let rules = await loadRules(db, "spese");
+  if (!rules.length) {
+    rules = await loadRules(db, "fornitura");
+    if (rules.length) log.push("Usate regole 'fornitura' come fallback per 'spese'");
+  }
+  log.push(`Regole trovate: ${rules.length}`);
+
+  const results = { notified: 0, push_sent: 0, push_failed: 0, errors: [] as string[], dryrun, log };
 
   if (!dryrun && VAPID_PUB && VAPID_PRIV) {
     webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
@@ -89,38 +108,68 @@ Deno.serve(async (req) => {
 
   for (const [emp, turni] of emporiDaRicordare) {
     const turnoStr = turni.join(" e ");
-    const titolo = "📸 Foto scontrino mancante";
-    const testo  = `Ricorda di caricare la foto dello scontrino per le spese del ${turnoStr} in Controllo Cassa.`;
 
     results.notified++;
 
-    if (dryrun) continue;
+    if (dryrun) {
+      log.push(`[dryrun] ${emp}: turni mancanti = ${turnoStr}`);
+      continue;
+    }
 
-    // Push alle subscriptions dell'emporio
-    const { data: subs } = await db
-      .from("push_subscriptions")
-      .select("endpoint, subscription, operatore_nome")
-      .eq("emporio", emp);
+    if (rules.length > 0) {
+      // Usa regole configurate
+      for (const rule of rules) {
+        const titolo = rule.nome ?? "Foto scontrino mancante";
+        const testo  = (rule.descrizione ?? "Ricorda di caricare la foto dello scontrino per le spese del {turno} in Controllo Cassa.")
+          .replace(/\{turno\}/g, turnoStr)
+          .replace(/\{emporio\}/g, emp);
 
-    for (const s of subs ?? []) {
-      try {
-        await webpush.sendNotification(
-          s.subscription as webpush.PushSubscription,
-          JSON.stringify({
-            title: titolo,
-            body:  testo,
-            icon:  "/icons/icon-192.png",
-            url:   "/pages/cassa/cassa.html",
-          }),
-        );
-        results.push_sent++;
-      } catch (e: unknown) {
-        const status = (e as { statusCode?: number })?.statusCode;
-        if (status === 404 || status === 410) {
-          await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-        } else {
-          results.push_failed++;
-          results.errors.push(String(e).slice(0, 100));
+        const opIds = await resolveOperatorIds(db, rule.destinatari ?? "Tutti gli operatori", { emporio: emp });
+        const subs  = await getPushSubs(db, opIds);
+
+        const r = await sendPushBatch(db, subs, {
+          title: titolo,
+          body: testo,
+          icon: "/icons/icon-192.png",
+          url: "/pages/cassa/cassa.html",
+        }, vapid, log);
+
+        results.push_sent   += r.sent;
+        results.push_failed += r.failed;
+        log.push(`[${rule.id}] ${emp}: ${r.sent} push`);
+      }
+    } else {
+      // Fallback: push a tutti i sub dell'emporio
+      if (VAPID_PUB && VAPID_PRIV) {
+        const titolo = "Foto scontrino mancante";
+        const testo  = `Ricorda di caricare la foto dello scontrino per le spese del ${turnoStr} in Controllo Cassa.`;
+
+        const { data: subs } = await db
+          .from("push_subscriptions")
+          .select("operatore_id, endpoint, subscription, operatore_nome")
+          .eq("emporio", emp);
+
+        for (const s of subs ?? []) {
+          try {
+            await webpush.sendNotification(
+              s.subscription as webpush.PushSubscription,
+              JSON.stringify({
+                title: titolo,
+                body:  testo,
+                icon:  "/icons/icon-192.png",
+                url:   "/pages/cassa/cassa.html",
+              }),
+            );
+            results.push_sent++;
+          } catch (e: unknown) {
+            const status = (e as { statusCode?: number })?.statusCode;
+            if (status === 404 || status === 410) {
+              await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+            } else {
+              results.push_failed++;
+              results.errors.push(String(e).slice(0, 100));
+            }
+          }
         }
       }
     }

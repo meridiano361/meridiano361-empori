@@ -1,5 +1,9 @@
 import webpush from "npm:web-push@3";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  loadRules,
+  sendEmailViaResend,
+} from "../_shared/notifiche_lib.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +25,6 @@ function primoNome(nome: string): string {
   return nome.trim().split(/\s+/)[0];
 }
 
-// Nomi maschili italiani che terminano per 'a' (eccezioni all'euristica)
 const MASCHILI_IN_A = new Set(["luca", "andrea", "nicola", "mattia", "elia", "battista", "enea"]);
 function soloSola(nomeCompleto: string): string {
   const first = nomeCompleto.trim().split(/\s+/)[0].toLowerCase();
@@ -55,15 +58,12 @@ Deno.serve(async (req) => {
     now.toLocaleString("en-US", { timeZone: "Europe/Rome", hour: "numeric", hour12: false }),
     10,
   );
-  // Soglia per deduplicazione: mezzanotte UTC del giorno corrente.
-  // Il cron gira alle 06:00, 06:15, 06:30 UTC: tutte le run dello stesso giorno
-  // hanno lo stesso todayMidnightUtc, quindi non reinviamo a chi ha già ricevuto.
   const todayMidnightUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
   const urlObj    = new URL(req.url);
   const dryrun    = urlObj.searchParams.get("dryrun") === "1";
   const force     = dryrun || urlObj.searchParams.get("force") === "1";
-  const reset     = urlObj.searchParams.get("reset") === "1"; // bypassa dedup last_push_at
+  const reset     = urlObj.searchParams.get("reset") === "1";
   const soloOp    = (urlObj.searchParams.get("operatore") ?? "").toLowerCase().trim();
   const customMsg = urlObj.searchParams.get("msg") ?? "";
 
@@ -79,6 +79,25 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  const log: string[] = [];
+
+  // ── Step 1: Carica la regola 'turno' ─────────────────────────────────────────
+  const rules = await loadRules(db, "turno");
+  const rule  = rules[0] ?? null;
+
+  if (!rule) {
+    // Nessuna regola attiva: skip tutto
+    return new Response(
+      JSON.stringify({ skipped: true, reason: "nessuna regola turno attiva" }),
+      { headers: { "Content-Type": "application/json", ...CORS } },
+    );
+  }
+
+  const canale = rule.canale ?? "push";
+  // Titolo dalla regola (es. "Il tuo turno oggi"), fallback al precedente
+  const titleTemplate = rule.nome ?? "M361 — Il tuo turno oggi";
+  log.push(`Regola: ${rule.id}, canale: ${canale}, titolo: ${titleTemplate}`);
+
   const dateFmt = new Intl.DateTimeFormat("it-IT", {
     timeZone: "Europe/Rome",
     year: "numeric", month: "numeric", day: "numeric",
@@ -93,7 +112,6 @@ Deno.serve(async (req) => {
     pom_open: "15:00", pom_close: "19:00",
   };
 
-  // ── Carica tutti i dati in parallelo ────────────────────────────────────────
   const [
     { data: orariRows },
     { data: rawTurni, error: turniErr },
@@ -128,11 +146,9 @@ Deno.serve(async (req) => {
     assenze:   (t.assenze ?? null) as Record<string, unknown> | null,
   }));
 
-  // Operatori con assenza oggi (qualsiasi tipo: ferie, malattia, permesso, altro)
   const assentiOggi = new Set<string>();
   for (const t of turniOggi) {
     for (const key of Object.keys(t.assenze ?? {})) {
-      // key: ${emporio}|${anno}|${mese}|${giorno}|${nome}
       const nome = key.split("|").slice(4).join("|");
       if (nome) assentiOggi.add(nome.toLowerCase().trim());
     }
@@ -145,7 +161,6 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Raggruppa turni per nome operatore
   const operatoriMap = new Map<string, Shift[]>();
   for (const t of turniOggi) {
     for (const op of t.operatori ?? []) {
@@ -180,24 +195,29 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (!VAPID_PUB || !VAPID_PRIV) {
+  const sendPush = canale === "push" || canale === "entrambi";
+  const sendEmail = canale === "email" || canale === "entrambi";
+
+  if (sendPush && (!VAPID_PUB || !VAPID_PRIV)) {
     return new Response(
       JSON.stringify({ error: "VAPID keys non configurate" }),
       { status: 500, headers: { "Content-Type": "application/json", ...CORS } },
     );
   }
-  webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
+
+  if (sendPush) webpush.setVapidDetails(VAPID_SUB, VAPID_PUB, VAPID_PRIV);
+
+  const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 
   const results = {
-    date:               `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`,
+    date:               dateStr,
     operatori_in_turno: operatoriMap.size,
     sent: 0, skipped: 0, failed: 0,
     errors: [] as string[],
     log:   [] as LogEntry[],
   };
 
-  // ── Costruisci lista di task da inviare in parallelo ────────────────────────
-  type SendTask = { sub: Sub; payload: string; nome: string };
+  type SendTask = { sub: Sub; payload: string; nome: string; email?: string; emailSubject?: string; emailBody?: string };
   const sendTasks: SendTask[] = [];
 
   for (const [nome, shifts] of operatoriMap.entries()) {
@@ -287,68 +307,98 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!operatoreSubs.length) {
-      results.skipped++;
-      results.log.push({ nome, motivo_skip: "nessun token push registrato", turni: fasceDiag, body });
-      continue;
-    }
-
     results.log.push({ nome, turni: fasceDiag, body });
 
-    const payload = JSON.stringify({
-      title: "M361 — Il tuo turno oggi",
-      body,
-      url: "/pages/turni/turni.html",
-      tag: `m361-turno-${results.date}`,
-    });
-
-    for (const sub of operatoreSubs) {
-      // Dedup: salta se già inviato oggi a questo endpoint (catch-up run successivi)
-      if (!reset && sub.last_push_at && new Date(sub.last_push_at) >= todayMidnightUtc) {
-        const logEntry = results.log.find(l => l.nome === nome);
-        if (logEntry) logEntry.motivo_skip = (logEntry.motivo_skip ?? "") + "[già inviato oggi] ";
+    if (sendPush) {
+      if (!operatoreSubs.length) {
         results.skipped++;
+        results.log.find(l => l.nome === nome)!.motivo_skip = "nessun token push registrato";
         continue;
       }
-      sendTasks.push({ sub, payload, nome });
+
+      const payload = JSON.stringify({
+        title: titleTemplate,
+        body,
+        url: "/pages/turni/turni.html",
+        tag: `m361-turno-${dateStr}`,
+      });
+
+      for (const sub of operatoreSubs) {
+        if (!reset && sub.last_push_at && new Date(sub.last_push_at) >= todayMidnightUtc) {
+          const logEntry = results.log.find(l => l.nome === nome);
+          if (logEntry) logEntry.motivo_skip = (logEntry.motivo_skip ?? "") + "[già inviato oggi] ";
+          results.skipped++;
+          continue;
+        }
+        sendTasks.push({ sub, payload, nome });
+      }
+    }
+
+    // Email per-operatore (se canale include email)
+    if (sendEmail && opId) {
+      const { data: opData } = await db.from("operatori").select("email").eq("id", opId).single();
+      if (opData?.email) {
+        sendTasks.push({
+          sub: {} as Sub,
+          payload: "",
+          nome,
+          email: opData.email,
+          emailSubject: titleTemplate,
+          emailBody: body,
+        });
+      }
     }
   }
 
-  // ── Invia tutte le notifiche in parallelo ───────────────────────────────────
+  // ── Invia tutte le notifiche ──────────────────────────────────────────────────
   if (!dryrun && sendTasks.length > 0) {
-    const sendResults = await Promise.allSettled(
-      sendTasks.map(async ({ sub, payload }) => {
-        await webpush.sendNotification(
-          sub.subscription as webpush.PushSubscription,
-          payload,
-          { urgency: "high", TTL: 43200 },
-        );
-        await db.from("push_subscriptions")
-          .update({ last_push_at: new Date().toISOString(), last_push_ok: true })
-          .eq("endpoint", sub.endpoint);
-      })
-    );
+    const pushTasks  = sendTasks.filter(t => t.payload && !t.email);
+    const emailTasks = sendTasks.filter(t => t.email);
 
-    for (let i = 0; i < sendResults.length; i++) {
-      const r = sendResults[i];
-      if (r.status === "fulfilled") {
-        results.sent++;
-      } else {
-        const e      = r.reason as { statusCode?: number; message?: string };
-        const status = e?.statusCode;
-        const msg    = e?.message ?? String(r.reason);
-        if (status === 404 || status === 410) {
-          await db.from("push_subscriptions").delete().eq("endpoint", sendTasks[i].sub.endpoint);
-          const logEntry = results.log.find(l => l.nome === sendTasks[i].nome);
-          if (logEntry) logEntry.motivo_skip = (logEntry.motivo_skip ?? "") + `token scaduto rimosso `;
-        } else {
-          results.failed++;
+    // Push
+    if (pushTasks.length) {
+      const sendResults = await Promise.allSettled(
+        pushTasks.map(async ({ sub, payload }) => {
+          await webpush.sendNotification(
+            sub.subscription as webpush.PushSubscription,
+            payload,
+            { urgency: "high", TTL: 43200 },
+          );
           await db.from("push_subscriptions")
-            .update({ last_push_at: new Date().toISOString(), last_push_ok: false })
-            .eq("endpoint", sendTasks[i].sub.endpoint);
-          results.errors.push(`${sendTasks[i].nome}: ${msg.slice(0, 120)}`);
+            .update({ last_push_at: new Date().toISOString(), last_push_ok: true })
+            .eq("endpoint", sub.endpoint);
+        })
+      );
+
+      for (let i = 0; i < sendResults.length; i++) {
+        const r = sendResults[i];
+        if (r.status === "fulfilled") {
+          results.sent++;
+        } else {
+          const e      = r.reason as { statusCode?: number; message?: string };
+          const status = e?.statusCode;
+          const msg    = e?.message ?? String(r.reason);
+          if (status === 404 || status === 410) {
+            await db.from("push_subscriptions").delete().eq("endpoint", pushTasks[i].sub.endpoint);
+          } else {
+            results.failed++;
+            await db.from("push_subscriptions")
+              .update({ last_push_at: new Date().toISOString(), last_push_ok: false })
+              .eq("endpoint", pushTasks[i].sub.endpoint);
+            results.errors.push(`${pushTasks[i].nome}: ${msg.slice(0, 120)}`);
+          }
         }
       }
+    }
+
+    // Email
+    for (const task of emailTasks) {
+      await sendEmailViaResend(
+        task.email!,
+        task.emailSubject!,
+        `<p>${task.emailBody}</p>`,
+      );
+      results.sent++;
     }
   } else if (dryrun) {
     results.sent = sendTasks.length;

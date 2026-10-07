@@ -1,5 +1,13 @@
 import webpush from "npm:web-push@3";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  italyNow,
+  loadRules,
+  resolveOperatorIds,
+  getPushSubs,
+  sendPushBatch,
+  type VapidConfig,
+} from "../_shared/notifiche_lib.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -20,22 +28,7 @@ type Sub = {
 
 function pad(n: number) { return String(n).padStart(2, "0"); }
 
-function italyNow(): { year: number; month: number; day: number; hour: number } {
-  const now = new Date();
-  const p = new Intl.DateTimeFormat("it-IT", {
-    timeZone: "Europe/Rome",
-    year: "numeric", month: "numeric", day: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: false,
-  }).formatToParts(now);
-  return {
-    year:  parseInt(p.find(x => x.type === "year")!.value,  10),
-    month: parseInt(p.find(x => x.type === "month")!.value, 10),
-    day:   parseInt(p.find(x => x.type === "day")!.value,   10),
-    hour:  parseInt(p.find(x => x.type === "hour")!.value,  10),
-  };
-}
-
-// lastDayOfMonth: month è 1-based → new Date(year, month, 0) dà l'ultimo giorno del mese
+// lastDayOfMonth: month è 1-based
 function lastDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
@@ -43,13 +36,15 @@ function lastDayOfMonth(year: number, month: number): number {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
 
-  const urlObj = new URL(req.url);
-  const dryrun = urlObj.searchParams.get("dryrun") === "1";
-  const force  = dryrun || urlObj.searchParams.get("force") === "1";
-
   const VAPID_PUB  = Deno.env.get("VAPID_PUBLIC_KEY")  ?? "";
   const VAPID_PRIV = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
   const VAPID_SUB  = Deno.env.get("VAPID_SUBJECT")     ?? "mailto:info@meridiano361.it";
+
+  const vapid: VapidConfig = { pub: VAPID_PUB, priv: VAPID_PRIV, subject: VAPID_SUB };
+
+  const urlObj = new URL(req.url);
+  const dryrun = urlObj.searchParams.get("dryrun") === "1";
+  const force  = dryrun || urlObj.searchParams.get("force") === "1";
 
   const { year, month, day, hour } = italyNow();
 
@@ -71,6 +66,70 @@ Deno.serve(async (req) => {
     );
   }
 
+  const db = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const log: string[] = [];
+  const nomeMese = MESI[month - 1];
+  const dateStr  = `${year}-${pad(month)}-${pad(day)}`;
+
+  // Carica regole
+  const rules = await loadRules(db, "presenza");
+  log.push(`Regole trovate: ${rules.length}`);
+
+  if (rules.length > 0) {
+    // Usa le regole configurate
+    const results = {
+      date: dateStr, mese: nomeMese,
+      sent: 0, failed: 0, emails: 0, dryrun, log,
+    };
+
+    if (!VAPID_PUB || !VAPID_PRIV) {
+      return new Response(
+        JSON.stringify({ error: "VAPID keys non configurate" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS } },
+      );
+    }
+
+    for (const rule of rules) {
+      const titolo  = rule.nome ?? "Meridiano 361";
+      const msgBody = rule.descrizione ?? `Ricordati di compilare il foglio delle presenze di ${nomeMese} entro domani.`;
+
+      const opIds = await resolveOperatorIds(db, rule.destinatari ?? "Tutti gli operatori");
+      log.push(`[${rule.id}] operatori: ${opIds.length}`);
+
+      if (!opIds.length) continue;
+
+      const subs = await getPushSubs(db, opIds);
+      log.push(`[${rule.id}] subs: ${subs.length}`);
+
+      if (!subs.length) continue;
+
+      if (!dryrun) {
+        const payload = {
+          title: titolo,
+          body: msgBody,
+          url: "/",
+          tag: `m361-presenze-${year}-${pad(month)}`,
+        };
+        const r = await sendPushBatch(db, subs, payload, vapid, log);
+        results.sent   += r.sent;
+        results.failed += r.failed;
+      } else {
+        results.sent += subs.length;
+      }
+    }
+
+    return new Response(JSON.stringify(results, null, 2), {
+      headers: { "Content-Type": "application/json", ...CORS },
+    });
+  }
+
+  // ── FALLBACK: comportamento originale ────────────────────────────────────────
+  log.push("Nessuna regola attiva — uso comportamento originale");
+
   if (!VAPID_PUB || !VAPID_PRIV) {
     return new Response(
       JSON.stringify({ error: "VAPID keys non configurate" }),
@@ -78,14 +137,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const nomeMese = MESI[month - 1];
-  const msgBody  = `Ricordati di compilare il foglio delle presenze di ${nomeMese} entro domani.`;
-  const dateStr  = `${year}-${pad(month)}-${pad(day)}`;
-
-  const db = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const msgBody = `Ricordati di compilare il foglio delle presenze di ${nomeMese} entro domani.`;
 
   const [{ data: operatoriRaw }, { data: subsRaw }] = await Promise.all([
     db.from("operatori")
@@ -130,7 +182,7 @@ Deno.serve(async (req) => {
     date: dateStr, mese: nomeMese,
     operatori_dipendenti: operatori.length,
     sent: 0, skipped: 0, failed: 0, dryrun,
-    log: [] as object[],
+    log,
   };
 
   for (const op of operatori) {
@@ -144,13 +196,11 @@ Deno.serve(async (req) => {
 
     if (!opSubs.length) {
       results.skipped++;
-      results.log.push({ nome: op.nome, motivo_skip: "nessun token push" });
       continue;
     }
 
     if (dryrun) {
       results.sent++;
-      results.log.push({ nome: op.nome, body: msgBody });
       continue;
     }
 
@@ -177,10 +227,8 @@ Deno.serve(async (req) => {
 
     if (anyOk) {
       results.sent++;
-      results.log.push({ nome: op.nome, body: msgBody });
     } else {
       results.failed++;
-      results.log.push({ nome: op.nome, motivo_skip: "invio push fallito" });
     }
   }
 
