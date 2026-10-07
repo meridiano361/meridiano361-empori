@@ -888,17 +888,20 @@ async function init() {
   }
 }
 
-const _CACHE_KEY = 'm361_tess_v2';
-const _CACHE_TTL = 90 * 1000; // 90 secondi — render istantaneo, refresh silenzioso
-
+const _CACHE_TTL = 5 * 60 * 1000; // 5 minuti
+function _cacheKey() {
+  // Cache separata per emporio: operatori diversi non si contaminano
+  const emp = getEmporioLoggato() || 'admin';
+  return `m361_tess_v3_${emp}`;
+}
 function _saveCache(clienti, tessere, messaggi) {
   try {
-    sessionStorage.setItem(_CACHE_KEY, JSON.stringify({ ts: Date.now(), clienti, tessere, messaggi }));
+    sessionStorage.setItem(_cacheKey(), JSON.stringify({ ts: Date.now(), clienti, tessere, messaggi }));
   } catch(e) {}
 }
 function _loadCache() {
   try {
-    const c = JSON.parse(sessionStorage.getItem(_CACHE_KEY) || 'null');
+    const c = JSON.parse(sessionStorage.getItem(_cacheKey()) || 'null');
     if (c && Date.now() - c.ts < _CACHE_TTL) return c;
   } catch(e) {}
   return null;
@@ -930,9 +933,20 @@ async function loadAll() {
 }
 
 async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
+  const emporio = getEmporioLoggato();
+  const admin   = isAdmin();
+
+  // Query base — per non-admin filtriamo server-side sull'emporio (riduce drasticamente i dati)
+  let qC = _sb.from('clienti').select(C_COLS).order('cognome').order('nome');
+  let qT = _sb.from('tessere').select(T_COLS);
+  if (!admin && emporio) {
+    qC = qC.eq('emporio', emporio);
+    qT = qT.eq('emporio', emporio);
+  }
+
   const [r1, r2, m] = await Promise.all([
-    _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(0, PAGE - 1),
-    _sb.from('tessere').select(T_COLS).range(0, PAGE - 1),
+    qC.range(0, PAGE - 1),
+    qT.range(0, PAGE - 1),
     _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
 
@@ -946,7 +960,7 @@ async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
     renderMsgList();
     _refreshConsentMsgPreview();
     setTimeout(_updateDupBadge, 300);
-    setTimeout(loadStoricoExcel, 1200);
+    // loadStoricoExcel caricato on-demand quando l'utente apre la sezione storico
   }
 
   // Pagine successive
@@ -967,10 +981,15 @@ async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
 }
 
 async function _loadRemainingPages(C_COLS, T_COLS, PAGE, offC, offT) {
+  const emporio = getEmporioLoggato();
+  const admin   = isAdmin();
   while (offC !== null || offT !== null) {
+    let qC = _sb.from('clienti').select(C_COLS).order('cognome').order('nome');
+    let qT = _sb.from('tessere').select(T_COLS);
+    if (!admin && emporio) { qC = qC.eq('emporio', emporio); qT = qT.eq('emporio', emporio); }
     const [rC, rT] = await Promise.all([
-      offC !== null ? _sb.from('clienti').select(C_COLS).order('cognome').order('nome').range(offC, offC + PAGE - 1) : Promise.resolve({ data: [] }),
-      offT !== null ? _sb.from('tessere').select(T_COLS).range(offT, offT + PAGE - 1)                               : Promise.resolve({ data: [] }),
+      offC !== null ? qC.range(offC, offC + PAGE - 1) : Promise.resolve({ data: [] }),
+      offT !== null ? qT.range(offT, offT + PAGE - 1) : Promise.resolve({ data: [] }),
     ]);
     const chunkC = rC.data || [];
     const chunkT = rT.data || [];
@@ -1164,6 +1183,7 @@ function openClienteModal(clienteId) {
     document.getElementById('btn-salva-altro').style.display = 'none';
     document.getElementById('btn-nuova-tessera').style.display = '';
     document.getElementById('tessere-storico-section').style.display = '';
+    loadStoricoExcel(); // on-demand, solo quando si apre la scheda cliente
 
     renderWaButtons(c);
     renderStoricoTessere(clienteId);
