@@ -907,7 +907,7 @@ function _loadCache() {
 async function loadAll() {
   const PAGE   = 1000;
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
@@ -3106,7 +3106,9 @@ function renderDigitale() {
       : '';
 
     const tel = (c.telefono || '').replace(/\D/g,'');
-    const cartaUrl = `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
+    const cartaUrl = t.slug
+      ? `${location.origin}/tessera/${t.slug}`
+      : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
     const waTxt = encodeURIComponent(`Ciao ${c.nome}! La tua Tessera Fedeltà Meridiano 361 è aggiornata 🎉 Guarda i tuoi timbri qui: ${cartaUrl}`);
     const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
 
@@ -3226,7 +3228,9 @@ async function salvaSpesa() {
     }
 
     // Naviga la finestra WA già aperta verso il messaggio del cliente
-    const cartaUrl = `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
+    const cartaUrl = t.slug
+      ? `${location.origin}/tessera/${t.slug}`
+      : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
     const waTxt = encodeURIComponent(`Ciao ${c?.nome}! Hai fatto una spesa di €${importo.toFixed(2)} (+${timbriNuovi} timbro${timbriNuovi>1?'i':''})${scontoGenerato > 0 ? ` 🎉 Hai guadagnato €${scontoGenerato} di sconto!` : ''}. Guarda la tua tessera: ${cartaUrl}`);
     if (waWin) waWin.location.href = `https://wa.me/39${tel}?text=${waTxt}`;
 

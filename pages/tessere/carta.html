@@ -104,20 +104,22 @@ function fmtDate(s) {
 }
 
 async function loadCard() {
-  const token = new URLSearchParams(location.search).get('t');
-  const card = document.getElementById('card');
+  const params = new URLSearchParams(location.search);
+  const token = params.get('t');
+  const slug  = params.get('slug');
+  const card  = document.getElementById('card');
 
-  if (!token) {
+  if (!token && !slug) {
     card.innerHTML = `<div class="center-msg"><i class="fas fa-link-slash"></i><p>Link non valido</p></div>`;
     return;
   }
 
   const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-  const { data: t, error } = await sb.from('tessere')
-    .select('*')
-    .eq('token', token)
-    .single();
+  let q = sb.from('tessere').select('*');
+  if (token) q = q.eq('token', token);
+  else       q = q.eq('slug', slug);
+  const { data: t, error } = await q.single();
 
   if (error || !t) {
     card.innerHTML = `<div class="center-msg"><i class="fas fa-circle-xmark"></i><p>Tessera non trovata</p></div>`;
