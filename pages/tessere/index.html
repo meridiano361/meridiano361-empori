@@ -803,7 +803,7 @@ async function init() {
 
 async function loadAll() {
   const PAGE = 1000;
-  const C_COLS = 'id,cognome,nome,telefono,telefoni_extra,wa,email,emails_extra,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
+  const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
   const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo';
 
   // Prima pagina di clienti + tessere + messaggi in parallelo → render immediato
@@ -983,11 +983,18 @@ function openClienteModal(clienteId) {
     document.getElementById('f-nome').value = c.nome || '';
     document.getElementById('f-cognome').value = c.cognome || '';
     document.getElementById('f-nascita').value = c.data_nascita || '';
-    _editTelefoni = [c.telefono || '', ...(Array.isArray(c.telefoni_extra) ? c.telefoni_extra : [])].filter((v,i) => i===0 || v);
-    _editEmails   = [c.email || '',   ...(Array.isArray(c.emails_extra)   ? c.emails_extra   : [])].filter((v,i) => i===0 || v);
-    if (!_editTelefoni.length) _editTelefoni = [''];
-    if (!_editEmails.length)   _editEmails   = [''];
+    // Carica telefoni/email extra (colonne aggiunte con migrazione)
+    _editTelefoni = [c.telefono || ''];
+    _editEmails   = [c.email || ''];
     _renderContattiUI();
+    _sb.from('clienti').select('telefoni_extra,emails_extra').eq('id', clienteId).single().then(({data:ex}) => {
+      if (!ex) return;
+      _editTelefoni = [c.telefono || '', ...(Array.isArray(ex.telefoni_extra) ? ex.telefoni_extra : [])].filter((v,i) => i===0 || v);
+      _editEmails   = [c.email || '',   ...(Array.isArray(ex.emails_extra)   ? ex.emails_extra   : [])].filter((v,i) => i===0 || v);
+      if (!_editTelefoni.length) _editTelefoni = [''];
+      if (!_editEmails.length)   _editEmails   = [''];
+      _renderContattiUI();
+    });
     document.getElementById('f-citta').value = c.citta || '';
     document.getElementById('f-provincia').value = c.provincia || '';
     document.getElementById('f-tipo').value = currentTipo;
@@ -1254,7 +1261,12 @@ async function saveCliente(closeAfter = true) {
   };
 
   if (editingClienteId) {
-    const {error:e1} = await _sb.from('clienti').update(clientePayload).eq('id', editingClienteId);
+    let {error:e1} = await _sb.from('clienti').update(clientePayload).eq('id', editingClienteId);
+    if (e1 && e1.message && e1.message.includes('does not exist')) {
+      // migrazione SQL non ancora eseguita: salva senza i campi extra
+      const {telefoni_extra:_te, emails_extra:_ee, ...payloadBase} = clientePayload;
+      ({error:e1} = await _sb.from('clienti').update(payloadBase).eq('id', editingClienteId));
+    }
     if (e1) { showToast('Errore: ' + e1.message); return; }
     if (editingTesseraId) {
       const {error:e2} = await _sb.from('tessere').update(tesseraPayload).eq('id', editingTesseraId);
@@ -1270,7 +1282,11 @@ async function saveCliente(closeAfter = true) {
     _invalidateMaps();
     showToast('Cliente aggiornato ✓');
   } else {
-    const {data:nc, error:e1} = await _sb.from('clienti').insert(clientePayload).select().single();
+    let {data:nc, error:e1} = await _sb.from('clienti').insert(clientePayload).select().single();
+    if (e1 && e1.message && e1.message.includes('does not exist')) {
+      const {telefoni_extra:_te, emails_extra:_ee, ...payloadBase} = clientePayload;
+      ({data:nc, error:e1} = await _sb.from('clienti').insert(payloadBase).select().single());
+    }
     if (e1) { showToast('Errore: ' + e1.message); return; }
     const {data:nt, error:e2} = await _sb.from('tessere').insert({...tesseraPayload, cliente_id: nc.id}).select().single();
     if (e2) { showToast('Errore: ' + e2.message); return; }
@@ -2564,6 +2580,17 @@ function openMergeModal(idA, idB) {
   _mergeTessereB = allTessere.filter(t => String(t.cliente_id) === String(idB));
   _mergeSelections = {};
   _mergeOverrides = {};
+  // Carica colonne extra per entrambi i clienti, poi apre il modal
+  Promise.all([
+    _sb.from('clienti').select('id,telefoni_extra,emails_extra').eq('id', idA).single(),
+    _sb.from('clienti').select('id,telefoni_extra,emails_extra').eq('id', idB).single(),
+  ]).then(([rA, rB]) => {
+    if (rA.data) { _mergeA = {..._mergeA, ...rA.data}; }
+    if (rB.data) { _mergeB = {..._mergeB, ...rB.data}; }
+    _mergeTelList   = _buildMergeContattiList(_mergeA, _mergeB, 'telefono');
+    _mergeEmailList = _buildMergeContattiList(_mergeA, _mergeB, 'email');
+    _renderMergeBody();
+  });
   _mergeTelList   = _buildMergeContattiList(_mergeA, _mergeB, 'telefono');
   _mergeEmailList = _buildMergeContattiList(_mergeA, _mergeB, 'email');
   MERGE_FIELDS.forEach(f => {
