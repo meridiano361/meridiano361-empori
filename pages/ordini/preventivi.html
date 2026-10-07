@@ -2236,9 +2236,11 @@ function stampaPDFConColonne() {
         { key:'iva',   label:'IVA %',          align:'center' },
         { key:'pie',   label:'Prezzo i.e.',    align:'right'  },
         { key:'sconto',label:'Sconto %',       align:'center' },
-        { key:'piisc', label:'Prezzo i.i. sc.',     align:'right'  },
-        { key:'piesc', label:'Prezzo i.e. sc.',align:'right'  },
-        { key:'qty',   label:'Qtà',            align:'center' },
+        { key:'piisc',  label:'Prezzo i.i. sc.',  align:'right'  },
+        { key:'piesc',  label:'Prezzo i.e. sc.',  align:'right'  },
+        { key:'tot_ii', label:'Totale i.i.',       align:'right'  },
+        { key:'tot_ie', label:'Totale i.e.',        align:'right'  },
+        { key:'qty',    label:'Qtà',               align:'center' },
     ].filter(c => sel.has(c.key));
 
     const rows = [];
@@ -2248,6 +2250,14 @@ function stampaPDFConColonne() {
         const desc   = row.querySelector('.desc-input')?.value || '';
         if (!codice && !desc) return;
         const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
+        const _parseE = s => s && s !== '—' ? (parseFloat(s.replace(/[€\s]/g,'').replace(',','.')) || 0) : 0;
+        const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
+        const _pii    = _parseE(row.querySelector('.price-input')?.value);
+        const _pie    = _parseE(row.querySelector('.ie-value')?.textContent);
+        const _piisc  = _parseE(row.querySelector('.ii-sc-value')?.textContent);
+        const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
+        const _effII  = _piisc || _pii;
+        const _effIE  = _piesc || _pie || _effII;
         rows.push({
             foto:   fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
             codice, desc,
@@ -2257,6 +2267,8 @@ function stampaPDFConColonne() {
             sconto: row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
             piisc:  row.querySelector('.ii-sc-value')?.textContent || '—',
             piesc:  row.querySelector('.ie-sc-value')?.textContent || '—',
+            tot_ii: _qty > 0 && _effII > 0 ? '€ ' + itFmt(_effII * _qty) : '—',
+            tot_ie: _qty > 0 && _effIE > 0 ? '€ ' + itFmt(_effIE * _qty) : '—',
             qty:    row.querySelector('.qty-input')?.value || '',
             tot:    '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
         });
@@ -2457,6 +2469,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="sconto" value="sconto"> Sconto %</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piisc" value="piisc"> Prezzo i.i. sc.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piesc" value="piesc"> Prezzo i.e. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="tot_ii" value="tot_ii"> Totale i.i. riga</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="tot_ie" value="tot_ie"> Totale i.e. riga</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="qty" value="qty" checked> Qtà</label>
     </div>
     <div class="border-t border-slate-100 pt-3 mt-1 mb-4">
