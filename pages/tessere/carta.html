@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Tessera Fedeltà — Meridiano 361</title>
+<link rel="icon" href="/faviconm361.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:linear-gradient(160deg,#fff7f7 0%,#f8fafc 60%,#f0f4ff 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:24px;box-shadow:0 8px 40px rgba(181,69,58,.13);max-width:400px;width:100%;overflow:hidden}
+.card-header{background:linear-gradient(135deg,#B5453A,#9e3f3f);padding:20px 24px 16px;text-align:center;color:#fff}
+.logo-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px}
+.logo-row img{width:32px;height:32px;border-radius:8px;background:#fff;padding:2px}
+.brand{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.9}
+.card-title{font-size:20px;font-weight:900;margin-top:6px}
+.card-subtitle{font-size:13px;opacity:.8;margin-top:2px}
+.card-body{padding:24px}
+.greeting{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:18px;text-align:center}
+/* Griglia timbri */
+.stamps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stamp{aspect-ratio:1;border-radius:50%;border:2.5px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s}
+.stamp.filled{background:linear-gradient(135deg,#B5453A,#c0574a);border-color:#B5453A;border-style:solid;box-shadow:0 2px 8px rgba(181,69,58,.3)}
+.stamp.filled::after{content:'✓';color:#fff;font-size:18px;font-weight:900}
+/* Progress text */
+.progress-wrap{margin-bottom:18px}
+.progress-bar-bg{background:#f1f5f9;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px}
+.progress-bar-fill{background:linear-gradient(90deg,#B5453A,#e87a72);height:100%;border-radius:99px;transition:width .6s ease}
+.progress-text{font-size:13px;color:#64748b;font-weight:600;text-align:center}
+.progress-text strong{color:#B5453A}
+/* Sconto banner */
+.sconto-banner{background:linear-gradient(135deg,#d1fae5,#a7f3d0);border:2px solid #34d399;border-radius:14px;padding:14px 16px;margin-bottom:16px;text-align:center}
+.sconto-banner-icon{font-size:28px;margin-bottom:4px}
+.sconto-amount{font-size:26px;font-weight:900;color:#065f46;line-height:1}
+.sconto-label{font-size:13px;color:#047857;font-weight:700;margin-top:2px}
+.sconto-hint{font-size:11px;color:#059669;margin-top:4px}
+/* Info row */
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #f1f5f9;font-size:12px;color:#94a3b8}
+.info-row strong{color:#475569}
+/* Footer */
+.card-footer{background:#f8fafc;border-top:1px solid #f1f5f9;padding:14px 24px;text-align:center;font-size:11px;color:#94a3b8;line-height:1.5}
+/* Loading / error */
+.center-msg{text-align:center;padding:40px 20px}
+.center-msg i{font-size:40px;color:#e2e8f0;margin-bottom:12px;display:block}
+.center-msg p{color:#94a3b8;font-size:15px}
+.spinner{width:40px;height:40px;border:4px solid #fce7e7;border-top-color:#B5453A;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div style="padding:60px 24px;text-align:center">
+    <div class="spinner"></div>
+    <p style="color:#94a3b8;font-size:14px">Caricamento...</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const TIMBRI_MAX = 12;
+const EURO_PER_TIMBRO = 25;
+const SCONTO_CICLO = 20;
+
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  return d.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+async function loadCard() {
+  const token = new URLSearchParams(location.search).get('t');
+  const card = document.getElementById('card');
+
+  if (!token) {
+    card.innerHTML = `<div class="center-msg"><i class="fas fa-link-slash"></i><p>Link non valido</p></div>`;
+    return;
+  }
+
+  const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  const { data: t, error } = await sb.from('tessere')
+    .select('*')
+    .eq('token', token)
+    .single();
+
+  if (error || !t) {
+    card.innerHTML = `<div class="center-msg"><i class="fas fa-circle-xmark"></i><p>Tessera non trovata</p></div>`;
+    return;
+  }
+
+  const { data: c } = await sb.from('clienti')
+    .select('nome, cognome')
+    .eq('id', t.cliente_id)
+    .single();
+
+  const nome = c?.nome || 'Cliente';
+  const timbri = t.timbri_attuali || 0;
+  const saldo = t.saldo_sconto || 0;
+  const totale = t.totale_spesa || 0;
+  const timbriRimanenti = TIMBRI_MAX - timbri;
+  const euroRimanenti = timbriRimanenti * EURO_PER_TIMBRO;
+  const pct = Math.min((timbri / TIMBRI_MAX) * 100, 100);
+
+  const stampsHtml = Array.from({ length: TIMBRI_MAX }, (_, i) =>
+    `<div class="stamp${i < timbri ? ' filled' : ''}"></div>`
+  ).join('');
+
+  const scontoBanner = saldo > 0 ? `
+    <div class="sconto-banner">
+      <div class="sconto-banner-icon">🎁</div>
+      <div class="sconto-amount">€${saldo.toFixed(0)}</div>
+      <div class="sconto-label">di sconto disponibile</div>
+      <div class="sconto-hint">Mostra questa schermata in negozio</div>
+    </div>` : '';
+
+  const progressText = timbri >= TIMBRI_MAX
+    ? `<strong>Tessera completa!</strong> Hai guadagnato €${SCONTO_CICLO} di sconto 🎉`
+    : timbri === 0
+      ? `Inizia a collezionare timbri — ogni <strong>€${EURO_PER_TIMBRO}</strong> di acquisto = 1 timbro`
+      : `<strong>${timbri}</strong> di ${TIMBRI_MAX} timbri · ancora <strong>€${euroRimanenti}</strong> per completare`;
+
+  const aggiornatoEl = t.updated_at || t.created_at;
+
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="logo-row">
+        <img src="/faviconm361.png" alt="logo" onerror="this.style.display='none'">
+        <span class="brand">Meridiano 361</span>
+      </div>
+      <div class="card-title">Taccuino Fedeltà</div>
+      <div class="card-subtitle">${t.tipo === 'ambassador' ? '⭐ Ambassador' : 'Standard'} · ${t.codice_tessera || ''}</div>
+    </div>
+    <div class="card-body">
+      <div class="greeting">Ciao, <strong>${nome}</strong>! 👋</div>
+
+      ${scontoBanner}
+
+      <div class="stamps-grid">${stampsHtml}</div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="progress-text">${progressText}</div>
+      </div>
+
+      <div class="info-row">
+        <span>Spesa totale registrata</span>
+        <strong>€${totale.toFixed(2)}</strong>
+      </div>
+      ${aggiornatoEl ? `<div class="info-row"><span>Ultimo aggiornamento</span><strong>${fmtDate(aggiornatoEl)}</strong></div>` : ''}
+    </div>
+    <div class="card-footer">
+      Ogni €${EURO_PER_TIMBRO} di acquisto = 1 timbro · ${TIMBRI_MAX} timbri = €${SCONTO_CICLO} di sconto<br>
+      Porta questa schermata in negozio per utilizzare il tuo sconto
+    </div>`;
+}
+
+loadCard();
+</script>
+</body>
+</html>

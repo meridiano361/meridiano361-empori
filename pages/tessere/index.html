@@ -140,6 +140,41 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .sconto-banner i{color:#16a34a;font-size:18px}
 .sconto-banner strong{color:#166534;font-size:14px}
 
+/* ── Tab Digitale ── */
+.dig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.dig-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px}
+.dig-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.dig-initials{width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dig-name{font-size:14px;font-weight:800;color:#1e293b}
+.dig-sub{font-size:11px;color:#94a3b8;margin-top:1px}
+.dig-stamps{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.dig-stamp{width:22px;height:22px;border-radius:50%;border:2px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.dig-stamp.on{background:#B5453A;border-color:#B5453A;border-style:solid}
+.dig-stamp.on::after{content:'✓';color:#fff;font-size:9px;font-weight:900}
+.dig-saldo{display:inline-flex;align-items:center;gap:4px;background:#d1fae5;border:1px solid #34d399;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:800;color:#065f46;margin-bottom:10px}
+.dig-actions{display:flex;gap:6px;flex-wrap:wrap}
+.dig-progress-text{font-size:11px;color:#94a3b8;margin-bottom:8px}
+/* Modal spesa */
+.spesa-modal{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:600;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.spesa-modal.open{opacity:1;pointer-events:all}
+.spesa-sheet{background:#fff;border-radius:20px 20px 0 0;padding:20px 20px 36px;width:100%;max-width:520px;transform:translateY(40px);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.spesa-modal.open .spesa-sheet{transform:translateY(0)}
+.spesa-sheet h3{font-size:16px;font-weight:900;color:#1e293b;margin-bottom:4px}
+.spesa-sheet p{font-size:12px;color:#64748b;margin-bottom:16px}
+.importo-input{width:100%;font-size:28px;font-weight:900;color:#1e293b;text-align:center;border:2px solid #e2e8f0;border-radius:14px;padding:14px;font-family:'Nunito',sans-serif;outline:none;margin-bottom:8px}
+.importo-input:focus{border-color:var(--red)}
+.importo-preview{text-align:center;font-size:13px;color:#64748b;margin-bottom:16px;min-height:20px}
+.wa-success{background:#e0fce7;border:1.5px solid #25d366;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-top:12px;display:none}
+.wa-success.show{display:flex}
+.wa-success i{color:#25d366;font-size:20px;flex-shrink:0}
+.wa-success-text{flex:1}
+.wa-success-text strong{display:block;font-size:13px;color:#166534}
+.wa-success-text span{font-size:11px;color:#047857}
+.dig-search{width:100%;padding:10px 14px 10px 36px;border:1px solid #e2e8f0;border-radius:10px;font-family:'Nunito',sans-serif;font-size:14px;margin-bottom:14px;outline:none}
+.dig-search:focus{border-color:var(--red)}
+.dig-search-wrap{position:relative;margin-bottom:14px}
+.dig-search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#94a3b8}
+
 /* ── Check rows ── */
 .check-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f5f9}
 .check-row:last-child{border-bottom:none}
@@ -313,6 +348,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
       <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
       <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
+      <button class="tab-btn" data-tab="digitale" onclick="showTab('digitale')">Digitale</button>
     </div>
     <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo cliente</button>
   </div>
@@ -506,8 +542,48 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     </div>
     <div id="dup-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Analisi in corso…</div></div>
   </div>
+
+  <!-- TAB DIGITALE -->
+  <div id="tab-digitale" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Tessere Digitali</div>
+        <div style="font-size:12px;color:#64748b">Registra spese e invia il link taccuino al cliente via WhatsApp</div>
+      </div>
+    </div>
+    <div class="dig-search-wrap">
+      <i class="fas fa-search"></i>
+      <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice tessera…" oninput="renderDigitale()" autocomplete="off">
+    </div>
+    <div class="dig-grid" id="dig-grid"></div>
+  </div>
 </div>
 
+
+<!-- MODAL REGISTRA SPESA -->
+<div class="spesa-modal" id="spesa-modal" onclick="if(event.target===this)chiudiSpesaModal()">
+  <div class="spesa-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3 id="spesa-modal-nome">Registra Spesa</h3>
+      <button onclick="chiudiSpesaModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <p id="spesa-modal-sub">Inserisci l'importo della spesa</p>
+    <input class="importo-input" type="number" id="spesa-importo" placeholder="0" min="0" step="0.50" oninput="aggiornaPreviewSpesa()">
+    <div class="importo-preview" id="spesa-preview"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="chiudiSpesaModal()">Annulla</button>
+      <button class="btn btn-red" style="flex:2" id="btn-salva-spesa" onclick="salvaSpesa()"><i class="fas fa-check"></i> Registra</button>
+    </div>
+    <div class="wa-success" id="wa-success-box">
+      <i class="fab fa-whatsapp"></i>
+      <div class="wa-success-text">
+        <strong id="wa-result-text">Spesa registrata!</strong>
+        <span id="wa-result-sub"></span>
+      </div>
+      <a id="wa-link-btn" href="#" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;flex-shrink:0">Invia WA</a>
+    </div>
+  </div>
+</div>
 
 <!-- MERGE MODAL -->
 <div class="small-modal" id="merge-modal">
@@ -804,7 +880,7 @@ async function init() {
 async function loadAll() {
   const PAGE = 1000;
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto';
 
   // Prima pagina di clienti + tessere + messaggi in parallelo → render immediato
   const [r1, r2, m] = await Promise.all([
@@ -862,7 +938,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCliente
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
   activeTab = tab;
-  ['analisi','messaggi','consensi','tessere','duplicati','compleanni'].forEach(t => {
+  ['analisi','messaggi','consensi','tessere','duplicati','compleanni','digitale'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
@@ -873,6 +949,7 @@ function showTab(tab) {
   if (tab === 'messaggi') _refreshConsentMsgPreview();
   if (tab === 'compleanni') renderCompleanni();
   if (tab === 'analisi') renderAnalisi();
+  if (tab === 'digitale') renderDigitale();
 }
 
 function _buildTessereMap() {
@@ -2879,6 +2956,197 @@ async function confirmMerge() {
     renderDuplicati();
   } catch(e) {
     alert('Errore durante l\'unione: ' + e.message);
+  }
+}
+
+// ── TESSERE DIGITALI ──────────────────────────────────────────────────────────
+const DIG_EURO_TIMBRO = 25;
+const DIG_TIMBRI_MAX  = 12;
+const DIG_SCONTO      = 20;
+
+let _digSpesaTesseraId = null;
+
+function renderDigitale() {
+  const grid = document.getElementById('dig-grid');
+  if (!grid) return;
+  const q = (document.getElementById('dig-search')?.value || '').toLowerCase().trim();
+
+  const cMap = new Map(allClienti.map(c => [c.id, c]));
+  const tessereAttive = allTessere.filter(t => t.attiva !== false && t.tipo !== 'ambassador' || t.attiva !== false);
+
+  let righe = tessereAttive
+    .map(t => ({ t, c: cMap.get(t.cliente_id) }))
+    .filter(({ t, c }) => {
+      if (!c) return false;
+      if (!q) return true;
+      const hay = `${c.nome} ${c.cognome} ${t.codice_tessera || ''}`.toLowerCase();
+      return hay.includes(q);
+    })
+    .sort((a, b) => `${a.c.cognome}${a.c.nome}`.localeCompare(`${b.c.cognome}${b.c.nome}`));
+
+  if (!righe.length) {
+    grid.innerHTML = '<div class="empty"><i class="fas fa-id-card"></i><p>Nessuna tessera trovata</p></div>';
+    return;
+  }
+
+  grid.innerHTML = righe.map(({ t, c }) => {
+    const timbri = t.timbri_attuali || 0;
+    const saldo  = t.saldo_sconto   || 0;
+    const iniziali = `${(c.nome||'')[0]||''}${(c.cognome||'')[0]||''}`.toUpperCase();
+    const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
+
+    const stampsHtml = Array.from({ length: DIG_TIMBRI_MAX }, (_, i) =>
+      `<div class="dig-stamp${i < timbri ? ' on' : ''}"></div>`
+    ).join('');
+
+    const rimasti = DIG_TIMBRI_MAX - timbri;
+    const progressTxt = timbri === 0
+      ? `Nessun timbro ancora`
+      : timbri >= DIG_TIMBRI_MAX
+        ? `Tessera completa! 🎉`
+        : `${timbri}/${DIG_TIMBRI_MAX} timbri · ancora €${rimasti * DIG_EURO_TIMBRO} per completare`;
+
+    const saldoBadge = saldo > 0
+      ? `<div class="dig-saldo"><i class="fas fa-gift"></i> €${saldo.toFixed(0)} di sconto</div><br>`
+      : '';
+
+    const tel = (c.telefono || '').replace(/\D/g,'');
+    const cartaUrl = `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
+    const waTxt = encodeURIComponent(`Ciao ${c.nome}! La tua Tessera Fedeltà Meridiano 361 è aggiornata 🎉 Guarda i tuoi timbri qui: ${cartaUrl}`);
+    const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
+
+    return `<div class="dig-card">
+      <div class="dig-card-top">
+        <div class="dig-initials">${iniziali}</div>
+        <div>
+          <div class="dig-name">${esc(nomeCompleto)}</div>
+          <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? '⭐ Ambassador' : 'Standard'}</div>
+        </div>
+      </div>
+      ${saldoBadge}
+      <div class="dig-stamps">${stampsHtml}</div>
+      <div class="dig-progress-text">${progressTxt}</div>
+      <div class="dig-actions">
+        <button class="btn btn-red btn-sm" onclick="apriSpesaModal(${t.id})">
+          <i class="fas fa-euro-sign"></i> Registra Spesa
+        </button>
+        ${tel && t.token ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
+          <i class="fab fa-whatsapp"></i> Invia Link
+        </a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function apriSpesaModal(tesseraId) {
+  _digSpesaTesseraId = tesseraId;
+  const tMap = new Map(allTessere.map(t => [t.id, t]));
+  const cMap = new Map(allClienti.map(c => [c.id, c]));
+  const t = tMap.get(tesseraId);
+  const c = t ? cMap.get(t.cliente_id) : null;
+  const nomeCompleto = c ? `${c.nome || ''} ${c.cognome || ''}`.trim() : 'Cliente';
+
+  document.getElementById('spesa-modal-nome').textContent = `Spesa di ${nomeCompleto}`;
+  document.getElementById('spesa-modal-sub').textContent =
+    `Timbri attuali: ${t?.timbri_attuali || 0}/${DIG_TIMBRI_MAX} · ogni €${DIG_EURO_TIMBRO} = 1 timbro`;
+  document.getElementById('spesa-importo').value = '';
+  document.getElementById('spesa-preview').textContent = '';
+  const box = document.getElementById('wa-success-box');
+  box.classList.remove('show');
+  document.getElementById('btn-salva-spesa').style.display = '';
+  document.getElementById('spesa-modal').classList.add('open');
+  setTimeout(() => document.getElementById('spesa-importo').focus(), 200);
+}
+
+function chiudiSpesaModal() {
+  document.getElementById('spesa-modal').classList.remove('open');
+  _digSpesaTesseraId = null;
+}
+
+function aggiornaPreviewSpesa() {
+  const importo = parseFloat(document.getElementById('spesa-importo').value) || 0;
+  const timbri = Math.floor(importo / DIG_EURO_TIMBRO);
+  const prev = document.getElementById('spesa-preview');
+  if (importo <= 0) { prev.textContent = ''; return; }
+  prev.innerHTML = timbri > 0
+    ? `<strong style="color:#B5453A">+${timbri} timbro${timbri > 1 ? 'i' : ''}</strong>`
+    : `Servono almeno €${DIG_EURO_TIMBRO} per guadagnare 1 timbro`;
+}
+
+async function salvaSpesa() {
+  if (!_digSpesaTesseraId) return;
+  const importo = parseFloat(document.getElementById('spesa-importo').value);
+  if (!importo || importo <= 0) { alert('Inserisci un importo valido'); return; }
+
+  const btn = document.getElementById('btn-salva-spesa');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+  try {
+    const tMap = new Map(allTessere.map(t => [t.id, t]));
+    const cMap = new Map(allClienti.map(c => [c.id, c]));
+    const t = tMap.get(_digSpesaTesseraId);
+    const c = cMap.get(t.cliente_id);
+
+    const timbriNuovi     = Math.floor(importo / DIG_EURO_TIMBRO);
+    let   timbriAttuali   = (t.timbri_attuali || 0) + timbriNuovi;
+    let   scontoGenerato  = 0;
+    let   saldoSconto     = t.saldo_sconto || 0;
+
+    if (timbriAttuali >= DIG_TIMBRI_MAX) {
+      const cicli     = Math.floor(timbriAttuali / DIG_TIMBRI_MAX);
+      scontoGenerato  = cicli * DIG_SCONTO;
+      saldoSconto    += scontoGenerato;
+      timbriAttuali   = timbriAttuali % DIG_TIMBRI_MAX;
+    }
+
+    await _sb.from('movimenti_tessera').insert({
+      tessera_id:       _digSpesaTesseraId,
+      importo,
+      timbri_aggiunti:  timbriNuovi,
+      sconto_generato:  scontoGenerato,
+      operatore:        _user?.nome || ''
+    });
+
+    await _sb.from('tessere').update({
+      timbri_attuali: timbriAttuali,
+      totale_spesa:   (t.totale_spesa || 0) + importo,
+      saldo_sconto:   saldoSconto
+    }).eq('id', _digSpesaTesseraId);
+
+    // Aggiorna cache locale
+    const idx = allTessere.findIndex(x => x.id === _digSpesaTesseraId);
+    if (idx >= 0) {
+      allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriAttuali, totale_spesa: (t.totale_spesa||0)+importo, saldo_sconto: saldoSconto };
+    }
+
+    // Mostra risultato + WA link
+    const tel = (c?.telefono || '').replace(/\D/g,'');
+    const cartaUrl = `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
+    const waTxt = encodeURIComponent(`Ciao ${c?.nome}! Hai fatto una spesa di €${importo.toFixed(2)} (+${timbriNuovi} timbro${timbriNuovi>1?'i':''})${scontoGenerato > 0 ? ` 🎉 Hai guadagnato €${scontoGenerato} di sconto!` : ''}. Guarda la tua tessera: ${cartaUrl}`);
+
+    const resultText = scontoGenerato > 0
+      ? `🎉 +${timbriNuovi} timbro${timbriNuovi>1?'i':''} · €${scontoGenerato} di sconto guadagnato!`
+      : `✓ +${timbriNuovi} timbro${timbriNuovi>1?'i':''}`;
+    document.getElementById('wa-result-text').textContent = resultText;
+    document.getElementById('wa-result-sub').textContent = `Timbri ora: ${timbriAttuali}/${DIG_TIMBRI_MAX}`;
+
+    const waBtn = document.getElementById('wa-link-btn');
+    if (tel && t.token) {
+      waBtn.href = `https://wa.me/39${tel}?text=${waTxt}`;
+      waBtn.style.display = '';
+    } else {
+      waBtn.style.display = 'none';
+    }
+
+    document.getElementById('wa-success-box').classList.add('show');
+    btn.style.display = 'none';
+
+    renderDigitale();
+  } catch(e) {
+    alert('Errore: ' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Registra';
   }
 }
 </script>
