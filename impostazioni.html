@@ -3557,10 +3557,16 @@
         const el = document.getElementById('regole-notifiche-lista');
         if (!el) return;
 
-        const { data, error } = await db
+        let { data, error } = await db
             .from('notifiche_config')
-            .select('id, nome, titolo_notifica, descrizione, attiva, canale, destinatari, evento, giorni_anticipo')
+            .select('id, nome, titolo_notifica, descrizione, attiva, canale, destinatari, evento, giorni_anticipo, quando_tipo, giorno_settimana, ora_invio')
             .order('evento').order('giorni_anticipo', { ascending: true, nullsFirst: false });
+        if (error && error.message && (error.message.includes('schema cache') || error.message.includes('does not exist'))) {
+            ({ data, error } = await db
+                .from('notifiche_config')
+                .select('id, nome, titolo_notifica, descrizione, attiva, canale, destinatari, evento, giorni_anticipo')
+                .order('evento').order('giorni_anticipo', { ascending: true, nullsFirst: false }));
+        }
 
         if (error || !data?.length) {
             el.innerHTML = '<div style="color:#94a3b8;font-size:13px">Nessuna regola trovata. Assicurati di aver eseguito la migration <code>20260924_notifiche_config.sql</code>.</div>';
