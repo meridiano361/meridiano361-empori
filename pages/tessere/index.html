@@ -831,6 +831,14 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 
 // ── State ───────────────────────────────────────────────────────────────────
 let _sb, _user;
+// auth.js non è caricato qui — helper locali basati su _user
+function _isAdminLocal() {
+  if (!_user) return false;
+  const em = (_user.email || '').toLowerCase();
+  if (em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it') return true;
+  return ['admin', 'dipendente'].includes(_user.ruolo);
+}
+function _getEmporioLocal() { return _user?.emporio || null; }
 let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
 // ── Lookup-map cache ──────────────────────────────────────────────────────────
 let _tessereMapCache = null;
@@ -892,8 +900,7 @@ async function init() {
 
 const _CACHE_TTL = 5 * 60 * 1000; // 5 minuti
 function _cacheKey() {
-  // Cache separata per emporio: operatori diversi non si contaminano
-  const emp = getEmporioLoggato() || 'admin';
+  const emp = _getEmporioLocal() || 'admin';
   return `m361_tess_v3_${emp}`;
 }
 function _saveCache(clienti, tessere, messaggi) {
@@ -936,8 +943,8 @@ async function loadAll() {
 }
 
 async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
-  const emporio = getEmporioLoggato();
-  const admin   = isAdmin();
+  const emporio = _getEmporioLocal();
+  const admin   = _isAdminLocal();
 
   // Query base — per non-admin filtriamo server-side sull'emporio (riduce drasticamente i dati)
   let qC = _sb.from('clienti').select(C_COLS).order('cognome').order('nome');
@@ -984,8 +991,8 @@ async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
 }
 
 async function _loadRemainingPages(C_COLS, T_COLS, PAGE, offC, offT) {
-  const emporio = getEmporioLoggato();
-  const admin   = isAdmin();
+  const emporio = _getEmporioLocal();
+  const admin   = _isAdminLocal();
   while (offC !== null || offT !== null) {
     let qC = _sb.from('clienti').select(C_COLS).order('cognome').order('nome');
     let qT = _sb.from('tessere').select(T_COLS);
