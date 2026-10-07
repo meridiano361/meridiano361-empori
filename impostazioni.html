@@ -609,6 +609,25 @@
                                     <input id="nr-giorni" type="number" min="1" placeholder="N" style="width:72px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;box-sizing:border-box">
                                 </div>
                                 <div id="nr-quando-hint" style="margin-top:6px;padding:7px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:0 6px 6px 0;font-size:11.5px;color:#475569;line-height:1.5"></div>
+                                <!-- Sub-campi: giorno + ora (visibili solo per "settimana") -->
+                                <div id="nr-settimana-extra" style="display:none;margin-top:8px;display:none;gap:10px;grid-template-columns:1fr 1fr">
+                                    <div>
+                                        <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Giorno *</label>
+                                        <select id="nr-giorno-sett" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;background:#fff;outline:none">
+                                            <option value="lunedi">Lunedì</option>
+                                            <option value="martedi">Martedì</option>
+                                            <option value="mercoledi">Mercoledì</option>
+                                            <option value="giovedi">Giovedì</option>
+                                            <option value="venerdi">Venerdì</option>
+                                            <option value="sabato">Sabato</option>
+                                            <option value="domenica">Domenica</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px">Ora *</label>
+                                        <input id="nr-ora-invio" type="time" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;box-sizing:border-box">
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Come + Sezione -->
@@ -3682,6 +3701,8 @@
         const inp  = document.getElementById('nr-giorni');
         inp.style.display = (tipo === 'giorni') ? '' : 'none';
         if (tipo !== 'giorni') inp.value = '';
+        const extra = document.getElementById('nr-settimana-extra');
+        if (extra) extra.style.display = (tipo === 'settimana') ? 'grid' : 'none';
         const hints = {
             giorni:       'Inserisci il numero di giorni. La notifica viene inviata N giorni <strong>prima</strong> della data dell\'evento (es. campagna, scadenza prodotto).',
             giorno_stesso:'La notifica parte la <strong>mattina stessa</strong> in cui cade l\'evento (ore 8:00 circa).',
@@ -3711,6 +3732,8 @@
         document.getElementById('nr-evento').value = 'campagna';
         document.getElementById('nr-canale').value = 'push';
         document.getElementById('nr-quando-tipo').value = 'giorni';
+        document.getElementById('nr-giorno-sett').value = 'lunedi';
+        document.getElementById('nr-ora-invio').value = '';
         _nrDestReset();
         toggleNrQuandoValore();
         document.getElementById('nuova-regola-form').style.display = 'block';
@@ -3732,6 +3755,10 @@
         const tipo = _nrQuandoTipoFromRecord(r);
         document.getElementById('nr-quando-tipo').value = tipo;
         toggleNrQuandoValore();
+        if (tipo === 'settimana') {
+            if (r.giorno_settimana) document.getElementById('nr-giorno-sett').value = r.giorno_settimana;
+            if (r.ora_invio) document.getElementById('nr-ora-invio').value = r.ora_invio.substring(0, 5);
+        }
         _nrDestSet(r.destinatari || '');
         document.getElementById('nuova-regola-form').style.display = 'block';
         document.getElementById('btn-nuova-regola').style.display = 'none';
@@ -3758,8 +3785,10 @@
 
         if (!nome) { showToast('Inserisci il nome della regola', 'err'); return; }
 
-        const quandoTipo = document.getElementById('nr-quando-tipo').value;
-        const payload = { nome, titolo_notifica: nome, descrizione: desc || null, canale, destinatari: dest, evento, giorni_anticipo: giorni, quando_tipo: quandoTipo, updated_at: new Date().toISOString() };
+        const quandoTipo    = document.getElementById('nr-quando-tipo').value;
+        const giornoSett    = quandoTipo === 'settimana' ? (document.getElementById('nr-giorno-sett').value || null) : null;
+        const oraInvio      = quandoTipo === 'settimana' ? (document.getElementById('nr-ora-invio').value || null) : null;
+        const payload = { nome, titolo_notifica: nome, descrizione: desc || null, canale, destinatari: dest, evento, giorni_anticipo: giorni, quando_tipo: quandoTipo, giorno_settimana: giornoSett, ora_invio: oraInvio, updated_at: new Date().toISOString() };
 
         async function _doSave(isEdit, id) {
             let err;
@@ -3769,7 +3798,7 @@
                 ({ error: err } = await db.from('notifiche_config').insert({ id, attiva: true, ...payload }));
             }
             if (err && err.message && (err.message.includes('schema cache') || err.message.includes('does not exist'))) {
-                const { quando_tipo: _qt, ...payloadBase } = payload;
+                const { quando_tipo: _qt, giorno_settimana: _gs, ora_invio: _oi, ...payloadBase } = payload;
                 if (isEdit) {
                     ({ error: err } = await db.from('notifiche_config').update(payloadBase).eq('id', id));
                 } else {
