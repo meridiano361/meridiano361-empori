@@ -606,14 +606,15 @@
                                 <div style="display:flex;gap:8px;align-items:center">
                                     <select id="nr-quando-tipo" onchange="toggleNrQuandoValore()" style="flex:1;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;background:#fff;outline:none">
                                         <option value="giorni">N giorni prima dell'evento</option>
-                                        <option value="giorno_stesso">Il giorno stesso</option>
-                                        <option value="arrivo">All'arrivo dell'evento</option>
-                                        <option value="settimana">Ogni settimana</option>
-                                        <option value="ora_turno">All'ora di inizio/fine turno</option>
-                                        <option value="periodico">A cadenza periodica</option>
+                                        <option value="giorno_stesso">Il giorno stesso dell'evento</option>
+                                        <option value="arrivo">Non appena l'evento viene inserito</option>
+                                        <option value="settimana">Ogni settimana (ricorrente)</option>
+                                        <option value="ora_turno">All'ora esatta di inizio/fine turno</option>
+                                        <option value="periodico">A cadenza periodica (es. ogni mese)</option>
                                     </select>
                                     <input id="nr-giorni" type="number" min="1" placeholder="N" style="width:72px;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;outline:none;box-sizing:border-box">
                                 </div>
+                                <div id="nr-quando-hint" style="margin-top:6px;padding:7px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:0 6px 6px 0;font-size:11.5px;color:#475569;line-height:1.5"></div>
                             </div>
 
                             <!-- Come + Sezione -->
@@ -3687,11 +3688,22 @@
         const inp  = document.getElementById('nr-giorni');
         inp.style.display = (tipo === 'giorni') ? '' : 'none';
         if (tipo !== 'giorni') inp.value = '';
+        const hints = {
+            giorni:       'Inserisci il numero di giorni. La notifica viene inviata N giorni <strong>prima</strong> della data dell\'evento (es. campagna, scadenza prodotto).',
+            giorno_stesso:'La notifica parte la <strong>mattina stessa</strong> in cui cade l\'evento (ore 8:00 circa).',
+            arrivo:       'La notifica viene inviata <strong>immediatamente</strong> quando l\'evento viene registrato nell\'app (es. ordine inserito, richiesta di fornitura creata).',
+            settimana:    'La notifica viene inviata <strong>una volta a settimana</strong>, indipendentemente da un evento specifico. Utile per report o promemoria ricorrenti.',
+            ora_turno:    'La notifica parte <strong>esattamente all\'ora</strong> di inizio o fine turno, come indicato nel calendario turni.',
+            periodico:    'La notifica viene inviata a <strong>intervalli regolari</strong> (es. ogni mese). Utile per scadenze periodiche o verifiche programmate.',
+        };
+        const hint = document.getElementById('nr-quando-hint');
+        if (hint) hint.innerHTML = hints[tipo] || '';
     }
 
-    function _nrQuandoTipoFromGiorni(giorni) {
-        if (giorni === null || giorni === undefined || giorni === '') return 'arrivo';
-        if (Number(giorni) > 0) return 'giorni';
+    function _nrQuandoTipoFromRecord(r) {
+        if (r.quando_tipo) return r.quando_tipo;
+        const g = r.giorni_anticipo;
+        if (g !== null && g !== undefined && g !== '' && Number(g) > 0) return 'giorni';
         return 'arrivo';
     }
 
@@ -3725,7 +3737,7 @@
         document.getElementById('nr-evento').value = r.evento;
         document.getElementById('nr-canale').value = r.canale;
         document.getElementById('nr-giorni').value = r.giorni_anticipo ?? '';
-        const tipo = _nrQuandoTipoFromGiorni(r.giorni_anticipo);
+        const tipo = _nrQuandoTipoFromRecord(r);
         document.getElementById('nr-quando-tipo').value = tipo;
         toggleNrQuandoValore();
         _nrDestSet(r.destinatari || '');
@@ -3756,15 +3768,34 @@
 
         if (!nome) { showToast('Inserisci il nome della regola', 'err'); return; }
 
-        const payload = { nome, titolo_notifica: titoloNotif || null, descrizione: desc || null, canale, destinatari: dest, evento, giorni_anticipo: giorni, updated_at: new Date().toISOString() };
+        const quandoTipo = document.getElementById('nr-quando-tipo').value;
+        const payload = { nome, titolo_notifica: titoloNotif || null, descrizione: desc || null, canale, destinatari: dest, evento, giorni_anticipo: giorni, quando_tipo: quandoTipo, updated_at: new Date().toISOString() };
+
+        async function _doSave(isEdit, id) {
+            let err;
+            if (isEdit) {
+                ({ error: err } = await db.from('notifiche_config').update(payload).eq('id', id));
+            } else {
+                ({ error: err } = await db.from('notifiche_config').insert({ id, attiva: true, ...payload }));
+            }
+            if (err && err.message && (err.message.includes('schema cache') || err.message.includes('does not exist'))) {
+                const { quando_tipo: _qt, ...payloadBase } = payload;
+                if (isEdit) {
+                    ({ error: err } = await db.from('notifiche_config').update(payloadBase).eq('id', id));
+                } else {
+                    ({ error: err } = await db.from('notifiche_config').insert({ id, attiva: true, ...payloadBase }));
+                }
+            }
+            return err;
+        }
 
         if (editId) {
-            const { error } = await db.from('notifiche_config').update(payload).eq('id', editId);
+            const error = await _doSave(true, editId);
             if (error) { showToast('Errore: ' + error.message, 'err'); return; }
             showToast('Regola aggiornata', 'ok');
         } else {
             const id = nome.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now().toString(36);
-            const { error } = await db.from('notifiche_config').insert({ id, attiva: true, ...payload });
+            const error = await _doSave(false, id);
             if (error) { showToast('Errore: ' + error.message, 'err'); return; }
             showToast('Regola aggiunta', 'ok');
         }
