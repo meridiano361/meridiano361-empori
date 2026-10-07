@@ -991,6 +991,8 @@ function buildNav() {
   async function checkAndShowNotifiche(user) {
     const _supabase = getSupabase();
     if (!_supabase || !user?.nome) return;
+    // Non mostrare banner nelle pagine di amministrazione
+    if (location.pathname.includes('impostazioni') || location.pathname.includes('/admin')) return;
 
     const emporio = (user.emporio || '').toLowerCase();
     const nome    = user.nome;
