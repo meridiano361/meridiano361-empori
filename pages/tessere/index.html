@@ -444,16 +444,17 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     </div>
     <!-- Cerca + filtri a tendina -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-      <input type="text" id="tess-search" placeholder="Cerca N° tessera, cognome, nome, città…" oninput="renderTessereTab()"
+      <input type="text" id="tess-search" placeholder="Cerca N° tessera, cognome, nome, città…"
+        oninput="clearTimeout(_searchDebounceTimer);_searchDebounceTimer=setTimeout(()=>{_tessPage=0;renderTessereTab()},220)"
         style="flex:1;min-width:200px;padding:7px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;outline:none">
-      <select id="tess-emp-sel" onchange="_tessereEmpFilt=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-emp-sel" onchange="_tessereEmpFilt=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Tutti gli empori</option>
         <option value="cremona">Cremona</option>
         <option value="casalmaggiore">Casalmaggiore</option>
         <option value="viadana">Viadana</option>
         <option value="reggio emilia">Reggio Emilia</option>
       </select>
-      <select id="tess-anno-sel" onchange="_tessereAnno=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-anno-sel" onchange="_tessereAnno=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Tutti gli anni</option>
         <option value="2019">2019</option>
         <option value="2020">2020</option>
@@ -464,23 +465,23 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <option value="2025">2025</option>
         <option value="2026">2026</option>
       </select>
-      <select id="tess-tipo-sel" onchange="_tessereTipo=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-tipo-sel" onchange="_tessereTipo=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Tutti i tipi</option>
         <option value="standard">Standard</option>
         <option value="ambassador">Ambassador</option>
       </select>
-      <select id="tess-stato-sel" onchange="_tessereStato=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-stato-sel" onchange="_tessereStato=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Tutti gli stati</option>
         <option value="attiva">Attive</option>
         <option value="completa">Complete</option>
         <option value="archiviata">Archiviate</option>
       </select>
-      <select id="tess-attiv-sel" onchange="_tessereAttivita=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-attiv-sel" onchange="_tessereAttivita=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Iscrizioni + Rinnovi</option>
         <option value="iscrizione">Solo iscrizioni</option>
         <option value="rinnovo">Solo rinnovi</option>
       </select>
-      <select id="tess-sort-sel" onchange="_tessereSort=this.value;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-sort-sel" onchange="_tessereSort=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="numero">Ordina: N° Tessera</option>
         <option value="cognome">Ordina: Cognome</option>
         <option value="citta">Ordina: Città</option>
@@ -746,10 +747,12 @@ let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
 let _tessereMapCache = null;
 let _tessereCodsMapCache = null;
 let _clientiMapCache = null;
-function _invalidateMaps() { _tessereMapCache = null; _tessereCodsMapCache = null; _clientiMapCache = null; }
+let _iscrizioniSetCache = null;
+function _invalidateMaps() { _tessereMapCache = null; _tessereCodsMapCache = null; _clientiMapCache = null; _iscrizioniSetCache = null; }
 function _getTessereMap()     { if (!_tessereMapCache)     _tessereMapCache     = _buildTessereMap();     return _tessereMapCache; }
 function _getTessereCodsMap() { if (!_tessereCodsMapCache) _tessereCodsMapCache = _buildTessereCodsMap(); return _tessereCodsMapCache; }
 function _getClientiMap()     { if (!_clientiMapCache)     _clientiMapCache     = new Map(allClienti.map(c => [String(c.id), c])); return _clientiMapCache; }
+function _getIscrizioniSet()  { if (!_iscrizioniSetCache)  _iscrizioniSetCache  = _buildIscrizioniSet(); return _iscrizioniSetCache; }
 let _editingConsentToken = null;
 let _consentModalita = 'offline'; // 'offline' | 'online'
 let _consentActive = false;       // true se il consenso è stato registrato
@@ -758,6 +761,9 @@ let editingTesseraId = null;
 let editingClienteId = null;
 let currentTipo = 'standard';
 let editingMsgId = null;
+let _tessPage = 0;          // pagina corrente lista tessere
+const TESS_PER_PAGE = 60;   // righe per pagina
+let _searchDebounceTimer = null;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -1863,7 +1869,7 @@ function renderTessereTab() {
   if (!container) return;
   const q = (document.getElementById('tess-search')?.value || '').trim().toLowerCase();
 
-  const iscrizioniSet = _buildIscrizioniSet();
+  const iscrizioniSet = _getIscrizioniSet();
   let tessere = [...allTessere];
 
   // Filters
@@ -1925,20 +1931,27 @@ function renderTessereTab() {
     return 0;
   });
 
+  const totale = tessere.length;
   const nIscr = tessere.filter(t => iscrizioniSet.has(t.id)).length;
-  const nRinn = tessere.length - nIscr;
+  const nRinn = totale - nIscr;
   const countEl = document.getElementById('tess-count');
-  if (countEl) countEl.innerHTML = `<span style="color:#64748b">${tessere.length} tessere</span>`
+  if (countEl) countEl.innerHTML = `<span style="color:#64748b">${totale} tessere</span>`
     + (nIscr > 0 ? ` &nbsp;<span style="font-size:11px;background:#dcfce7;color:#16a34a;border-radius:20px;padding:1px 8px;font-weight:700">${nIscr} iscrizioni</span>` : '')
     + (nRinn > 0 ? ` <span style="font-size:11px;background:#dbeafe;color:#2563eb;border-radius:20px;padding:1px 8px;font-weight:700">${nRinn} rinnovi</span>` : '');
 
-  if (!tessere.length) {
+  if (!totale) {
     container.innerHTML = '<div class="empty"><i class="fas fa-id-card"></i><p>Nessuna tessera trovata</p></div>';
     return;
   }
+
+  // Paginazione
+  const totPages = Math.ceil(totale / TESS_PER_PAGE);
+  if (_tessPage >= totPages) _tessPage = totPages - 1;
+  const pageTessere = tessere.slice(_tessPage * TESS_PER_PAGE, (_tessPage + 1) * TESS_PER_PAGE);
+
   const empLab = {cremona:'Cremona',casalmaggiore:'Casalmaggiore',viadana:'Viadana','reggio emilia':'Reggio E.'};
   const _cm = _getClientiMap();
-  const rows = tessere.map(t => {
+  const rows = pageTessere.map(t => {
     const c = _cm.get(String(t.cliente_id));
     const isAttiva  = t.attiva !== false;
     const isCompl   = (t.timbri_attuali||0) >= TIMBRI_MAX;
@@ -1965,22 +1978,33 @@ function renderTessereTab() {
       <td>${stato}</td>
     </tr>`;
   }).join('');
+
+  const paginaBar = totPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;border-top:1px solid #f1f5f9;font-size:13px;color:#64748b">
+      <button onclick="_tessPage=Math.max(0,_tessPage-1);renderTessereTab()" ${_tessPage===0?'disabled':''} style="border:1px solid #e2e8f0;background:#fff;border-radius:7px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:13px;color:#334155">‹ Prec</button>
+      <span>Pagina <strong>${_tessPage+1}</strong> di <strong>${totPages}</strong> &nbsp;·&nbsp; ${totale} tessere</span>
+      <button onclick="_tessPage=Math.min(totPages-1,_tessPage+1);renderTessereTab()" ${_tessPage===totPages-1?'disabled':''} style="border:1px solid #e2e8f0;background:#fff;border-radius:7px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:13px;color:#334155">Succ ›</button>
+    </div>` : '';
+
   container.innerHTML = `
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;overflow-x:auto">
       <table class="tess-table">
         <thead><tr>
-          <th>N° Tessera</th>
-          <th>Cliente</th>
+          <th onclick="_tessSort('numero')" style="cursor:pointer;user-select:none">N° Tessera ${_tessereSort==='numero'?'▲':''}</th>
+          <th onclick="_tessSort('cognome')" style="cursor:pointer;user-select:none">Cliente ${_tessereSort==='cognome'?'▲':''}</th>
           <th>Emporio</th>
           <th>Tipo</th>
           <th>Attività</th>
-          <th>Data emissione</th>
+          <th onclick="_tessSort('data')" style="cursor:pointer;user-select:none">Data emissione ${_tessereSort==='data'?'▲':''}</th>
           <th>Stato</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${paginaBar}
     </div>`;
 }
+
+function _tessSort(col) { _tessereSort = col; _tessPage = 0; renderTessereTab(); }
 
 // ── Autocompletamento provincia da città ──────────────────────────────────────
 const _CITTA_PROV = {
