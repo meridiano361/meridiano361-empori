@@ -60,6 +60,15 @@ function isAdmin() {
   return ['admin', 'dipendente'].includes(getRuoloLoggato());
 }
 
+// Utenti con accesso completo (tutti gli empori + edit) ai soli Preventivi.
+// Non ottengono accesso admin globale sulle altre sezioni.
+const PREVENTIVI_FULL_ACCESS = ['m.porrino@meridiano361.it'];
+
+function isPreventiviAdmin() {
+  const email = (getOperatoreLoggato()?.email || '').toLowerCase().trim();
+  return isAdmin() || PREVENTIVI_FULL_ACCESS.includes(email);
+}
+
 /**
  * Converte nome emporio (es. "Reggio Emilia") in ID slug
  * usato da prezzi, info, prenotazioni (es. "reggioemilia").

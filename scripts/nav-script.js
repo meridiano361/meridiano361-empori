@@ -833,6 +833,9 @@ function buildNav() {
       // prenotazioni del proprio negozio — il sola-lettura non si applica.
       const _localUser = JSON.parse(localStorage.getItem('m361_user') || 'null');
       if (_localUser?.emporio && currentId === 'prenotazioni') return;
+      // Utenti con accesso preventivi completo non ricevono il blocco sola-lettura su quella sezione.
+      const _prevFullEmails = ['m.porrino@meridiano361.it'];
+      if (currentId === 'preventivi' && _prevFullEmails.includes((_localUser?.email || '').toLowerCase().trim())) return;
 
       whenReady(() => {
         applyReadonlyMode();
