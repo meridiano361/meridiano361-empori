@@ -2509,12 +2509,12 @@ let _mergeSelections = {};
 let _mergeOverrides = {};
 let _mergeRecord = 'a';
 let _mergeTessereAttiva = new Set(); // tessera IDs che resteranno attive dopo merge
+let _mergeTelList   = []; // {valore, source:'a'|'b'|'ab', checked, preferito}
+let _mergeEmailList = []; // {valore, source:'a'|'b'|'ab', checked, preferito}
 
 const MERGE_FIELDS = [
   { key:'nome',         label:'Nome' },
   { key:'cognome',      label:'Cognome' },
-  { key:'telefono',     label:'Cellulare' },
-  { key:'email',        label:'Email' },
   { key:'data_nascita', label:'Data nascita' },
   { key:'citta',        label:'Città' },
   { key:'provincia',    label:'Provincia' },
@@ -2522,6 +2522,23 @@ const MERGE_FIELDS = [
   { key:'wa',           label:'WhatsApp' },
   { key:'note',         label:'Note' },
 ];
+
+function _buildMergeContattiList(cA, cB, tipo) {
+  const fromA = tipo === 'telefono'
+    ? [cA.telefono, ...(Array.isArray(cA.telefoni_extra) ? cA.telefoni_extra : [])].filter(Boolean)
+    : [cA.email,    ...(Array.isArray(cA.emails_extra)   ? cA.emails_extra   : [])].filter(Boolean);
+  const fromB = tipo === 'telefono'
+    ? [cB.telefono, ...(Array.isArray(cB.telefoni_extra) ? cB.telefoni_extra : [])].filter(Boolean)
+    : [cB.email,    ...(Array.isArray(cB.emails_extra)   ? cB.emails_extra   : [])].filter(Boolean);
+  const list = [];
+  const seen = new Set();
+  fromA.forEach(v => { if (!seen.has(v)) { seen.add(v); list.push({valore:v, source:'a', checked:true, preferito:list.length===0}); } });
+  fromB.forEach(v => {
+    if (seen.has(v)) { const ex=list.find(r=>r.valore===v); if(ex) ex.source='ab'; }
+    else { seen.add(v); list.push({valore:v, source:'b', checked:true, preferito:list.length===0}); }
+  });
+  return list;
+}
 
 function capEmporio(e) {
   if (!e) return '';
@@ -2547,6 +2564,8 @@ function openMergeModal(idA, idB) {
   _mergeTessereB = allTessere.filter(t => String(t.cliente_id) === String(idB));
   _mergeSelections = {};
   _mergeOverrides = {};
+  _mergeTelList   = _buildMergeContattiList(_mergeA, _mergeB, 'telefono');
+  _mergeEmailList = _buildMergeContattiList(_mergeA, _mergeB, 'email');
   MERGE_FIELDS.forEach(f => {
     const vA = _mergeA[f.key], vB = _mergeB[f.key];
     if (typeof vA === 'boolean' || typeof vB === 'boolean') {
@@ -2608,6 +2627,29 @@ function _renderMergeBody() {
     }
   });
 
+  const _renderContattiMergeSection = (lista, tipo, labelTitle) => {
+    if (!lista.length) return `<div class="merge-section-title" style="margin-top:14px"><i class="fas fa-${tipo==='telefono'?'phone':'envelope'}" style="margin-right:4px"></i>${labelTitle}</div><p style="font-size:12px;color:#94a3b8;margin:4px 0 10px">Nessun numero presente</p>`;
+    const sourceBadge = s => s==='ab'
+      ? `<span style="font-size:9px;background:#fef3c7;color:#92400e;border-radius:5px;padding:1px 5px;font-weight:700">A+B</span>`
+      : `<span style="font-size:9px;background:${s==='a'?'#dbeafe':'#f0fdf4'};color:${s==='a'?'#1d4ed8':'#15803d'};border-radius:5px;padding:1px 5px;font-weight:700">da ${s.toUpperCase()}</span>`;
+    const rows = lista.map((item, i) => `
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+        <input type="checkbox" ${item.checked?'checked':''} onchange="_toggleMergeContatto('${tipo}',${i},this.checked)"
+          style="accent-color:#B5453A;width:15px;height:15px;flex-shrink:0">
+        <button type="button" onclick="_setPreferitoMerge('${tipo}',${i})"
+          title="${i===0&&item.preferito?'Preferito':'Rendi preferito'}"
+          style="border:none;background:none;cursor:pointer;font-size:15px;padding:0;flex-shrink:0;opacity:${item.preferito?'1':'.3'}">${item.preferito?'⭐':'☆'}</button>
+        <span style="font-size:13px;font-weight:${item.preferito?'700':'500'};color:${item.checked?'#1e293b':'#94a3b8'};flex:1;text-decoration:${item.checked?'none':'line-through'}">${esc(item.valore)}</span>
+        ${sourceBadge(item.source)}
+      </div>`).join('');
+    return `<div class="merge-section-title" style="margin-top:14px"><i class="fas fa-${tipo==='telefono'?'phone':'envelope'}" style="margin-right:4px"></i>${labelTitle}</div>
+      <p style="font-size:11px;color:#64748b;margin:3px 0 8px">Seleziona quali tenere. ⭐ = preferito (usato per WhatsApp e ricerche).</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 12px">${rows}</div>`;
+  };
+  const contattiSection =
+    _renderContattiMergeSection(_mergeTelList,   'telefono', 'Cellulari') +
+    _renderContattiMergeSection(_mergeEmailList, 'email',    'Email');
+
   const allMergeTessere = [..._mergeTessereA, ..._mergeTessereB];
   let tesseraSection = '';
   if (allMergeTessere.length > 0) {
@@ -2654,6 +2696,7 @@ function _renderMergeBody() {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    ${contattiSection}
     ${tesseraSection}
     <div class="merge-section-title" style="margin-top:14px"><i class="fas fa-fingerprint" style="margin-right:4px"></i>Record principale (ID da mantenere)</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -2700,6 +2743,23 @@ function _onMergeResultEdit(field, value) {
   if (inp) inp.style.borderColor = _mergeOverrides[field] !== undefined ? '#7c3aed' : '#e2e8f0';
 }
 function setMergeRecord(side) { _mergeRecord = side; _renderMergeBody(); }
+function _toggleMergeContatto(tipo, idx, checked) {
+  const list = tipo === 'telefono' ? _mergeTelList : _mergeEmailList;
+  list[idx].checked = checked;
+  // se si deseleziona il preferito, sposta la stella al primo ancora selezionato
+  if (!checked && list[idx].preferito) {
+    list[idx].preferito = false;
+    const first = list.find(x => x.checked);
+    if (first) first.preferito = true;
+  }
+  _renderMergeBody();
+}
+function _setPreferitoMerge(tipo, idx) {
+  const list = tipo === 'telefono' ? _mergeTelList : _mergeEmailList;
+  if (!list[idx].checked) { list[idx].checked = true; }
+  list.forEach((x,i) => x.preferito = i === idx);
+  _renderMergeBody();
+}
 function toggleMergeTessera(id, checked) {
   if (checked) _mergeTessereAttiva.add(id); else _mergeTessereAttiva.delete(id);
 }
@@ -2710,6 +2770,8 @@ function closeMergeModal() {
   _mergeSelections = {};
   _mergeOverrides = {};
   _mergeTessereAttiva = new Set();
+  _mergeTelList = [];
+  _mergeEmailList = [];
 }
 
 async function confirmMerge() {
@@ -2736,6 +2798,16 @@ async function confirmMerge() {
         mergedFields[f.key] = (v !== undefined && v !== '') ? v : null;
       }
     });
+    // Gestione telefoni
+    const telChecked = _mergeTelList.filter(x => x.checked).map(x => x.valore);
+    const telPref = (_mergeTelList.find(x => x.preferito && x.checked) || _mergeTelList.find(x => x.checked))?.valore || null;
+    mergedFields.telefono       = telPref;
+    mergedFields.telefoni_extra = telChecked.filter(v => v !== telPref);
+    // Gestione email
+    const emailChecked = _mergeEmailList.filter(x => x.checked).map(x => x.valore);
+    const emailPref = (_mergeEmailList.find(x => x.preferito && x.checked) || _mergeEmailList.find(x => x.checked))?.valore || null;
+    mergedFields.email       = emailPref;
+    mergedFields.emails_extra = emailChecked.filter(v => v !== emailPref);
     // wa è NOT NULL: garantisci un valore booleano
     if (mergedFields.wa === null || mergedFields.wa === undefined) mergedFields.wa = false;
     const { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
