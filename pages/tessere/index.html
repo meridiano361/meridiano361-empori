@@ -2837,7 +2837,12 @@ async function confirmMerge() {
     mergedFields.emails_extra = emailChecked.filter(v => v !== emailPref);
     // wa è NOT NULL: garantisci un valore booleano
     if (mergedFields.wa === null || mergedFields.wa === undefined) mergedFields.wa = false;
-    const { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
+    let { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
+    if (updErr && updErr.message && updErr.message.includes('does not exist')) {
+      // migrazione ALTER TABLE non ancora eseguita: salva senza i campi extra
+      const {telefoni_extra:_te, emails_extra:_ee, ...mergedBase} = mergedFields;
+      ({ error: updErr } = await _sb.from('clienti').update(mergedBase).eq('id', keep.id));
+    }
     if (updErr) throw updErr;
 
     // Riassegna tutte le tessere del cliente eliminato al record principale
