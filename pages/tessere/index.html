@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="../../assets/style/nav-style.css">
 <link rel="preconnect" href="https://hsalynvxazxqtmsvjrzc.supabase.co">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
+<!-- Avvia il download di Supabase subito, in parallelo a nav-script.js -->
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" as="script">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tessere Fedeltà</title>
@@ -909,7 +911,8 @@ function _loadCache() {
 
 async function loadAll() {
   const PAGE   = 1000;
-  const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,provincia,emporio,consenso_privacy,consenso_privacy_modalita,consenso_privacy_data,consent_token';
+  // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
+  const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
   const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
@@ -1156,16 +1159,22 @@ function openClienteModal(clienteId) {
     _editTelefoni = [c.telefono || ''];
     _editEmails   = [c.email || ''];
     _renderContattiUI();
-    _sb.from('clienti').select('telefoni_extra,emails_extra').eq('id', clienteId).single().then(({data:ex}) => {
+    // Fetch lazy: campi non inclusi nel caricamento iniziale (risparmio payload)
+    _sb.from('clienti').select('telefoni_extra,emails_extra,provincia,consenso_privacy_modalita,consenso_privacy_data,consent_token').eq('id', clienteId).single().then(({data:ex}) => {
       if (!ex) return;
       _editTelefoni = [c.telefono || '', ...(Array.isArray(ex.telefoni_extra) ? ex.telefoni_extra : [])].filter((v,i) => i===0 || v);
       _editEmails   = [c.email || '',   ...(Array.isArray(ex.emails_extra)   ? ex.emails_extra   : [])].filter((v,i) => i===0 || v);
       if (!_editTelefoni.length) _editTelefoni = [''];
       if (!_editEmails.length)   _editEmails   = [''];
       _renderContattiUI();
+      // Aggiorna provincia e campi privacy quando arrivano
+      document.getElementById('f-provincia').value = ex.provincia || '';
+      Object.assign(c, { provincia: ex.provincia, consenso_privacy_modalita: ex.consenso_privacy_modalita, consenso_privacy_data: ex.consenso_privacy_data, consent_token: ex.consent_token });
+      _editingConsentToken = ex.consent_token || null;
+      renderPrivacySection(c);
     });
     document.getElementById('f-citta').value = c.citta || '';
-    document.getElementById('f-provincia').value = c.provincia || '';
+    document.getElementById('f-provincia').value = '';
     document.getElementById('f-tipo').value = currentTipo;
     document.getElementById('f-emporio').value = t?.emporio || 'cremona';
     document.getElementById('f-codice').value = t?.codice_tessera || '';
@@ -1187,8 +1196,8 @@ function openClienteModal(clienteId) {
 
     renderWaButtons(c);
     renderStoricoTessere(clienteId);
-    _editingConsentToken = c.consent_token || null;
-    renderPrivacySection(c);
+    _editingConsentToken = null; // aggiornato dal fetch lazy
+    renderPrivacySection(c);   // ri-renderizzato dal fetch lazy con dati completi
   } else {
     document.getElementById('detail-mode').textContent = '';
     document.getElementById('detail-title').textContent = 'Nuovo cliente';
