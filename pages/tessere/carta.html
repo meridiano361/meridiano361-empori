@@ -39,6 +39,16 @@ body{font-family:'Nunito',sans-serif;background:linear-gradient(160deg,#fff7f7 0
 /* Info row */
 .info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #f1f5f9;font-size:12px;color:#94a3b8}
 .info-row strong{color:#475569}
+/* Azioni salvataggio link */
+.save-actions{display:flex;gap:8px;margin-top:14px;margin-bottom:4px}
+.btn-copy{flex:1;background:#1e293b;color:#fff;border:none;border-radius:10px;padding:11px 8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:background .15s}
+.btn-copy:active{background:#334155}
+.btn-qr{flex:1;background:#f1f5f9;color:#475569;border:none;border-radius:10px;padding:11px 8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:background .15s}
+.btn-qr:active{background:#e2e8f0}
+.qr-box{text-align:center;margin-top:12px;display:none}
+.qr-box img{border-radius:12px;border:1px solid #e2e8f0;width:180px;height:180px}
+.qr-hint{font-size:11px;color:#94a3b8;margin-top:6px}
+.copy-toast{font-size:12px;color:#16a34a;font-weight:700;text-align:center;height:18px;margin-top:4px}
 /* Footer */
 .card-footer{background:#f8fafc;border-top:1px solid #f1f5f9;padding:14px 24px;text-align:center;font-size:11px;color:#94a3b8;line-height:1.5}
 /* Loading / error */
@@ -155,6 +165,16 @@ async function loadCard() {
         <strong>€${totale.toFixed(2)}</strong>
       </div>
       ${aggiornatoEl ? `<div class="info-row"><span>Ultimo aggiornamento</span><strong>${fmtDate(aggiornatoEl)}</strong></div>` : ''}
+
+      <div class="save-actions">
+        <button class="btn-copy" onclick="copyLink()">📋 Copia link</button>
+        <button class="btn-qr"   onclick="toggleQr()">📷 QR code</button>
+      </div>
+      <div class="copy-toast" id="copy-toast"></div>
+      <div class="qr-box" id="qr-box">
+        <img id="qr-img" src="" alt="QR code">
+        <div class="qr-hint">Scansiona per salvare la tessera sul telefono</div>
+      </div>
     </div>
     <div class="card-footer">
       Ogni €${EURO_PER_TIMBRO} di acquisto = 1 timbro · ${TIMBRI_MAX} timbri = €${SCONTO_CICLO} di sconto<br>
@@ -163,6 +183,38 @@ async function loadCard() {
 }
 
 loadCard();
+
+function copyLink() {
+  const url = location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    const t = document.getElementById('copy-toast');
+    t.textContent = '✓ Link copiato!';
+    setTimeout(() => t.textContent = '', 2500);
+  }).catch(() => {
+    // Fallback per browser senza clipboard API
+    const inp = document.createElement('input');
+    inp.value = url;
+    document.body.appendChild(inp);
+    inp.select();
+    document.execCommand('copy');
+    document.body.removeChild(inp);
+    const t = document.getElementById('copy-toast');
+    t.textContent = '✓ Link copiato!';
+    setTimeout(() => t.textContent = '', 2500);
+  });
+}
+
+function toggleQr() {
+  const box = document.getElementById('qr-box');
+  const img = document.getElementById('qr-img');
+  if (box.style.display === 'block') {
+    box.style.display = 'none';
+    return;
+  }
+  const url = encodeURIComponent(location.href);
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${url}`;
+  box.style.display = 'block';
+}
 </script>
 </body>
 </html>

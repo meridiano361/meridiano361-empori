@@ -3195,19 +3195,21 @@ async function salvaSpesa() {
       timbriAttuali  = timbriAttuali % DIG_TIMBRI_MAX;
     }
 
-    await _sb.from('movimenti_tessera').insert({
+    const { error: errMov } = await _sb.from('movimenti_tessera').insert({
       tessera_id:      _digSpesaTesseraId,
       importo,
       timbri_aggiunti: timbriNuovi,
       sconto_generato: scontoGenerato,
       operatore:       _user?.nome || ''
     });
+    if (errMov) throw new Error('Errore movimenti: ' + errMov.message);
 
-    await _sb.from('tessere').update({
+    const { error: errUpd } = await _sb.from('tessere').update({
       timbri_attuali: timbriAttuali,
       totale_spesa:   (t.totale_spesa || 0) + importo,
       saldo_sconto:   saldoSconto
     }).eq('id', _digSpesaTesseraId);
+    if (errUpd) throw new Error('Errore tessera: ' + errUpd.message);
 
     // Aggiorna cache locale
     const idx = allTessere.findIndex(x => x.id === _digSpesaTesseraId);
