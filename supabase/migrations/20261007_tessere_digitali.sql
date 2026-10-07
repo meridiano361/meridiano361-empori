@@ -9,7 +9,7 @@ UPDATE tessere SET token = gen_random_uuid() WHERE token IS NULL;
 
 CREATE TABLE IF NOT EXISTS movimenti_tessera (
   id BIGSERIAL PRIMARY KEY,
-  tessera_id BIGINT NOT NULL REFERENCES tessere(id) ON DELETE CASCADE,
+  tessera_id UUID NOT NULL REFERENCES tessere(id) ON DELETE CASCADE,
   importo NUMERIC(10,2) NOT NULL,
   timbri_aggiunti INT NOT NULL DEFAULT 0,
   sconto_generato NUMERIC(10,2) DEFAULT 0,
