@@ -592,15 +592,17 @@
         const uniqNomi  = [...new Set(allEmpori)];
         const isVeroAdmin = user.ruolo === 'admin' || user.ruolo === 'dipendente';
 
-        if (isVeroAdmin) {
-            buildEmpiGrid(null);
-        } else if (uniqNomi.length === 1) {
-            const id = nomeToId(uniqNomi[0]);
+        // Pre-costruisce griglia per cambio emporio
+        buildEmpiGrid(isVeroAdmin ? null : (uniqNomi.length > 0 ? uniqNomi : null));
+
+        // Auto-seleziona il proprio emporio principale
+        const primarioNome = user.emporio || (!isVeroAdmin && uniqNomi[0]);
+        if (primarioNome) {
+            const id = nomeToId(primarioNome);
             if (id) { selectEmporio(id); return; }
-            buildEmpiGrid(null);
-        } else {
-            buildEmpiGrid(uniqNomi.length > 0 ? uniqNomi : null);
         }
+        // Fallback: mostra selezione
+        document.getElementById('emporio-selection').style.display = 'block';
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -404,13 +404,15 @@ function init() {
   const empori = [_u.emporio, ...(_u.empori_aggiuntivi || [])].filter(Boolean);
   const uniq = [...new Set(empori)];
 
-  if (_u.ruolo === 'admin') {
-    buildEmpiGrid(null);
-    showScreen('empori');
-  } else if (uniq.length === 1) {
-    selezionaEmporio(uniq[0]);
+  const isVeroAdmin = _u.ruolo === 'admin';
+  // Pre-costruisce la griglia per il cambio emporio
+  buildEmpiGrid(isVeroAdmin ? null : (uniq.length > 0 ? uniq : null));
+
+  // Auto-seleziona il proprio emporio principale
+  const primario = _u.emporio || (!isVeroAdmin && uniq[0]);
+  if (primario) {
+    selezionaEmporio(primario);
   } else {
-    buildEmpiGrid(uniq.length > 0 ? uniq : null);
     showScreen('empori');
   }
 }

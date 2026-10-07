@@ -104,14 +104,28 @@ function init(){
   const uniqEmpori=[...new Set(allEmpori)];
   const isVeroAdmin=user.ruolo==='admin';
 
-  if(isVeroAdmin){
-    buildEmpiGrid(null);
-    document.getElementById('screen-empori').style.display='block';
-  } else if(uniqEmpori.length===1){
-    seleziona(uniqEmpori[0]);
+  // Pre-costruisce la griglia per il cambio emporio
+  buildEmpiGrid(isVeroAdmin?null:(uniqEmpori.length>0?uniqEmpori:null));
+
+  // Auto-seleziona il proprio emporio principale
+  const primario=user.emporio||(isVeroAdmin?null:uniqEmpori[0]);
+  if(primario){
+    seleziona(primario);
   } else {
-    buildEmpiGrid(uniqEmpori.length>0?uniqEmpori:null);
     document.getElementById('screen-empori').style.display='block';
+    return;
+  }
+
+  // Per admin o multi-emporio: mostra link "Cambia emporio"
+  if(isVeroAdmin||uniqEmpori.length>1){
+    const sel=document.getElementById('screen-cards');
+    if(!sel.querySelector('#btn-cambia-emp')){
+      sel.insertAdjacentHTML('afterbegin',
+        '<div style="padding:6px 16px;display:flex;justify-content:flex-end;border-bottom:1px solid #f1f5f9">'+
+        '<button id="btn-cambia-emp" onclick="document.getElementById(\'screen-cards\').style.display=\'none\';document.getElementById(\'screen-empori\').style.display=\'block\'" '+
+        'style="font-size:11px;color:#64748b;background:none;border:none;cursor:pointer;font-family:\'Nunito\',sans-serif;text-decoration:underline;padding:0">⇄ Cambia emporio</button></div>'
+      );
+    }
   }
 }
 
