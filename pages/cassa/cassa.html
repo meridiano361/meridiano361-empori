@@ -2680,6 +2680,21 @@ function getFotoUrl(path) {
   return data.publicUrl;
 }
 
+async function downloadFoto(url, fname) {
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname || 'foto.jpg';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  } catch(e) {
+    window.open(url, '_blank');
+  }
+}
+
 function renderFotoWrap(turno, tipo) {
   const wrap = document.getElementById(turno+'-foto-'+tipo);
   if (!wrap) return;
@@ -3446,6 +3461,29 @@ async function loadSpeseMensili() {
     return dayA - dayB;
   });
 
+  // Collect all unique photo paths to pre-fetch signed URLs
+  const allPaths = new Set();
+  rows.forEach(row => {
+    const hasPom = (parseFloat(row.pom_pay_spese) > 0) || row.pom_foto_spese;
+    const fotoJson = hasPom ? row.pom_foto_spese : row.mat_foto_spese;
+    if (fotoJson) {
+      try { JSON.parse(fotoJson).forEach(p => allPaths.add(p)); } catch(e) {}
+    }
+  });
+
+  // Signed URLs (work for both public and private buckets, valid 1h)
+  const signedUrls = {};
+  if (allPaths.size) {
+    await Promise.all([...allPaths].map(async path => {
+      try {
+        const { data: sd } = await db.storage.from(FOTO_BUCKET).createSignedUrl(path, 3600);
+        if (sd?.signedUrl) signedUrls[path] = sd.signedUrl;
+      } catch(e) {}
+      // fallback to public URL if signed fails
+      if (!signedUrls[path]) signedUrls[path] = getFotoUrl(path);
+    }));
+  }
+
   const showEmporio = !emporio;
   let totaleMese = 0;
 
@@ -3474,21 +3512,23 @@ async function loadSpeseMensili() {
     if (fotoJson) {
       try {
         const paths = JSON.parse(fotoJson);
-        fotosHtml = '<div class="spese-m-foto">' + paths.map(path => {
-          const url = getFotoUrl(path);
+        fotosHtml = '<div class="spese-m-foto">' + paths.map((path, idx) => {
+          const url = signedUrls[path] || getFotoUrl(path);
           const fname = path.split('/').pop();
+          const uid = 'spfoto_' + Math.random().toString(36).slice(2);
           return `<div class="spese-m-foto-thumb">
-            <img src="${esc(url)}" alt="scontrino" onclick="window.open('${esc(url)}','_blank')" loading="lazy">
-            <a class="spese-m-dl" href="${esc(url)}" download="${esc(fname)}" title="Scarica foto"><i class="fas fa-download"></i></a>
+            <img id="${uid}" src="${esc(url)}" alt="scontrino" onclick="window.open('${esc(url)}','_blank')" loading="lazy" onerror="this.style.opacity='.3'">
+            <a class="spese-m-dl" href="javascript:void(0)" onclick="downloadFoto('${esc(url)}','${esc(fname)}')" title="Scarica foto"><i class="fas fa-download"></i></a>
           </div>`;
         }).join('') + '</div>';
       } catch(e) {}
     }
 
-    const turnoLbl = `<div class="spese-m-turno">${turno === 'mat' ? 'Mattino' : 'Pomeriggio'}</div>`;
-    return `<td>${turnoLbl}${voceRows}${fotosHtml}</td><td class="spese-m-tot">${imp > 0 ? '€ ' + imp.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}) : '–'}</td>`;
+    return `<td>${voceRows}${fotosHtml}</td><td class="spese-m-tot">${imp > 0 ? '€ ' + imp.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}) : '–'}</td>`;
   }
 
+  // Rule: when both mattino and pomeriggio have spese, the pomeriggio is the daily closing
+  // and already includes the mattino → show only pomeriggio
   const tableRows = rows.map(row => {
     const parts = row.chiave.split('_');
     const day = parseInt(parts.pop());
@@ -3496,22 +3536,12 @@ async function loadSpeseMensili() {
     const dateObj = new Date(y, m, day);
     const dateLbl = GIORNI[dateObj.getDay()] + ' ' + day + ' ' + MESI[m]
       + (showEmporio ? `<div class="spese-m-turno">${esc(rowEmp)}</div>` : '');
-    const impMat = parseFloat(row.mat_pay_spese) || 0;
-    const impPom = parseFloat(row.pom_pay_spese) || 0;
-    totaleMese += impMat + impPom;
 
-    const hasMat = impMat > 0 || row.mat_foto_spese;
-    const hasPom = impPom > 0 || row.pom_foto_spese;
+    const hasPom = (parseFloat(row.pom_pay_spese) > 0) || row.pom_foto_spese;
+    const turno  = hasPom ? 'pom' : 'mat';
+    const imp    = parseFloat(turno === 'pom' ? row.pom_pay_spese : row.mat_pay_spese) || 0;
+    totaleMese  += imp;
 
-    if (hasMat && hasPom) {
-      return `
-        <tr>
-          <td class="spese-m-date" rowspan="2">${dateLbl}</td>
-          ${_speseRighe('mat', row)}
-        </tr>
-        <tr>${_speseRighe('pom', row)}</tr>`;
-    }
-    const turno = hasMat ? 'mat' : 'pom';
     return `<tr><td class="spese-m-date">${dateLbl}</td>${_speseRighe(turno, row)}</tr>`;
   }).join('');
 
