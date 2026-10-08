@@ -63,7 +63,7 @@ SET search_path = public AS $$
   FROM tessere t
   JOIN clienti c ON c.id = t.cliente_id
   WHERE
-    (p_token IS NOT NULL AND t.token = p_token)
+    (p_token IS NOT NULL AND t.token = p_token::uuid)
     OR
     (p_slug IS NOT NULL AND t.slug = p_slug)
   LIMIT 1;
