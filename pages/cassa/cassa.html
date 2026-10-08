@@ -3461,29 +3461,6 @@ async function loadSpeseMensili() {
     return dayA - dayB;
   });
 
-  // Collect all unique photo paths to pre-fetch signed URLs
-  const allPaths = new Set();
-  rows.forEach(row => {
-    const hasPom = (parseFloat(row.pom_pay_spese) > 0) || row.pom_foto_spese;
-    const fotoJson = hasPom ? row.pom_foto_spese : row.mat_foto_spese;
-    if (fotoJson) {
-      try { JSON.parse(fotoJson).forEach(p => allPaths.add(p)); } catch(e) {}
-    }
-  });
-
-  // Signed URLs (work for both public and private buckets, valid 1h)
-  const signedUrls = {};
-  if (allPaths.size) {
-    await Promise.all([...allPaths].map(async path => {
-      try {
-        const { data: sd } = await db.storage.from(FOTO_BUCKET).createSignedUrl(path, 3600);
-        if (sd?.signedUrl) signedUrls[path] = sd.signedUrl;
-      } catch(e) {}
-      // fallback to public URL if signed fails
-      if (!signedUrls[path]) signedUrls[path] = getFotoUrl(path);
-    }));
-  }
-
   const showEmporio = !emporio;
   let totaleMese = 0;
 
@@ -3512,12 +3489,11 @@ async function loadSpeseMensili() {
     if (fotoJson) {
       try {
         const paths = JSON.parse(fotoJson);
-        fotosHtml = '<div class="spese-m-foto">' + paths.map((path, idx) => {
-          const url = signedUrls[path] || getFotoUrl(path);
+        fotosHtml = '<div class="spese-m-foto">' + paths.map(path => {
+          const url = getFotoUrl(path);
           const fname = path.split('/').pop();
-          const uid = 'spfoto_' + Math.random().toString(36).slice(2);
           return `<div class="spese-m-foto-thumb">
-            <img id="${uid}" src="${esc(url)}" alt="scontrino" onclick="window.open('${esc(url)}','_blank')" loading="lazy" onerror="this.style.opacity='.3'">
+            <img src="${esc(url)}" alt="scontrino" onclick="window.open('${esc(url)}','_blank')" loading="lazy" onerror="this.style.opacity='.3'">
             <a class="spese-m-dl" href="javascript:void(0)" onclick="downloadFoto('${esc(url)}','${esc(fname)}')" title="Scarica foto"><i class="fas fa-download"></i></a>
           </div>`;
         }).join('') + '</div>';
