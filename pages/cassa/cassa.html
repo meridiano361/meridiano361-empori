@@ -317,9 +317,6 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 #pag-outer::-webkit-scrollbar-thumb:hover,#pag-wrap::-webkit-scrollbar-thumb:hover,#pag-ddt-wrap::-webkit-scrollbar-thumb:hover,#pag-tot-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover,#com-table-wrap::-webkit-scrollbar-thumb:hover,#com-sett-wrap::-webkit-scrollbar-thumb:hover,#com-mens-wrap::-webkit-scrollbar-thumb:hover{background:#475569;}
 #pag-outer::-webkit-scrollbar-corner,#pag-wrap::-webkit-scrollbar-corner,#pag-ddt-wrap::-webkit-scrollbar-corner,#pag-tot-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner,#com-table-wrap::-webkit-scrollbar-corner,#com-sett-wrap::-webkit-scrollbar-corner,#com-mens-wrap::-webkit-scrollbar-corner{background:#e2e8f0;}
 #macro-commerciale .main{max-width:none;}
-/* Tab Spese (arancione) */
-#day-tab-btn-spese.active { background:#ea580c; border-color:#ea580c; color:#fff; }
-#day-tab-btn-spese:hover:not(.active) { background:#fff7f0; color:#ea580c; border-color:#ea580c; }
 /* Spese mensili content */
 .spese-m-table { width:100%; border-collapse:collapse; font-size:13px; }
 .spese-m-table th { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#64748b; padding:6px 8px; border-bottom:2px solid #e2e8f0; text-align:left; background:#f8fafc; }
@@ -606,7 +603,6 @@ input[type=month].btn-export{min-width:160px;}
       <div class="sub-tabs" style="margin-bottom:0">
         <button class="sub-tab active" id="day-tab-btn-corr" onclick="showDayTab('corrispettivi')"><i class="fas fa-cash-register"></i> Corrispettivi</button>
         <button class="sub-tab" id="day-tab-btn-ddt" onclick="showDayTab('ddt')"><i class="fas fa-file-invoice"></i> DDT / Fatture</button>
-        <button class="sub-tab" id="day-tab-btn-spese" onclick="showDayTab('spese')" style="--sub-tab-active-bg:#ea580c;--sub-tab-active-border:#ea580c"><i class="fas fa-receipt"></i> Spese mese</button>
       </div>
     </div>
 
@@ -1151,18 +1147,6 @@ input[type=month].btn-export{min-width:160px;}
     </div>
     </div><!-- /day-content-ddt -->
 
-    <!-- ── SPESE MESE ── -->
-    <div id="day-content-spese" style="display:none">
-    <div class="card card-pad">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div class="sec-title" style="margin:0"><i class="fas fa-receipt" style="color:#ea580c;margin-right:6px"></i>Spese del mese</div>
-        <div id="spese-m-mese-lbl" style="font-size:13px;font-weight:700;color:#64748b"></div>
-      </div>
-      <div id="spese-m-body">
-        <div class="spese-m-empty"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>
-      </div>
-    </div>
-    </div><!-- /day-content-spese -->
 
   </div><!-- /screen-day -->
 </main>
@@ -1178,6 +1162,7 @@ input[type=month].btn-export{min-width:160px;}
     <button class="sub-tab" onclick="showSubTab('admin','pagamenti',this)"><i class="fas fa-credit-card"></i> Forme di Pagamento</button>
     <button class="sub-tab" onclick="showSubTab('admin','cassaforte',this)"><i class="fas fa-vault"></i> Cassaforte &amp; Versamenti</button>
     <button class="sub-tab" onclick="showSubTab('admin','mensile',this)"><i class="fas fa-calendar-alt"></i> Vista Mensile</button>
+    <button class="sub-tab" onclick="showSubTab('admin','spese',this)" style="--sub-tab-active-bg:#ea580c;--sub-tab-active-border:#ea580c"><i class="fas fa-receipt"></i> Spese</button>
   </div>
 
   <!-- IVA -->
@@ -1511,6 +1496,28 @@ input[type=month].btn-export{min-width:160px;}
           <tr><td colspan="13" style="text-align:center;color:#94a3b8;padding:40px">Seleziona emporio e mese</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- SPESE -->
+  <div id="admin-sub-spese" class="sub-content">
+    <div class="export-bar">
+      <select id="spese-filter-emporio" onchange="loadSpeseMensili()" class="btn-export">
+        <option value="">Tutti gli empori</option>
+        <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
+      </select>
+      <select id="spese-filter-mese-m" onchange="loadSpeseMensili()" class="btn-export">
+        <option value="01">Gennaio</option><option value="02">Febbraio</option><option value="03">Marzo</option>
+        <option value="04">Aprile</option><option value="05">Maggio</option><option value="06">Giugno</option>
+        <option value="07">Luglio</option><option value="08">Agosto</option><option value="09">Settembre</option>
+        <option value="10">Ottobre</option><option value="11">Novembre</option><option value="12">Dicembre</option>
+      </select>
+      <select id="spese-filter-anno" onchange="loadSpeseMensili()" class="btn-export">
+        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+      </select>
+    </div>
+    <div id="spese-m-body">
+      <div class="spese-m-empty">Seleziona emporio e mese per caricare le spese</div>
     </div>
   </div>
 
@@ -3380,35 +3387,38 @@ const DDT_CAN_LABELS = {
 let _ddtEditId = null;
 
 function showDayTab(tab) {
-  const isCorr  = tab === 'corrispettivi';
-  const isDdt   = tab === 'ddt';
-  const isSpese = tab === 'spese';
-  document.getElementById('day-content-corrispettivi').style.display = isCorr  ? '' : 'none';
-  document.getElementById('day-content-ddt').style.display           = isDdt   ? '' : 'none';
-  document.getElementById('day-content-spese').style.display         = isSpese ? '' : 'none';
-  document.getElementById('day-tab-btn-corr').classList.toggle('active',  isCorr);
-  document.getElementById('day-tab-btn-ddt').classList.toggle('active',   isDdt);
-  document.getElementById('day-tab-btn-spese').classList.toggle('active', isSpese);
-  document.getElementById('day-corr-extras').style.display           = isCorr  ? '' : 'none';
-  document.getElementById('day-turno-card').style.display            = isCorr  ? '' : 'none';
-  if (isSpese) loadSpeseMensili();
+  const isCorr = tab === 'corrispettivi';
+  const isDdt  = tab === 'ddt';
+  document.getElementById('day-content-corrispettivi').style.display = isCorr ? '' : 'none';
+  document.getElementById('day-content-ddt').style.display           = isDdt  ? '' : 'none';
+  document.getElementById('day-tab-btn-corr').classList.toggle('active', isCorr);
+  document.getElementById('day-tab-btn-ddt').classList.toggle('active',  isDdt);
+  document.getElementById('day-corr-extras').style.display           = isCorr ? '' : 'none';
+  document.getElementById('day-turno-card').style.display            = isCorr ? '' : 'none';
 }
 
 async function loadSpeseMensili() {
   const body = document.getElementById('spese-m-body');
-  const meseLbl = document.getElementById('spese-m-mese-lbl');
-  if (!currentEmp || !selectedDate) {
-    body.innerHTML = '<div class="spese-m-empty">Apri prima un foglio di giornata</div>';
+  const emporio = document.getElementById('spese-filter-emporio')?.value || '';
+  const meseStr = document.getElementById('spese-filter-mese-m')?.value || '';
+  const annoStr = document.getElementById('spese-filter-anno')?.value || '';
+  if (!meseStr || !annoStr) {
+    body.innerHTML = '<div class="spese-m-empty">Seleziona emporio e mese per caricare le spese</div>';
     return;
   }
-  const { y, m } = selectedDate;
-  const m1 = m + 1;
+  const y  = parseInt(annoStr);
+  const m1 = parseInt(meseStr);
+  const m  = m1 - 1;
   const days = new Date(y, m1, 0).getDate();
-  if (meseLbl) meseLbl.textContent = MESI[m] + ' ' + y;
 
   body.innerHTML = '<div class="spese-m-empty"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>';
 
-  const keys = Array.from({length: days}, (_, i) => `${currentEmp}_${y}_${m1}_${i+1}`);
+  let keys;
+  if (emporio) {
+    keys = Array.from({length: days}, (_, i) => `${emporio}_${y}_${m1}_${i+1}`);
+  } else {
+    keys = EMPORIOS_NOTI.flatMap(emp => Array.from({length: days}, (_, i) => `${emp}_${y}_${m1}_${i+1}`));
+  }
   const { data, error } = await db.from('cassa_giorni')
     .select('chiave,mat_pay_spese,pom_pay_spese,mat_foto_spese,pom_foto_spese,note_mat_pay_spese,note_pom_pay_spese')
     .in('chiave', keys);
@@ -3426,11 +3436,15 @@ async function loadSpeseMensili() {
   }
 
   rows.sort((a, b) => {
-    const dayA = parseInt(a.chiave.split('_').pop());
-    const dayB = parseInt(b.chiave.split('_').pop());
+    const partsA = a.chiave.split('_');
+    const partsB = b.chiave.split('_');
+    const dayA = parseInt(partsA.pop()), dayB = parseInt(partsB.pop());
+    const empA = partsA.join('_'), empB = partsB.join('_');
+    if (empA !== empB) return empA.localeCompare(empB);
     return dayA - dayB;
   });
 
+  const showEmporio = !emporio;
   let totaleMese = 0;
 
   function _speseRighe(turno, row) {
@@ -3474,9 +3488,12 @@ async function loadSpeseMensili() {
   }
 
   const tableRows = rows.map(row => {
-    const day = parseInt(row.chiave.split('_').pop());
+    const parts = row.chiave.split('_');
+    const day = parseInt(parts.pop());
+    const rowEmp = parts.join('_');
     const dateObj = new Date(y, m, day);
-    const dateLbl = GIORNI[dateObj.getDay()] + ' ' + day + ' ' + MESI[m];
+    const dateLbl = GIORNI[dateObj.getDay()] + ' ' + day + ' ' + MESI[m]
+      + (showEmporio ? `<div class="spese-m-turno">${esc(rowEmp)}</div>` : '');
     const impMat = parseFloat(row.mat_pay_spese) || 0;
     const impPom = parseFloat(row.pom_pay_spese) || 0;
     totaleMese += impMat + impPom;
@@ -3485,7 +3502,6 @@ async function loadSpeseMensili() {
     const hasPom = impPom > 0 || row.pom_foto_spese;
 
     if (hasMat && hasPom) {
-      // Due righe per lo stesso giorno
       return `
         <tr>
           <td class="spese-m-date" rowspan="2">${dateLbl}</td>
@@ -4407,11 +4423,12 @@ function showMacroSection(name, btn) {
     const oggi = new Date();
     const meseCorrente = oggi.getFullYear() + '-' + String(oggi.getMonth()+1).padStart(2,'0');
     if (name === 'amministrazione') {
-      presetEmporioFiltri(['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','vm-filter-emporio']);
-      if (!adminMese('pag')) setAdminMese('pag', meseCorrente);
-      if (!adminMese('cf'))  setAdminMese('cf',  meseCorrente);
-      if (!adminMese('vm'))  setAdminMese('vm',  meseCorrente);
-      if (!adminMese('iva')) setAdminMese('iva', meseCorrente);
+      presetEmporioFiltri(['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','vm-filter-emporio','spese-filter-emporio']);
+      if (!adminMese('pag'))   setAdminMese('pag',   meseCorrente);
+      if (!adminMese('cf'))    setAdminMese('cf',    meseCorrente);
+      if (!adminMese('vm'))    setAdminMese('vm',    meseCorrente);
+      if (!adminMese('iva'))   setAdminMese('iva',   meseCorrente);
+      if (!adminMese('spese')) setAdminMese('spese', meseCorrente);
       loadIvaData();
     }
 
@@ -4431,7 +4448,7 @@ function showSubTab(section, name, btn) {
   document.getElementById(prefix + name).classList.add('active');
   btn.classList.add('active');
   sessionStorage.setItem('cassa_subtab_' + section, name);
-  presetEmporioFiltri(['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','vm-filter-emporio']);
+  presetEmporioFiltri(['iva-filter-emporio','pag-filter-emporio','cf-filter-emporio','vm-filter-emporio','spese-filter-emporio']);
   if (name === 'iva') {
     if (!adminMese('iva')) setAdminMese('iva', new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
     loadIvaData();
@@ -4439,6 +4456,10 @@ function showSubTab(section, name, btn) {
   if (name === 'pagamenti') { loadPagamentiData(); restorePagCollapsed(); }
   if (name === 'cassaforte') loadCassaforteData();
   if (name === 'mensile') loadVistaMensileData();
+  if (name === 'spese') {
+    if (!adminMese('spese')) setAdminMese('spese', new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0'));
+    loadSpeseMensili();
+  }
 }
 
 /* ══════════════════════════════════════════════════════
