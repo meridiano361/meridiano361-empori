@@ -317,6 +317,28 @@ body{font-family:'Nunito', sans-serif;background:#f0f2f5;color:#1A1A1A;min-heigh
 #pag-outer::-webkit-scrollbar-thumb:hover,#pag-wrap::-webkit-scrollbar-thumb:hover,#pag-ddt-wrap::-webkit-scrollbar-thumb:hover,#pag-tot-wrap::-webkit-scrollbar-thumb:hover,#cf-wrap::-webkit-scrollbar-thumb:hover,#com-table-wrap::-webkit-scrollbar-thumb:hover,#com-sett-wrap::-webkit-scrollbar-thumb:hover,#com-mens-wrap::-webkit-scrollbar-thumb:hover{background:#475569;}
 #pag-outer::-webkit-scrollbar-corner,#pag-wrap::-webkit-scrollbar-corner,#pag-ddt-wrap::-webkit-scrollbar-corner,#pag-tot-wrap::-webkit-scrollbar-corner,#cf-wrap::-webkit-scrollbar-corner,#com-table-wrap::-webkit-scrollbar-corner,#com-sett-wrap::-webkit-scrollbar-corner,#com-mens-wrap::-webkit-scrollbar-corner{background:#e2e8f0;}
 #macro-commerciale .main{max-width:none;}
+/* Tab Spese (arancione) */
+#day-tab-btn-spese.active { background:#ea580c; border-color:#ea580c; color:#fff; }
+#day-tab-btn-spese:hover:not(.active) { background:#fff7f0; color:#ea580c; border-color:#ea580c; }
+/* Spese mensili content */
+.spese-m-table { width:100%; border-collapse:collapse; font-size:13px; }
+.spese-m-table th { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#64748b; padding:6px 8px; border-bottom:2px solid #e2e8f0; text-align:left; background:#f8fafc; }
+.spese-m-table td { padding:8px 8px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+.spese-m-table tr:hover td { background:#fef7f0; }
+.spese-m-date { font-weight:800; color:#1e293b; white-space:nowrap; }
+.spese-m-turno { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
+.spese-m-voce { display:flex; align-items:baseline; gap:6px; margin-bottom:2px; }
+.spese-m-voce-imp { font-weight:700; color:#ea580c; white-space:nowrap; }
+.spese-m-voce-desc { color:#475569; font-size:12px; }
+.spese-m-tot { font-weight:800; color:#1e293b; white-space:nowrap; }
+.spese-m-foto { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+.spese-m-foto-thumb { position:relative; display:inline-block; }
+.spese-m-foto-thumb img { width:48px; height:62px; object-fit:cover; border-radius:7px; border:1.5px solid #e2e8f0; cursor:pointer; display:block; }
+.spese-m-foto-thumb img:hover { opacity:.85; }
+.spese-m-dl { position:absolute; bottom:-1px; right:-1px; background:#ea580c; color:#fff; border-radius:4px; width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-size:9px; text-decoration:none; }
+.spese-m-empty { text-align:center; color:#94a3b8; padding:32px 20px; font-size:13px; }
+.spese-m-total-row td { background:#fff7f0; font-weight:800; border-top:2px solid #fed7aa; color:#c2410c; }
+
 /* Sub-tab commerciale */
 .com-subtab{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 16px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
 .com-subtab.active{background:#B5453A;color:#fff;border-color:#B5453A;}
@@ -584,6 +606,7 @@ input[type=month].btn-export{min-width:160px;}
       <div class="sub-tabs" style="margin-bottom:0">
         <button class="sub-tab active" id="day-tab-btn-corr" onclick="showDayTab('corrispettivi')"><i class="fas fa-cash-register"></i> Corrispettivi</button>
         <button class="sub-tab" id="day-tab-btn-ddt" onclick="showDayTab('ddt')"><i class="fas fa-file-invoice"></i> DDT / Fatture</button>
+        <button class="sub-tab" id="day-tab-btn-spese" onclick="showDayTab('spese')" style="--sub-tab-active-bg:#ea580c;--sub-tab-active-border:#ea580c"><i class="fas fa-receipt"></i> Spese mese</button>
       </div>
     </div>
 
@@ -1127,6 +1150,19 @@ input[type=month].btn-export{min-width:160px;}
       </div>
     </div>
     </div><!-- /day-content-ddt -->
+
+    <!-- ── SPESE MESE ── -->
+    <div id="day-content-spese" style="display:none">
+    <div class="card card-pad">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="sec-title" style="margin:0"><i class="fas fa-receipt" style="color:#ea580c;margin-right:6px"></i>Spese del mese</div>
+        <div id="spese-m-mese-lbl" style="font-size:13px;font-weight:700;color:#64748b"></div>
+      </div>
+      <div id="spese-m-body">
+        <div class="spese-m-empty"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>
+      </div>
+    </div>
+    </div><!-- /day-content-spese -->
 
   </div><!-- /screen-day -->
 </main>
@@ -3344,13 +3380,142 @@ const DDT_CAN_LABELS = {
 let _ddtEditId = null;
 
 function showDayTab(tab) {
-  const isCorr = tab === 'corrispettivi';
-  document.getElementById('day-content-corrispettivi').style.display = isCorr ? '' : 'none';
-  document.getElementById('day-content-ddt').style.display           = isCorr ? 'none' : '';
+  const isCorr  = tab === 'corrispettivi';
+  const isDdt   = tab === 'ddt';
+  const isSpese = tab === 'spese';
+  document.getElementById('day-content-corrispettivi').style.display = isCorr  ? '' : 'none';
+  document.getElementById('day-content-ddt').style.display           = isDdt   ? '' : 'none';
+  document.getElementById('day-content-spese').style.display         = isSpese ? '' : 'none';
   document.getElementById('day-tab-btn-corr').classList.toggle('active',  isCorr);
-  document.getElementById('day-tab-btn-ddt').classList.toggle('active',  !isCorr);
-  document.getElementById('day-corr-extras').style.display           = isCorr ? '' : 'none';
-  document.getElementById('day-turno-card').style.display            = isCorr ? '' : 'none';
+  document.getElementById('day-tab-btn-ddt').classList.toggle('active',   isDdt);
+  document.getElementById('day-tab-btn-spese').classList.toggle('active', isSpese);
+  document.getElementById('day-corr-extras').style.display           = isCorr  ? '' : 'none';
+  document.getElementById('day-turno-card').style.display            = isCorr  ? '' : 'none';
+  if (isSpese) loadSpeseMensili();
+}
+
+async function loadSpeseMensili() {
+  const body = document.getElementById('spese-m-body');
+  const meseLbl = document.getElementById('spese-m-mese-lbl');
+  if (!currentEmp || !selectedDate) {
+    body.innerHTML = '<div class="spese-m-empty">Apri prima un foglio di giornata</div>';
+    return;
+  }
+  const { y, m } = selectedDate;
+  const m1 = m + 1;
+  const days = new Date(y, m1, 0).getDate();
+  if (meseLbl) meseLbl.textContent = MESI[m] + ' ' + y;
+
+  body.innerHTML = '<div class="spese-m-empty"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>';
+
+  const keys = Array.from({length: days}, (_, i) => `${currentEmp}_${y}_${m1}_${i+1}`);
+  const { data, error } = await db.from('cassa_giorni')
+    .select('chiave,mat_pay_spese,pom_pay_spese,mat_foto_spese,pom_foto_spese,note_mat_pay_spese,note_pom_pay_spese')
+    .in('chiave', keys);
+
+  if (error) { body.innerHTML = `<div class="spese-m-empty">Errore: ${esc(error.message)}</div>`; return; }
+
+  const rows = (data || []).filter(r =>
+    (parseFloat(r.mat_pay_spese) > 0) || (parseFloat(r.pom_pay_spese) > 0) ||
+    r.mat_foto_spese || r.pom_foto_spese
+  );
+
+  if (!rows.length) {
+    body.innerHTML = '<div class="spese-m-empty"><i class="fas fa-check-circle" style="color:#22c55e;display:block;font-size:28px;margin-bottom:8px"></i>Nessuna spesa registrata questo mese</div>';
+    return;
+  }
+
+  rows.sort((a, b) => {
+    const dayA = parseInt(a.chiave.split('_').pop());
+    const dayB = parseInt(b.chiave.split('_').pop());
+    return dayA - dayB;
+  });
+
+  let totaleMese = 0;
+
+  function _speseRighe(turno, row) {
+    const imp = parseFloat(turno === 'mat' ? row.mat_pay_spese : row.pom_pay_spese) || 0;
+    const fotoJson = turno === 'mat' ? row.mat_foto_spese : row.pom_foto_spese;
+    const noteStr = turno === 'mat' ? row.note_mat_pay_spese : row.note_pom_pay_spese;
+    if (imp <= 0 && !fotoJson) return '';
+
+    let voci = [];
+    if (noteStr) {
+      try {
+        const parsed = JSON.parse(noteStr);
+        voci = Array.isArray(parsed.voci) ? parsed.voci : [];
+      } catch(e) {}
+    }
+
+    const voceRows = voci.length
+      ? voci.map(v => `<div class="spese-m-voce">
+          <span class="spese-m-voce-imp">€ ${(parseFloat(v.importo)||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+          <span class="spese-m-voce-desc">${esc(v.descrizione||'')}</span>
+        </div>`).join('')
+      : (imp > 0 ? `<div class="spese-m-voce"><span class="spese-m-voce-imp">€ ${imp.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>` : '');
+
+    let fotosHtml = '';
+    if (fotoJson) {
+      try {
+        const paths = JSON.parse(fotoJson);
+        fotosHtml = '<div class="spese-m-foto">' + paths.map(path => {
+          const url = getFotoUrl(path);
+          const fname = path.split('/').pop();
+          return `<div class="spese-m-foto-thumb">
+            <img src="${esc(url)}" alt="scontrino" onclick="window.open('${esc(url)}','_blank')" loading="lazy">
+            <a class="spese-m-dl" href="${esc(url)}" download="${esc(fname)}" title="Scarica foto"><i class="fas fa-download"></i></a>
+          </div>`;
+        }).join('') + '</div>';
+      } catch(e) {}
+    }
+
+    const turnoLbl = `<div class="spese-m-turno">${turno === 'mat' ? 'Mattino' : 'Pomeriggio'}</div>`;
+    return `<td>${turnoLbl}${voceRows}${fotosHtml}</td><td class="spese-m-tot">${imp > 0 ? '€ ' + imp.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}) : '–'}</td>`;
+  }
+
+  const tableRows = rows.map(row => {
+    const day = parseInt(row.chiave.split('_').pop());
+    const dateObj = new Date(y, m, day);
+    const dateLbl = GIORNI[dateObj.getDay()] + ' ' + day + ' ' + MESI[m];
+    const impMat = parseFloat(row.mat_pay_spese) || 0;
+    const impPom = parseFloat(row.pom_pay_spese) || 0;
+    totaleMese += impMat + impPom;
+
+    const hasMat = impMat > 0 || row.mat_foto_spese;
+    const hasPom = impPom > 0 || row.pom_foto_spese;
+
+    if (hasMat && hasPom) {
+      // Due righe per lo stesso giorno
+      return `
+        <tr>
+          <td class="spese-m-date" rowspan="2">${dateLbl}</td>
+          ${_speseRighe('mat', row)}
+        </tr>
+        <tr>${_speseRighe('pom', row)}</tr>`;
+    }
+    const turno = hasMat ? 'mat' : 'pom';
+    return `<tr><td class="spese-m-date">${dateLbl}</td>${_speseRighe(turno, row)}</tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div style="overflow-x:auto">
+      <table class="spese-m-table">
+        <thead>
+          <tr>
+            <th style="width:130px">Data</th>
+            <th>Voci di spesa</th>
+            <th style="width:90px;text-align:right">Importo</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+        <tfoot>
+          <tr class="spese-m-total-row">
+            <td colspan="2" style="font-size:13px;text-align:right;padding-right:12px">Totale mese</td>
+            <td class="spese-m-tot" style="text-align:right">€ ${totaleMese.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
 }
 
 async function loadDdtFatture(chiave) {
