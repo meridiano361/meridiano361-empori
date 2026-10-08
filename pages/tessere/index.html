@@ -920,7 +920,8 @@ async function loadAll() {
   const PAGE   = 1000;
   // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug';
+  // slug non incluso: colonna aggiunta dalla migration 20261007_tessere_slug.sql (da eseguire prima)
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
@@ -960,6 +961,8 @@ async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
     _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
 
+  if (r1.error) console.error('[tessere] clienti query error:', r1.error);
+  if (r2.error) console.error('[tessere] tessere query error:', r2.error);
   allClienti      = r1.data || [];
   allTessere      = r2.data || [];
   allMsgTemplates = m.data || [];
