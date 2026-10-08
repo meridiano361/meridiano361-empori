@@ -117,6 +117,14 @@
     .mrec-opt:hover { border-color:#94a3b8; }
     .mrec-opt.sel { border-color:var(--red); background:#fef2f2; color:#1e293b; font-weight:700; }
     .mrec-opt input[type=radio] { accent-color:var(--red); width:14px; height:14px; flex-shrink:0; }
+    /* Aziende helpers */
+    .span-all { grid-column: 1 / -1; }
+    .rec-sublabel { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin:10px 0 4px; }
+    .rec-add-btn { background:none; border:none; color:var(--red); font-size:12px; font-weight:700; cursor:pointer; padding:3px 0; font-family:inherit; }
+    .rec-add-btn:hover { opacity:.75; }
+    .rec-extra-row { display:flex; gap:6px; align-items:center; margin-top:5px; }
+    .rec-extra-row .field-input { flex:1; }
+    .rec-rm-btn { background:none; border:none; color:#94a3b8; cursor:pointer; font-size:15px; padding:2px; line-height:1; }
   </style>
 </head>
 <body>
@@ -200,13 +208,43 @@
         <button id="tipo-btn-azienda" onclick="_setAnagraficaMode(true)"  style="flex:1;padding:6px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:#f1f5f9;color:#64748b">Azienda</button>
       </div>
       <div class="field-grid">
-        <div><div class="field-label" id="lbl-nome">Nome *</div><input class="field-input" id="f-nome" placeholder="Nome"></div>
+        <div id="nome-wrap"><div class="field-label" id="lbl-nome">Nome *</div><input class="field-input" id="f-nome" placeholder="Nome"></div>
         <div id="cognome-wrap"><div class="field-label">Cognome</div><input class="field-input" id="f-cognome" placeholder="Cognome"></div>
-        <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="text" placeholder="GG/MM/AAAA" maxlength="10" inputmode="numeric" oninput="_fmtNascita(this)"></div>
-        <div><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel" oninput="this.value=this.value.replace(/[^\d+]/g,'')"></div>
-        <div><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
+        <div id="nascita-wrap"><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="text" placeholder="GG/MM/AAAA" maxlength="10" inputmode="numeric" oninput="_fmtNascita(this)"></div>
+        <div id="tel-wrap"><div class="field-label">Cellulare</div><input class="field-input" id="f-telefono" placeholder="3XX…" type="tel" oninput="this.value=this.value.replace(/[^\d+]/g,'')"></div>
+        <div id="email-wrap"><div class="field-label">Email</div><input class="field-input" id="f-email" placeholder="email@…" type="email"></div>
         <div><div class="field-label">Città</div><input class="field-input" id="f-citta" placeholder="Città" oninput="autoProvincia()" onblur="autoProvincia()"></div>
         <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" placeholder="CR" maxlength="2" title="Sigla provincia (2 lettere)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,2)" onblur="this.value=this.value.toUpperCase()"></div>
+      </div>
+    </div>
+
+    <!-- Recapiti e dati fiscali (solo aziende) -->
+    <div class="panel-sec" id="sec-recapiti" style="display:none">
+      <div class="panel-sec-title" style="cursor:pointer" onclick="_toggleRecapiti()">
+        <i class="fas fa-building"></i> Recapiti e dati fiscali
+        <i class="fas fa-chevron-down" id="rec-chevron" style="margin-left:auto;font-size:10px;transition:transform .2s"></i>
+      </div>
+      <div id="rec-body">
+        <div class="field-grid single" style="margin-bottom:8px">
+          <div><div class="field-label">Indirizzo</div><input class="field-input" id="f-indirizzo" placeholder="Via, numero, CAP, città" style="width:100%"></div>
+        </div>
+        <div class="field-grid" style="grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px">
+          <div><div class="field-label">P.IVA</div><input class="field-input" id="f-piva" placeholder="00000000000"></div>
+          <div><div class="field-label">Codice fiscale</div><input class="field-input" id="f-cod-fiscale"></div>
+          <div><div class="field-label">Cod. univoco</div><input class="field-input" id="f-cod-univoco" placeholder="SDI"></div>
+        </div>
+        <div class="rec-sublabel">Telefono</div>
+        <input class="field-input" id="f-az-tel" placeholder="Telefono" style="width:100%" type="tel" oninput="this.value=this.value.replace(/[^\d+\s]/g,'')">
+        <div class="rec-sublabel">Email</div>
+        <input class="field-input" id="f-az-email" placeholder="Email" style="width:100%" type="email">
+        <div id="az-emails-extra"></div>
+        <button type="button" class="rec-add-btn" onclick="_azAddEmail()">+ Aggiungi email</button>
+        <div class="rec-sublabel">PEC</div>
+        <input class="field-input" id="f-pec" placeholder="indirizzo@pec.it" style="width:100%" type="email">
+        <div id="az-pec-extra"></div>
+        <button type="button" class="rec-add-btn" onclick="_azAddPec()">+ Aggiungi PEC</button>
+        <div class="rec-sublabel">Cellulare</div>
+        <input class="field-input" id="f-cellulare" placeholder="Cellulare" style="width:100%" type="tel" oninput="this.value=this.value.replace(/[^\d+\s]/g,'')">
       </div>
     </div>
 
@@ -495,8 +533,20 @@ function openPanel(id) {
     document.getElementById('btn-elimina').style.display     = '';
     document.getElementById('btn-elimina-hdr').style.display = '';
     document.getElementById('tipo-toggle').style.display = 'none'; // tipo fisso per esistenti
+    _recCollapsed = false;
+    document.getElementById('rec-body').style.display = '';
 
     _setAnagraficaMode(isAz);
+
+    if (isAz) {
+      _azFillRecapiti(c); // fill with cached data, then refresh with full fetch
+      _sb.from('clienti')
+        .select('telefono,email,pec,cellulare,indirizzo,piva,cod_fiscale,cod_univoco,emails_extra')
+        .eq('id', id).single()
+        .then(({ data }) => { if (data) _azFillRecapiti(data); });
+    } else {
+      _azClearRecapiti();
+    }
 
     // Tessera section
     if (hasTess) {
@@ -526,6 +576,9 @@ function openPanel(id) {
     document.getElementById('tess-link-section').style.display = 'none';
     document.getElementById('crea-tess-section').style.display = 'none';
     document.getElementById('tipo-toggle').style.display = 'flex'; // mostra toggle per nuovo
+    _recCollapsed = false;
+    document.getElementById('rec-body').style.display = '';
+    _azClearRecapiti();
     _setAnagraficaMode(false); // default privato
     setTimeout(() => document.getElementById('f-nome')?.focus(), 100);
   }
@@ -545,12 +598,86 @@ function _setAnagraficaMode(isAz) {
   if (lbl) lbl.textContent = isAz ? 'Ragione Sociale *' : 'Nome *';
   const inp = document.getElementById('f-nome');
   if (inp) inp.placeholder = isAz ? 'Ragione sociale' : 'Nome';
-  const cogWrap = document.getElementById('cognome-wrap');
-  if (cogWrap) cogWrap.style.display = isAz ? 'none' : '';
+
+  const nomeWrap = document.getElementById('nome-wrap');
+  if (nomeWrap) nomeWrap.classList.toggle('span-all', isAz);
+
+  const hide = (id, hidden) => { const el = document.getElementById(id); if (el) el.style.display = hidden ? 'none' : ''; };
+  hide('cognome-wrap', isAz);
+  hide('nascita-wrap', isAz);
+  hide('tel-wrap', isAz);
+  hide('email-wrap', isAz);
+  hide('sec-recapiti', !isAz);
+
   const btnP = document.getElementById('tipo-btn-privato');
   const btnA = document.getElementById('tipo-btn-azienda');
   if (btnP) { btnP.style.background = isAz ? '#f1f5f9' : '#fef2f2'; btnP.style.borderColor = isAz ? '#e2e8f0' : '#B5453A'; btnP.style.color = isAz ? '#64748b' : '#B5453A'; }
   if (btnA) { btnA.style.background = isAz ? '#fef2f2' : '#f1f5f9'; btnA.style.borderColor = isAz ? '#B5453A' : '#e2e8f0'; btnA.style.color = isAz ? '#B5453A' : '#64748b'; }
+}
+
+let _recCollapsed = false;
+function _toggleRecapiti() {
+  _recCollapsed = !_recCollapsed;
+  document.getElementById('rec-body').style.display = _recCollapsed ? 'none' : '';
+  const ch = document.getElementById('rec-chevron');
+  if (ch) ch.style.transform = _recCollapsed ? 'rotate(-90deg)' : '';
+}
+
+let _azEmailsExtra = [];
+let _azPecExtra    = [];
+
+function _azAddEmail(val='') {
+  _azEmailsExtra.push(val);
+  _renderAzExtra('email');
+}
+function _azAddPec(val='') {
+  _azPecExtra.push(val);
+  _renderAzExtra('pec');
+}
+function _azRemoveExtra(type, idx) {
+  if (type === 'email') _azEmailsExtra.splice(idx, 1);
+  else _azPecExtra.splice(idx, 1);
+  _renderAzExtra(type);
+}
+function _renderAzExtra(type) {
+  const list = type === 'email' ? _azEmailsExtra : _azPecExtra;
+  const container = document.getElementById(type === 'email' ? 'az-emails-extra' : 'az-pec-extra');
+  if (!container) return;
+  container.innerHTML = list.map((v, i) => `
+    <div class="rec-extra-row">
+      <input class="field-input az-${type}-extra" data-idx="${i}" type="email" value="${esc(v)}" placeholder="${type === 'email' ? 'Email' : 'PEC'}" oninput="_azUpdateExtra('${type}',${i},this.value)">
+      <button type="button" class="rec-rm-btn" onclick="_azRemoveExtra('${type}',${i})" title="Rimuovi">&times;</button>
+    </div>`).join('');
+}
+function _azUpdateExtra(type, idx, val) {
+  if (type === 'email') _azEmailsExtra[idx] = val;
+  else _azPecExtra[idx] = val;
+}
+function _azResetExtras() {
+  _azEmailsExtra = [];
+  _azPecExtra    = [];
+  _renderAzExtra('email');
+  _renderAzExtra('pec');
+}
+function _azFillRecapiti(c) {
+  document.getElementById('f-az-tel').value     = c.telefono    || '';
+  document.getElementById('f-az-email').value   = c.email       || '';
+  document.getElementById('f-pec').value        = c.pec         || '';
+  document.getElementById('f-cellulare').value  = c.cellulare   || '';
+  document.getElementById('f-indirizzo').value  = c.indirizzo   || '';
+  document.getElementById('f-piva').value       = c.piva        || '';
+  document.getElementById('f-cod-fiscale').value = c.cod_fiscale || '';
+  document.getElementById('f-cod-univoco').value = c.cod_univoco || '';
+  _azEmailsExtra = Array.isArray(c.emails_extra) ? [...c.emails_extra] : [];
+  _azPecExtra    = [];
+  _renderAzExtra('email');
+  _renderAzExtra('pec');
+}
+function _azClearRecapiti() {
+  ['f-az-tel','f-az-email','f-pec','f-cellulare','f-indirizzo','f-piva','f-cod-fiscale','f-cod-univoco'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  _azResetExtras();
 }
 
 // ── Save / Delete ─────────────────────────────────────────────────────────────
@@ -565,15 +692,29 @@ async function saveCliente() {
     if (!nome && !cognome) { showToast('Inserisci almeno il nome'); return; }
   }
 
+  const extraEmails = _azEmailsExtra.filter(Boolean);
   const payload = {
     nome:      isAz ? nome : (nome || cognome),
     cognome:   isAz ? ''   : (cognome || nome),
-    data_nascita: _itToIso(document.getElementById('f-nascita').value),
-    telefono:  document.getElementById('f-telefono').value.replace(/[^\d+]/g,'') || null,
-    email:     document.getElementById('f-email').value.trim() || null,
+    data_nascita: isAz ? null : _itToIso(document.getElementById('f-nascita').value),
+    telefono:  isAz
+      ? (document.getElementById('f-az-tel').value.replace(/[^\d+\s]/g,'') || null)
+      : (document.getElementById('f-telefono').value.replace(/[^\d+]/g,'') || null),
+    email:     isAz
+      ? (document.getElementById('f-az-email').value.trim() || null)
+      : (document.getElementById('f-email').value.trim() || null),
     citta:     document.getElementById('f-citta').value.trim() || null,
     provincia: document.getElementById('f-provincia').value.trim() || null,
     note:      document.getElementById('f-note').value.trim() || null,
+    ...(isAz ? {
+      pec:         document.getElementById('f-pec').value.trim() || null,
+      cellulare:   document.getElementById('f-cellulare').value.replace(/[^\d+\s]/g,'') || null,
+      indirizzo:   document.getElementById('f-indirizzo').value.trim() || null,
+      piva:        document.getElementById('f-piva').value.trim() || null,
+      cod_fiscale: document.getElementById('f-cod-fiscale').value.trim() || null,
+      cod_univoco: document.getElementById('f-cod-univoco').value.trim() || null,
+      emails_extra: extraEmails.length ? extraEmails : [],
+    } : {}),
   };
 
   if (_editingId) {
