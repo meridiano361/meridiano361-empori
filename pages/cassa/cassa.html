@@ -3464,9 +3464,9 @@ async function loadSpeseMensili() {
   const showEmporio = !emporio;
   let totaleMese = 0;
 
-  function _speseRighe(turno, row) {
+  function _speseRighe(turno, row, fotoJsonOverride) {
     const imp = parseFloat(turno === 'mat' ? row.mat_pay_spese : row.pom_pay_spese) || 0;
-    const fotoJson = turno === 'mat' ? row.mat_foto_spese : row.pom_foto_spese;
+    const fotoJson = fotoJsonOverride !== undefined ? fotoJsonOverride : (turno === 'mat' ? row.mat_foto_spese : row.pom_foto_spese);
     const noteStr = turno === 'mat' ? row.note_mat_pay_spese : row.note_pom_pay_spese;
     if (imp <= 0 && !fotoJson) return '';
 
@@ -3518,7 +3518,18 @@ async function loadSpeseMensili() {
     const imp    = parseFloat(turno === 'pom' ? row.pom_pay_spese : row.mat_pay_spese) || 0;
     totaleMese  += imp;
 
-    return `<tr><td class="spese-m-date">${dateLbl}</td>${_speseRighe(turno, row)}</tr>`;
+    // Merge mat + pom photos: the receipt might be uploaded in either turno
+    let combinedFoto = turno === 'pom' ? row.pom_foto_spese : row.mat_foto_spese;
+    if (turno === 'pom' && row.mat_foto_spese) {
+      try {
+        const pomPaths = row.pom_foto_spese ? JSON.parse(row.pom_foto_spese) : [];
+        const matPaths = JSON.parse(row.mat_foto_spese);
+        const merged = [...new Set([...pomPaths, ...matPaths])];
+        combinedFoto = merged.length ? JSON.stringify(merged) : null;
+      } catch(e) {}
+    }
+
+    return `<tr><td class="spese-m-date">${dateLbl}</td>${_speseRighe(turno, row, combinedFoto)}</tr>`;
   }).join('');
 
   body.innerHTML = `
