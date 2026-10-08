@@ -2023,25 +2023,47 @@ async function saveNuovoCliente() {
     }
 }
 async function salvaBozzaInRubrica() {
-    const nome = document.getElementById('cust-nome').value.trim();
-    const cog  = document.getElementById('cust-cognome').value.trim();
-    if (!nome || !cog) { await m361Alert('Inserisci nome e cognome prima di salvare in rubrica','','warning'); return; }
-    const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome',nome).ilike('cognome',cog);
-    const cVal = (ex||[]).length === 0 ? `${nome} ${cog}` : `${nome} ${cog} ${(ex||[]).length}`;
-    try {
-        const { data: ins, error } = await _supabase.from('clienti').insert([{ nome, cognome:cog, cliente:cVal, telefono:document.getElementById('cust-cel').value.trim()||null, wa:document.getElementById('btn-wa')?.classList.contains('wa-active')??true, email:document.getElementById('cust-email')?.value.trim()||null }]).select().single();
-        if (error) throw error;
-        setSelectedCliente(ins);
-        M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
-    } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+    const isAz = isAziendaNoProfit();
+    const rs   = document.getElementById('az-ragione-sociale')?.value.trim();
+    if (isAz || rs) {
+        if (!rs) { await m361Alert('Inserisci la ragione sociale prima di salvare in rubrica','','warning'); return; }
+        const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome', rs);
+        const cVal = (ex||[]).length === 0 ? rs : `${rs} ${(ex||[]).length}`;
+        try {
+            const { data: ins, error } = await _supabase.from('clienti').insert([{ nome: rs, cognome: '', cliente: cVal }]).select().single();
+            if (error) throw error;
+            setSelectedCliente(ins);
+            M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
+        } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+    } else {
+        const nome = document.getElementById('cust-nome').value.trim();
+        const cog  = document.getElementById('cust-cognome').value.trim();
+        if (!nome || !cog) { await m361Alert('Inserisci nome e cognome prima di salvare in rubrica','','warning'); return; }
+        const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome',nome).ilike('cognome',cog);
+        const cVal = (ex||[]).length === 0 ? `${nome} ${cog}` : `${nome} ${cog} ${(ex||[]).length}`;
+        try {
+            const { data: ins, error } = await _supabase.from('clienti').insert([{ nome, cognome:cog, cliente:cVal, telefono:document.getElementById('cust-cel').value.trim()||null, wa:document.getElementById('btn-wa')?.classList.contains('wa-active')??true, email:document.getElementById('cust-email')?.value.trim()||null }]).select().single();
+            if (error) throw error;
+            setSelectedCliente(ins);
+            M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
+        } catch(e) { await m361Alert('Errore: ' + e.message,'Errore','error'); }
+    }
 }
 async function aggiornaRubrica() {
     if (!_selectedClienteId) return;
-    const nome = document.getElementById('cust-nome').value.trim();
-    const cog  = document.getElementById('cust-cognome').value.trim();
-    if (!nome || !cog) { await m361Alert('Nome e cognome obbligatori','','warning'); return; }
-    const { error } = await _supabase.from('clienti').update({ nome, cognome:cog, telefono:document.getElementById('cust-cel').value.trim()||null, email:document.getElementById('cust-email')?.value.trim()||null }).eq('id',_selectedClienteId);
-    if (error) await m361Alert('Errore: '+error.message,'Errore','error'); else M361.toast('Rubrica aggiornata','ok');
+    const isAz = isAziendaNoProfit();
+    const rs   = document.getElementById('az-ragione-sociale')?.value.trim();
+    if (isAz || rs) {
+        if (!rs) { await m361Alert('Ragione sociale obbligatoria','','warning'); return; }
+        const { error } = await _supabase.from('clienti').update({ nome: rs, cognome: '' }).eq('id', _selectedClienteId);
+        if (error) await m361Alert('Errore: '+error.message,'Errore','error'); else M361.toast('Rubrica aggiornata','ok');
+    } else {
+        const nome = document.getElementById('cust-nome').value.trim();
+        const cog  = document.getElementById('cust-cognome').value.trim();
+        if (!nome || !cog) { await m361Alert('Nome e cognome obbligatori','','warning'); return; }
+        const { error } = await _supabase.from('clienti').update({ nome, cognome:cog, telefono:document.getElementById('cust-cel').value.trim()||null, email:document.getElementById('cust-email')?.value.trim()||null }).eq('id',_selectedClienteId);
+        if (error) await m361Alert('Errore: '+error.message,'Errore','error'); else M361.toast('Rubrica aggiornata','ok');
+    }
 }
 async function eliminaClienteRubrica() {
     if (!_selectedClienteId) return;
