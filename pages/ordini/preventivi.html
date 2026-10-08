@@ -1984,9 +1984,11 @@ function toggleNcWa() {
     icon.className = isWa ? 'fab fa-whatsapp fa-lg text-slate-300' : 'fab fa-whatsapp fa-lg text-green-500';
 }
 async function saveNuovoCliente() {
-    const azMode = isAziendaNoProfit();
-    if (azMode) {
-        const rs = document.getElementById('nc-ragione-sociale').value.trim();
+    // Usa come fonte di verità i campi visibili, non solo lo stato globale
+    const azFieldsEl = document.getElementById('nc-azienda-fields');
+    const azMode = isAziendaNoProfit() || !azFieldsEl?.classList.contains('hidden');
+    const rs = document.getElementById('nc-ragione-sociale')?.value.trim() || '';
+    if (azMode || rs) {
         if (!rs) { await m361Alert('Ragione sociale obbligatoria','','warning'); return; }
         const { data: ex } = await _supabase.from('clienti').select('id').ilike('nome', rs);
         const cVal = (ex||[]).length === 0 ? rs : `${rs} ${(ex||[]).length}`;
@@ -1994,7 +1996,8 @@ async function saveNuovoCliente() {
             const { data: ins, error } = await _supabase.from('clienti').insert([{ nome: rs, cognome: '', cliente: cVal }]).select().single();
             if (error) throw error;
             document.getElementById('nc-ragione-sociale').value = '';
-            document.getElementById('az-ragione-sociale').value = rs;
+            const azRsEl = document.getElementById('az-ragione-sociale');
+            if (azRsEl) azRsEl.value = rs;
             toggleNuovoClienteForm();
             if (ins) setSelectedCliente(ins);
             M361.toast(`${cVal} aggiunto alla rubrica!`, 'ok');
