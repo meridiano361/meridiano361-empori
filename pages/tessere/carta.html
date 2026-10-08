@@ -116,22 +116,19 @@ async function loadCard() {
 
   const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-  let q = sb.from('tessere').select('*');
-  if (token) q = q.eq('token', token);
-  else       q = q.eq('slug', slug);
-  const { data: t, error } = await q.single();
+  const { data: raw, error } = await sb.rpc('get_tessera_pubblica', {
+    p_token: token || null,
+    p_slug:  slug  || null,
+  });
 
-  if (error || !t) {
+  if (error || !raw) {
     card.innerHTML = `<div class="center-msg"><i class="fas fa-circle-xmark"></i><p>Tessera non trovata</p></div>`;
     return;
   }
 
-  const { data: c } = await sb.from('clienti')
-    .select('nome, cognome')
-    .eq('id', t.cliente_id)
-    .single();
-
-  const nome = c?.nome || 'Cliente';
+  // get_tessera_pubblica restituisce un singolo oggetto JSON
+  const t = raw;
+  const nome = t.nome || 'Cliente';
   const timbri = t.timbri_attuali || 0;
   const saldo = t.saldo_sconto || 0;
   const totale = t.totale_spesa || 0;
