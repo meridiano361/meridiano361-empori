@@ -106,7 +106,12 @@ function fmtDate(s) {
 async function loadCard() {
   const params = new URLSearchParams(location.search);
   const token = params.get('t');
-  const slug  = params.get('slug');
+  let slug = params.get('slug');
+  // Con Vercel rewrite /tessera/:slug il browser non ha query string
+  if (!slug && !token) {
+    const m = location.pathname.match(/\/tessera\/([^/?#]+)/);
+    if (m) slug = m[1];
+  }
   const card  = document.getElementById('card');
 
   if (!token && !slug) {
