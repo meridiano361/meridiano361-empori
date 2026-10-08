@@ -19,6 +19,12 @@
 body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .page-wrap{max-width:1400px;margin:0 auto;padding:16px}
 
+/* ── Macro sezioni ── */
+.macro-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.macro-btn{padding:9px 20px;border:2px solid #e2e8f0;background:#fff;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;color:#64748b;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.macro-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+.macro-btn:hover:not(.active){background:#f1f5f9;color:#1e293b;border-color:#cbd5e1}
+
 /* ── Tabs ── */
 .tabs{display:inline-flex;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;margin-bottom:16px}
 .tab-btn{padding:8px 22px;border:none;background:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;color:#64748b;cursor:pointer;transition:all .15s;white-space:nowrap}
@@ -343,20 +349,37 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 </head>
 <body>
 <div class="page-wrap">
-  <!-- Tabs + azione -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <div class="tabs" style="margin-bottom:0">
+  <!-- Navigazione macro + sub-tabs -->
+  <div style="margin-bottom:16px">
+    <div class="macro-tabs">
+      <button class="macro-btn active" data-macro="iscrizioni" onclick="showMacro('iscrizioni')"><i class="fas fa-id-card"></i> Iscrizioni</button>
+      <button class="macro-btn" data-macro="digitale" onclick="showMacro('digitale')"><i class="fas fa-mobile-screen-button"></i> Digitale</button>
+      <button class="macro-btn" data-macro="impostazioni" onclick="showMacro('impostazioni')"><i class="fas fa-sliders"></i> Impostazioni</button>
+    </div>
+    <div id="sub-iscrizioni" class="tabs" style="margin-bottom:0">
       <button class="tab-btn active" data-tab="tessere" onclick="showTab('tessere')">Tessere</button>
+      <button class="tab-btn" data-tab="nuovo" onclick="showTab('nuovo')"><i class="fas fa-plus"></i> Nuovo</button>
+    </div>
+    <div id="sub-impostazioni" class="tabs" style="display:none;margin-bottom:0">
+      <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
+      <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
       <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
       <button class="tab-btn" data-tab="consensi" onclick="showTab('consensi')">Consensi</button>
-      <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
-      <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
       <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
     </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <button onclick="apriDigPanel()" class="btn btn-sm" style="background:#1e293b;color:#fff;font-weight:800"><i class="fas fa-mobile-screen-button"></i> Digitale</button>
-      <button id="fab-new" onclick="openClienteModal(null)" class="btn btn-red btn-sm"><i class="fas fa-plus"></i> Nuovo</button>
+  </div>
+
+  <!-- TAB DIGITALE -->
+  <div id="tab-digitale" style="display:none">
+    <div style="margin-bottom:14px">
+      <div style="font-size:15px;font-weight:900;color:#1e293b;margin-bottom:2px">Tessere Digitali</div>
+      <div style="font-size:11px;color:#94a3b8">Registra spesa · invia link WA</div>
     </div>
+    <div class="dig-search-wrap" style="margin-bottom:14px">
+      <i class="fas fa-search"></i>
+      <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice…" oninput="renderDigitale()" autocomplete="off">
+    </div>
+    <div id="dig-grid"></div>
   </div>
 
   <!-- TAB ANALISI -->
@@ -523,11 +546,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <option value="iscrizione">Solo iscrizioni</option>
         <option value="rinnovo">Solo rinnovi</option>
       </select>
-      <select id="tess-sort-sel" onchange="_tessereSort=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
+      <select id="tess-sort-sel" onchange="_tessereSort=this.value;_tessereDir='asc';_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="numero">Ordina: N° Tessera</option>
-        <option value="cognome">Ordina: Cognome</option>
+        <option value="cognome">Ordina: Cliente</option>
+        <option value="emporio">Ordina: Emporio</option>
+        <option value="tipo">Ordina: Tipo</option>
+        <option value="data">Ordina: Data emissione</option>
+        <option value="timbri">Ordina: Timbri</option>
         <option value="citta">Ordina: Città</option>
-        <option value="data">Ordina: Data</option>
       </select>
     </div>
     <div id="tess-list"><div class="empty"><i class="fas fa-spinner fa-spin"></i>Caricamento…</div></div>
@@ -552,26 +578,6 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 </div>
 
 
-<!-- CASSETTO DIGITALE -->
-<div id="dig-backdrop" onclick="chiudiDigPanel()" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:450"></div>
-<div id="dig-panel" style="position:fixed;top:56px;right:0;bottom:0;width:420px;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-6px 0 32px rgba(0,0,0,.1);z-index:460;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e2e8f0;flex-shrink:0">
-    <div>
-      <div style="font-size:15px;font-weight:900;color:#1e293b">Tessere Digitali</div>
-      <div style="font-size:11px;color:#94a3b8;margin-top:1px">Registra spesa · invia link WA</div>
-    </div>
-    <button onclick="chiudiDigPanel()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8;padding:4px"><i class="fas fa-xmark"></i></button>
-  </div>
-  <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;flex-shrink:0">
-    <div class="dig-search-wrap" style="margin-bottom:0">
-      <i class="fas fa-search"></i>
-      <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice…" oninput="renderDigitale()" autocomplete="off">
-    </div>
-  </div>
-  <div style="flex:1;overflow-y:auto;padding:12px 16px">
-    <div id="dig-grid"></div>
-  </div>
-</div>
 
 <!-- MODAL REGISTRA SPESA -->
 <div class="spesa-modal" id="spesa-modal" onclick="if(event.target===this)chiudiSpesaModal()">
@@ -1041,25 +1047,40 @@ async function _ensureSconti() {
 
 // ── Escape per chiudere pannello ─────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (document.getElementById('dig-backdrop').style.display !== 'none') { chiudiDigPanel(); return; }
-    closeClienteModal();
-  }
+  if (e.key === 'Escape') closeClienteModal();
 });
+
+// ── Macro sezioni ─────────────────────────────────────────────────────────────
+let activeMacro = 'iscrizioni';
+
+function showMacro(macro) {
+  activeMacro = macro;
+  document.querySelectorAll('.macro-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.macro === macro));
+  document.getElementById('sub-iscrizioni').style.display = macro === 'iscrizioni' ? '' : 'none';
+  document.getElementById('sub-impostazioni').style.display = macro === 'impostazioni' ? '' : 'none';
+  if (macro === 'iscrizioni') showTab('tessere');
+  else if (macro === 'digitale') showTab('digitale');
+  else if (macro === 'impostazioni') showTab('messaggi');
+}
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 function showTab(tab) {
+  if (tab === 'nuovo') {
+    openClienteModal(null);
+    return;
+  }
   activeTab = tab;
-  ['analisi','messaggi','consensi','tessere','duplicati','compleanni'].forEach(t => {
-    document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
+  ['analisi','messaggi','consensi','tessere','duplicati','compleanni','digitale'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if (el) el.style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
-  document.getElementById('fab-new').style.display = tab === 'tessere' ? '' : 'none';
   if (tab === 'duplicati')   renderDuplicati();
   if (tab === 'consensi')    renderConsensi();
   if (tab === 'tessere')     renderTessereTab();
   if (tab === 'analisi')     renderAnalisi();
-  // Tab che dipendono da tessere_messaggi: attendere caricamento se non ancora disponibili
+  if (tab === 'digitale')    renderDigitale();
   if (tab === 'messaggi') {
     _ensureMessages().then(() => { renderMsgList(); _refreshConsentMsgPreview(); });
   }
@@ -1068,15 +1089,8 @@ function showTab(tab) {
   }
 }
 
-function apriDigPanel() {
-  document.getElementById('dig-panel').style.transform = 'translateX(0)';
-  document.getElementById('dig-backdrop').style.display = '';
-  renderDigitale();
-}
-function chiudiDigPanel() {
-  document.getElementById('dig-panel').style.transform = 'translateX(100%)';
-  document.getElementById('dig-backdrop').style.display = 'none';
-}
+function apriDigPanel() { showMacro('digitale'); }
+function chiudiDigPanel() { showMacro('iscrizioni'); }
 
 function _buildTessereMap() {
   // clienteId → tessera attiva (o più recente) per filtri/display
@@ -2173,6 +2187,7 @@ let _tessereTipo     = 'tutti';
 let _tessereStato    = 'tutti';
 let _tessereAttivita = 'tutti';
 let _tessereSort     = 'numero';
+let _tessereDir      = 'asc'; // 'asc' | 'desc'
 
 function _motivoLabel(m) {
   return {completata:'Completata',persa:'Persa/Danneggiata',upgrade:'Cambio tipo',altro:'Altro'}[m] || m;
@@ -2235,29 +2250,27 @@ function renderTessereTab() {
   }
 
   // Sort
+  const _cm = _getClientiMap();
   tessere.sort((a, b) => {
+    let cmp = 0;
     if (_tessereSort === 'numero') {
-      const na = parseInt(a.codice_tessera||'0', 10) || 0;
-      const nb = parseInt(b.codice_tessera||'0', 10) || 0;
-      return na - nb;
+      cmp = (parseInt(a.codice_tessera||'0',10)||0) - (parseInt(b.codice_tessera||'0',10)||0);
+    } else if (_tessereSort === 'cognome') {
+      const ca = _cm.get(String(a.cliente_id)), cb = _cm.get(String(b.cliente_id));
+      cmp = `${ca?.cognome||''} ${ca?.nome||''}`.localeCompare(`${cb?.cognome||''} ${cb?.nome||''}`, 'it');
+    } else if (_tessereSort === 'emporio') {
+      cmp = (a.emporio||'').localeCompare(b.emporio||'', 'it');
+    } else if (_tessereSort === 'tipo') {
+      cmp = (a.tipo||'').localeCompare(b.tipo||'', 'it');
+    } else if (_tessereSort === 'data') {
+      cmp = (a.data_emissione||'').localeCompare(b.data_emissione||'');
+    } else if (_tessereSort === 'timbri') {
+      cmp = (a.timbri_attuali||0) - (b.timbri_attuali||0);
+    } else if (_tessereSort === 'citta') {
+      const ca = _cm.get(String(a.cliente_id)), cb = _cm.get(String(b.cliente_id));
+      cmp = (ca?.citta||'').localeCompare(cb?.citta||'', 'it');
     }
-    const cm = _getClientiMap();
-    const ca = cm.get(String(a.cliente_id));
-    const cb = cm.get(String(b.cliente_id));
-    if (_tessereSort === 'cognome') {
-      const sa = `${(ca?.cognome||'')} ${(ca?.nome||'')}`.toLowerCase();
-      const sb = `${(cb?.cognome||'')} ${(cb?.nome||'')}`.toLowerCase();
-      return sa.localeCompare(sb, 'it');
-    }
-    if (_tessereSort === 'citta') {
-      const sa = (ca?.citta||'').toLowerCase();
-      const sb = (cb?.citta||'').toLowerCase();
-      return sa.localeCompare(sb, 'it');
-    }
-    if (_tessereSort === 'data') {
-      return (a.data_emissione||'').localeCompare(b.data_emissione||'');
-    }
-    return 0;
+    return _tessereDir === 'desc' ? -cmp : cmp;
   });
 
   const totale = tessere.length;
@@ -2319,12 +2332,12 @@ function renderTessereTab() {
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;overflow-x:auto">
       <table class="tess-table">
         <thead><tr>
-          <th onclick="_tessSort('numero')" style="cursor:pointer;user-select:none">N° Tessera ${_tessereSort==='numero'?'▲':''}</th>
-          <th onclick="_tessSort('cognome')" style="cursor:pointer;user-select:none">Cliente ${_tessereSort==='cognome'?'▲':''}</th>
-          <th>Emporio</th>
-          <th>Tipo</th>
+          ${_thSort('numero','N° Tessera')}
+          ${_thSort('cognome','Cliente')}
+          ${_thSort('emporio','Emporio')}
+          ${_thSort('tipo','Tipo')}
           <th>Attività</th>
-          <th onclick="_tessSort('data')" style="cursor:pointer;user-select:none">Data emissione ${_tessereSort==='data'?'▲':''}</th>
+          ${_thSort('data','Data emissione')}
           <th>Stato</th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -2333,7 +2346,23 @@ function renderTessereTab() {
     </div>`;
 }
 
-function _tessSort(col) { _tessereSort = col; _tessPage = 0; renderTessereTab(); }
+function _tessSort(col) {
+  if (_tessereSort === col) {
+    _tessereDir = _tessereDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _tessereSort = col;
+    _tessereDir = 'asc';
+  }
+  const sel = document.getElementById('tess-sort-sel');
+  if (sel) sel.value = _tessereSort;
+  _tessPage = 0;
+  renderTessereTab();
+}
+function _thSort(col, label) {
+  const active = _tessereSort === col;
+  const icon = active ? (_tessereDir === 'asc' ? '▲' : '▼') : '<span style="opacity:.3">↕</span>';
+  return `<th onclick="_tessSort('${col}')" style="cursor:pointer;user-select:none">${label} ${icon}</th>`;
+}
 
 // ── Autocompletamento provincia da città ──────────────────────────────────────
 const _CITTA_PROV = {
