@@ -840,6 +840,7 @@ function _isAdminLocal() {
 }
 function _getEmporioLocal() { return _user?.emporio || null; }
 let allClienti = [], allTessere = [], allSconti = [], allMsgTemplates = [];
+let _msgPromise = null; // lazy loader per tessere_messaggi
 // ── Lookup-map cache ──────────────────────────────────────────────────────────
 let _tessereMapCache = null;
 let _tessereCodsMapCache = null;
@@ -920,18 +921,17 @@ async function loadAll() {
   const PAGE   = 1000;
   // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug';
+  // ha_whatsapp/vuole_news_whatsapp/in_lista_broadcast_whatsapp/messaggio_benvenuto_inviato caricati on-demand in openClienteModal
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
   if (cached) {
     allClienti      = cached.clienti;
     allTessere      = cached.tessere;
-    allMsgTemplates = cached.messaggi;
+    allMsgTemplates = cached.messaggi || []; // già in cache, disponibili on-demand
     _invalidateMaps();
     renderTessereTab();
-    renderMsgList();
-    _refreshConsentMsgPreview();
     setTimeout(_updateDupBadge, 0);
     // Aggiornamento silenzioso in background
     _fetchFromNetwork(C_COLS, T_COLS, PAGE, true);
@@ -954,26 +954,25 @@ async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
     qT = qT.eq('emporio', emporio);
   }
 
-  const [r1, r2, m] = await Promise.all([
+  const [r1, r2] = await Promise.all([
     qC.range(0, PAGE - 1),
     qT.range(0, PAGE - 1),
-    _sb.from('tessere_messaggi').select('*').order('ordine'),
   ]);
 
   if (r1.error) console.error('[tessere] clienti query error:', r1.error);
   if (r2.error) console.error('[tessere] tessere query error:', r2.error);
-  allClienti      = r1.data || [];
-  allTessere      = r2.data || [];
-  allMsgTemplates = m.data || [];
+  allClienti = r1.data || [];
+  allTessere = r2.data || [];
   _invalidateMaps();
 
   if (!silent) {
     renderTessereTab();
-    renderMsgList();
-    _refreshConsentMsgPreview();
     setTimeout(_updateDupBadge, 300);
-    // loadStoricoExcel caricato on-demand quando l'utente apre la sezione storico
   }
+
+  // tessere_messaggi caricato in background (non blocca il rendering della lista)
+  _msgPromise = null; // reset per background refresh
+  _ensureMessages();
 
   // Pagine successive
   const needC = (r1.data?.length ?? 0) >= PAGE;
@@ -982,14 +981,32 @@ async function _fetchFromNetwork(C_COLS, T_COLS, PAGE, silent) {
     await _loadRemainingPages(C_COLS, T_COLS, PAGE, needC ? PAGE : null, needT ? PAGE : null);
   }
 
+  // Il cache verrà aggiornato con i messaggi da _ensureMessages() quando terminano
   _saveCache(allClienti, allTessere, allMsgTemplates);
 
   if (silent) {
     _invalidateMaps();
     if (activeTab === 'tessere') renderTessereTab();
     else if (activeTab === 'digitale') renderDigitale();
+    else if (activeTab === 'messaggi') { renderMsgList(); _refreshConsentMsgPreview(); }
+    else if (activeTab === 'consensi') _refreshConsentMsgPreview();
+    else if (activeTab === 'compleanni') renderCompleanni();
     _updateDupBadge();
   }
+}
+
+// Carica tessere_messaggi una volta sola (lazy, non-blocking)
+function _ensureMessages() {
+  if (_msgPromise) return _msgPromise;
+  _msgPromise = _sb.from('tessere_messaggi').select('*').order('ordine').then(({data}) => {
+    allMsgTemplates = data || [];
+    _saveCache(allClienti, allTessere, allMsgTemplates);
+    // Aggiorna la UI se l'utente è già su una tab che dipende dai messaggi
+    if (activeTab === 'messaggi')    { renderMsgList(); _refreshConsentMsgPreview(); }
+    if (activeTab === 'consensi')    _refreshConsentMsgPreview();
+    if (activeTab === 'compleanni')  renderCompleanni();
+  });
+  return _msgPromise;
 }
 
 async function _loadRemainingPages(C_COLS, T_COLS, PAGE, offC, offT) {
@@ -1038,12 +1055,17 @@ function showTab(tab) {
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
   document.getElementById('fab-new').style.display = tab === 'tessere' ? '' : 'none';
-  if (tab === 'duplicati') renderDuplicati();
-  if (tab === 'consensi') renderConsensi();
-  if (tab === 'tessere') renderTessereTab();
-  if (tab === 'messaggi') _refreshConsentMsgPreview();
-  if (tab === 'compleanni') renderCompleanni();
-  if (tab === 'analisi') renderAnalisi();
+  if (tab === 'duplicati')   renderDuplicati();
+  if (tab === 'consensi')    renderConsensi();
+  if (tab === 'tessere')     renderTessereTab();
+  if (tab === 'analisi')     renderAnalisi();
+  // Tab che dipendono da tessere_messaggi: attendere caricamento se non ancora disponibili
+  if (tab === 'messaggi') {
+    _ensureMessages().then(() => { renderMsgList(); _refreshConsentMsgPreview(); });
+  }
+  if (tab === 'compleanni') {
+    _ensureMessages().then(() => renderCompleanni());
+  }
 }
 
 function apriDigPanel() {
@@ -1189,10 +1211,22 @@ function openClienteModal(clienteId) {
     document.getElementById('f-codice').value = t?.codice_tessera || '';
     document.getElementById('f-emissione').value = t?.data_emissione || '';
     document.getElementById('f-rinnovo').value = t?.data_rinnovo || '';
-    document.getElementById('f-ha-wa').checked = t?.ha_whatsapp || c.wa || false;
-    document.getElementById('f-news-wa').checked = t?.vuole_news_whatsapp || false;
-    document.getElementById('f-lista-wa').checked = t?.in_lista_broadcast_whatsapp || false;
-    document.getElementById('f-benvenuto').checked = t?.messaggio_benvenuto_inviato || false;
+    // Valori WA: default dal cliente.wa, poi aggiornati dalla fetch lazy sulla tessera
+    document.getElementById('f-ha-wa').checked = c.wa || false;
+    document.getElementById('f-news-wa').checked = false;
+    document.getElementById('f-lista-wa').checked = false;
+    document.getElementById('f-benvenuto').checked = false;
+    if (t?.id) {
+      _sb.from('tessere').select('ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato')
+        .eq('id', t.id).single().then(({data: wa}) => {
+          if (!wa) return;
+          document.getElementById('f-ha-wa').checked = wa.ha_whatsapp ?? (c.wa || false);
+          document.getElementById('f-news-wa').checked = wa.vuole_news_whatsapp || false;
+          document.getElementById('f-lista-wa').checked = wa.in_lista_broadcast_whatsapp || false;
+          document.getElementById('f-benvenuto').checked = wa.messaggio_benvenuto_inviato || false;
+          Object.assign(t, wa); // aggiorna in memoria per hasWa/hasNews in _buildWaButtons
+        });
+    }
     document.getElementById('f-note').value = t?.note || '';
 
     document.getElementById('wa-section').style.display = '';
@@ -1264,6 +1298,12 @@ function renderWaButtons(cliente) {
   const wrap = document.getElementById('wa-btn-list');
   if (!phone) {
     wrap.innerHTML = '<div style="font-size:13px;color:#94a3b8">Nessun numero per aprire WA</div>';
+    return;
+  }
+  // Se i messaggi non sono ancora caricati, aspetta e riprova
+  if (!allMsgTemplates.length) {
+    wrap.innerHTML = '<div style="font-size:12px;color:#94a3b8">…</div>';
+    _ensureMessages().then(() => renderWaButtons(cliente));
     return;
   }
   const tessera = allTessere.find(t => String(t.cliente_id) === String(editingClienteId));
