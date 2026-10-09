@@ -4370,6 +4370,14 @@ async function avviaCiclo(tesseraId) {
   }).eq('id', tesseraId);
   if (error) { alert('Errore: ' + error.message); return; }
 
+  // Registra la data di completamento per ogni ciclo completato ora
+  const now = new Date().toISOString();
+  const logRows = [];
+  for (let n = 1; n <= cicliNuovi; n++) {
+    logRows.push({ tessera_id: tesseraId, ciclo_numero: (t.cicli_completati || 0) + n, completato_at: now });
+  }
+  await _sb.from('tessere_cicli_log').insert(logRows);
+
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriResto, cicli_completati: totCicli };
   showToast(`🎉 Ciclo ${totCicli} avviato per ${nome}${timbriResto > 0 ? ` · ${timbriResto} timbri riportati` : ''}`);
