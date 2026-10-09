@@ -550,8 +550,22 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
             Variabili: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">{nome}</code>
             <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{url}</code>
           </div>
+      <div class="msg-card collapsed" id="install-app-msg-card">
+        <div class="msg-card-hdr" onclick="this.closest('.msg-card').classList.toggle('collapsed')">
+          <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
+            <div class="msg-tipo" style="margin-bottom:0">installazione_app</div>
+            <span style="font-size:13px;font-weight:800;color:#1e293b">Istruzioni installazione app</span>
+          </div>
+          <i class="fas fa-chevron-down msg-chevron"></i>
+        </div>
+        <div class="msg-body" style="margin-top:10px">
+          <div class="msg-testo" id="install-app-msg-preview" style="white-space:pre-wrap;margin-bottom:8px"></div>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">
+            Variabili: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">{nome}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{url}</code>
+          </div>
           <div class="msg-actions">
-            <button class="btn btn-outline btn-sm" onclick="openDigLinkMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="openInstallAppMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
           </div>
         </div>
       </div>
@@ -927,6 +941,21 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="closeDigLinkMsgModal()">Annulla</button>
       <button class="btn btn-red" onclick="saveDigLinkMsg()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="small-modal" id="install-app-msg-modal">
+  <div class="small-modal-panel">
+    <h3>Istruzioni installazione app</h3>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5">
+      Usa <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> per il nome del cliente
+      e <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{url}</code> per il link della tessera.
+    </div>
+    <textarea class="field-textarea" id="install-app-msg-testo" style="min-height:180px;margin-bottom:14px"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeInstallAppMsgModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveInstallAppMsg()">Salva</button>
     </div>
   </div>
 </div>
@@ -1596,10 +1625,26 @@ function renderWaButtons(cliente) {
     return true;
   });
   wrap.innerHTML = relevant.map(m => {
-    return `<button class="wa-btn" onclick="_openWAMsg('${phone}','${m.id}')" style="margin-bottom:6px;display:inline-flex;cursor:pointer;border:none">
+    const onclick = m.tipo === 'installazione_app'
+      ? `_openInstallAppWa('${phone}',${editingClienteId})`
+      : `_openWAMsg('${phone}','${m.id}')`;
+    return `<button class="wa-btn" onclick="${onclick}" style="margin-bottom:6px;display:inline-flex;cursor:pointer;border:none">
       <i class="fab fa-whatsapp"></i> ${esc(m.titolo)}
     </button><br>`;
   }).join('');
+}
+
+function _openInstallAppWa(phone, clienteId) {
+  const c = allClienti.find(x => String(x.id) === String(clienteId));
+  const t = allTessere.find(x => String(x.cliente_id) === String(clienteId));
+  const cartaUrl = t?.slug
+    ? `${location.origin}/tessera/${t.slug}`
+    : t?.token ? `${location.origin}/pages/tessere/carta.html?t=${t.token}` : '';
+  const nome = c ? (c.nome || c.cognome || '') : '';
+  const testo = _getInstallAppMsgTesto()
+    .replace(/\{nome\}/gi, nome)
+    .replace(/\{url\}/gi, cartaUrl);
+  window.open(`https://wa.me/39${phone}?text=${_encodeWAText(testo)}`, '_blank');
 }
 
 // ── Privacy consenso ─────────────────────────────────────────────────────────
@@ -1697,6 +1742,7 @@ function _refreshConsentMsgPreview() {
   const el = document.getElementById('consent-msg-preview');
   if (el) el.textContent = _getConsentMsgTesto();
   _refreshDigLinkMsgPreview();
+  _refreshInstallAppMsgPreview();
 }
 function openConsentMsgModal() {
   document.getElementById('consent-msg-testo').value = _getConsentMsgTesto();
@@ -1762,6 +1808,67 @@ async function saveDigLinkMsg() {
   }
   closeDigLinkMsgModal();
   _refreshDigLinkMsgPreview();
+  showToast('Messaggio aggiornato ✓');
+}
+
+// ── Messaggio installazione app ───────────────────────────────────────────────
+const _INSTALL_APP_MSG_DEFAULT = `Ciao {nome}! 👋
+
+Sapevi che puoi salvare la tua Tessera Fedeltà Meridiano 361 sul telefono come un'app? È gratis e ti permette di controllare i tuoi timbri in qualsiasi momento!
+
+📱 Su Android (Chrome):
+1. Apri il tuo link personale qui sotto
+2. Tocca i ⋮ tre puntini in alto a destra
+3. Seleziona "Aggiungi a schermata Home"
+4. Tocca "Aggiungi" — fatto!
+
+🍎 Su iPhone (Safari):
+1. Apri il link qui sotto in Safari (non Chrome)
+2. Tocca il tasto Condividi ↑ in basso al centro
+3. Scorri e tocca "Aggiungi a schermata Home"
+4. Tocca "Aggiungi" in alto a destra — fatto!
+
+Il tuo link personale:
+{url}
+
+L'icona apparirà sul tuo telefono — toccala per vedere sempre i tuoi timbri! ✨
+
+Ti aspettiamo in emporio!
+Meridiano 361`;
+
+function _getInstallAppMsgTesto() {
+  const tmpl = allMsgTemplates.find(t => t.tipo === 'installazione_app');
+  return tmpl?.testo || _INSTALL_APP_MSG_DEFAULT;
+}
+function _refreshInstallAppMsgPreview() {
+  const el = document.getElementById('install-app-msg-preview');
+  if (el) el.textContent = _getInstallAppMsgTesto();
+}
+function openInstallAppMsgModal() {
+  document.getElementById('install-app-msg-testo').value = _getInstallAppMsgTesto();
+  document.getElementById('install-app-msg-modal').classList.add('open');
+}
+function closeInstallAppMsgModal() {
+  document.getElementById('install-app-msg-modal').classList.remove('open');
+}
+async function saveInstallAppMsg() {
+  const testo = document.getElementById('install-app-msg-testo').value.trim();
+  if (!testo) { showToast('Inserisci il testo'); return; }
+  const existing = allMsgTemplates.find(t => t.tipo === 'installazione_app');
+  if (existing) {
+    await _sb.from('tessere_messaggi').update({ testo, updated_at: new Date().toISOString() }).eq('id', existing.id);
+    existing.testo = testo;
+  } else {
+    const { data } = await _sb.from('tessere_messaggi').insert({
+      tipo: 'installazione_app',
+      titolo: 'Istruzioni installazione app tessera',
+      testo,
+      destinatari: 'tutti',
+    }).select().single();
+    if (data) allMsgTemplates.push(data);
+  }
+  closeInstallAppMsgModal();
+  _refreshInstallAppMsgPreview();
   showToast('Messaggio aggiornato ✓');
 }
 
@@ -2163,7 +2270,8 @@ const DEST_COLOR = { tutti:'#475569', standard:'#0ea5e9', ambassador:'#7c3aed', 
 
 function renderMsgList() {
   const el = document.getElementById('msg-list');
-  el.innerHTML = allMsgTemplates.filter(m => m.tipo !== 'consenso_privacy' && m.tipo !== 'link_digitale').map(m => {
+  const SISTEMA_TIPI = new Set(['consenso_privacy', 'link_digitale', 'installazione_app']);
+  el.innerHTML = allMsgTemplates.filter(m => !SISTEMA_TIPI.has(m.tipo)).map(m => {
     const dest = m.destinatari || 'tutti';
     const destLabel = DEST_LABEL[dest] || dest;
     const destColor = DEST_COLOR[dest] || '#475569';

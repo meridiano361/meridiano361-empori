@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Tessera Fedeltà — Meridiano 361</title>
 <link rel="icon" href="/faviconm361.png" type="image/png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tessera M361">
+<meta name="theme-color" content="#B5453A">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
 <style>
@@ -78,6 +84,19 @@ body.amb{background:linear-gradient(160deg,#141414 0%,#1e1e1e 60%,#141414 100%)}
 .center-msg p{color:#94a3b8;font-size:15px}
 .spinner{width:40px;height:40px;border:4px solid #fce7e7;border-top-color:#B5453A;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Install banner */
+.install-banner{max-width:400px;width:100%;margin-top:14px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+.install-banner-hdr{background:linear-gradient(135deg,#1e293b,#334155);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.install-banner-hdr-icon{font-size:22px;flex-shrink:0}
+.install-banner-hdr-text{font-size:13px;font-weight:800;line-height:1.3}
+.install-banner-body{padding:14px 16px}
+.install-step{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:13px;color:#475569;font-weight:600;line-height:1.4}
+.install-step-num{background:#B5453A;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;margin-top:1px}
+.install-os-tab{display:flex;gap:6px;margin-bottom:12px}
+.install-os-btn{flex:1;padding:7px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:#64748b;cursor:pointer;text-align:center}
+.install-os-btn.active{border-color:#1e293b;background:#1e293b;color:#fff}
+.btn-install-native{width:100%;background:#1e293b;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;margin-top:4px}
+.btn-install-native:active{background:#334155}
 </style>
 </head>
 <body>
@@ -85,6 +104,41 @@ body.amb{background:linear-gradient(160deg,#141414 0%,#1e1e1e 60%,#141414 100%)}
   <div style="padding:60px 24px;text-align:center">
     <div class="spinner"></div>
     <p style="color:#94a3b8;font-size:14px">Caricamento...</p>
+  </div>
+</div>
+
+<!-- Banner installazione app — mostrato dopo caricamento tessera -->
+<div class="install-banner" id="install-banner" style="display:none">
+  <div class="install-banner-hdr">
+    <div class="install-banner-hdr-icon">📲</div>
+    <div class="install-banner-hdr-text">Salva la tessera sul tuo telefono</div>
+  </div>
+  <div class="install-banner-body">
+    <!-- Scelta OS -->
+    <div class="install-os-tab" id="install-os-tab">
+      <button class="install-os-btn active" id="tab-android" onclick="showInstallOs('android')">Android</button>
+      <button class="install-os-btn" id="tab-ios" onclick="showInstallOs('ios')">iPhone</button>
+    </div>
+    <!-- Android: pulsante nativo o istruzioni manuali -->
+    <div id="install-android">
+      <div id="install-native-wrap">
+        <button class="btn-install-native" id="btn-install-native" onclick="installApp()" style="display:none">
+          <span style="font-size:18px">📲</span> Installa come App
+        </button>
+        <div id="install-android-manual" style="display:none">
+          <div class="install-step"><div class="install-step-num">1</div><span>Apri questa pagina in <strong>Chrome</strong></span></div>
+          <div class="install-step"><div class="install-step-num">2</div><span>Tocca i <strong>⋮ tre puntini</strong> in alto a destra</span></div>
+          <div class="install-step"><div class="install-step-num">3</div><span>Seleziona <strong>"Aggiungi a schermata Home"</strong></span></div>
+        </div>
+      </div>
+    </div>
+    <!-- iOS: istruzioni Safari -->
+    <div id="install-ios" style="display:none">
+      <div class="install-step"><div class="install-step-num">1</div><span>Apri questa pagina in <strong>Safari</strong> (non Chrome)</span></div>
+      <div class="install-step"><div class="install-step-num">2</div><span>Tocca il tasto <strong>Condividi</strong> ↑ in basso al centro</span></div>
+      <div class="install-step"><div class="install-step-num">3</div><span>Scorri e tocca <strong>"Aggiungi a schermata Home"</strong></span></div>
+      <div class="install-step" style="margin-bottom:0"><div class="install-step-num">4</div><span>Tocca <strong>Aggiungi</strong> in alto a destra — fatto!</span></div>
+    </div>
   </div>
 </div>
 
@@ -211,6 +265,9 @@ async function loadCard() {
       Ogni €${EURO_PER_TIMBRO} di acquisto = 1 timbro · ${TIMBRI_MAX} timbri = €${SCONTO_CICLO} di sconto<br>
       Porta questa schermata in negozio per utilizzare il tuo sconto
     </div>`;
+
+  // Avvia PWA dopo che la tessera è caricata e il nome è noto
+  _initPwa(`${nome} ${t.cognome || ''}`.trim());
 }
 
 loadCard();
@@ -245,6 +302,84 @@ function toggleQr() {
   const url = encodeURIComponent(location.href);
   img.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${url}`;
   box.style.display = 'block';
+}
+
+// ── PWA: manifest dinamico + service worker + install banner ──────────────────
+
+let _deferredInstallPrompt = null;
+
+function _injectManifest(nomeCliente) {
+  const manifest = {
+    name: `Tessera ${nomeCliente} — Meridiano 361`,
+    short_name: 'Tessera M361',
+    description: 'La tua Tessera Fedeltà Meridiano 361',
+    start_url: location.href,
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#ffffff',
+    theme_color: '#B5453A',
+    icons: [
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = URL.createObjectURL(blob);
+  document.head.appendChild(link);
+}
+
+function _initPwa(nomeCliente) {
+  // Non mostrare il banner se già installata (standalone)
+  const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  if (isStandalone) return;
+
+  _injectManifest(nomeCliente);
+
+  // Registra service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/pages/tessere/sw-carta.js', { scope: '/pages/tessere/' }).catch(() => {});
+  }
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const banner = document.getElementById('install-banner');
+
+  if (isIOS) {
+    // iOS: mostra istruzioni Safari
+    showInstallOs('ios');
+    banner.style.display = '';
+  } else {
+    // Android/desktop: attendi beforeinstallprompt
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      _deferredInstallPrompt = e;
+      document.getElementById('btn-install-native').style.display = '';
+      document.getElementById('install-android-manual').style.display = 'none';
+      banner.style.display = '';
+    });
+    // Se dopo 2s non arriva il prompt (già installata o browser non supporta), mostra manuale
+    setTimeout(() => {
+      if (!_deferredInstallPrompt && banner.style.display === 'none') {
+        document.getElementById('btn-install-native').style.display = 'none';
+        document.getElementById('install-android-manual').style.display = '';
+        banner.style.display = '';
+      }
+    }, 2000);
+  }
+}
+
+function showInstallOs(os) {
+  document.getElementById('install-android').style.display = os === 'android' ? '' : 'none';
+  document.getElementById('install-ios').style.display = os === 'ios' ? '' : 'none';
+  document.getElementById('tab-android').classList.toggle('active', os === 'android');
+  document.getElementById('tab-ios').classList.toggle('active', os === 'ios');
+}
+
+function installApp() {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(() => { _deferredInstallPrompt = null; });
 }
 </script>
 </body>
