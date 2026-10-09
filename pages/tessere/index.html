@@ -459,6 +459,24 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         </div>
       </div>
     </div>
+    <!-- Messaggio di sistema: link tessera digitale -->
+    <div style="margin-bottom:14px">
+      <div class="msg-card" id="dig-link-msg-card" style="border-left:3px solid var(--red)">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+          <div class="msg-tipo" style="background:#fef2f2;color:var(--red)">link_digitale</div>
+          <span style="font-size:10px;color:#94a3b8">Inviato via WA quando si condivide la tessera digitale</span>
+        </div>
+        <div class="msg-titolo">Messaggio link tessera digitale</div>
+        <div class="msg-testo" id="dig-link-msg-preview" style="white-space:pre-wrap"></div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px">
+          Variabili: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">{nome}</code>
+          <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{url}</code>
+        </div>
+        <div class="msg-actions">
+          <button class="btn btn-outline btn-sm" onclick="openDigLinkMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+        </div>
+      </div>
+    </div>
     <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Template personalizzati</div>
     <button class="btn btn-red btn-sm" style="margin-bottom:10px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
     <div id="msg-list"></div>
@@ -805,6 +823,21 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="closeConsentMsgModal()">Annulla</button>
       <button class="btn btn-red" onclick="saveConsentMsg()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="small-modal" id="dig-link-msg-modal">
+  <div class="small-modal-panel">
+    <h3>Testo messaggio link tessera digitale</h3>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5">
+      Usa <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> per il nome del cliente
+      e <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{url}</code> per il link della tessera.
+    </div>
+    <textarea class="field-textarea" id="dig-link-msg-testo" style="min-height:120px;margin-bottom:14px" placeholder="Es. Ciao {nome}! Ecco la tua tessera: {url}"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeDigLinkMsgModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveDigLinkMsg()">Salva</button>
     </div>
   </div>
 </div>
@@ -1460,6 +1493,7 @@ function sendConsentWa() {
 function _refreshConsentMsgPreview() {
   const el = document.getElementById('consent-msg-preview');
   if (el) el.textContent = _getConsentMsgTesto();
+  _refreshDigLinkMsgPreview();
 }
 function openConsentMsgModal() {
   document.getElementById('consent-msg-testo').value = _getConsentMsgTesto();
@@ -1486,6 +1520,45 @@ async function saveConsentMsg() {
   }
   closeConsentMsgModal();
   _refreshConsentMsgPreview();
+  showToast('Messaggio aggiornato ✓');
+}
+
+// ── Messaggio link tessera digitale ──────────────────────────────────────────
+const _DIG_LINK_MSG_DEFAULT = 'Ciao {nome}! La tua Tessera Fedeltà Meridiano 361 è aggiornata 🎉 Guarda i tuoi timbri qui: {url}';
+
+function _getDigLinkMsgTesto() {
+  const tmpl = allMsgTemplates.find(t => t.tipo === 'link_digitale');
+  return tmpl?.testo || _DIG_LINK_MSG_DEFAULT;
+}
+function _refreshDigLinkMsgPreview() {
+  const el = document.getElementById('dig-link-msg-preview');
+  if (el) el.textContent = _getDigLinkMsgTesto();
+}
+function openDigLinkMsgModal() {
+  document.getElementById('dig-link-msg-testo').value = _getDigLinkMsgTesto();
+  document.getElementById('dig-link-msg-modal').classList.add('open');
+}
+function closeDigLinkMsgModal() {
+  document.getElementById('dig-link-msg-modal').classList.remove('open');
+}
+async function saveDigLinkMsg() {
+  const testo = document.getElementById('dig-link-msg-testo').value.trim();
+  if (!testo) { showToast('Inserisci il testo'); return; }
+  const existing = allMsgTemplates.find(t => t.tipo === 'link_digitale');
+  if (existing) {
+    await _sb.from('tessere_messaggi').update({ testo, updated_at: new Date().toISOString() }).eq('id', existing.id);
+    existing.testo = testo;
+  } else {
+    const { data } = await _sb.from('tessere_messaggi').insert({
+      tipo: 'link_digitale',
+      titolo: 'Messaggio link tessera digitale',
+      testo,
+      destinatari: 'tutti',
+    }).select().single();
+    if (data) allMsgTemplates.push(data);
+  }
+  closeDigLinkMsgModal();
+  _refreshDigLinkMsgPreview();
   showToast('Messaggio aggiornato ✓');
 }
 
@@ -3259,7 +3332,7 @@ function renderDigitale() {
     const cartaUrl = t.slug
       ? `${location.origin}/tessera/${t.slug}`
       : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
-    const waTxt = encodeURIComponent(`Ciao ${c.nome}! La tua Tessera Fedeltà Meridiano 361 è aggiornata 🎉 Guarda i tuoi timbri qui: ${cartaUrl}`);
+    const waTxt = encodeURIComponent(_getDigLinkMsgTesto().replace(/{nome}/g, c.nome || '').replace(/{url}/g, cartaUrl));
     const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
 
     return `<div class="dig-card">
