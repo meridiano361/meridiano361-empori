@@ -2650,47 +2650,63 @@ function _levenshtein(a, b) {
 }
 
 function _findDuplicates(clienti) {
-  const pairs = [];
-  const seen = new Set();
-  for (let i = 0; i < clienti.length; i++) {
-    for (let j = i + 1; j < clienti.length; j++) {
-      const a = clienti[i], b = clienti[j];
-      const pairKey = [a.id, b.id].sort().join('|');
-      if (seen.has(pairKey)) continue;
-      const reasons = [];
-      let confidenza = 'media';
+  const found = new Map(); // pairKey → {a, b, reasons, confidenza, key}
 
-      const telA = (a.telefono || '').replace(/\D/g,'');
-      const telB = (b.telefono || '').replace(/\D/g,'');
-      if (telA.length >= 8 && telA === telB) {
-        reasons.push('Stesso numero di telefono'); confidenza = 'alta';
-      }
+  const addPair = (a, b, reason, conf) => {
+    const key = [a.id, b.id].sort().join('|');
+    if (!found.has(key)) found.set(key, { a, b, reasons: [], confidenza: 'media', key });
+    const p = found.get(key);
+    if (!p.reasons.includes(reason)) p.reasons.push(reason);
+    if (conf === 'alta') p.confidenza = 'alta';
+  };
 
-      const emA = (a.email || '').toLowerCase().trim();
-      const emB = (b.email || '').toLowerCase().trim();
-      if (emA && emA === emB) {
-        reasons.push('Stessa email'); confidenza = 'alta';
-      }
+  // Indici hash: O(n) invece di O(n²)
+  const byPhone = new Map(), byEmail = new Map(), byName = new Map();
+  for (const c of clienti) {
+    const tel = (c.telefono || '').replace(/\D/g,'');
+    if (tel.length >= 8) { if (!byPhone.has(tel)) byPhone.set(tel, []); byPhone.get(tel).push(c); }
+    const em = (c.email || '').toLowerCase().trim();
+    if (em) { if (!byEmail.has(em)) byEmail.set(em, []); byEmail.get(em).push(c); }
+    const nk = _normKey(c.nome) + _normKey(c.cognome);
+    if (nk.length >= 4) { if (!byName.has(nk)) byName.set(nk, []); byName.get(nk).push(c); }
+  }
 
-      const nkA = _normKey(a.nome) + _normKey(a.cognome);
-      const nkB = _normKey(b.nome) + _normKey(b.cognome);
-      if (nkA.length >= 4 && nkA === nkB) {
-        reasons.push('Nome e cognome identici'); confidenza = 'alta';
-      } else if (nkA.length >= 6 && nkB.length >= 6) {
-        const dist = _levenshtein(nkA, nkB);
-        const maxL = Math.max(nkA.length, nkB.length);
-        if (dist <= Math.floor(maxL * 0.15)) {
-          reasons.push('Nome e cognome molto simili');
-        }
-      }
+  for (const grp of byPhone.values())
+    for (let i = 0; i < grp.length; i++) for (let j = i+1; j < grp.length; j++)
+      addPair(grp[i], grp[j], 'Stesso numero di telefono', 'alta');
 
-      if (reasons.length > 0) {
-        seen.add(pairKey);
-        pairs.push({ a, b, reasons, confidenza, key: pairKey });
-      }
+  for (const grp of byEmail.values())
+    for (let i = 0; i < grp.length; i++) for (let j = i+1; j < grp.length; j++)
+      addPair(grp[i], grp[j], 'Stessa email', 'alta');
+
+  for (const grp of byName.values())
+    for (let i = 0; i < grp.length; i++) for (let j = i+1; j < grp.length; j++)
+      addPair(grp[i], grp[j], 'Nome e cognome identici', 'alta');
+
+  // Nomi simili: solo dentro bucket con stesso prefisso 4 char (limita Levenshtein a gruppi piccoli)
+  const byPrefix = new Map();
+  for (const c of clienti) {
+    const nk = _normKey(c.nome) + _normKey(c.cognome);
+    if (nk.length >= 6) {
+      const pre = nk.slice(0, 4);
+      if (!byPrefix.has(pre)) byPrefix.set(pre, []);
+      byPrefix.get(pre).push(c);
     }
   }
-  return pairs;
+  for (const grp of byPrefix.values()) {
+    if (grp.length < 2) continue;
+    for (let i = 0; i < grp.length; i++) for (let j = i+1; j < grp.length; j++) {
+      const a = grp[i], b = grp[j];
+      const key = [a.id, b.id].sort().join('|');
+      if (found.has(key)) continue;
+      const nkA = _normKey(a.nome)+_normKey(a.cognome), nkB = _normKey(b.nome)+_normKey(b.cognome);
+      const maxL = Math.max(nkA.length, nkB.length);
+      if (_levenshtein(nkA, nkB) <= Math.floor(maxL * 0.15))
+        addPair(a, b, 'Nome e cognome molto simili', 'media');
+    }
+  }
+
+  return [...found.values()];
 }
 
 function _updateDupBadge() {
@@ -3123,8 +3139,7 @@ async function confirmMerge() {
     // wa è NOT NULL: garantisci un valore booleano
     if (mergedFields.wa === null || mergedFields.wa === undefined) mergedFields.wa = false;
     let { error: updErr } = await _sb.from('clienti').update(mergedFields).eq('id', keep.id);
-    if (updErr && updErr.message && updErr.message.includes('schema cache') || updErr.message.includes('does not exist')) {
-      // migrazione ALTER TABLE non ancora eseguita: salva senza i campi extra
+    if (updErr && updErr.message && (updErr.message.includes('schema cache') || updErr.message.includes('does not exist'))) {
       const {telefoni_extra:_te, emails_extra:_ee, ...mergedBase} = mergedFields;
       ({ error: updErr } = await _sb.from('clienti').update(mergedBase).eq('id', keep.id));
     }
