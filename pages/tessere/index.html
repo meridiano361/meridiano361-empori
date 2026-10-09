@@ -1063,7 +1063,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     </div>
 
     <div class="field-label">Note operative <span style="color:#94a3b8;font-weight:400">(opzionale)</span></div>
-    <input class="field-input" id="bc-note" style="margin-bottom:14px" autocomplete="off">
+    <input class="field-input" id="bc-note" style="margin-bottom:10px" autocomplete="off">
+
+    <div class="check-row" style="margin-bottom:14px">
+      <input type="checkbox" id="bc-promemoria">
+      <label for="bc-promemoria" style="font-size:13px;font-weight:700;color:#475569">
+        <i class="fas fa-bell" style="color:#f59e0b;margin-right:4px"></i>Invia notifica promemoria il giorno dell'invio
+      </label>
+    </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="closeBcModal()">Annulla</button>
@@ -1150,6 +1157,7 @@ async function init() {
   }
   await loadAll();
   _updateHomeStats();
+  setTimeout(_checkBroadcastPromemoria, 1500);
 
   // Parametro ?new_tess=ID — apre form nuova tessera per cliente esistente dalla Rubrica
   const params = new URLSearchParams(location.search);
@@ -1957,6 +1965,37 @@ async function saveInstallAppMsg() {
   showToast('Messaggio aggiornato ✓');
 }
 
+// ── Notifica promemoria broadcast ────────────────────────────────────────────
+async function _checkBroadcastPromemoria() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  const { data } = await _sb.from('broadcast_messaggi')
+    .select('titolo,destinatari')
+    .eq('inviato', false)
+    .eq('promemoria', true)
+    .gte('data_invio', todayStr + 'T00:00:00')
+    .lte('data_invio', todayStr + 'T23:59:59');
+
+  if (!data || data.length === 0) return;
+
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+  if (Notification.permission === 'granted') {
+    data.forEach(m => {
+      new Notification(`📢 Broadcast WA da inviare oggi`, {
+        body: `${m.titolo} → ${m.destinatari}`,
+        icon: '/faviconm361.png',
+        tag: 'broadcast-' + m.titolo,
+      });
+    });
+  }
+}
+
 // ── Broadcast ─────────────────────────────────────────────────────────────────
 let allBroadcast = [];
 let _bcLoaded = false;
@@ -2003,9 +2042,9 @@ async function renderBroadcast() {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700;color:#1e293b">${m.titolo}</span>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="sendBcWa(${JSON.stringify(m.id)})" style="background:#25d366;color:#fff;border-color:#25d366"><i class="fab fa-whatsapp"></i> Invia WA</button>
-          <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia</button>
-          <button class="btn btn-red btn-sm" onclick="markBcSent(${JSON.stringify(m.id)})"><i class="fas fa-check"></i> Inviato</button>
+          <button class="btn btn-outline btn-sm" onclick="sendBcWa('${m.id}')" style="background:#25d366;color:#fff;border-color:#25d366"><i class="fab fa-whatsapp"></i> Invia WA</button>
+          <button class="btn btn-outline btn-sm" onclick="copyBcTesto('${m.id}')"><i class="fas fa-copy"></i> Copia</button>
+          <button class="btn btn-red btn-sm" onclick="markBcSent('${m.id}')"><i class="fas fa-check"></i> Inviato</button>
         </div>
       </div>`).join('');
   } else {
@@ -2052,11 +2091,11 @@ function _bcCardHtml(m, stato) {
     ${m.testo.length > 160 ? `<button style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;padding:0;margin-bottom:4px" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Comprimi':'Leggi tutto'">Leggi tutto</button>` : ''}
     ${m.note ? `<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px"><i class="fas fa-sticky-note" style="margin-right:3px"></i>${m.note}</div>` : ''}
     <div class="bc-actions">
-      <button class="btn btn-outline btn-sm" onclick="sendBcWa(${JSON.stringify(m.id)})" style="background:#25d366;color:#fff;border-color:#25d366"><i class="fab fa-whatsapp"></i> Invia WA</button>
-      <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia</button>
-      ${!m.inviato ? `<button class="btn btn-outline btn-sm" onclick="openBcModal(${JSON.stringify(m.id)})"><i class="fas fa-pen"></i> Modifica</button>` : ''}
-      ${!m.inviato ? `<button class="btn btn-red btn-sm" onclick="markBcSent(${JSON.stringify(m.id)})"><i class="fas fa-check"></i> Inviato</button>` : ''}
-      <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#fca5a5" onclick="deleteBc(${JSON.stringify(m.id)})"><i class="fas fa-trash"></i></button>
+      <button class="btn btn-outline btn-sm" onclick="sendBcWa('${m.id}')" style="background:#25d366;color:#fff;border-color:#25d366"><i class="fab fa-whatsapp"></i> Invia WA</button>
+      <button class="btn btn-outline btn-sm" onclick="copyBcTesto('${m.id}')"><i class="fas fa-copy"></i> Copia</button>
+      ${!m.inviato ? `<button class="btn btn-outline btn-sm" onclick="openBcModal('${m.id}')"><i class="fas fa-pen"></i> Modifica</button>` : ''}
+      ${!m.inviato ? `<button class="btn btn-red btn-sm" onclick="markBcSent('${m.id}')"><i class="fas fa-check"></i> Inviato</button>` : ''}
+      <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#fca5a5" onclick="deleteBc('${m.id}')"><i class="fas fa-trash"></i></button>
     </div>
   </div>`;
 }
@@ -2085,6 +2124,7 @@ function openBcModal(id) {
     document.getElementById('bc-destinatari').value = m.destinatari || '';
     document.getElementById('bc-testo').value = m.testo || '';
     document.getElementById('bc-note').value = m.note || '';
+    document.getElementById('bc-promemoria').checked = m.promemoria || false;
     const dt = new Date(m.data_invio);
     document.getElementById('bc-data').value = dt.toISOString().slice(0,10);
     document.getElementById('bc-ora').value = dt.toISOString().slice(11,16);
@@ -2093,6 +2133,7 @@ function openBcModal(id) {
     document.getElementById('bc-destinatari').value = '';
     document.getElementById('bc-testo').value = '';
     document.getElementById('bc-note').value = '';
+    document.getElementById('bc-promemoria').checked = true;
     document.getElementById('bc-data').value = '';
     document.getElementById('bc-ora').value = '10:00';
   }
@@ -2116,7 +2157,8 @@ async function saveBc() {
     showToast('Compila titolo, destinatari, testo e data', 'error'); return;
   }
   const data_invio = new Date(`${data}T${ora}:00`).toISOString();
-  const payload = { titolo, destinatari, testo, data_invio, note: note || null, created_by: _user?.email || null };
+  const promemoria = document.getElementById('bc-promemoria').checked;
+  const payload = { titolo, destinatari, testo, data_invio, note: note || null, promemoria, created_by: _user?.email || null };
   let err;
   if (editingBcId) {
     ({ error: err } = await _sb.from('broadcast_messaggi').update(payload).eq('id', editingBcId));
@@ -2141,7 +2183,12 @@ async function markBcSent(id) {
 function sendBcWa(id) {
   const m = allBroadcast.find(x => x.id === id);
   if (!m) return;
-  window.open(`https://wa.me/?text=${_encodeWAText(m.testo)}`, '_blank');
+  const url = `https://api.whatsapp.com/send?text=${_encodeWAText(m.testo)}`;
+  const w = window.open(url, '_blank');
+  if (!w) {
+    navigator.clipboard.writeText(m.testo).catch(() => {});
+    showToast('Popup bloccato — testo copiato negli appunti');
+  }
 }
 
 function copyBcTesto(id) {

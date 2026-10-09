@@ -1,0 +1,1 @@
+ALTER TABLE broadcast_messaggi ADD COLUMN IF NOT EXISTS promemoria BOOLEAN NOT NULL DEFAULT false;
