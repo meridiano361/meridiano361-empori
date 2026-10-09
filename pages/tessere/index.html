@@ -19,11 +19,22 @@
 body{font-family:'Nunito',sans-serif;background:#f8fafc}
 .page-wrap{max-width:1400px;margin:0 auto;padding:16px}
 
-/* ── Macro sezioni ── */
-.macro-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.macro-btn{padding:9px 20px;border:2px solid #e2e8f0;background:#fff;border-radius:12px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;color:#64748b;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-.macro-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
-.macro-btn:hover:not(.active){background:#f1f5f9;color:#1e293b;border-color:#cbd5e1}
+/* ── Home tiles ── */
+.home-header{margin:8px 0 20px}
+.home-header h1{font-size:22px;font-weight:900;color:#1e293b;margin-bottom:2px}
+.home-header p{font-size:13px;color:#94a3b8;font-weight:600}
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.home-tile{background:#fff;border:2px solid #e2e8f0;border-radius:18px;padding:22px 16px 18px;text-align:center;cursor:pointer;transition:all .15s;font-family:'Nunito',sans-serif;display:flex;flex-direction:column;align-items:center;gap:5px;width:100%}
+.home-tile:hover{border-color:var(--red);box-shadow:0 4px 20px rgba(181,69,58,.12);transform:translateY(-2px)}
+.home-tile-primary{border-color:var(--red);background:linear-gradient(135deg,#fef2f2 0%,#fff 100%)}
+.home-tile-icon{font-size:26px;color:var(--red);margin-bottom:4px;line-height:1}
+.home-tile-name{font-size:14px;font-weight:900;color:#1e293b;line-height:1.2}
+.home-tile-sub{font-size:11px;color:#94a3b8;font-weight:600;line-height:1.4;min-height:16px}
+/* ── Section topbar ── */
+.sec-topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.sec-back{background:none;border:none;color:#64748b;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;padding:6px 10px;border-radius:8px;transition:all .12s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0}
+.sec-back:hover{background:#f1f5f9;color:#1e293b}
+.sec-title{font-size:18px;font-weight:900;color:#1e293b;flex:1}
 
 /* ── Tabs ── */
 .tabs{display:inline-flex;gap:2px;background:#e2e8f0;border-radius:10px;padding:3px;margin-bottom:16px}
@@ -353,23 +364,53 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 </head>
 <body>
 <div class="page-wrap">
-  <!-- Navigazione macro + sub-tabs -->
-  <div style="margin-bottom:16px">
-    <div class="macro-tabs">
-      <button class="macro-btn active" data-macro="iscrizioni" onclick="showMacro('iscrizioni')"><i class="fas fa-id-card"></i> Iscrizioni</button>
-      <button class="macro-btn" data-macro="digitale" onclick="showMacro('digitale')"><i class="fas fa-mobile-screen-button"></i> Digitale</button>
-      <button class="macro-btn" data-macro="impostazioni" onclick="showMacro('impostazioni')"><i class="fas fa-sliders"></i> Impostazioni</button>
+  <!-- HOME SCREEN -->
+  <div id="view-home">
+    <div class="home-header">
+      <h1>Tessere Fedeltà</h1>
+      <p>Seleziona una sezione</p>
     </div>
-    <div id="sub-iscrizioni" class="tabs" style="margin-bottom:0">
-      <button class="tab-btn active" data-tab="tessere" onclick="showTab('tessere')">Tessere</button>
-      <button class="tab-btn" data-tab="nuovo" onclick="showTab('nuovo')"><i class="fas fa-plus"></i> Nuovo</button>
+    <div class="home-grid">
+      <button class="home-tile home-tile-primary" onclick="showSection('nuova')">
+        <div class="home-tile-icon"><i class="fas fa-user-plus"></i></div>
+        <div class="home-tile-name">Nuova Iscrizione</div>
+        <div class="home-tile-sub">Registra nuovo cliente</div>
+      </button>
+      <button class="home-tile" onclick="showSection('iscrizioni')">
+        <div class="home-tile-icon"><i class="fas fa-id-card"></i></div>
+        <div class="home-tile-name">Iscrizioni Attive</div>
+        <div class="home-tile-sub" id="ht-iscrizioni-sub">Caricamento…</div>
+      </button>
+      <button class="home-tile" onclick="showSection('digitale')">
+        <div class="home-tile-icon"><i class="fas fa-mobile-screen-button"></i></div>
+        <div class="home-tile-name">Tessera Digitale</div>
+        <div class="home-tile-sub" id="ht-digitale-sub">Caricamento…</div>
+      </button>
+      <button class="home-tile" onclick="showSection('impostazioni')">
+        <div class="home-tile-icon"><i class="fas fa-sliders"></i></div>
+        <div class="home-tile-name">Impostazioni</div>
+        <div class="home-tile-sub" id="ht-imp-sub">Messaggi · Consensi · Duplicati</div>
+      </button>
+      <button class="home-tile" onclick="showSection('analisi')">
+        <div class="home-tile-icon"><i class="fas fa-chart-bar"></i></div>
+        <div class="home-tile-name">Analisi</div>
+        <div class="home-tile-sub">Statistiche tessere</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- SECTION HEADER (shown when inside a section) -->
+  <div id="view-section" style="display:none">
+    <div class="sec-topbar">
+      <button class="sec-back" onclick="goHome()"><i class="fas fa-chevron-left"></i> Home</button>
+      <div class="sec-title" id="sec-title"></div>
+      <div id="sec-actions"></div>
     </div>
     <div id="sub-impostazioni" class="tabs" style="display:none;margin-bottom:0">
       <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
       <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
       <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
       <button class="tab-btn" data-tab="consensi" onclick="showTab('consensi')">Consensi</button>
-      <button class="tab-btn" data-tab="analisi" onclick="showTab('analisi')">Analisi</button>
     </div>
   </div>
 
@@ -526,7 +567,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 
   <!-- TAB TESSERE -->
-  <div id="tab-tessere">
+  <div id="tab-tessere" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Tutte le tessere fedeltà</div>
@@ -943,6 +984,7 @@ async function init() {
     return;
   }
   await loadAll();
+  _updateHomeStats();
 
   // Parametro ?new_tess=ID — apre form nuova tessera per cliente esistente dalla Rubrica
   const params = new URLSearchParams(location.search);
@@ -1095,6 +1137,7 @@ async function _loadRemainingPages(C_COLS, T_COLS, PAGE, needC, needT) {
   }
   if (gotData) _invalidateMaps();
   _updateDupBadge();
+  if (gotData && !activeSection) _updateHomeStats();
   // Un solo render finale con tutti i dati
   if (gotData) {
     if (activeTab === 'tessere') renderTessereTab();
@@ -1114,18 +1157,75 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeClienteModal();
 });
 
-// ── Macro sezioni ─────────────────────────────────────────────────────────────
-let activeMacro = 'iscrizioni';
+// ── Navigazione sezioni ───────────────────────────────────────────────────────
+let activeSection = null; // null = home
 
-function showMacro(macro) {
-  activeMacro = macro;
-  document.querySelectorAll('.macro-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.macro === macro));
-  document.getElementById('sub-iscrizioni').style.display = macro === 'iscrizioni' ? '' : 'none';
-  document.getElementById('sub-impostazioni').style.display = macro === 'impostazioni' ? '' : 'none';
-  if (macro === 'iscrizioni') showTab('tessere');
-  else if (macro === 'digitale') showTab('digitale');
-  else if (macro === 'impostazioni') showTab('messaggi');
+function showSection(section) {
+  if (section === 'nuova') {
+    openClienteModal(null);
+    return;
+  }
+  activeSection = section;
+  document.getElementById('view-home').style.display = 'none';
+  document.getElementById('view-section').style.display = '';
+
+  const titles = {
+    iscrizioni: 'Iscrizioni Attive',
+    digitale:   'Tessera Digitale',
+    impostazioni:'Impostazioni',
+    analisi:    'Analisi',
+  };
+  document.getElementById('sec-title').textContent = titles[section] || section;
+
+  const actEl = document.getElementById('sec-actions');
+  if (section === 'iscrizioni') {
+    actEl.innerHTML = `<button class="btn btn-red btn-sm" onclick="showSection('nuova')"><i class="fas fa-plus"></i> Nuova</button>`;
+  } else {
+    actEl.innerHTML = '';
+  }
+
+  const subImp = document.getElementById('sub-impostazioni');
+  subImp.style.display = section === 'impostazioni' ? '' : 'none';
+
+  if (section === 'iscrizioni')   showTab('tessere');
+  else if (section === 'digitale')     showTab('digitale');
+  else if (section === 'impostazioni') showTab('messaggi');
+  else if (section === 'analisi')      showTab('analisi');
+}
+
+function goHome() {
+  activeSection = null;
+  document.getElementById('view-home').style.display = '';
+  document.getElementById('view-section').style.display = 'none';
+  _updateHomeStats();
+}
+
+function _updateHomeStats() {
+  const attive   = allTessere.filter(t => t.attiva !== false).length;
+  const complete = allTessere.filter(t => (t.timbri_attuali||0) >= TIMBRI_MAX && t.attiva !== false).length;
+  const digitali = allTessere.filter(t => t.attiva !== false && t.ha_carta_digitale).length;
+  const thisMonth = new Date().getMonth() + 1;
+  const bdCount  = allClienti.filter(c => {
+    if (!c.data_nascita) return false;
+    return parseInt((c.data_nascita||'').split('-')[1],10) === thisMonth;
+  }).length;
+  const dups = _findDuplicates(allClienti).length;
+
+  const iscEl = document.getElementById('ht-iscrizioni-sub');
+  if (iscEl) iscEl.textContent = complete > 0
+    ? `${attive} attive · ${complete} complete`
+    : `${attive} tessere attive`;
+
+  const digEl = document.getElementById('ht-digitale-sub');
+  if (digEl) digEl.textContent = `${digitali} tessere digitali`;
+
+  const impEl = document.getElementById('ht-imp-sub');
+  if (impEl) {
+    const parts = [];
+    if (bdCount > 0) parts.push(`${bdCount} compleanno`);
+    if (dups > 0)    parts.push(`${dups} duplicati`);
+    impEl.textContent = parts.length ? parts.join(' · ') : 'Messaggi · Consensi · Duplicati';
+  }
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -1153,8 +1253,8 @@ function showTab(tab) {
   }
 }
 
-function apriDigPanel() { showMacro('digitale'); }
-function chiudiDigPanel() { showMacro('iscrizioni'); }
+function apriDigPanel() { showSection('digitale'); }
+function chiudiDigPanel() { goHome(); }
 
 function _buildTessereMap() {
   // clienteId → tessera attiva (o più recente) per filtri/display
@@ -2444,6 +2544,12 @@ function renderTessereTab() {
       : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dbeafe;color:#2563eb;white-space:nowrap"><i class="fas fa-rotate" style="font-size:9px"></i> Rinnovo</span>${motivoSub}`;
     const nome = c ? `<span style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</span>` : '<span style="color:#94a3b8">–</span>';
     const cid  = c ? `'${t.cliente_id}'` : 'null';
+    const rinnovaBtn = (isCompl && isAttiva && c)
+      ? `<button class="btn btn-sm" onclick="event.stopPropagation();openClienteModal(${cid})"
+           style="background:#dcfce7;color:#166534;border:1px solid #86efac;font-size:11px;padding:3px 10px;white-space:nowrap">
+           <i class="fas fa-rotate"></i> Rinnova
+         </button>`
+      : '';
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
       <td><strong style="color:var(--amb);font-size:14px">${esc(t.codice_tessera||'—')}</strong></td>
       <td>${nome}${c&&c.citta?`<div style="font-size:11px;color:#94a3b8">${esc(c.citta)}</div>`:''}</td>
@@ -2451,7 +2557,7 @@ function renderTessereTab() {
       <td><span class="tipo-badge tipo-${t.tipo==='ambassador'?'ambassador':'standard'}" style="font-size:9px">${t.tipo==='ambassador'?'Amb':'Std'}</span></td>
       <td>${attivBadge}</td>
       <td style="color:#64748b;font-size:12px">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
-      <td>${stato}</td>
+      <td>${stato}${rinnovaBtn ? `<div style="margin-top:4px">${rinnovaBtn}</div>` : ''}</td>
     </tr>`;
   }).join('');
 
