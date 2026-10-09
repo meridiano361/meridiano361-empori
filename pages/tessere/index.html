@@ -1564,8 +1564,19 @@ async function saveDigLinkMsg() {
 
 // ── Save cliente ──────────────────────────────────────────────────────────────
 async function saveCliente(closeAfter = true) {
-  const nome = document.getElementById('f-nome').value.trim();
-  if (!nome) { showToast('Inserisci il nome'); return; }
+  const nome    = document.getElementById('f-nome').value.trim();
+  const cognome = document.getElementById('f-cognome').value.trim();
+  const missing = [];
+  if (!nome)    missing.push('nome');
+  if (!cognome) missing.push('cognome');
+  if (missing.length) {
+    const campi = missing.join(' e ');
+    const forza = confirm(`Manca il ${campi}.\n\nVuoi salvare comunque?`);
+    if (!forza) {
+      document.getElementById(missing[0] === 'nome' ? 'f-nome' : 'f-cognome').focus();
+      return;
+    }
+  }
   // Leggi valori aggiornati dagli input DOM (sync _editContatto può non coprire ogni caso)
   document.querySelectorAll('#contatti-telefoni-wrap input').forEach((el,i) => { _editTelefoni[i] = el.value.replace(/[^\d+]/g,''); });
   document.querySelectorAll('#contatti-emails-wrap input').forEach((el,i)   => { _editEmails[i]   = el.value.trim().toLowerCase(); });
