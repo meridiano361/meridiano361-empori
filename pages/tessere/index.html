@@ -961,6 +961,21 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<!-- Modale gestione foto consenso cartaceo -->
+<div class="small-modal" id="foto-consenso-modal">
+  <div class="small-modal-panel" style="max-width:560px;width:100%">
+    <h3 style="margin-bottom:4px"><i class="fas fa-images" style="color:var(--red);margin-right:6px"></i>Foto consenso</h3>
+    <div id="foto-modal-nome" style="font-size:12px;color:#64748b;margin-bottom:14px;font-weight:600"></div>
+    <div id="foto-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;min-height:80px;margin-bottom:16px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="closeFotoModal()">Chiudi</button>
+      <button class="btn btn-red btn-sm" onclick="triggerFotoConsenso(_fotoModalClienteId)">
+        <i class="fas fa-camera"></i> Aggiungi foto
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -1282,7 +1297,7 @@ function showTab(tab) {
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
   });
   if (tab === 'duplicati')   renderDuplicati();
-  if (tab === 'consensi')    renderConsensi();
+  if (tab === 'consensi')    _ensureFotoCounts().then(() => renderConsensi());
   if (tab === 'tessere')     renderTessereTab();
   if (tab === 'analisi')     renderAnalisi();
   if (tab === 'digitale')    renderDigitale();
@@ -1675,7 +1690,7 @@ function sendConsentWa() {
   const url = _consentUrl();
   if (!url) { showToast('Esegui prima la migration SQL per generare il link'); return; }
   const text = _getConsentMsgTesto().replace(/{nome}/g, nome).replace(/{url}/g, url);
-  window.open(`https://wa.me/39${phone}?text=${encodeURIComponent(text)}`, '_blank');
+  window.open(`https://wa.me/39${phone}?text=${_encodeWAText(text)}`, '_blank');
 }
 
 function _refreshConsentMsgPreview() {
@@ -1883,10 +1898,17 @@ function _decodeTplText(raw) {
   return ta.value;
 }
 
+// WA URL encoding: encode solo i caratteri speciali URL, lascia emoji/Unicode raw
+// (encodeURIComponent converte emoji in %F0%9F… che WA Web su desktop non gestisce bene)
+function _encodeWAText(text) {
+  const SPECIAL = { '&':'%26', '=':'%3D', '?':'%3F', '#':'%23', '%':'%25', '+':'%2B', ' ':'%20', '\n':'%0A', '\r':'' };
+  return [...(text || '')].map(c => SPECIAL[c] !== undefined ? SPECIAL[c] : c).join('');
+}
+
 function _openWAMsg(tel, msgId) {
   const msg = allMsgTemplates.find(m => String(m.id) === String(msgId));
   if (!msg) return;
-  window.open(`https://wa.me/39${tel.replace(/[^\d]/g,'')}?text=${encodeURIComponent(_decodeTplText(msg.testo))}`, '_blank');
+  window.open(`https://wa.me/39${tel.replace(/[^\d]/g,'')}?text=${_encodeWAText(_decodeTplText(msg.testo))}`, '_blank');
 }
 
 function _bdWaUrlByTipo(c, tipo) {
@@ -1894,7 +1916,7 @@ function _bdWaUrlByTipo(c, tipo) {
   const nome = titleCase(c.nome || c.cognome || '');
   const testoFinal = testo.replace(/\{nome\}/gi, () => nome);
   const tel = (c.telefono || '').replace(/[^\d]/g, '');
-  return `https://wa.me/39${tel}?text=${encodeURIComponent(testoFinal)}`;
+  return `https://wa.me/39${tel}?text=${_encodeWAText(testoFinal)}`;
 }
 function _bdWaUrl(c) {
   const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
@@ -2852,10 +2874,13 @@ function renderConsensi() {
     const dataStr = c.consenso_privacy_data
       ? (() => { const p = c.consenso_privacy_data.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; })()
       : '—';
+    const fotoCount = _fotoCounts[c.id] || 0;
     const fotoCell = mod === 'offline'
-      ? (c.foto_consenso_path
-          ? `<button class="btn btn-outline btn-sm" title="Vedi foto consenso" onclick="event.stopPropagation();viewFotoConsenso('${esc(c.foto_consenso_path)}')" style="font-size:11px;padding:3px 8px;color:#15803d;border-color:#86efac"><i class="fas fa-image"></i></button>`
-          : `<button class="btn btn-outline btn-sm" title="Carica foto consenso cartaceo" onclick="event.stopPropagation();triggerFotoConsenso(${c.id})" style="font-size:11px;padding:3px 8px"><i class="fas fa-camera"></i></button>`)
+      ? `<button class="btn btn-outline btn-sm" title="Gestisci foto consenso"
+           onclick="event.stopPropagation();openFotoModal(${c.id},'${esc((c.cognome||'') + ' ' + (c.nome||'')).trim()}')"
+           style="font-size:11px;padding:3px 8px${fotoCount > 0 ? ';color:#15803d;border-color:#86efac' : ''}">
+           <i class="fas fa-${fotoCount > 0 ? 'images' : 'camera'}"></i>${fotoCount > 0 ? ' ' + fotoCount : ''}
+         </button>`
       : '';
     return `<tr onclick="openClienteModal('${c.id}')">
       <td style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</td>
@@ -2883,8 +2908,20 @@ function renderConsensi() {
   `;
 }
 
-// ── Foto consenso cartaceo ────────────────────────────────────────────────────
+// ── Foto consenso cartaceo (multi-foto) ──────────────────────────────────────
 let _fotoConsensoClienteId = null;
+let _fotoModalClienteId    = null;
+let _fotoModalItems        = [];
+let _fotoCounts            = {};
+let _fotoCountsLoaded      = false;
+
+async function _ensureFotoCounts() {
+  if (_fotoCountsLoaded) return;
+  const { data } = await _sb.from('consensi_foto').select('cliente_id');
+  _fotoCounts = {};
+  (data || []).forEach(r => { _fotoCounts[r.cliente_id] = (_fotoCounts[r.cliente_id] || 0) + 1; });
+  _fotoCountsLoaded = true;
+}
 
 function triggerFotoConsenso(clienteId) {
   _fotoConsensoClienteId = clienteId;
@@ -2899,26 +2936,77 @@ async function handleFotoConsenso(input) {
   showToast('Caricamento foto…');
   try {
     const blob = await _compressImage(file, 1200, 0.65);
-    const path = `${_fotoConsensoClienteId}.jpg`;
-    const { error: upErr } = await _sb.storage.from('consensi-foto').upload(path, blob, {
-      contentType: 'image/jpeg', upsert: true,
-    });
+    const uid = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36));
+    const path = `${_fotoConsensoClienteId}/${uid}.jpg`;
+    const { error: upErr } = await _sb.storage.from('consensi-foto').upload(path, blob, { contentType: 'image/jpeg' });
     if (upErr) throw upErr;
-    const { error: dbErr } = await _sb.from('clienti').update({ foto_consenso_path: path }).eq('id', _fotoConsensoClienteId);
+    const { data: row, error: dbErr } = await _sb.from('consensi_foto').insert({ cliente_id: _fotoConsensoClienteId, path }).select().single();
     if (dbErr) throw dbErr;
-    const idx = allClienti.findIndex(c => c.id === _fotoConsensoClienteId);
-    if (idx >= 0) allClienti[idx].foto_consenso_path = path;
+    _fotoCounts[_fotoConsensoClienteId] = (_fotoCounts[_fotoConsensoClienteId] || 0) + 1;
     showToast('Foto caricata ✓');
+    if (_fotoModalClienteId === _fotoConsensoClienteId && row) {
+      _fotoModalItems.push(row);
+      await _renderFotoGrid();
+    }
     renderConsensi();
   } catch (err) {
     showToast('Errore upload: ' + err.message);
   }
 }
 
-async function viewFotoConsenso(path) {
-  const { data, error } = await _sb.storage.from('consensi-foto').createSignedUrl(path, 3600);
-  if (error || !data?.signedUrl) { showToast('Errore apertura foto'); return; }
-  window.open(data.signedUrl, '_blank');
+async function openFotoModal(clienteId, nomeCliente) {
+  _fotoModalClienteId = clienteId;
+  document.getElementById('foto-modal-nome').textContent = nomeCliente;
+  document.getElementById('foto-grid').innerHTML = '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;grid-column:1/-1">Caricamento…</div>';
+  document.getElementById('foto-consenso-modal').classList.add('open');
+  const { data, error } = await _sb.from('consensi_foto').select('*').eq('cliente_id', clienteId).order('uploaded_at');
+  if (error) { showToast('Errore: ' + error.message); return; }
+  _fotoModalItems = data || [];
+  await _renderFotoGrid();
+}
+
+function closeFotoModal() {
+  document.getElementById('foto-consenso-modal').classList.remove('open');
+  _fotoModalClienteId = null;
+  _fotoModalItems = [];
+}
+
+async function _renderFotoGrid() {
+  const grid = document.getElementById('foto-grid');
+  if (!_fotoModalItems.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;color:#94a3b8;font-size:13px;text-align:center;padding:30px 0"><i class="fas fa-image" style="font-size:28px;display:block;margin-bottom:8px;opacity:.35"></i>Nessuna foto — usa "Aggiungi foto"</div>';
+    return;
+  }
+  const paths = _fotoModalItems.map(f => f.path);
+  const { data: signed } = await _sb.storage.from('consensi-foto').createSignedUrls(paths, 3600);
+  const urlMap = {};
+  (signed || []).forEach(s => { if (s.signedUrl) urlMap[s.path] = s.signedUrl; });
+  grid.innerHTML = _fotoModalItems.map(f => {
+    const url = esc(urlMap[f.path] || '');
+    const d = new Date(f.uploaded_at).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    return `<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;aspect-ratio:3/4">
+      ${url
+        ? `<img src="${url}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;display:block" onclick="window.open('${url}','_blank')" alt="Foto consenso">`
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8"><i class="fas fa-image" style="font-size:24px"></i></div>`}
+      <button onclick="deleteFotoConsenso('${f.id}','${esc(f.path)}')"
+        style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);border:none;color:#fff;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center"
+        title="Elimina">✕</button>
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);color:#fff;font-size:10px;padding:3px 6px;text-align:center">${d}</div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteFotoConsenso(id, path) {
+  if (!confirm('Eliminare questa foto?')) return;
+  await _sb.storage.from('consensi-foto').remove([path]);
+  const { error } = await _sb.from('consensi_foto').delete().eq('id', id);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  _fotoModalItems = _fotoModalItems.filter(f => f.id !== id);
+  const cid = _fotoModalClienteId;
+  _fotoCounts[cid] = Math.max(0, (_fotoCounts[cid] || 1) - 1);
+  await _renderFotoGrid();
+  renderConsensi();
+  showToast('Foto eliminata');
 }
 
 function _compressImage(file, maxPx, quality) {
@@ -3638,7 +3726,7 @@ function renderDigitale() {
     const cartaUrl = t.slug
       ? `${location.origin}/tessera/${t.slug}`
       : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
-    const waTxt = encodeURIComponent(_getDigLinkMsgTesto().replace(/{nome}/g, c.nome || '').replace(/{url}/g, cartaUrl));
+    const waTxt = _encodeWAText(_getDigLinkMsgTesto().replace(/{nome}/g, c.nome || '').replace(/{url}/g, cartaUrl));
     const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
 
     return `<div class="dig-card">
@@ -3813,7 +3901,7 @@ async function salvaSpesa() {
     const cartaUrl = t.slug
       ? `${location.origin}/tessera/${t.slug}`
       : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
-    const waTxt = encodeURIComponent(`Ciao ${c?.nome}! Hai fatto una spesa di €${importo.toFixed(2)} (+${timbriNuovi} timbro${timbriNuovi>1?'i':''})${scontoGenerato > 0 ? ` 🎉 Hai guadagnato €${scontoGenerato} di sconto!` : ''}. Guarda la tua tessera: ${cartaUrl}`);
+    const waTxt = _encodeWAText(`Ciao ${c?.nome}! Hai fatto una spesa di €${importo.toFixed(2)} (+${timbriNuovi} timbro${timbriNuovi>1?'i':''})${scontoGenerato > 0 ? ` 🎉 Hai guadagnato €${scontoGenerato} di sconto!` : ''}. Guarda la tua tessera: ${cartaUrl}`);
     if (waWin) waWin.location.href = `https://wa.me/39${tel}?text=${waTxt}`;
 
     const resultText = scontoGenerato > 0
