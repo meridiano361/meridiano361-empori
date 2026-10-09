@@ -758,6 +758,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 </div>
 
 <div id="panel-backdrop" onclick="closeClienteModal()"></div>
+<input type="file" id="foto-consenso-input" accept="image/*" style="display:none" onchange="handleFotoConsenso(this)">
 
 <!-- CLIENT SIDE PANEL -->
 <div class="side-panel" id="cliente-overlay">
@@ -2851,11 +2852,17 @@ function renderConsensi() {
     const dataStr = c.consenso_privacy_data
       ? (() => { const p = c.consenso_privacy_data.split('T')[0].split('-'); return `${p[2]}/${p[1]}/${p[0]}`; })()
       : '—';
+    const fotoCell = mod === 'offline'
+      ? (c.foto_consenso_path
+          ? `<button class="btn btn-outline btn-sm" title="Vedi foto consenso" onclick="event.stopPropagation();viewFotoConsenso('${esc(c.foto_consenso_path)}')" style="font-size:11px;padding:3px 8px;color:#15803d;border-color:#86efac"><i class="fas fa-image"></i></button>`
+          : `<button class="btn btn-outline btn-sm" title="Carica foto consenso cartaceo" onclick="event.stopPropagation();triggerFotoConsenso(${c.id})" style="font-size:11px;padding:3px 8px"><i class="fas fa-camera"></i></button>`)
+      : '';
     return `<tr onclick="openClienteModal('${c.id}')">
       <td style="font-weight:700">${escName(c.cognome)} ${escName(c.nome)}</td>
       <td><span class="cons-badge ${mod}"><i class="fas ${badgeIcon}"></i>${badgeLabel}</span></td>
       <td style="color:#64748b">${dataStr}</td>
       <td style="color:#94a3b8;font-size:12px">${esc(capEmporio(c.emporio)||'—')}</td>
+      <td style="text-align:center">${fotoCell}</td>
     </tr>`;
   }).join('');
 
@@ -2867,12 +2874,70 @@ function renderConsensi() {
           <th>Modalità</th>
           <th>Data</th>
           <th>Emporio</th>
+          <th style="width:60px">Foto</th>
         </tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
     </div>
     <div style="font-size:12px;color:#94a3b8;text-align:right;margin-top:6px">${rows.length} clienti</div>
   `;
+}
+
+// ── Foto consenso cartaceo ────────────────────────────────────────────────────
+let _fotoConsensoClienteId = null;
+
+function triggerFotoConsenso(clienteId) {
+  _fotoConsensoClienteId = clienteId;
+  const inp = document.getElementById('foto-consenso-input');
+  inp.value = '';
+  inp.click();
+}
+
+async function handleFotoConsenso(input) {
+  const file = input.files[0];
+  if (!file || !_fotoConsensoClienteId) return;
+  showToast('Caricamento foto…');
+  try {
+    const blob = await _compressImage(file, 1200, 0.65);
+    const path = `${_fotoConsensoClienteId}.jpg`;
+    const { error: upErr } = await _sb.storage.from('consensi-foto').upload(path, blob, {
+      contentType: 'image/jpeg', upsert: true,
+    });
+    if (upErr) throw upErr;
+    const { error: dbErr } = await _sb.from('clienti').update({ foto_consenso_path: path }).eq('id', _fotoConsensoClienteId);
+    if (dbErr) throw dbErr;
+    const idx = allClienti.findIndex(c => c.id === _fotoConsensoClienteId);
+    if (idx >= 0) allClienti[idx].foto_consenso_path = path;
+    showToast('Foto caricata ✓');
+    renderConsensi();
+  } catch (err) {
+    showToast('Errore upload: ' + err.message);
+  }
+}
+
+async function viewFotoConsenso(path) {
+  const { data, error } = await _sb.storage.from('consensi-foto').createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) { showToast('Errore apertura foto'); return; }
+  window.open(data.signedUrl, '_blank');
+}
+
+function _compressImage(file, maxPx, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxPx || h > maxPx) {
+        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else       { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compressione fallita')), 'image/jpeg', quality);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 function exportConsensiCsv() {
