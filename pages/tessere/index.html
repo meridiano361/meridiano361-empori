@@ -527,7 +527,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     </div>
     <!-- Cerca + filtri a tendina -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-      <input type="text" id="tess-search" placeholder="Cerca N° tessera, cognome, nome, città…"
+      <input type="text" id="tess-search" placeholder="Cerca N° tessera, nome, cognome, città, email, telefono…"
         oninput="clearTimeout(_searchDebounceTimer);_searchDebounceTimer=setTimeout(()=>{_tessPage=0;renderTessereTab()},220)"
         style="flex:1;min-width:200px;padding:7px 12px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;outline:none">
       <select id="tess-emp-sel" onchange="_tessereEmpFilt=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
@@ -2352,13 +2352,21 @@ function renderTessereTab() {
     );
   }
   if (q) {
+    const qDigits = q.replace(/\D/g, '');
     tessere = tessere.filter(t => {
       if ((t.codice_tessera||'').toLowerCase().includes(q)) return true;
       const c = _getClientiMap().get(String(t.cliente_id));
       if (!c) return false;
-      return (c.cognome||'').toLowerCase().includes(q) ||
-             (c.nome||'').toLowerCase().includes(q) ||
-             (c.citta||'').toLowerCase().includes(q);
+      if ((c.cognome||'').toLowerCase().includes(q)) return true;
+      if ((c.nome||'').toLowerCase().includes(q))    return true;
+      if ((c.citta||'').toLowerCase().includes(q))   return true;
+      if ((c.email||'').toLowerCase().includes(q))   return true;
+      if (qDigits.length >= 4) {
+        const tel = (c.telefono||'').replace(/\D/g,'');
+        if (tel.includes(qDigits)) return true;
+      }
+      if ((c.data_nascita||'').includes(q))          return true;
+      return false;
     });
   }
 
