@@ -1015,27 +1015,35 @@ function _ensureMessages() {
   return _msgPromise;
 }
 
-async function _loadRemainingPages(C_COLS, T_COLS, PAGE, offC, offT) {
-  const emporio = _getEmporioLocal();
-  const admin   = _isAdminLocal();
-  while (offC !== null || offT !== null) {
+async function _loadRemainingPages(C_COLS, T_COLS, PAGE, needC, needT) {
+  const emporio  = _getEmporioLocal();
+  const admin    = _isAdminLocal();
+  // Lancia tutte le pagine aggiuntive in parallelo (copre fino a 10.000 record extra)
+  const EXTRA = 9;
+  const batches = Array.from({ length: EXTRA }, (_, i) => {
+    const off = (i + 1) * PAGE;
     let qC = _sb.from('clienti').select(C_COLS).order('cognome').order('nome');
     let qT = _sb.from('tessere').select(T_COLS);
     if (!admin && emporio) { qC = qC.eq('emporio', emporio); qT = qT.eq('emporio', emporio); }
-    const [rC, rT] = await Promise.all([
-      offC !== null ? qC.range(offC, offC + PAGE - 1) : Promise.resolve({ data: [] }),
-      offT !== null ? qT.range(offT, offT + PAGE - 1) : Promise.resolve({ data: [] }),
+    return Promise.all([
+      needC ? qC.range(off, off + PAGE - 1) : Promise.resolve({ data: [] }),
+      needT ? qT.range(off, off + PAGE - 1) : Promise.resolve({ data: [] }),
     ]);
-    const chunkC = rC.data || [];
-    const chunkT = rT.data || [];
-    if (chunkC.length) allClienti = allClienti.concat(chunkC);
-    if (chunkT.length) allTessere = allTessere.concat(chunkT);
-    offC = (offC !== null && chunkC.length >= PAGE) ? offC + PAGE : null;
-    offT = (offT !== null && chunkT.length >= PAGE) ? offT + PAGE : null;
-    _invalidateMaps();
-    if (activeTab === 'tessere') renderTessereTab();
+  });
+  const results = await Promise.all(batches);
+  let gotData = false;
+  for (const [rC, rT] of results) {
+    const chunkC = rC.data || [], chunkT = rT.data || [];
+    if (chunkC.length) { allClienti = allClienti.concat(chunkC); gotData = true; }
+    if (chunkT.length) { allTessere = allTessere.concat(chunkT); gotData = true; }
   }
+  if (gotData) _invalidateMaps();
   _updateDupBadge();
+  // Un solo render finale con tutti i dati
+  if (gotData) {
+    if (activeTab === 'tessere') renderTessereTab();
+    else if (activeTab === 'digitale') renderDigitale();
+  }
 }
 let _scontiLoaded = false;
 async function _ensureSconti() {
