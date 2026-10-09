@@ -4216,7 +4216,7 @@ async function confirmMerge() {
 
 // ── TESSERE DIGITALI ──────────────────────────────────────────────────────────
 const DIG_TIMBRI_MAX = 12;
-const _digCollapsed = new Set();
+const _digExpanded = new Set(); // cards expanded by user; default is collapsed
 // Regole per tipo: Standard €25→€20, Ambassador €30→€25
 function digEuroTimbro(tipo) { return tipo === 'ambassador' ? 30 : 25; }
 function digSconto(tipo)     { return tipo === 'ambassador' ? 25 : 20; }
@@ -4302,7 +4302,7 @@ function renderDigitale() {
     const waTxt = _encodeWAText(_getDigLinkMsgTesto().replace(/{nome}/g, c.nome || '').replace(/{url}/g, cartaUrl));
     const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
 
-    const isCollapsed = _digCollapsed.has(t.id);
+    const isCollapsed = !_digExpanded.has(t.id);
     return `<div class="dig-card${isCollapsed ? ' collapsed' : ''}" id="digcard-${t.id}">
       <div class="dig-card-top" onclick="toggleDigCard('${t.id}')">
         <div class="dig-initials">${iniziali}</div>
@@ -4366,12 +4366,12 @@ async function usaSconto(tesseraId) {
 function toggleDigCard(tesseraId) {
   const el = document.getElementById('digcard-' + tesseraId);
   if (!el) return;
-  if (_digCollapsed.has(tesseraId)) {
-    _digCollapsed.delete(tesseraId);
-    el.classList.remove('collapsed');
-  } else {
-    _digCollapsed.add(tesseraId);
+  if (_digExpanded.has(tesseraId)) {
+    _digExpanded.delete(tesseraId);
     el.classList.add('collapsed');
+  } else {
+    _digExpanded.add(tesseraId);
+    el.classList.remove('collapsed');
   }
 }
 
