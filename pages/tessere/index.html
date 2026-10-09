@@ -81,14 +81,29 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
 
 /* ── Side panel ── */
-.side-panel{position:fixed;top:56px;right:0;bottom:0;width:460px;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-6px 0 24px rgba(0,0,0,.07);z-index:400;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1)}
+.side-panel{position:fixed;top:56px;right:0;bottom:0;width:680px;background:#fff;border-left:1px solid #e2e8f0;box-shadow:-8px 0 40px rgba(0,0,0,.10);z-index:400;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1)}
 .side-panel.open{transform:translateX(0)}
 .page-wrap{transition:margin-right .26s cubic-bezier(.4,0,.2,1)}
-.page-wrap.panel-open{margin-right:460px}
+.page-wrap.panel-open{margin-right:680px}
+/* Backdrop (mostrato su desktop) */
+#panel-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:399;display:none;cursor:pointer}
+#panel-backdrop.show{display:block}
+@media(max-width:1100px){
+  .side-panel{width:520px}
+  .page-wrap.panel-open{margin-right:520px}
+}
 @media(max-width:900px){
   .side-panel{top:0;width:100%;box-shadow:none;border-left:none}
   .page-wrap.panel-open{margin-right:0}
+  #panel-backdrop{display:none!important}
 }
+/* Messaggi sezioni tile */
+.msg-sec-tile{width:100%;background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:16px 20px;text-align:left;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:14px;transition:all .15s}
+.msg-sec-tile:hover{border-color:var(--red);box-shadow:0 2px 12px rgba(181,69,58,.10)}
+.msg-sec-tile.active{border-color:var(--red);background:#fef2f2}
+.msg-sec-tile-icon{font-size:22px;color:var(--red);flex-shrink:0;width:32px;text-align:center}
+.msg-sec-tile-name{font-size:15px;font-weight:900;color:#1e293b}
+.msg-sec-tile-sub{font-size:12px;color:#94a3b8;font-weight:600;margin-top:1px}
 
 /* Panel header */
 .panel-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0}
@@ -401,7 +416,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <div id="sec-actions"></div>
     </div>
     <div id="sub-impostazioni" class="tabs" style="display:none;margin-bottom:0">
-      <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi WA</button>
+      <button class="tab-btn" data-tab="messaggi" onclick="showTab('messaggi')">Messaggi</button>
       <button class="tab-btn" data-tab="compleanni" onclick="showTab('compleanni')">Compleanni</button>
       <button class="tab-btn" data-tab="duplicati" onclick="showTab('duplicati')">Duplicati <span class="dup-badge" id="dup-badge" style="display:none"></span></button>
       <button class="tab-btn" data-tab="consensi" onclick="showTab('consensi')">Consensi</button>
@@ -477,11 +492,31 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     </div>
   </div>
 
-  <!-- TAB MESSAGGI WA -->
+  <!-- TAB MESSAGGI -->
   <div id="tab-messaggi" style="display:none">
-    <!-- Messaggio di sistema: consenso privacy -->
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Messaggi di sistema</div>
+    <!-- Due tile sezioni -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <button class="msg-sec-tile" id="tile-sistema" onclick="toggleMsgSection('sistema')">
+        <div class="msg-sec-tile-icon"><i class="fas fa-shield-halved"></i></div>
+        <div>
+          <div class="msg-sec-tile-name">Messaggi di Sistema</div>
+          <div class="msg-sec-tile-sub">Privacy · Link tessera digitale</div>
+        </div>
+        <i class="fas fa-chevron-right" id="chev-sistema" style="margin-left:auto;font-size:12px;color:#94a3b8;transition:transform .2s"></i>
+      </button>
+      <button class="msg-sec-tile" id="tile-wa" onclick="toggleMsgSection('wa')">
+        <div class="msg-sec-tile-icon"><i class="fab fa-whatsapp" style="color:#25d366"></i></div>
+        <div>
+          <div class="msg-sec-tile-name">Messaggi WA</div>
+          <div class="msg-sec-tile-sub">Benvenuto · Compleanno · Custom</div>
+        </div>
+        <i class="fas fa-chevron-right" id="chev-wa" style="margin-left:auto;font-size:12px;color:#94a3b8;transition:transform .2s"></i>
+      </button>
+    </div>
+
+    <!-- Sezione: Messaggi di Sistema -->
+    <div id="msg-section-sistema" style="display:none;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Messaggi di Sistema</div>
       <div class="msg-card collapsed" id="consent-msg-card" style="border-left:3px solid #7c3aed">
         <div class="msg-card-hdr" onclick="this.closest('.msg-card').classList.toggle('collapsed')">
           <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
@@ -521,9 +556,15 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         </div>
       </div>
     </div>
-    <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Template personalizzati</div>
-    <button class="btn btn-red btn-sm" style="margin-bottom:10px" onclick="openMsgModal(null)">+ Nuovo messaggio</button>
-    <div id="msg-list"></div>
+
+    <!-- Sezione: Messaggi WA personalizzati -->
+    <div id="msg-section-wa" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em">Messaggi WA</div>
+        <button class="btn btn-red btn-sm" onclick="openMsgModal(null)"><i class="fas fa-plus"></i> Nuovo messaggio</button>
+      </div>
+      <div id="msg-list"></div>
+    </div>
   </div>
 
   <!-- TAB CONSENSI -->
@@ -716,6 +757,8 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<div id="panel-backdrop" onclick="closeClienteModal()"></div>
+
 <!-- CLIENT SIDE PANEL -->
 <div class="side-panel" id="cliente-overlay">
   <!-- Header -->
@@ -788,6 +831,7 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
             </label>
             <span id="f-carta-digitale-link" style="display:none;font-size:11px;color:#64748b;margin-left:4px;align-self:center"></span>
           </div>
+          <div id="f-cicli-badge" style="display:none;margin-top:8px"></div>
         </div>
       </div>
       <button id="btn-nuova-tessera" class="btn btn-outline btn-sm" style="margin-top:10px;display:none" onclick="nuovaTessera()">
@@ -1020,7 +1064,7 @@ async function loadAll() {
   // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
   // ha_whatsapp/vuole_news_whatsapp/in_lista_broadcast_whatsapp/messaggio_benvenuto_inviato caricati on-demand in openClienteModal
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale,cicli_completati';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
@@ -1241,6 +1285,13 @@ function showTab(tab) {
   if (tab === 'digitale')    renderDigitale();
   if (tab === 'messaggi') {
     _ensureMessages().then(() => { renderMsgList(); _refreshConsentMsgPreview(); });
+    // Reset sezioni chiuse quando si rientra nel tab
+    ['msg-section-sistema','msg-section-wa'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    ['tile-sistema','tile-wa'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    ['chev-sistema','chev-wa'].forEach(id => { const el = document.getElementById(id); if(el) el.style.transform=''; });
   }
   if (tab === 'compleanni') {
     _ensureMessages().then(() => renderCompleanni());
@@ -1249,6 +1300,27 @@ function showTab(tab) {
 
 function apriDigPanel() { showSection('digitale'); }
 function chiudiDigPanel() { goHome(); }
+
+function toggleMsgSection(section) {
+  const sistEl = document.getElementById('msg-section-sistema');
+  const waEl   = document.getElementById('msg-section-wa');
+  const tSist  = document.getElementById('tile-sistema');
+  const tWa    = document.getElementById('tile-wa');
+  const cSist  = document.getElementById('chev-sistema');
+  const cWa    = document.getElementById('chev-wa');
+  if (section === 'sistema') {
+    const open = sistEl.style.display === 'none';
+    sistEl.style.display = open ? '' : 'none';
+    tSist.classList.toggle('active', open);
+    if (cSist) cSist.style.transform = open ? 'rotate(90deg)' : '';
+  } else {
+    const open = waEl.style.display === 'none';
+    waEl.style.display = open ? '' : 'none';
+    tWa.classList.toggle('active', open);
+    if (cWa) cWa.style.transform = open ? 'rotate(90deg)' : '';
+    if (open) { _ensureMessages().then(() => { renderMsgList(); _refreshConsentMsgPreview(); }); }
+  }
+}
 
 function _buildTessereMap() {
   // clienteId → tessera attiva (o più recente) per filtri/display
@@ -1279,7 +1351,7 @@ function _renderContattiUI() {
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
         <button type="button" title="${i===0?'Preferito':'Rendi preferito'}"
           onclick="_setPreferitoContatto('${tipo}',${i})"
-          style="border:none;background:none;cursor:pointer;font-size:16px;padding:0;flex-shrink:0;opacity:${i===0?'1':'.35'}">${i===0?'⭐':'☆'}</button>
+          style="border:1px solid ${i===0?'#B5453A':'#e2e8f0'};background:${i===0?'#fef2f2':'#fff'};border-radius:6px;cursor:pointer;font-size:10px;font-weight:800;color:${i===0?'#B5453A':'#94a3b8'};padding:2px 6px;flex-shrink:0;font-family:'Nunito',sans-serif;line-height:1.4">${i===0?'PREF':''}</button>
         <input class="field-input" style="flex:1;margin:0" type="${inputType}" placeholder="${placeholder}"
           value="${esc(v)}"
           oninput="_editContatto('${tipo}',${i},this.value)"
@@ -1327,6 +1399,7 @@ function openClienteModal(clienteId) {
   currentTipo = 'standard';
   document.getElementById('cliente-overlay').classList.add('open');
   document.querySelector('.page-wrap').classList.add('panel-open');
+  document.getElementById('panel-backdrop').classList.add('show');
   // Scroll panel body to top
   const _pb = document.querySelector('.panel-body');
   if (_pb) _pb.scrollTop = 0;
@@ -1388,6 +1461,14 @@ function openClienteModal(clienteId) {
     const linkEl = document.getElementById('f-carta-digitale-link');
     if (t?.ha_carta_digitale && t?.slug) { linkEl.style.display = 'inline'; linkEl.innerHTML = `<a href="/tessera/${t.slug}" target="_blank" style="color:var(--red)">Vedi carta →</a>`; }
     else { linkEl.style.display = 'none'; linkEl.textContent = ''; }
+    const cicliEl = document.getElementById('f-cicli-badge');
+    if (cicliEl) {
+      const cicli = t?.cicli_completati || 0;
+      if (cicli > 0) {
+        cicliEl.style.display = '';
+        cicliEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:#7c3aed">🏆 ${cicli} ciclo${cicli>1?'i':''} completato${cicli>1?'i':''}</span>`;
+      } else { cicliEl.style.display = 'none'; }
+    }
     // Valori WA: default dal cliente.wa, poi aggiornati dalla fetch lazy sulla tessera
     document.getElementById('f-ha-wa').checked = c.wa || false;
     document.getElementById('f-news-wa').checked = false;
@@ -1461,6 +1542,7 @@ function openClienteModal(clienteId) {
 function closeClienteModal() {
   document.getElementById('cliente-overlay').classList.remove('open');
   document.querySelector('.page-wrap').classList.remove('panel-open');
+  document.getElementById('panel-backdrop').classList.remove('show');
 }
 
 function updateWaField() {
@@ -3193,12 +3275,12 @@ function _renderMergeBody() {
           style="accent-color:#B5453A;width:15px;height:15px;flex-shrink:0">
         <button type="button" onclick="_setPreferitoMerge('${tipo}',${i})"
           title="${i===0&&item.preferito?'Preferito':'Rendi preferito'}"
-          style="border:none;background:none;cursor:pointer;font-size:15px;padding:0;flex-shrink:0;opacity:${item.preferito?'1':'.3'}">${item.preferito?'⭐':'☆'}</button>
+          style="border:1px solid ${item.preferito?'#B5453A':'#e2e8f0'};background:${item.preferito?'#fef2f2':'#fff'};border-radius:5px;cursor:pointer;font-size:10px;font-weight:800;color:${item.preferito?'#B5453A':'#94a3b8'};padding:2px 5px;flex-shrink:0;font-family:'Nunito',sans-serif;line-height:1.4">${item.preferito?'PREF':''}</button>
         <span style="font-size:13px;font-weight:${item.preferito?'700':'500'};color:${item.checked?'#1e293b':'#94a3b8'};flex:1;text-decoration:${item.checked?'none':'line-through'}">${esc(item.valore)}</span>
         ${sourceBadge(item.source)}
       </div>`).join('');
     return `<div class="merge-section-title" style="margin-top:14px"><i class="fas fa-${tipo==='telefono'?'phone':'envelope'}" style="margin-right:4px"></i>${labelTitle}</div>
-      <p style="font-size:11px;color:#64748b;margin:3px 0 8px">Seleziona quali tenere. ⭐ = preferito (usato per WhatsApp e ricerche).</p>
+      <p style="font-size:11px;color:#64748b;margin:3px 0 8px">Seleziona quali tenere. PREF = preferito (usato per WhatsApp e ricerche).</p>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 12px">${rows}</div>`;
   };
   const contattiSection =
@@ -3438,9 +3520,12 @@ function renderDigitale() {
   }
 
   grid.innerHTML = righe.map(({ t, c }) => {
-    const timbri = t.timbri_attuali || 0;
-    const saldo  = t.saldo_sconto   || 0;
-    const iniziali = `${(c.nome||'')[0]||''}${(c.cognome||'')[0]||''}`.toUpperCase();
+    const timbriRaw  = t.timbri_attuali || 0;
+    const timbri     = Math.min(timbriRaw, DIG_TIMBRI_MAX); // display cap
+    const completa   = timbriRaw >= DIG_TIMBRI_MAX;
+    const saldo      = t.saldo_sconto   || 0;
+    const cicli      = t.cicli_completati || 0;
+    const iniziali   = `${(c.nome||'')[0]||''}${(c.cognome||'')[0]||''}`.toUpperCase();
     const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
 
     const stampsHtml = Array.from({ length: DIG_TIMBRI_MAX }, (_, i) =>
@@ -3450,15 +3535,36 @@ function renderDigitale() {
     ).join('');
 
     const euroTimbro = digEuroTimbro(t.tipo);
+    const scontoPerCiclo = digSconto(t.tipo);
     const rimasti = DIG_TIMBRI_MAX - timbri;
-    const progressTxt = timbri === 0
-      ? `Nessun timbro ancora`
-      : timbri >= DIG_TIMBRI_MAX
-        ? `Tessera completa! 🎉`
+    const progressTxt = completa
+      ? `Tessera completa! 🎉 Avvia il ciclo ${cicli + 1}`
+      : timbri === 0
+        ? `Nessun timbro ancora`
         : `${timbri}/${DIG_TIMBRI_MAX} timbri · ancora €${rimasti * euroTimbro} per completare`;
 
-    const saldoBadge = saldo > 0
-      ? `<div class="dig-saldo"><i class="fas fa-gift"></i> €${saldo.toFixed(0)} di sconto</div><br>`
+    const cicliInfo = cicli > 0
+      ? `<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:6px">
+           🏆 ${cicli} ciclo${cicli > 1 ? 'i' : ''} completato${cicli > 1 ? 'i' : ''}
+         </div>`
+      : '';
+
+    const completaBanner = completa
+      ? `<div style="background:#dcfce7;border:1.5px solid #16a34a;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+           <span style="font-size:13px;font-weight:800;color:#166534">🎉 Tessera completata!</span>
+           <button class="btn btn-sm" style="background:#16a34a;color:#fff;flex-shrink:0" onclick="avviaCiclo('${t.id}')">
+             <i class="fas fa-rotate"></i> Avvia ciclo ${cicli + 1}
+           </button>
+         </div>`
+      : '';
+
+    const scontoBanner = saldo > 0
+      ? `<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+           <span style="font-size:13px;font-weight:800;color:#92400e">🎁 €${saldo.toFixed(0)} di sconto da usare</span>
+           <button class="btn btn-sm" style="background:#f59e0b;color:#fff;flex-shrink:0" onclick="usaSconto('${t.id}')">
+             <i class="fas fa-check"></i> Registra uso sconto
+           </button>
+         </div>`
       : '';
 
     const tel = (c.telefono || '').replace(/\D/g,'');
@@ -3473,14 +3579,16 @@ function renderDigitale() {
         <div class="dig-initials">${iniziali}</div>
         <div>
           <div class="dig-name">${esc(nomeCompleto)}</div>
-          <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? '⭐ Ambassador' : 'Standard'}</div>
+          <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? 'Ambassador' : 'Standard'}</div>
         </div>
       </div>
-      ${saldoBadge}
+      ${cicliInfo}
+      ${completaBanner}
+      ${scontoBanner}
       <div class="dig-stamps">${stampsHtml}</div>
       <div class="dig-progress-text">${progressTxt}</div>
       <div class="dig-actions">
-        <button class="btn btn-red btn-sm" onclick="apriSpesaModal('${t.id}')">
+        <button class="btn btn-red btn-sm" onclick="apriSpesaModal('${t.id}')" ${completa ? 'disabled title="Prima avvia il ciclo successivo"' : ''}>
           <i class="fas fa-euro-sign"></i> Registra Spesa
         </button>
         ${tel && t.token ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
@@ -3489,6 +3597,55 @@ function renderDigitale() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Usa sconto: l'operatore certifica che il cliente ha usato lo sconto in cassa ──
+async function usaSconto(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t || !(t.saldo_sconto > 0)) return;
+  const saldo = t.saldo_sconto;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+  if (!confirm(`Confermi che ${nome} ha usato lo sconto di €${saldo.toFixed(0)} in cassa oggi?`)) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { error: errSc } = await _sb.from('tessere_sconti').insert({
+    tessera_id:    tesseraId,
+    data_utilizzo: today,
+    valore_sconto: `€${saldo.toFixed(0)}`,
+  });
+  if (errSc) { alert('Errore registrazione sconto: ' + errSc.message); return; }
+
+  const { error: errUpd } = await _sb.from('tessere').update({ saldo_sconto: 0 }).eq('id', tesseraId);
+  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
+  showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
+  renderDigitale();
+}
+
+// ── Avvia ciclo: resetta timbri e incrementa contatore cicli ─────────────────
+async function avviaCiclo(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t || (t.timbri_attuali || 0) < DIG_TIMBRI_MAX) return;
+  const cicliNuovi   = Math.floor(t.timbri_attuali / DIG_TIMBRI_MAX);
+  const timbriResto  = t.timbri_attuali % DIG_TIMBRI_MAX;
+  const totCicli     = (t.cicli_completati || 0) + cicliNuovi;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+
+  const { error } = await _sb.from('tessere').update({
+    timbri_attuali:   timbriResto,
+    cicli_completati: totCicli,
+  }).eq('id', tesseraId);
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriResto, cicli_completati: totCicli };
+  showToast(`🎉 Ciclo ${totCicli} avviato per ${nome}${timbriResto > 0 ? ` · ${timbriResto} timbri riportati` : ''}`);
+  renderDigitale();
+  _updateHomeStats();
 }
 
 function apriSpesaModal(tesseraId) {
@@ -3558,17 +3715,18 @@ async function salvaSpesa() {
       const cicli    = Math.floor(timbriAttuali / DIG_TIMBRI_MAX);
       scontoGenerato = cicli * scontoPerCiclo;
       saldoSconto   += scontoGenerato;
-      timbriAttuali  = timbriAttuali % DIG_TIMBRI_MAX;
+      // NON resettiamo: l'operatore avvia il ciclo successivo manualmente
+      // I timbri restano ≥ 12 per mostrare lo stato "completata"
     }
 
-    const { error: errMov } = await _sb.from('movimenti_tessera').insert({
+    // movimenti_tessera: inserimento opzionale (non blocca se la tabella non è configurata)
+    await _sb.from('movimenti_tessera').insert({
       tessera_id:      _digSpesaTesseraId,
       importo,
       timbri_aggiunti: timbriNuovi,
       sconto_generato: scontoGenerato,
       operatore:       _user?.nome || ''
-    });
-    if (errMov) throw new Error('Errore movimenti: ' + errMov.message);
+    }).then(({ error }) => { if (error) console.warn('[movimenti_tessera]', error.message); });
 
     const { error: errUpd } = await _sb.from('tessere').update({
       timbri_attuali: timbriAttuali,
@@ -3582,6 +3740,7 @@ async function salvaSpesa() {
     if (idx >= 0) {
       allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriAttuali, totale_spesa: (t.totale_spesa||0)+importo, saldo_sconto: saldoSconto };
     }
+    _updateHomeStats();
 
     // Naviga la finestra WA già aperta verso il messaggio del cliente
     const cartaUrl = t.slug
@@ -3591,11 +3750,12 @@ async function salvaSpesa() {
     if (waWin) waWin.location.href = `https://wa.me/39${tel}?text=${waTxt}`;
 
     const resultText = scontoGenerato > 0
-      ? `🎉 +${timbriNuovi} timbro${timbriNuovi>1?'i':''} · €${scontoGenerato} di sconto guadagnato!`
+      ? `🎉 +${timbriNuovi} timbro${timbriNuovi>1?'i':''} · Tessera completa! €${scontoGenerato} di sconto disponibile`
       : `✓ +${timbriNuovi} timbro${timbriNuovi>1?'i':''}`;
     document.getElementById('wa-result-text').textContent = resultText;
+    const timbrDisplay = Math.min(timbriAttuali, DIG_TIMBRI_MAX);
     document.getElementById('wa-result-sub').textContent =
-      `Timbri: ${timbriAttuali}/${DIG_TIMBRI_MAX}${waWin ? ' · WhatsApp aperto' : ''}`;
+      `Timbri: ${timbrDisplay}/${DIG_TIMBRI_MAX}${waWin ? ' · WhatsApp aperto' : ''}${scontoGenerato > 0 ? ' · Avvia ciclo successivo dalla tessera' : ''}`;
     document.getElementById('wa-link-btn').style.display = 'none';
 
     document.getElementById('wa-success-box').classList.add('show');
