@@ -2003,7 +2003,8 @@ async function renderBroadcast() {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700;color:#1e293b">${m.titolo}</span>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia testo</button>
+          <button class="btn btn-outline btn-sm" onclick="sendBcWa(${JSON.stringify(m.id)})" style="background:#25d366;color:#fff;border-color:#25d366"><i class="fab fa-whatsapp"></i> Invia WA</button>
+          <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia</button>
           <button class="btn btn-red btn-sm" onclick="markBcSent(${JSON.stringify(m.id)})"><i class="fas fa-check"></i> Inviato</button>
         </div>
       </div>`).join('');
@@ -2051,7 +2052,8 @@ function _bcCardHtml(m, stato) {
     ${m.testo.length > 160 ? `<button style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;padding:0;margin-bottom:4px" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Comprimi':'Leggi tutto'">Leggi tutto</button>` : ''}
     ${m.note ? `<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px"><i class="fas fa-sticky-note" style="margin-right:3px"></i>${m.note}</div>` : ''}
     <div class="bc-actions">
-      <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia testo</button>
+      <button class="btn btn-outline btn-sm" onclick="sendBcWa(${JSON.stringify(m.id)})" style="background:#25d366;color:#fff;border-color:#25d366"><i class="fab fa-whatsapp"></i> Invia WA</button>
+      <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia</button>
       ${!m.inviato ? `<button class="btn btn-outline btn-sm" onclick="openBcModal(${JSON.stringify(m.id)})"><i class="fas fa-pen"></i> Modifica</button>` : ''}
       ${!m.inviato ? `<button class="btn btn-red btn-sm" onclick="markBcSent(${JSON.stringify(m.id)})"><i class="fas fa-check"></i> Inviato</button>` : ''}
       <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#fca5a5" onclick="deleteBc(${JSON.stringify(m.id)})"><i class="fas fa-trash"></i></button>
@@ -2114,13 +2116,12 @@ async function saveBc() {
     showToast('Compila titolo, destinatari, testo e data', 'error'); return;
   }
   const data_invio = new Date(`${data}T${ora}:00`).toISOString();
-  const user = _sb.auth.getUser ? (await _sb.auth.getUser()).data?.user : null;
-  const payload = { titolo, destinatari, testo, data_invio, note: note || null, created_by: user?.email || null };
+  const payload = { titolo, destinatari, testo, data_invio, note: note || null, created_by: _user?.email || null };
   let err;
   if (editingBcId) {
     ({ error: err } = await _sb.from('broadcast_messaggi').update(payload).eq('id', editingBcId));
   } else {
-    ({ error: err } = await _sb.from('broadcast_messaggi').insert({ ...payload, emporio: currentEmporio || null }));
+    ({ error: err } = await _sb.from('broadcast_messaggi').insert({ ...payload, emporio: _getEmporioLocal() }));
   }
   if (err) { showToast('Errore salvataggio: ' + err.message, 'error'); return; }
   closeBcModal();
@@ -2135,6 +2136,12 @@ async function markBcSent(id) {
   if (error) { showToast('Errore: ' + error.message, 'error'); return; }
   showToast('Messaggio segnato come inviato ✓');
   renderBroadcast();
+}
+
+function sendBcWa(id) {
+  const m = allBroadcast.find(x => x.id === id);
+  if (!m) return;
+  window.open(`https://wa.me/?text=${_encodeWAText(m.testo)}`, '_blank');
 }
 
 function copyBcTesto(id) {
