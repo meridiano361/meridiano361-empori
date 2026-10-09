@@ -1048,7 +1048,10 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
     <div class="field-label" style="margin-top:12px">Titolo (uso interno)</div>
     <input class="field-input" id="bc-titolo" style="margin-bottom:10px" autocomplete="off">
 
-    <div class="field-label">Destinatari</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="field-label">Destinatari</div>
+      <button type="button" onclick="pickBcContact()" id="bc-contact-btn" style="display:none;background:none;border:1px solid #e2e8f0;border-radius:8px;padding:3px 8px;font-size:13px;cursor:pointer;color:#475569" title="Scegli dalla rubrica">📱 Rubrica</button>
+    </div>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Nome del gruppo WA o nome + numero del cliente</div>
     <input class="field-input" id="bc-destinatari" style="margin-bottom:10px" autocomplete="off">
 
@@ -2050,6 +2053,37 @@ document.addEventListener('click', e => {
     picker.style.display = 'none';
   }
 });
+
+// ── Contact Picker per Destinatari ───────────────────────────────────────────
+(function() {
+  // Mostra il pulsante Rubrica solo se l'API è disponibile (Android Chrome / iOS Safari)
+  if ('contacts' in navigator && 'ContactsManager' in window) {
+    const btn = document.getElementById('bc-contact-btn');
+    if (btn) btn.style.display = '';
+  }
+})();
+
+async function pickBcContact() {
+  if (!('contacts' in navigator)) {
+    showToast('Rubrica non disponibile su questo browser', 'error');
+    return;
+  }
+  try {
+    const results = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+    if (!results || results.length === 0) return;
+    const parts = results.map(c => {
+      const name = (c.name && c.name[0]) ? c.name[0] : '';
+      const tel  = (c.tel  && c.tel[0])  ? c.tel[0].replace(/\s+/g,'') : '';
+      return [name, tel].filter(Boolean).join(' ');
+    });
+    const field = document.getElementById('bc-destinatari');
+    const existing = field.value.trim();
+    field.value = existing ? existing + ', ' + parts.join(', ') : parts.join(', ');
+    field.focus();
+  } catch(e) {
+    showToast('Impossibile aprire la rubrica', 'error');
+  }
+}
 
 // ── Notifica promemoria broadcast ────────────────────────────────────────────
 async function _checkBroadcastPromemoria() {
