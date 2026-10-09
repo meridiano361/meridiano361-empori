@@ -97,6 +97,27 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   .page-wrap.panel-open{margin-right:0}
   #panel-backdrop{display:none!important}
 }
+/* Broadcast */
+.bc-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:10px;transition:border-color .15s}
+.bc-card.oggi{border-color:#f59e0b;background:#fffdf5}
+.bc-card.scaduto{border-color:#fca5a5;background:#fff8f8}
+.bc-card.inviato{opacity:.6}
+.bc-titolo{font-size:14px;font-weight:900;color:#1e293b;margin-bottom:2px}
+.bc-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+.bc-badge.oggi{background:#fef3c7;color:#b45309}
+.bc-badge.futuro{background:#f0f9ff;color:#0369a1}
+.bc-badge.inviato{background:#f0fdf4;color:#15803d}
+.bc-badge.scaduto{background:#fef2f2;color:#b91c1c}
+.bc-meta{font-size:12px;color:#64748b;font-weight:600;margin:4px 0}
+.bc-dest{font-size:12px;color:#475569;font-weight:700}
+.bc-testo{font-size:12px;color:#475569;white-space:pre-wrap;background:#f8fafc;border-radius:8px;padding:8px 10px;margin:8px 0;max-height:90px;overflow:hidden;position:relative;line-height:1.5}
+.bc-testo.expanded{max-height:none}
+.bc-testo::after{content:'';position:absolute;bottom:0;left:0;right:0;height:22px;background:linear-gradient(transparent,#f8fafc);pointer-events:none}
+.bc-testo.expanded::after{display:none}
+.bc-note{font-size:11px;color:#94a3b8;font-style:italic;margin-top:4px}
+.bc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.bc-section-hdr{font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.07em;margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+.bc-oggi-alert{background:linear-gradient(135deg,#fffbeb,#fef9c3);border:2px solid #fcd34d;border-radius:14px;padding:14px 16px;margin-bottom:16px}
 /* Messaggi sezioni tile */
 .msg-sec-tile{width:100%;background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:16px 20px;text-align:left;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;gap:14px;transition:all .15s}
 .msg-sec-tile:hover{border-color:var(--red);box-shadow:0 2px 12px rgba(181,69,58,.10)}
@@ -402,6 +423,10 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div class="home-tile-icon"><i class="fas fa-sliders"></i></div>
         <div class="home-tile-name">Impostazioni</div>
       </button>
+      <button class="home-tile" id="ht-broadcast" onclick="showSection('broadcast')">
+        <div class="home-tile-icon"><i class="fab fa-whatsapp" style="color:#25d366"></i></div>
+        <div class="home-tile-name">Broadcast</div>
+      </button>
       <button class="home-tile" onclick="showSection('analisi')">
         <div class="home-tile-icon"><i class="fas fa-chart-bar"></i></div>
         <div class="home-tile-name">Analisi</div>
@@ -613,6 +638,24 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       </div>
     </div>
     <div id="consensi-list"></div>
+  </div>
+
+  <!-- TAB BROADCAST -->
+  <div id="tab-broadcast" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Messaggi Broadcast</div>
+        <div style="font-size:12px;color:#64748b">Messaggi WhatsApp programmati per gruppi o clienti</div>
+      </div>
+      <button class="btn btn-red btn-sm" onclick="openBcModal(null)"><i class="fas fa-plus"></i> Nuovo messaggio</button>
+    </div>
+    <div id="bc-oggi-alert" style="display:none" class="bc-oggi-alert">
+      <div style="font-size:13px;font-weight:900;color:#92400e;margin-bottom:6px">
+        <i class="fas fa-bell" style="margin-right:5px"></i>Messaggi da inviare oggi
+      </div>
+      <div id="bc-oggi-list"></div>
+    </div>
+    <div id="bc-list"></div>
   </div>
 
   <!-- TAB TESSERE -->
@@ -990,6 +1033,43 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<!-- Modale broadcast -->
+<div class="small-modal" id="bc-modal">
+  <div class="small-modal-panel" style="max-width:520px;width:100%">
+    <h3 id="bc-modal-title">Nuovo messaggio broadcast</h3>
+
+    <div class="field-label" style="margin-top:12px">Titolo (uso interno)</div>
+    <input class="field-input" id="bc-titolo" style="margin-bottom:10px" autocomplete="off">
+
+    <div class="field-label">Destinatari</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Nome del gruppo WA o nome + numero del cliente</div>
+    <input class="field-input" id="bc-destinatari" style="margin-bottom:10px" autocomplete="off">
+
+    <div class="field-label">Testo del messaggio</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Usa *parola* per il grassetto · emoji supportate</div>
+    <textarea class="field-textarea" id="bc-testo" style="min-height:140px;margin-bottom:10px;font-family:inherit"></textarea>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div class="field-label">Data invio</div>
+        <input class="field-input" id="bc-data" type="date" style="margin-top:4px">
+      </div>
+      <div>
+        <div class="field-label">Ora invio</div>
+        <input class="field-input" id="bc-ora" type="time" style="margin-top:4px">
+      </div>
+    </div>
+
+    <div class="field-label">Note operative <span style="color:#94a3b8;font-weight:400">(opzionale)</span></div>
+    <input class="field-input" id="bc-note" style="margin-bottom:14px" autocomplete="off">
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeBcModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveBc()">Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modale gestione foto consenso cartaceo -->
 <div class="small-modal" id="foto-consenso-modal">
   <div class="small-modal-panel" style="max-width:560px;width:100%">
@@ -1256,6 +1336,7 @@ function showSection(section) {
     iscrizioni:  'Iscritti',
     digitale:    'Tessera Digitale',
     compleanni:  'Compleanni',
+    broadcast:   'Broadcast WA',
     impostazioni:'Impostazioni',
     analisi:     'Analisi',
   };
@@ -1274,6 +1355,7 @@ function showSection(section) {
   if (section === 'iscrizioni')   showTab('tessere');
   else if (section === 'digitale')     showTab('digitale');
   else if (section === 'compleanni')   showTab('compleanni');
+  else if (section === 'broadcast')    showTab('broadcast');
   else if (section === 'impostazioni') showTab('messaggi');
   else if (section === 'analisi')      showTab('analisi');
 }
@@ -1320,7 +1402,7 @@ function showTab(tab) {
     return;
   }
   activeTab = tab;
-  ['analisi','messaggi','consensi','tessere','duplicati','compleanni','digitale'].forEach(t => {
+  ['analisi','messaggi','consensi','tessere','duplicati','compleanni','digitale','broadcast'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     if (el) el.style.display = t === tab ? '' : 'none';
     document.querySelector(`.tab-btn[data-tab="${t}"]`)?.classList.toggle('active', t === tab);
@@ -1343,6 +1425,7 @@ function showTab(tab) {
   if (tab === 'compleanni') {
     _ensureMessages().then(() => renderCompleanni());
   }
+  if (tab === 'broadcast')  renderBroadcast();
 }
 
 function apriDigPanel() { showSection('digitale'); }
@@ -1870,6 +1953,207 @@ async function saveInstallAppMsg() {
   closeInstallAppMsgModal();
   _refreshInstallAppMsgPreview();
   showToast('Messaggio aggiornato ✓');
+}
+
+// ── Broadcast ─────────────────────────────────────────────────────────────────
+let allBroadcast = [];
+let _bcLoaded = false;
+let editingBcId = null;
+
+function _bcTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function _bcFormatData(ts) {
+  const d = new Date(ts);
+  const gg = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const aaaa = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const min = String(d.getMinutes()).padStart(2,'0');
+  return `${gg}/${mm}/${aaaa} ${hh}:${min}`;
+}
+
+async function renderBroadcast() {
+  const el = document.getElementById('bc-list');
+  el.innerHTML = '<div class="empty"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>';
+
+  const { data, error } = await _sb.from('broadcast_messaggi')
+    .select('*')
+    .order('data_invio', { ascending: true });
+  if (error) { el.innerHTML = '<div class="empty">Errore caricamento</div>'; return; }
+  allBroadcast = data || [];
+  _bcLoaded = true;
+
+  const today = _bcTodayStr();
+  const oggi = allBroadcast.filter(m => !m.inviato && m.data_invio.slice(0,10) === today);
+  const futuri = allBroadcast.filter(m => !m.inviato && m.data_invio.slice(0,10) > today);
+  const scaduti = allBroadcast.filter(m => !m.inviato && m.data_invio.slice(0,10) < today);
+  const inviati = allBroadcast.filter(m => m.inviato);
+
+  // alert box per i messaggi di oggi
+  const alertEl = document.getElementById('bc-oggi-alert');
+  const oggiListEl = document.getElementById('bc-oggi-list');
+  if (oggi.length > 0) {
+    alertEl.style.display = 'block';
+    oggiListEl.innerHTML = oggi.map(m => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;color:#1e293b">${m.titolo}</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia testo</button>
+          <button class="btn btn-red btn-sm" onclick="markBcSent(${JSON.stringify(m.id)})"><i class="fas fa-check"></i> Inviato</button>
+        </div>
+      </div>`).join('');
+  } else {
+    alertEl.style.display = 'none';
+  }
+
+  // Aggiorna badge home
+  _updateBroadcastBadge();
+
+  let html = '';
+  if (futuri.length > 0) {
+    html += `<div class="bc-section-hdr"><i class="fas fa-clock"></i> Programmati (${futuri.length})</div>`;
+    html += futuri.map(m => _bcCardHtml(m, 'futuro')).join('');
+  }
+  if (oggi.length > 0) {
+    html += `<div class="bc-section-hdr"><i class="fas fa-bell"></i> Oggi (${oggi.length})</div>`;
+    html += oggi.map(m => _bcCardHtml(m, 'oggi')).join('');
+  }
+  if (scaduti.length > 0) {
+    html += `<div class="bc-section-hdr"><i class="fas fa-exclamation-circle"></i> Scaduti (${scaduti.length})</div>`;
+    html += scaduti.map(m => _bcCardHtml(m, 'scaduto')).join('');
+  }
+  if (inviati.length > 0) {
+    html += `<div class="bc-section-hdr"><i class="fas fa-check-circle"></i> Inviati (${inviati.length})</div>`;
+    html += inviati.map(m => _bcCardHtml(m, 'inviato')).join('');
+  }
+  if (!html) html = '<div class="empty"><i class="fas fa-bullhorn"></i> Nessun messaggio broadcast</div>';
+  el.innerHTML = html;
+}
+
+function _bcCardHtml(m, stato) {
+  const badgeLabel = { oggi: 'Oggi', futuro: 'Programmato', inviato: 'Inviato', scaduto: 'Scaduto' }[stato] || stato;
+  const inviataAt = m.inviato_at ? ` · inviato il ${_bcFormatData(m.inviato_at)}` : '';
+  return `<div class="bc-card ${stato}" id="bc-card-${m.id}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div class="bc-titolo">${m.titolo}</div>
+        <div class="bc-dest"><i class="fas fa-users" style="margin-right:4px;opacity:.5"></i>${m.destinatari}</div>
+      </div>
+      <span class="bc-badge ${stato}">${badgeLabel}</span>
+    </div>
+    <div class="bc-meta"><i class="fas fa-calendar" style="margin-right:4px;opacity:.5"></i>${_bcFormatData(m.data_invio)}${inviataAt}</div>
+    <div class="bc-testo" id="bc-testo-${m.id}">${m.testo}</div>
+    ${m.testo.length > 160 ? `<button style="font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;padding:0;margin-bottom:4px" onclick="this.previousElementSibling.classList.toggle('expanded');this.textContent=this.previousElementSibling.classList.contains('expanded')?'Comprimi':'Leggi tutto'">Leggi tutto</button>` : ''}
+    ${m.note ? `<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:2px"><i class="fas fa-sticky-note" style="margin-right:3px"></i>${m.note}</div>` : ''}
+    <div class="bc-actions">
+      <button class="btn btn-outline btn-sm" onclick="copyBcTesto(${JSON.stringify(m.id)})"><i class="fas fa-copy"></i> Copia testo</button>
+      ${!m.inviato ? `<button class="btn btn-outline btn-sm" onclick="openBcModal(${JSON.stringify(m.id)})"><i class="fas fa-pen"></i> Modifica</button>` : ''}
+      ${!m.inviato ? `<button class="btn btn-red btn-sm" onclick="markBcSent(${JSON.stringify(m.id)})"><i class="fas fa-check"></i> Inviato</button>` : ''}
+      <button class="btn btn-outline btn-sm" style="color:#ef4444;border-color:#fca5a5" onclick="deleteBc(${JSON.stringify(m.id)})"><i class="fas fa-trash"></i></button>
+    </div>
+  </div>`;
+}
+
+function _updateBroadcastBadge() {
+  const today = _bcTodayStr();
+  const pending = allBroadcast.filter(m => !m.inviato && m.data_invio.slice(0,10) === today).length;
+  const tile = document.getElementById('ht-broadcast');
+  if (!tile) return;
+  const old = tile.querySelector('.bc-home-badge');
+  if (old) old.remove();
+  if (pending > 0) {
+    tile.style.position = 'relative';
+    tile.insertAdjacentHTML('beforeend', `<span class="bc-home-badge" style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;line-height:1">${pending}</span>`);
+  }
+}
+
+function openBcModal(id) {
+  editingBcId = id;
+  const modal = document.getElementById('bc-modal');
+  document.getElementById('bc-modal-title').textContent = id ? 'Modifica messaggio broadcast' : 'Nuovo messaggio broadcast';
+  if (id) {
+    const m = allBroadcast.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('bc-titolo').value = m.titolo || '';
+    document.getElementById('bc-destinatari').value = m.destinatari || '';
+    document.getElementById('bc-testo').value = m.testo || '';
+    document.getElementById('bc-note').value = m.note || '';
+    const dt = new Date(m.data_invio);
+    document.getElementById('bc-data').value = dt.toISOString().slice(0,10);
+    document.getElementById('bc-ora').value = dt.toISOString().slice(11,16);
+  } else {
+    document.getElementById('bc-titolo').value = '';
+    document.getElementById('bc-destinatari').value = '';
+    document.getElementById('bc-testo').value = '';
+    document.getElementById('bc-note').value = '';
+    document.getElementById('bc-data').value = '';
+    document.getElementById('bc-ora').value = '10:00';
+  }
+  modal.style.display = 'flex';
+  document.getElementById('bc-titolo').focus();
+}
+
+function closeBcModal() {
+  document.getElementById('bc-modal').style.display = 'none';
+  editingBcId = null;
+}
+
+async function saveBc() {
+  const titolo = document.getElementById('bc-titolo').value.trim();
+  const destinatari = document.getElementById('bc-destinatari').value.trim();
+  const testo = document.getElementById('bc-testo').value.trim();
+  const data = document.getElementById('bc-data').value;
+  const ora = document.getElementById('bc-ora').value || '10:00';
+  const note = document.getElementById('bc-note').value.trim();
+  if (!titolo || !destinatari || !testo || !data) {
+    showToast('Compila titolo, destinatari, testo e data', 'error'); return;
+  }
+  const data_invio = new Date(`${data}T${ora}:00`).toISOString();
+  const user = _sb.auth.getUser ? (await _sb.auth.getUser()).data?.user : null;
+  const payload = { titolo, destinatari, testo, data_invio, note: note || null, created_by: user?.email || null };
+  let err;
+  if (editingBcId) {
+    ({ error: err } = await _sb.from('broadcast_messaggi').update(payload).eq('id', editingBcId));
+  } else {
+    ({ error: err } = await _sb.from('broadcast_messaggi').insert({ ...payload, emporio: currentEmporio || null }));
+  }
+  if (err) { showToast('Errore salvataggio: ' + err.message, 'error'); return; }
+  closeBcModal();
+  showToast(editingBcId ? 'Messaggio aggiornato ✓' : 'Messaggio salvato ✓');
+  renderBroadcast();
+}
+
+async function markBcSent(id) {
+  const { error } = await _sb.from('broadcast_messaggi')
+    .update({ inviato: true, inviato_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+  showToast('Messaggio segnato come inviato ✓');
+  renderBroadcast();
+}
+
+function copyBcTesto(id) {
+  const m = allBroadcast.find(x => x.id === id);
+  if (!m) return;
+  navigator.clipboard.writeText(m.testo).then(() => showToast('Testo copiato negli appunti ✓')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = m.testo; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('Testo copiato ✓');
+  });
+}
+
+async function deleteBc(id) {
+  const m = allBroadcast.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm(`Eliminare "${m.titolo}"?`)) return;
+  const { error } = await _sb.from('broadcast_messaggi').delete().eq('id', id);
+  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+  showToast('Messaggio eliminato');
+  renderBroadcast();
 }
 
 // ── Save cliente ──────────────────────────────────────────────────────────────
