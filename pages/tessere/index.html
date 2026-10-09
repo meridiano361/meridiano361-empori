@@ -4317,6 +4317,12 @@ function renderDigitale() {
         ${tel && t.token ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
           <i class="fab fa-whatsapp"></i> Invia Link
         </a>` : ''}
+        <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="aggiungiTimbroOmaggio('${t.id}')" title="Aggiungi timbro omaggio">
+          <i class="fas fa-plus"></i> Omaggio
+        </button>
+        <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="rimuoviTimbro('${t.id}')" title="Rimuovi timbro" ${timbriRaw === 0 ? 'disabled' : ''}>
+          <i class="fas fa-minus"></i> Togli
+        </button>
       </div>
     </div>`;
   }).join('');
@@ -4367,6 +4373,43 @@ async function avviaCiclo(tesseraId) {
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriResto, cicli_completati: totCicli };
   showToast(`🎉 Ciclo ${totCicli} avviato per ${nome}${timbriResto > 0 ? ` · ${timbriResto} timbri riportati` : ''}`);
+  renderDigitale();
+  _updateHomeStats();
+}
+
+// ── Timbro omaggio / rimozione timbro ────────────────────────────────────────
+async function aggiungiTimbroOmaggio(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+  const nuovi = (t.timbri_attuali || 0) + 1;
+  if (!confirm(`Aggiungere 1 timbro omaggio a ${nome}?\n(${t.timbri_attuali || 0} → ${nuovi}/${DIG_TIMBRI_MAX})`)) return;
+
+  const { error } = await _sb.from('tessere').update({ timbri_attuali: nuovi }).eq('id', tesseraId);
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: nuovi };
+  showToast(`⭐ Timbro omaggio aggiunto a ${nome}`);
+  renderDigitale();
+  _updateHomeStats();
+}
+
+async function rimuoviTimbro(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t || (t.timbri_attuali || 0) === 0) return;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+  const nuovi = (t.timbri_attuali || 0) - 1;
+  if (!confirm(`Rimuovere 1 timbro da ${nome}?\n(${t.timbri_attuali} → ${nuovi}/${DIG_TIMBRI_MAX})`)) return;
+
+  const { error } = await _sb.from('tessere').update({ timbri_attuali: nuovi }).eq('id', tesseraId);
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: nuovi };
+  showToast(`↩ Timbro rimosso per ${nome}`);
   renderDigitale();
   _updateHomeStats();
 }
