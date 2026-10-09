@@ -713,6 +713,20 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
         <div><div class="field-label">Codice tessera</div><input class="field-input" id="f-codice" placeholder="es. 3013"></div>
         <div><div class="field-label">Data iscrizione</div><input class="field-input" id="f-emissione" type="date"></div>
         <div><div class="field-label">Data rinnovo</div><input class="field-input" id="f-rinnovo" type="date"></div>
+        <div style="grid-column:1/-1">
+          <div class="field-label">Formato tessera</div>
+          <div style="display:flex;gap:18px;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;cursor:pointer;color:#475569">
+              <input type="checkbox" id="f-carta-fisica" style="accent-color:var(--red);width:15px;height:15px">
+              <i class="fas fa-id-card" style="color:#94a3b8;font-size:12px"></i> Fisica
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;cursor:pointer;color:#475569">
+              <input type="checkbox" id="f-carta-digitale" style="accent-color:var(--red);width:15px;height:15px">
+              <i class="fas fa-mobile-screen-button" style="color:#94a3b8;font-size:12px"></i> Digitale
+            </label>
+            <span id="f-carta-digitale-link" style="display:none;font-size:11px;color:#64748b;margin-left:4px;align-self:center"></span>
+          </div>
+        </div>
       </div>
       <button id="btn-nuova-tessera" class="btn btn-outline btn-sm" style="margin-top:10px;display:none" onclick="nuovaTessera()">
         <i class="fas fa-plus"></i> Nuova tessera (archivia attuale)
@@ -928,7 +942,7 @@ async function loadAll() {
   // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
   // ha_whatsapp/vuole_news_whatsapp/in_lista_broadcast_whatsapp/messaggio_benvenuto_inviato caricati on-demand in openClienteModal
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
@@ -1233,6 +1247,11 @@ function openClienteModal(clienteId) {
     document.getElementById('f-codice').value = t?.codice_tessera || '';
     document.getElementById('f-emissione').value = t?.data_emissione || '';
     document.getElementById('f-rinnovo').value = t?.data_rinnovo || '';
+    document.getElementById('f-carta-fisica').checked = t?.ha_carta_fisica !== false;
+    document.getElementById('f-carta-digitale').checked = !!(t?.ha_carta_digitale);
+    const linkEl = document.getElementById('f-carta-digitale-link');
+    if (t?.ha_carta_digitale && t?.slug) { linkEl.style.display = 'inline'; linkEl.innerHTML = `<a href="/tessera/${t.slug}" target="_blank" style="color:var(--red)">Vedi carta →</a>`; }
+    else { linkEl.style.display = 'none'; linkEl.textContent = ''; }
     // Valori WA: default dal cliente.wa, poi aggiornati dalla fetch lazy sulla tessera
     document.getElementById('f-ha-wa').checked = c.wa || false;
     document.getElementById('f-news-wa').checked = false;
@@ -1502,6 +1521,8 @@ async function saveCliente(closeAfter = true) {
     codice_tessera:              document.getElementById('f-codice').value.trim() || null,
     data_emissione:              document.getElementById('f-emissione').value || null,
     data_rinnovo:                document.getElementById('f-rinnovo').value || null,
+    ha_carta_fisica:             document.getElementById('f-carta-fisica').checked,
+    ha_carta_digitale:           document.getElementById('f-carta-digitale').checked,
     ha_whatsapp:                 document.getElementById('f-ha-wa').checked,
     vuole_news_whatsapp:         document.getElementById('f-news-wa').checked,
     in_lista_broadcast_whatsapp: document.getElementById('f-lista-wa').checked,
@@ -3193,7 +3214,7 @@ function renderDigitale() {
   const q = (document.getElementById('dig-search')?.value || '').toLowerCase().trim();
 
   const cMap = new Map(allClienti.map(c => [c.id, c]));
-  const tessereAttive = allTessere.filter(t => t.attiva !== false && t.slug);
+  const tessereAttive = allTessere.filter(t => t.attiva !== false && t.ha_carta_digitale);
 
   let righe = tessereAttive
     .map(t => ({ t, c: cMap.get(t.cliente_id) }))
@@ -3206,7 +3227,7 @@ function renderDigitale() {
     .sort((a, b) => `${a.c.cognome}${a.c.nome}`.localeCompare(`${b.c.cognome}${b.c.nome}`));
 
   if (!righe.length) {
-    grid.innerHTML = '<div class="empty"><i class="fas fa-id-card"></i><p>Nessun cliente con tessera digitale</p></div>';
+    grid.innerHTML = '<div class="empty"><i class="fas fa-mobile-screen-button"></i><p>Nessun cliente con tessera digitale</p></div>';
     return;
   }
 
