@@ -1,0 +1,34 @@
+-- Aggiunge data_nascita a get_tessera_pubblica (per mostrare mese compleanno)
+CREATE OR REPLACE FUNCTION get_tessera_pubblica(
+  p_token text DEFAULT NULL,
+  p_slug  text DEFAULT NULL
+)
+RETURNS json LANGUAGE sql SECURITY DEFINER STABLE
+SET search_path = public AS $$
+  SELECT json_build_object(
+    'id',               t.id,
+    'token',            t.token,
+    'slug',             t.slug,
+    'codice_tessera',   t.codice_tessera,
+    'tipo',             t.tipo,
+    'timbri_attuali',   t.timbri_attuali,
+    'timbri_omaggio',   t.timbri_omaggio,
+    'cicli_completati', t.cicli_completati,
+    'saldo_sconto',     t.saldo_sconto,
+    'totale_spesa',     t.totale_spesa,
+    'cliente_id',       t.cliente_id,
+    'emporio',          t.emporio,
+    'created_at',       t.created_at,
+    'updated_at',       t.updated_at,
+    'nome',             c.nome,
+    'cognome',          c.cognome,
+    'data_nascita',     c.data_nascita
+  )
+  FROM tessere t
+  JOIN clienti c ON c.id = t.cliente_id
+  WHERE
+    (p_token IS NOT NULL AND t.token = p_token::uuid)
+    OR
+    (p_slug IS NOT NULL AND t.slug = p_slug)
+  LIMIT 1;
+$$;
