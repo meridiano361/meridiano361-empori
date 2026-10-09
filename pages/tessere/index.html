@@ -205,7 +205,11 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 /* ── Tab Digitale ── */
 .dig-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .dig-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px}
-.dig-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.dig-card-top{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.dig-card-chevron{margin-left:auto;font-size:12px;color:#94a3b8;transition:transform .2s;flex-shrink:0}
+.dig-card.collapsed .dig-card-chevron{transform:rotate(-90deg)}
+.dig-card-body{overflow:hidden;max-height:600px;transition:max-height .25s ease,opacity .2s ease;opacity:1;margin-top:12px}
+.dig-card.collapsed .dig-card-body{max-height:0!important;opacity:0;margin-top:0}
 .dig-initials{width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .dig-name{font-size:14px;font-weight:800;color:#1e293b}
 .dig-sub{font-size:11px;color:#94a3b8;margin-top:1px}
@@ -4212,6 +4216,7 @@ async function confirmMerge() {
 
 // ── TESSERE DIGITALI ──────────────────────────────────────────────────────────
 const DIG_TIMBRI_MAX = 12;
+const _digCollapsed = new Set();
 // Regole per tipo: Standard €25→€20, Ambassador €30→€25
 function digEuroTimbro(tipo) { return tipo === 'ambassador' ? 30 : 25; }
 function digSconto(tipo)     { return tipo === 'ambassador' ? 25 : 20; }
@@ -4297,32 +4302,36 @@ function renderDigitale() {
     const waTxt = _encodeWAText(_getDigLinkMsgTesto().replace(/{nome}/g, c.nome || '').replace(/{url}/g, cartaUrl));
     const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
 
-    return `<div class="dig-card">
-      <div class="dig-card-top">
+    const isCollapsed = _digCollapsed.has(t.id);
+    return `<div class="dig-card${isCollapsed ? ' collapsed' : ''}" id="digcard-${t.id}">
+      <div class="dig-card-top" onclick="toggleDigCard('${t.id}')">
         <div class="dig-initials">${iniziali}</div>
-        <div>
+        <div style="flex:1;min-width:0">
           <div class="dig-name">${esc(nomeCompleto)}</div>
-          <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? 'Ambassador' : 'Standard'}</div>
+          <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? 'Ambassador' : 'Standard'} · ${timbri}/${DIG_TIMBRI_MAX}${completa ? ' 🎉' : ''}</div>
         </div>
+        <i class="fas fa-chevron-down dig-card-chevron"></i>
       </div>
-      ${cicliInfo}
-      ${completaBanner}
-      ${scontoBanner}
-      <div class="dig-stamps">${stampsHtml}</div>
-      <div class="dig-progress-text">${progressTxt}</div>
-      <div class="dig-actions">
-        <button class="btn btn-red btn-sm" onclick="apriSpesaModal('${t.id}')" ${completa ? 'disabled title="Prima avvia il ciclo successivo"' : ''}>
-          <i class="fas fa-euro-sign"></i> Registra Spesa
-        </button>
-        ${tel && (t.token || t.slug) ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
-          <i class="fab fa-whatsapp"></i> Invia Link
-        </a>` : ''}
-        <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="aggiungiTimbroOmaggio('${t.id}')" title="Aggiungi timbro omaggio">
-          <i class="fas fa-plus"></i> Omaggio
-        </button>
-        <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="rimuoviTimbro('${t.id}')" title="Rimuovi timbro" ${timbriRaw === 0 ? 'disabled' : ''}>
-          <i class="fas fa-minus"></i> Togli
-        </button>
+      <div class="dig-card-body">
+        ${cicliInfo}
+        ${completaBanner}
+        ${scontoBanner}
+        <div class="dig-stamps">${stampsHtml}</div>
+        <div class="dig-progress-text">${progressTxt}</div>
+        <div class="dig-actions">
+          <button class="btn btn-red btn-sm" onclick="apriSpesaModal('${t.id}')" ${completa ? 'disabled title="Prima avvia il ciclo successivo"' : ''}>
+            <i class="fas fa-euro-sign"></i> Registra Spesa
+          </button>
+          ${tel && (t.token || t.slug) ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
+            <i class="fab fa-whatsapp"></i> Invia Link
+          </a>` : ''}
+          <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="aggiungiTimbroOmaggio('${t.id}')">
+            <i class="fas fa-plus"></i> Omaggio
+          </button>
+          <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="rimuoviTimbro('${t.id}')" ${timbriRaw === 0 ? 'disabled' : ''}>
+            <i class="fas fa-minus"></i> Togli
+          </button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -4352,6 +4361,18 @@ async function usaSconto(tesseraId) {
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
   showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
   renderDigitale();
+}
+
+function toggleDigCard(tesseraId) {
+  const el = document.getElementById('digcard-' + tesseraId);
+  if (!el) return;
+  if (_digCollapsed.has(tesseraId)) {
+    _digCollapsed.delete(tesseraId);
+    el.classList.remove('collapsed');
+  } else {
+    _digCollapsed.add(tesseraId);
+    el.classList.add('collapsed');
+  }
 }
 
 // ── Avvia ciclo: resetta timbri e incrementa contatore cicli ─────────────────
