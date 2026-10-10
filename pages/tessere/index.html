@@ -4426,6 +4426,9 @@ function renderDigitale() {
           <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="rimuoviTimbro('${t.id}')" ${timbriRaw === 0 ? 'disabled' : ''}>
             <i class="fas fa-minus"></i> Togli
           </button>
+          <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="ripristinaTimbro('${t.id}')">
+            <i class="fas fa-rotate-left"></i> Ripristina
+          </button>
           <button class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="apriTrasferisciTimbri('${t.id}')">
             <i class="fas fa-arrow-right-arrow-left"></i> Da cartacea
           </button>
@@ -5003,6 +5006,21 @@ function rimuoviTimbro(tesseraId) {
   const t = allTessere.find(x => x.id === tesseraId);
   if (!t || (t.timbri_attuali || 0) === 0) return;
   setTimbriOmaggio(tesseraId, (t.timbri_attuali || 0) - 1);
+}
+
+async function ripristinaTimbro(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const nuovi = Math.min((t.timbri_attuali || 0) + 1, DIG_TIMBRI_MAX);
+  const { error } = await _sb.from('tessere').update({ timbri_attuali: nuovi }).eq('id', tesseraId);
+  if (error) { showToast('Errore: ' + error.message, 'error'); return; }
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : '';
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: nuovi };
+  showToast(`↩ Timbro ripristinato → ${nome}`);
+  renderDigitale();
+  _updateHomeStats();
 }
 
 function apriSpesaModal(tesseraId) {
