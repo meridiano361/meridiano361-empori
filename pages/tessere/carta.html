@@ -109,6 +109,19 @@ body.amb{background:#e8e8e4}
 .contattaci-actions{display:flex;gap:8px}
 .contattaci-send{flex:2;background:#B45050;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
 .contattaci-cancel{flex:1;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
+/* Modal dati personali */
+.dati-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:0 0 16px}
+.dati-sheet{background:#fff;border-radius:20px 20px 16px 16px;padding:22px 20px 20px;max-width:390px;width:calc(100% - 32px);box-shadow:0 -4px 30px rgba(0,0,0,.15);max-height:85dvh;overflow-y:auto}
+.dati-title{font-size:15px;font-weight:700;color:#111;margin-bottom:16px;text-align:center}
+.dati-field{margin-bottom:12px}
+.dati-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:4px;display:block}
+.dati-input{width:100%;border:1.5px solid #e8e8e8;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'ProximaNova',sans-serif;outline:none;color:#111;background:#fafafa}
+.dati-input:focus{border-color:#B45050;background:#fff}
+.dati-row{display:flex;gap:10px}
+.dati-row .dati-field{flex:1}
+.dati-actions{display:flex;gap:8px;margin-top:16px}
+.dati-save{flex:2;background:#B45050;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
+.dati-cancel{flex:1;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
 /* Install banner */
 .install-banner{max-width:390px;width:100%;margin-top:12px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08)}
 .install-banner-hdr{background:#111;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
@@ -211,6 +224,7 @@ async function loadCard() {
   }
 
   // get_tessera_pubblica restituisce un singolo oggetto JSON
+  window._tessera = raw;
   const t = raw;
   const nome = t.nome || 'Cliente';
   const timbri = t.timbri_attuali || 0;
@@ -280,6 +294,7 @@ async function loadCard() {
       <div class="save-actions">
         <button class="btn-copy" onclick="copyLink()">Salva link</button>
         <button class="btn-copy" onclick="apriContattaci()">Contattaci</button>
+        <button class="btn-copy" onclick="apriDatiPersonali()">I tuoi dati</button>
       </div>
       <div class="copy-toast" id="copy-toast"></div>
     </div>
@@ -482,6 +497,104 @@ function installApp() {
   if (!_deferredInstallPrompt) return;
   _deferredInstallPrompt.prompt();
   _deferredInstallPrompt.userChoice.then(() => { _deferredInstallPrompt = null; });
+}
+
+// ── Aggiorna dati personali ───────────────────────────────────────────────────
+function apriDatiPersonali() {
+  const t = window._tessera;
+  if (!t) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'dati-overlay';
+  overlay.id = 'dati-overlay';
+  const dnRaw = t.data_nascita ? t.data_nascita.slice(0,10) : '';
+  overlay.innerHTML = `
+    <div class="dati-sheet">
+      <div class="dati-title">I tuoi dati</div>
+      <div class="dati-row">
+        <div class="dati-field">
+          <label class="dati-label">Nome</label>
+          <input class="dati-input" id="d-nome" type="text" value="${(t.nome||'').replace(/"/g,'&quot;')}" autocomplete="given-name">
+        </div>
+        <div class="dati-field">
+          <label class="dati-label">Cognome</label>
+          <input class="dati-input" id="d-cognome" type="text" value="${(t.cognome||'').replace(/"/g,'&quot;')}" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="dati-field">
+        <label class="dati-label">Data di nascita</label>
+        <input class="dati-input" id="d-nascita" type="date" value="${dnRaw}">
+      </div>
+      <div class="dati-row">
+        <div class="dati-field" style="flex:2">
+          <label class="dati-label">Città</label>
+          <input class="dati-input" id="d-citta" type="text" value="${(t.citta||'').replace(/"/g,'&quot;')}" autocomplete="address-level2">
+        </div>
+        <div class="dati-field" style="flex:1">
+          <label class="dati-label">Provincia</label>
+          <input class="dati-input" id="d-provincia" type="text" maxlength="2" value="${(t.provincia||'').replace(/"/g,'&quot;')}" placeholder="MI" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="dati-field">
+        <label class="dati-label">Cellulare</label>
+        <input class="dati-input" id="d-tel" type="tel" value="${(t.telefono||'').replace(/"/g,'&quot;')}" autocomplete="tel">
+      </div>
+      <div class="dati-field">
+        <label class="dati-label">Email</label>
+        <input class="dati-input" id="d-email" type="email" value="${(t.email||'').replace(/"/g,'&quot;')}" autocomplete="email">
+      </div>
+      <div class="dati-actions">
+        <button class="dati-cancel" onclick="chiudiDatiPersonali()">Annulla</button>
+        <button class="dati-save" id="btn-salva-dati" onclick="salvaDatiPersonali()">Salva</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) chiudiDatiPersonali(); });
+  document.getElementById('d-nome').focus();
+}
+
+function chiudiDatiPersonali() {
+  const el = document.getElementById('dati-overlay');
+  if (el) el.remove();
+}
+
+async function salvaDatiPersonali() {
+  const t = window._tessera;
+  if (!t?.cliente_id) return;
+  const btn = document.getElementById('btn-salva-dati');
+  btn.disabled = true;
+  btn.textContent = 'Salvataggio…';
+
+  const provincia = (document.getElementById('d-provincia').value || '').trim().toUpperCase().slice(0, 2);
+  const payload = {
+    nome:         document.getElementById('d-nome').value.trim(),
+    cognome:      document.getElementById('d-cognome').value.trim(),
+    data_nascita: document.getElementById('d-nascita').value || null,
+    citta:        document.getElementById('d-citta').value.trim(),
+    provincia,
+    telefono:     document.getElementById('d-tel').value.trim(),
+    email:        document.getElementById('d-email').value.trim(),
+  };
+
+  if (!payload.nome || !payload.cognome) {
+    alert('Nome e cognome sono obbligatori.');
+    btn.disabled = false; btn.textContent = 'Salva'; return;
+  }
+
+  const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+  const { error } = await sb.from('clienti').update(payload).eq('id', t.cliente_id);
+  if (error) {
+    alert('Errore nel salvataggio: ' + error.message);
+    btn.disabled = false; btn.textContent = 'Salva'; return;
+  }
+
+  // Aggiorna il nome visualizzato sulla card senza ricaricare
+  Object.assign(window._tessera, payload);
+  const nameEl = document.querySelector('.card-name');
+  if (nameEl) nameEl.textContent = [payload.nome, payload.cognome].filter(Boolean).join(' ');
+
+  chiudiDatiPersonali();
+  const toast = document.getElementById('copy-toast');
+  if (toast) { toast.textContent = '✓ Dati salvati!'; setTimeout(() => toast.textContent = '', 2500); }
 }
 </script>
 </body>
