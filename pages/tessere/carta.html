@@ -121,6 +121,17 @@ body.amb{background:#e8e8e4}
 .dati-actions{display:flex;gap:8px;margin-top:16px}
 .dati-save{flex:2;background:#B45050;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
 .dati-cancel{flex:1;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
+/* Promo modal */
+.promo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:0 0 16px}
+.promo-sheet{background:#fff;border-radius:20px 20px 16px 16px;padding:22px 20px 20px;max-width:390px;width:calc(100% - 32px);box-shadow:0 -4px 30px rgba(0,0,0,.15);max-height:80dvh;overflow-y:auto}
+.promo-title{font-size:15px;font-weight:700;color:#111;margin-bottom:16px;text-align:center}
+.promo-card{border:1.5px solid #f0e8e8;border-radius:12px;padding:13px 14px;margin-bottom:10px}
+.promo-card-tipo{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#B45050;margin-bottom:3px}
+.promo-card-titolo{font-size:14px;font-weight:700;color:#111;margin-bottom:4px}
+.promo-card-meccanica{font-size:12px;color:#64748b;line-height:1.5}
+.promo-card-date{font-size:11px;color:#94a3b8;margin-top:6px;font-weight:600}
+.promo-empty{text-align:center;padding:24px 0;color:#94a3b8;font-size:14px}
+.promo-close{width:100%;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif;margin-top:8px}
 /* Install banner */
 .install-banner{max-width:390px;width:100%;margin-top:12px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08)}
 .install-banner-hdr{background:#111;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
@@ -294,6 +305,7 @@ async function loadCard() {
         <button class="btn-copy" onclick="copyLink()">Salva link</button>
         <button class="btn-copy" onclick="apriContattaci()">Contattaci</button>
         <button class="btn-copy" onclick="apriDatiPersonali()">I tuoi dati</button>
+        ${t.emporio ? `<button class="btn-copy" onclick="apriPromo()" style="background:#B45050">Promo</button>` : ''}
       </div>
       <div class="copy-toast" id="copy-toast"></div>
     </div>
@@ -496,6 +508,44 @@ function installApp() {
   if (!_deferredInstallPrompt) return;
   _deferredInstallPrompt.prompt();
   _deferredInstallPrompt.userChoice.then(() => { _deferredInstallPrompt = null; });
+}
+
+// ── Promo attive ─────────────────────────────────────────────────────────────
+async function apriPromo() {
+  const t = window._tessera;
+  if (!t?.emporio) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'promo-overlay';
+  overlay.id = 'promo-overlay';
+  overlay.innerHTML = `
+    <div class="promo-sheet">
+      <div class="promo-title">Promo attive — ${t.emporio}</div>
+      <div id="promo-list"><div class="promo-empty">Caricamento…</div></div>
+      <button class="promo-close" onclick="chiudiPromo()">Chiudi</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) chiudiPromo(); });
+
+  const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+  const { data, error } = await sb.rpc('get_promo_attive', { p_emporio: t.emporio });
+  const list = document.getElementById('promo-list');
+  if (!list) return;
+  if (error || !data?.length) {
+    list.innerHTML = '<div class="promo-empty">Nessuna promo attiva oggi.</div>';
+    return;
+  }
+  const fmtD = iso => iso ? new Date(iso).toLocaleDateString('it-IT', {day:'2-digit', month:'long'}) : '';
+  list.innerHTML = data.map(p => `
+    <div class="promo-card">
+      ${p.tipologia ? `<div class="promo-card-tipo">${p.tipologia}</div>` : ''}
+      <div class="promo-card-titolo">${p.titolo || ''}</div>
+      ${p.meccanica ? `<div class="promo-card-meccanica">${p.meccanica}</div>` : ''}
+      <div class="promo-card-date">${[fmtD(p.data_inizio), fmtD(p.data_fine)].filter(Boolean).join(' → ')}</div>
+    </div>`).join('');
+}
+function chiudiPromo() {
+  const el = document.getElementById('promo-overlay');
+  if (el) el.remove();
 }
 
 // ── Aggiorna dati personali ───────────────────────────────────────────────────
