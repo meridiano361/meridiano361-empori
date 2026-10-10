@@ -3299,12 +3299,19 @@ function renderTessereTab() {
            <i class="fas fa-rotate"></i> Rinnova
          </button>`
       : '';
+    const tel = (c?.telefono||'').replace(/\D/g,'');
+    const digCartaUrl = (t.slug ? `${location.origin}/tessera/${t.slug}` : t.token ? `${location.origin}/pages/tessere/carta.html?t=${t.token}` : '');
     const digitaleBtn = (!t.ha_carta_digitale && isAttiva && c)
       ? `<button class="btn btn-sm" onclick="event.stopPropagation();avviaConversioneRiga('${t.cliente_id}','${t.id}')"
            style="background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;font-size:11px;padding:3px 10px;white-space:nowrap">
            <i class="fas fa-mobile-screen-button"></i> → Digitale
          </button>`
-      : '';
+      : (t.ha_carta_digitale && isAttiva && c && tel && digCartaUrl)
+        ? `<button class="btn btn-sm" onclick="event.stopPropagation();rinviaLinkWA('${t.cliente_id}','${t.id}')"
+             style="background:#25d366;color:#fff;font-size:11px;padding:3px 10px;white-space:nowrap">
+             <i class="fab fa-whatsapp"></i> Reinvia link
+           </button>`
+        : '';
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
       <td><strong style="color:var(--amb);font-size:14px">${esc(t.codice_tessera||'—')}</strong></td>
       <td>${nome}${c&&c.citta?`<div style="font-size:11px;color:#94a3b8">${esc(c.citta)}</div>`:''}</td>
@@ -4395,7 +4402,9 @@ function renderDigitale() {
     const cartaUrl = t.slug
       ? `${location.origin}/tessera/${t.slug}`
       : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
-    const waTxt = _encodeWAText(_getDigLinkMsgTesto().replace(/{nome}/g, c.nome || '').replace(/{url}/g, cartaUrl));
+    const _salvaUrl = `${location.origin}/salva-tessera`;
+    const _waLinkMsg = `Ciao ${c.nome||''}! 👋\n\nGuarda qui la tua tessera aggiornata:\n${cartaUrl}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n${_salvaUrl}`;
+    const waTxt = _encodeWAText(_waLinkMsg);
     const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
 
     const isCollapsed = !_digExpanded.has(t.id);
@@ -4477,6 +4486,19 @@ async function usaSconto(tesseraId) {
 
 let _convertiClienteId = null;
 let _convertiTesseraId = null;
+
+function rinviaLinkWA(clienteId, tesseraId) {
+  const c = allClienti.find(x => String(x.id) === String(clienteId));
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!c || !t) return;
+  const tel = (c.telefono||'').replace(/\D/g,'');
+  if (!tel) { alert('Nessun numero di telefono per questo cliente.'); return; }
+  const cartaUrl = t.slug
+    ? `${location.origin}/tessera/${t.slug}`
+    : `${location.origin}/pages/tessere/carta.html?t=${t.token||''}`;
+  const testo = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
+  window.open(`https://wa.me/39${tel}?text=${_encodeWAText(testo)}`, '_blank');
+}
 
 function avviaConversioneRiga(clienteId, tesseraId) {
   // Apre il wizard direttamente allo step 2 con il cliente pre-selezionato
