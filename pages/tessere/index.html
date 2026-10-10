@@ -772,6 +772,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       </div>
       <a id="wa-link-btn" href="#" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;flex-shrink:0">Invia WA</a>
     </div>
+    <div id="sconto-subito-box" style="display:none;margin-top:12px;background:#fef9c3;border:1.5px solid #fbbf24;border-radius:12px;padding:14px 16px">
+      <div style="font-size:14px;font-weight:800;color:#92400e;margin-bottom:4px">🎁 Ha completato il ciclo — €<span id="sconto-subito-amount"></span> di sconto!</div>
+      <div style="font-size:12px;color:#b45309;margin-bottom:12px">Il cliente vuole usarlo subito (paga <strong id="sconto-subito-paga"></strong>) oppure tenerlo per un'altra volta?</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" style="flex:1;background:#f59e0b;color:#fff;font-weight:800" onclick="usaScontoSubito(true)"><i class="fas fa-check"></i> Usa ora — paga €<span id="sconto-subito-paga-btn"></span></button>
+        <button class="btn btn-sm btn-outline" style="flex:1" onclick="usaScontoSubito(false)">Tieni per dopo</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4223,6 +4231,7 @@ function digSconto(tipo)     { return tipo === 'ambassador' ? 25 : 20; }
 
 let _digSpesaTesseraId = null;
 let _digSpesaTipo      = 'standard';
+let _scontoSubitoData  = null;
 
 function renderDigitale() {
   const grid = document.getElementById('dig-grid');
@@ -4377,6 +4386,35 @@ async function usaSconto(tesseraId) {
   renderDigitale();
 }
 
+// ── Usa sconto subito (al completamento ciclo, nel modal spesa) ──────────────
+async function usaScontoSubito(useNow) {
+  document.getElementById('sconto-subito-box').style.display = 'none';
+  if (!useNow || !_scontoSubitoData) { _scontoSubitoData = null; return; }
+
+  const { tesseraId, saldo, clienteId } = _scontoSubitoData;
+  _scontoSubitoData = null;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { error: errSc } = await _sb.from('tessere_sconti').insert({
+    tessera_id:    tesseraId,
+    data_utilizzo: today,
+    valore_sconto: `€${saldo.toFixed(0)}`,
+    tipo:          'tessera',
+  });
+  if (errSc) { alert('Errore registrazione sconto: ' + errSc.message); return; }
+
+  const { error: errUpd } = await _sb.from('tessere').update({ saldo_sconto: 0 }).eq('id', tesseraId);
+  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
+
+  const c = allClienti.find(x => x.id === clienteId);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : '';
+  showToast(`✓ Sconto €${saldo.toFixed(0)} usato subito da ${nome}`);
+  renderDigitale();
+}
+
 // ── Usa sconto compleanno Ambassador (1 volta all'anno) ──────────────────────
 async function usaScontoCompleanno(tesseraId) {
   const t = allTessere.find(x => x.id === tesseraId);
@@ -4506,6 +4544,7 @@ function apriSpesaModal(tesseraId) {
   document.getElementById('spesa-preview').textContent = '';
   const box = document.getElementById('wa-success-box');
   box.classList.remove('show');
+  document.getElementById('sconto-subito-box').style.display = 'none';
   document.getElementById('btn-salva-spesa').style.display = '';
   document.getElementById('spesa-modal').classList.add('open');
   setTimeout(() => document.getElementById('spesa-importo').focus(), 200);
@@ -4513,7 +4552,9 @@ function apriSpesaModal(tesseraId) {
 
 function chiudiSpesaModal() {
   document.getElementById('spesa-modal').classList.remove('open');
+  document.getElementById('sconto-subito-box').style.display = 'none';
   _digSpesaTesseraId = null;
+  _scontoSubitoData  = null;
 }
 
 function aggiornaPreviewSpesa() {
@@ -4602,6 +4643,16 @@ async function salvaSpesa() {
 
     document.getElementById('wa-success-box').classList.add('show');
     btn.style.display = 'none';
+
+    // Se il ciclo è completato, chiedi subito se il cliente usa lo sconto ora
+    if (scontoGenerato > 0) {
+      const pagaOra = Math.max(0, importo - scontoGenerato);
+      _scontoSubitoData = { tesseraId: _digSpesaTesseraId, saldo: scontoGenerato, clienteId: t.cliente_id };
+      document.getElementById('sconto-subito-amount').textContent = scontoGenerato.toFixed(0);
+      document.getElementById('sconto-subito-paga').textContent    = `€${pagaOra.toFixed(0)}`;
+      document.getElementById('sconto-subito-paga-btn').textContent = pagaOra.toFixed(0);
+      document.getElementById('sconto-subito-box').style.display   = '';
+    }
 
     renderDigitale();
   } catch(e) {
