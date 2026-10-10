@@ -1,23 +1,23 @@
-name: Backup Database
+name: Backup completo applicazione
 
 on:
   schedule:
-    # Ogni notte alle 02:00 (ora italiana = 00:00 UTC in estate, 01:00 UTC in inverno)
+    # Ogni notte alle 02:00 ora italiana
     - cron: '0 1 * * *'
-  workflow_dispatch: # permette avvio manuale dalla tab Actions su GitHub
+  workflow_dispatch: # avvio manuale dalla tab Actions su GitHub
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo (branch backups)
+      - name: Checkout branch backups
         uses: actions/checkout@v4
         with:
           ref: backups
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Esporta tabelle critiche
+      - name: Esporta tutte le tabelle
         env:
           SUPA_URL: https://api.supabase.com/v1/projects/hsalynvxazxqtmsvjrzc/database/query
           SUPA_TOKEN: ${{ secrets.SUPABASE_MGMT_TOKEN }}
@@ -28,28 +28,60 @@ jobs:
           export_table() {
             local TABLE=$1
             local QUERY=$2
-            echo "Esportazione $TABLE..."
-            curl -sf -X POST "$SUPA_URL" \
+            echo "→ $TABLE"
+            RESULT=$(curl -sf -X POST "$SUPA_URL" \
               -H "Authorization: Bearer $SUPA_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"$QUERY\"}" \
-              -o "data/${TABLE}.json"
-            echo "  $(wc -c < data/${TABLE}.json) bytes"
+              -d "{\"query\": \"$QUERY\"}" 2>&1)
+            if echo "$RESULT" | python3 -c "import json,sys; d=json.load(sys.stdin); exit(0 if isinstance(d,list) else 1)" 2>/dev/null; then
+              echo "$RESULT" > "data/${TABLE}.json"
+              echo "  ✓ $(echo "$RESULT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)), "righe")')"
+            else
+              echo "  ✗ errore: $RESULT"
+            fi
           }
 
-          export_table "turni"     "SELECT * FROM turni ORDER BY emporio, anno, mese, giorno, turno"
-          export_table "operatori" "SELECT * FROM operatori ORDER BY emporio, nome"
-          export_table "clienti"   "SELECT * FROM clienti ORDER BY emporio, cognome, nome"
-          export_table "tessere"   "SELECT * FROM tessere ORDER BY emporio, codice_tessera"
-          export_table "cassa"     "SELECT id, chiave, emporio, data, fondo_cassa, incassato_totale, spese_totali, created_at FROM cassa ORDER BY emporio, data LIMIT 5000"
+          # ── Turni e operatori (dati più critici) ──
+          export_table "turni"              "SELECT * FROM turni ORDER BY emporio, anno, mese, giorno, turno"
+          export_table "operatori"          "SELECT * FROM operatori ORDER BY emporio, nome"
+          export_table "turni_orari"        "SELECT * FROM turni_orari ORDER BY emporio"
+
+          # ── Clienti, tessere, rubrica ──
+          export_table "clienti"            "SELECT * FROM clienti ORDER BY emporio, cognome, nome"
+          export_table "tessere"            "SELECT * FROM tessere ORDER BY emporio, codice_tessera"
+          export_table "tessere_sconti"     "SELECT * FROM tessere_sconti ORDER BY created_at DESC LIMIT 2000"
+          export_table "tessere_cicli_log"  "SELECT * FROM tessere_cicli_log ORDER BY completato_il DESC LIMIT 5000"
+
+          # ── Cassa e pagamenti ──
+          export_table "cassa"              "SELECT * FROM cassa ORDER BY emporio, data DESC LIMIT 10000"
+          export_table "saldi"              "SELECT * FROM saldi ORDER BY emporio, anno, mese"
+
+          # ── Ordini e info clienti ──
+          export_table "ordini"             "SELECT * FROM ordini ORDER BY created_at DESC LIMIT 5000"
+          export_table "info_clienti"       "SELECT * FROM info_clienti ORDER BY created_at DESC LIMIT 3000"
+          export_table "prenotazioni"       "SELECT * FROM prenotazioni ORDER BY data DESC LIMIT 3000"
+
+          # ── Notifiche e push ──
+          export_table "push_subscriptions" "SELECT id, emporio, operatore_nome, created_at FROM push_subscriptions ORDER BY emporio"
+          export_table "notifiche"          "SELECT * FROM notifiche ORDER BY created_at DESC LIMIT 2000"
+
+          # ── Rifornimento ──
+          export_table "rifornimento"       "SELECT * FROM rifornimento ORDER BY emporio, data DESC LIMIT 3000"
+          export_table "rifornimento_proposte" "SELECT * FROM rifornimento_proposte ORDER BY created_at DESC LIMIT 1000"
+
+          # ── Settings app ──
+          export_table "app_settings"       "SELECT * FROM app_settings ORDER BY chiave"
+          export_table "calendario_eventi"  "SELECT * FROM calendario_eventi ORDER BY data_inizio DESC LIMIT 1000"
+          export_table "campagne_commerciali" "SELECT * FROM campagne_commerciali ORDER BY data_inizio DESC LIMIT 500"
 
           echo "$DATE" > data/last_backup.txt
+          echo ""
           echo "Backup completato: $DATE"
 
-      - name: Commit e push backup
+      - name: Commit e push
         run: |
           git config user.name  "GitHub Actions Backup"
           git config user.email "actions@github.com"
           git add data/
-          git diff --staged --quiet || git commit -m "Backup automatico $(date -u +%Y-%m-%d)"
+          git diff --staged --quiet && echo "Nessuna modifica" || git commit -m "Backup $( date -u +%Y-%m-%d)"
           git push
