@@ -819,6 +819,24 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<!-- TRASFERISCI TIMBRI DA CARTACEA MODAL -->
+<div class="spesa-modal" id="trasferisci-modal" onclick="if(event.target===this)chiudiTrasferisciModal()">
+  <div class="spesa-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3 id="trasferisci-modal-nome">Trasferisci timbri da cartacea</h3>
+      <button onclick="chiudiTrasferisciModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Quanti timbri ha il cliente sulla tessera cartacea da trasferire?</p>
+    <p id="trasferisci-modal-sub" style="font-size:13px;font-weight:700;color:#64748b;margin-bottom:12px"></p>
+    <input type="number" id="trasferisci-timbri" class="importo-input" style="font-size:28px;padding:10px 14px;margin-bottom:8px" min="1" max="12" placeholder="0" oninput="aggiornaPreviewTrasferisci()">
+    <div id="trasferisci-preview" style="font-size:13px;color:#f59e0b;font-weight:700;margin-bottom:16px;min-height:18px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="chiudiTrasferisciModal()">Annulla</button>
+      <button class="btn btn-sm" style="flex:2;background:#f59e0b;color:#fff;font-weight:800" id="btn-conferma-trasferisci" onclick="confermaTrasferimento()"><i class="fas fa-arrow-right-arrow-left"></i> Trasferisci</button>
+    </div>
+  </div>
+</div>
+
 <!-- STORICO / ANNULLA MODAL -->
 <div class="spesa-modal" id="storico-modal" onclick="if(event.target===this)chiudiStoricoModal()">
   <div class="spesa-sheet">
@@ -3279,6 +3297,12 @@ function renderTessereTab() {
            <i class="fas fa-rotate"></i> Rinnova
          </button>`
       : '';
+    const digitaleBtn = (!t.ha_carta_digitale && isAttiva && c)
+      ? `<button class="btn btn-sm" onclick="event.stopPropagation();avviaConversioneRiga('${t.cliente_id}','${t.id}')"
+           style="background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;font-size:11px;padding:3px 10px;white-space:nowrap">
+           <i class="fas fa-mobile-screen-button"></i> → Digitale
+         </button>`
+      : '';
     return `<tr onclick="${c?`openClienteModal(${cid})`:''}" style="${c?'':'opacity:.5'}">
       <td><strong style="color:var(--amb);font-size:14px">${esc(t.codice_tessera||'—')}</strong></td>
       <td>${nome}${c&&c.citta?`<div style="font-size:11px;color:#94a3b8">${esc(c.citta)}</div>`:''}</td>
@@ -3286,7 +3310,7 @@ function renderTessereTab() {
       <td><span class="tipo-badge tipo-${t.tipo==='ambassador'?'ambassador':'standard'}" style="font-size:9px">${t.tipo==='ambassador'?'Amb':'Std'}</span></td>
       <td>${attivBadge}</td>
       <td style="color:#64748b;font-size:12px">${t.data_emissione?fmtDate(t.data_emissione):'—'}</td>
-      <td>${stato}${rinnovaBtn ? `<div style="margin-top:4px">${rinnovaBtn}</div>` : ''}</td>
+      <td>${stato}${rinnovaBtn ? `<div style="margin-top:4px">${rinnovaBtn}</div>` : ''}${digitaleBtn ? `<div style="margin-top:4px">${digitaleBtn}</div>` : ''}</td>
     </tr>`;
   }).join('');
 
@@ -4280,6 +4304,7 @@ function digSconto(tipo)     { return tipo === 'ambassador' ? 25 : 20; }
 let _digSpesaTesseraId = null;
 let _digSpesaTipo      = 'standard';
 let _scontoSubitoData  = null;
+let _trasferisciTesseraId = null;
 
 function renderDigitale() {
   const grid = document.getElementById('dig-grid');
@@ -4401,6 +4426,9 @@ function renderDigitale() {
           <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="rimuoviTimbro('${t.id}')" ${timbriRaw === 0 ? 'disabled' : ''}>
             <i class="fas fa-minus"></i> Togli
           </button>
+          <button class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="apriTrasferisciTimbri('${t.id}')">
+            <i class="fas fa-arrow-right-arrow-left"></i> Da cartacea
+          </button>
           <a href="${cartaUrl}" target="_blank" class="btn btn-sm" style="background:#0ea5e9;color:#fff">
             <i class="fas fa-id-card"></i> Vedi tessera
           </a>
@@ -4444,6 +4472,22 @@ async function usaSconto(tesseraId) {
 
 let _convertiClienteId = null;
 let _convertiTesseraId = null;
+
+function avviaConversioneRiga(clienteId, tesseraId) {
+  // Apre il wizard direttamente allo step 2 con il cliente pre-selezionato
+  apriConvertiModal();
+  _convertiClienteId = clienteId;
+  _convertiTesseraId = tesseraId;
+  const c = allClienti.find(x => x.id === clienteId);
+  const t = allTessere.find(x => x.id === tesseraId);
+  const timbriSuggeriti = Math.min(t?.timbri_attuali || 0, 12);
+  document.getElementById('converti-timbri').value = timbriSuggeriti;
+  document.getElementById('converti-cliente-info').innerHTML = `
+    <div style="font-weight:800;color:#111;margin-bottom:4px">${esc(c?.nome||'')} ${esc(c?.cognome||'')}</div>
+    <div style="color:#64748b">${t ? `Tessera ${t.tipo||'standard'}${t.codice_tessera?' · '+t.codice_tessera:''}` : ''}</div>`;
+  aggiornaConvertiPreview();
+  converti_step(2);
+}
 
 function apriConvertiModal() {
   _convertiClienteId = null;
@@ -4646,7 +4690,9 @@ async function apriStoricoTessera(tesseraId) {
     ...(movimenti||[]).map(m => ({
       key: `mov-${m.id}`, ts: m.created_at,
       icon: '€', color: '#059669',
-      label: `Spesa €${Number(m.importo).toFixed(2)} → +${m.timbri_aggiunti} timbr${m.timbri_aggiunti!==1?'i':'o'}${m.sconto_generato>0?` · 🎁 €${m.sconto_generato} sconto generato`:''}`,
+      label: m.note==='Da cartacea'
+        ? `Da cartacea: +${m.timbri_aggiunti} timbr${m.timbri_aggiunti!==1?'i':'o'}${m.sconto_generato>0?` · 🎁 €${m.sconto_generato} sconto generato`:''}`
+        : `Spesa €${Number(m.importo).toFixed(2)} → +${m.timbri_aggiunti} timbr${m.timbri_aggiunti!==1?'i':'o'}${m.sconto_generato>0?` · 🎁 €${m.sconto_generato} sconto generato`:''}`,
       sub: `${fmtDt(m.created_at)}${m.operatore?' · '+m.operatore:''}`,
       onAnnulla: `annullaMovimento(${m.id},'${tesseraId}',${m.timbri_aggiunti},${m.importo},${m.sconto_generato||0})`,
     })),
@@ -4804,6 +4850,84 @@ async function usaScontoCompleanno(tesseraId) {
     sconti_compleanno_totali: nuoviTotali,
   };
   showToast(`🎂 Sconto compleanno registrato per ${nome}`);
+  renderDigitale();
+}
+
+// ── Trasferisci timbri da cartacea → digitale ────────────────────────────────
+function apriTrasferisciTimbri(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : '';
+  _trasferisciTesseraId = tesseraId;
+  document.getElementById('trasferisci-modal-nome').textContent = nome || 'Trasferisci timbri da cartacea';
+  document.getElementById('trasferisci-modal-sub').textContent =
+    `Timbri digitali attuali: ${t.timbri_attuali || 0} / ${DIG_TIMBRI_MAX}`;
+  document.getElementById('trasferisci-timbri').value = '';
+  document.getElementById('trasferisci-preview').textContent = '';
+  document.getElementById('btn-conferma-trasferisci').disabled = true;
+  document.getElementById('trasferisci-modal').style.display = 'flex';
+}
+
+function chiudiTrasferisciModal() {
+  document.getElementById('trasferisci-modal').style.display = 'none';
+  _trasferisciTesseraId = null;
+}
+
+function aggiornaPreviewTrasferisci() {
+  const t = allTessere.find(x => x.id === _trasferisciTesseraId);
+  const input = parseInt(document.getElementById('trasferisci-timbri').value, 10) || 0;
+  const prev = document.getElementById('trasferisci-preview');
+  const btn  = document.getElementById('btn-conferma-trasferisci');
+  if (!t || input <= 0) { prev.textContent = ''; btn.disabled = true; return; }
+  const attuali = t.timbri_attuali || 0;
+  const totale  = attuali + input;
+  prev.textContent = `${attuali} + ${input} = ${totale} timbri`;
+  btn.disabled = false;
+}
+
+async function confermaTrasferimento() {
+  const t = allTessere.find(x => x.id === _trasferisciTesseraId);
+  if (!t) return;
+  const input = parseInt(document.getElementById('trasferisci-timbri').value, 10) || 0;
+  if (input <= 0) return;
+
+  const attuali  = t.timbri_attuali || 0;
+  const nuovi    = attuali + input;
+  const max      = DIG_TIMBRI_MAX;
+  const cicliNuovi = Math.floor(nuovi / max);
+  const timbriFinali = nuovi % max;
+  const totCicli = (t.cicli_completati || 0) + cicliNuovi;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+
+  const updates = { timbri_attuali: timbriFinali };
+  if (cicliNuovi > 0) {
+    updates.cicli_completati = totCicli;
+    const scontoBase = digSconto(t.tipo);
+    updates.saldo_sconto = (t.saldo_sconto || 0) + scontoBase * cicliNuovi;
+  }
+
+  const { error: errUpd } = await _sb.from('tessere').update(updates).eq('id', t.id);
+  if (errUpd) { alert('Errore aggiornamento tessera: ' + errUpd.message); return; }
+
+  const { error: errMov } = await _sb.from('movimenti_tessera').insert({
+    tessera_id:      t.id,
+    importo:         0,
+    timbri_aggiunti: input,
+    sconto_generato: cicliNuovi > 0 ? digSconto(t.tipo) * cicliNuovi : 0,
+    operatore:       _user?.nome || '',
+    note:            'Da cartacea',
+  });
+  if (errMov) console.warn('Errore movimento:', errMov.message);
+
+  const idx = allTessere.findIndex(x => x.id === t.id);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updates };
+
+  let msg = `✓ ${input} timbr${input > 1 ? 'i' : 'o'} trasferit${input > 1 ? 'i' : 'o'} per ${nome}`;
+  if (cicliNuovi > 0) msg += ` · 🎉 Ciclo completato!`;
+  showToast(msg);
+  chiudiTrasferisciModal();
   renderDigitale();
 }
 
