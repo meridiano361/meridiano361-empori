@@ -851,6 +851,52 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<!-- SCHEDA ANAGRAFICA CLIENTE MODAL -->
+<div class="spesa-modal" id="scheda-modal" onclick="if(event.target===this)chiudiSchedaCliente()">
+  <div class="spesa-sheet" style="max-width:400px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 id="scheda-modal-nome" style="margin:0;font-size:16px;font-weight:800">Scheda cliente</h3>
+      <button onclick="chiudiSchedaCliente()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex:1">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Nome</label>
+        <input id="scheda-nome" type="text" class="importo-input" style="font-size:15px;padding:9px 12px" autocomplete="given-name">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Cognome</label>
+        <input id="scheda-cognome" type="text" class="importo-input" style="font-size:15px;padding:9px 12px" autocomplete="family-name">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Data di nascita</label>
+      <input id="scheda-nascita" type="date" class="importo-input" style="font-size:15px;padding:9px 12px">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex:2">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Città</label>
+        <input id="scheda-citta" type="text" class="importo-input" style="font-size:15px;padding:9px 12px">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Prov.</label>
+        <input id="scheda-provincia" type="text" class="importo-input" style="font-size:15px;padding:9px 12px" maxlength="2" placeholder="MI">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Cellulare</label>
+      <input id="scheda-tel" type="tel" class="importo-input" style="font-size:15px;padding:9px 12px" autocomplete="tel">
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Email</label>
+      <input id="scheda-email" type="email" class="importo-input" style="font-size:15px;padding:9px 12px" autocomplete="email">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="chiudiSchedaCliente()">Annulla</button>
+      <button class="btn btn-red btn-sm" style="flex:2" id="btn-salva-scheda" onclick="salvaSchedaCliente()"><i class="fas fa-check"></i> Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- MERGE MODAL -->
 <div class="small-modal" id="merge-modal">
   <div class="merge-modal-panel">
@@ -4412,7 +4458,7 @@ function renderDigitale() {
       <div class="dig-card-top" onclick="toggleDigCard('${t.id}')">
         <div class="dig-dot" style="background:${t.tipo === 'ambassador' ? '#1e293b' : '#B45050'}"></div>
         <div style="flex:1;min-width:0">
-          <div class="dig-name">${esc(nomeCompleto)}</div>
+          <div class="dig-name" onclick="event.stopPropagation();apriSchedaCliente('${t.cliente_id}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:#e2e8f0">${esc(nomeCompleto)}</div>
           <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? 'Ambassador' : 'Standard'} · ${timbri}/${DIG_TIMBRI_MAX}${completa ? ' 🎉' : ''}</div>
         </div>
         <i class="fas fa-chevron-down dig-card-chevron"></i>
@@ -4486,6 +4532,54 @@ async function usaSconto(tesseraId) {
 
 let _convertiClienteId = null;
 let _convertiTesseraId = null;
+
+// ── Scheda anagrafica cliente (da tessera digitale) ──────────────────────────
+let _schedaClienteId = null;
+
+function apriSchedaCliente(clienteId) {
+  const c = allClienti.find(x => String(x.id) === String(clienteId));
+  if (!c) return;
+  _schedaClienteId = c.id;
+  document.getElementById('scheda-modal-nome').textContent = `${c.nome||''} ${c.cognome||''}`.trim() || 'Scheda cliente';
+  document.getElementById('scheda-nome').value      = c.nome     || '';
+  document.getElementById('scheda-cognome').value   = c.cognome  || '';
+  document.getElementById('scheda-nascita').value   = c.data_nascita ? c.data_nascita.slice(0,10) : '';
+  document.getElementById('scheda-citta').value     = c.citta    || '';
+  document.getElementById('scheda-provincia').value = c.provincia|| '';
+  document.getElementById('scheda-tel').value       = c.telefono || '';
+  document.getElementById('scheda-email').value     = c.email    || '';
+  document.getElementById('scheda-modal').classList.add('open');
+}
+
+function chiudiSchedaCliente() {
+  document.getElementById('scheda-modal').classList.remove('open');
+  _schedaClienteId = null;
+}
+
+async function salvaSchedaCliente() {
+  if (!_schedaClienteId) return;
+  const btn = document.getElementById('btn-salva-scheda');
+  btn.disabled = true;
+  const payload = {
+    nome:         document.getElementById('scheda-nome').value.trim(),
+    cognome:      document.getElementById('scheda-cognome').value.trim(),
+    data_nascita: document.getElementById('scheda-nascita').value || null,
+    citta:        document.getElementById('scheda-citta').value.trim(),
+    provincia:    document.getElementById('scheda-provincia').value.trim().toUpperCase().slice(0,2),
+    telefono:     document.getElementById('scheda-tel').value.trim(),
+    email:        document.getElementById('scheda-email').value.trim(),
+  };
+  if (!payload.nome || !payload.cognome) {
+    alert('Nome e cognome sono obbligatori.'); btn.disabled = false; return;
+  }
+  const { error } = await _sb.from('clienti').update(payload).eq('id', _schedaClienteId);
+  if (error) { alert('Errore: ' + error.message); btn.disabled = false; return; }
+  const idx = allClienti.findIndex(x => x.id === _schedaClienteId);
+  if (idx >= 0) allClienti[idx] = { ...allClienti[idx], ...payload };
+  showToast(`✓ Dati aggiornati per ${payload.nome} ${payload.cognome}`);
+  chiudiSchedaCliente();
+  renderDigitale();
+}
 
 function rinviaLinkWA(clienteId, tesseraId) {
   const c = allClienti.find(x => String(x.id) === String(clienteId));
