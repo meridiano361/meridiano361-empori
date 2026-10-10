@@ -541,6 +541,13 @@ function apriDatiPersonali() {
         <label class="dati-label">Email</label>
         <input class="dati-input" id="d-email" type="email" value="${(t.email||'').replace(/"/g,'&quot;')}" autocomplete="email">
       </div>
+      <div class="dati-field">
+        <label class="dati-label">Emporio di riferimento</label>
+        <select class="dati-input" id="d-emporio">
+          <option value="">— Seleziona —</option>
+          ${['Cremona','Casalmaggiore','Viadana','Reggio Emilia'].map(e=>`<option value="${e}"${(t.emporio||'')==e?' selected':''}>${e}</option>`).join('')}
+        </select>
+      </div>
       <div class="dati-actions">
         <button class="dati-cancel" onclick="chiudiDatiPersonali()">Annulla</button>
         <button class="dati-save" id="btn-salva-dati" onclick="salvaDatiPersonali()">Salva</button>
@@ -584,6 +591,13 @@ async function salvaDatiPersonali() {
   if (error) {
     alert('Errore nel salvataggio: ' + error.message);
     btn.disabled = false; btn.textContent = 'Salva'; return;
+  }
+
+  // Aggiorna emporio su tessere se cambiato
+  const nuovoEmporio = document.getElementById('d-emporio').value;
+  if (nuovoEmporio && nuovoEmporio !== (t.emporio || '')) {
+    await sb.from('tessere').update({ emporio: nuovoEmporio }).eq('id', t.id);
+    window._tessera.emporio = nuovoEmporio;
   }
 
   // Aggiorna il nome visualizzato sulla card senza ricaricare
