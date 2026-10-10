@@ -1229,7 +1229,7 @@ async function loadAll() {
   // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
   // ha_whatsapp/vuole_news_whatsapp/in_lista_broadcast_whatsapp/messaggio_benvenuto_inviato caricati on-demand in openClienteModal
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale,cicli_completati';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,timbri_omaggio,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale,cicli_completati,sconto_compleanno_anno,sconti_compleanno_totali';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
@@ -4295,6 +4295,18 @@ function renderDigitale() {
          </div>`
       : '';
 
+    const currentYear = new Date().getFullYear();
+    const scontoComplBanner = t.tipo === 'ambassador'
+      ? (t.sconto_compleanno_anno === currentYear
+          ? `<div style="font-size:11px;color:#9d174d;font-weight:700;margin-bottom:8px">🎂 Sconto compleanno ${currentYear} già utilizzato</div>`
+          : `<div style="background:#fce7f3;border:1.5px solid #f9a8d4;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+               <span style="font-size:13px;font-weight:800;color:#9d174d">🎂 Sconto compleanno 10%</span>
+               <button class="btn btn-sm" style="background:#ec4899;color:#fff;flex-shrink:0" onclick="usaScontoCompleanno('${t.id}')">
+                 <i class="fas fa-check"></i> Registra uso
+               </button>
+             </div>`)
+      : '';
+
     const tel = (c.telefono || '').replace(/\D/g,'');
     const cartaUrl = t.slug
       ? `${location.origin}/tessera/${t.slug}`
@@ -4316,6 +4328,7 @@ function renderDigitale() {
         ${cicliInfo}
         ${completaBanner}
         ${scontoBanner}
+        ${scontoComplBanner}
         <div class="dig-stamps">${stampsHtml}</div>
         <div class="dig-progress-text">${progressTxt}</div>
         <div class="dig-actions">
@@ -4351,6 +4364,7 @@ async function usaSconto(tesseraId) {
     tessera_id:    tesseraId,
     data_utilizzo: today,
     valore_sconto: `€${saldo.toFixed(0)}`,
+    tipo:          'tessera',
   });
   if (errSc) { alert('Errore registrazione sconto: ' + errSc.message); return; }
 
@@ -4360,6 +4374,45 @@ async function usaSconto(tesseraId) {
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
   showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
+  renderDigitale();
+}
+
+// ── Usa sconto compleanno Ambassador (1 volta all'anno) ──────────────────────
+async function usaScontoCompleanno(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t || t.tipo !== 'ambassador') return;
+  const currentYear = new Date().getFullYear();
+  if ((t.sconto_compleanno_anno || 0) === currentYear) {
+    alert(`Lo sconto compleanno ${currentYear} è già stato registrato per questo cliente.`);
+    return;
+  }
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+  if (!confirm(`Confermi che ${nome} ha usato lo sconto compleanno 10% oggi?\n\nRicorda: può usarlo una sola volta per anno.`)) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { error: errSc } = await _sb.from('tessere_sconti').insert({
+    tessera_id:    tesseraId,
+    data_utilizzo: today,
+    valore_sconto: '10%',
+    tipo:          'compleanno',
+  });
+  if (errSc) { alert('Errore: ' + errSc.message); return; }
+
+  const nuoviTotali = (t.sconti_compleanno_totali || 0) + 1;
+  const { error: errUpd } = await _sb.from('tessere').update({
+    sconto_compleanno_anno:   currentYear,
+    sconti_compleanno_totali: nuoviTotali,
+  }).eq('id', tesseraId);
+  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = {
+    ...allTessere[idx],
+    sconto_compleanno_anno:   currentYear,
+    sconti_compleanno_totali: nuoviTotali,
+  };
+  showToast(`🎂 Sconto compleanno registrato per ${nome}`);
   renderDigitale();
 }
 
