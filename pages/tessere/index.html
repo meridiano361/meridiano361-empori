@@ -459,9 +459,14 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
 
   <!-- TAB DIGITALE -->
   <div id="tab-digitale" style="display:none">
-    <div style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:900;color:#1e293b;margin-bottom:2px">Tessere Digitali</div>
-      <div style="font-size:11px;color:#94a3b8">Registra spesa · invia link WA</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-size:15px;font-weight:900;color:#1e293b;margin-bottom:2px">Tessere Digitali</div>
+        <div style="font-size:11px;color:#94a3b8">Registra spesa · invia link WA</div>
+      </div>
+      <button class="btn btn-sm" style="background:#7c3aed;color:#fff;flex-shrink:0" onclick="apriConvertiModal()">
+        <i class="fas fa-rotate"></i> Da cartacea
+      </button>
     </div>
     <div class="dig-search-wrap" style="margin-bottom:14px">
       <i class="fas fa-search"></i>
@@ -778,6 +783,37 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <div style="display:flex;gap:8px">
         <button class="btn btn-sm" style="flex:1;background:#f59e0b;color:#fff;font-weight:800" onclick="usaScontoSubito(true)"><i class="fas fa-check"></i> Usa ora — paga €<span id="sconto-subito-paga-btn"></span></button>
         <button class="btn btn-sm btn-outline" style="flex:1" onclick="usaScontoSubito(false)">Tieni per dopo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONVERTI CARTACEA → DIGITALE MODAL -->
+<div class="spesa-modal" id="converti-modal" onclick="if(event.target===this)chiudiConvertiModal()">
+  <div class="spesa-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3>Converti tessera cartacea → digitale</h3>
+      <button onclick="chiudiConvertiModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Il cliente ha completato la tessera cartacea e vuole passare alla digitale.</p>
+
+    <!-- Step 1: cerca cliente -->
+    <div id="converti-step1">
+      <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Cerca il cliente</label>
+      <input type="text" id="converti-search" class="importo-input" style="font-size:14px;padding:10px 14px;margin-bottom:10px"
+        placeholder="Nome, cognome o telefono…" oninput="cercaClienteConversione()" autocomplete="off">
+      <div id="converti-risultati" style="max-height:220px;overflow-y:auto"></div>
+    </div>
+
+    <!-- Step 2: riepilogo + dati -->
+    <div id="converti-step2" style="display:none">
+      <div id="converti-cliente-info" style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px"></div>
+      <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Timbri già presenti sulla tessera cartacea</label>
+      <input type="number" id="converti-timbri" class="importo-input" style="font-size:20px;padding:10px 14px;margin-bottom:6px" min="0" max="12" value="12" oninput="aggiornaConvertiPreview()">
+      <div id="converti-preview" style="font-size:12px;color:#7c3aed;font-weight:700;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" style="flex:1" onclick="converti_step(1)"><i class="fas fa-arrow-left"></i> Indietro</button>
+        <button class="btn btn-sm" style="flex:2;background:#7c3aed;color:#fff;font-weight:800" id="btn-conferma-converti" onclick="confermaConversione()"><i class="fas fa-rotate"></i> Converti e invia link WA</button>
       </div>
     </div>
   </div>
@@ -4402,6 +4438,188 @@ async function usaSconto(tesseraId) {
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
   showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
   renderDigitale();
+}
+
+// ── Converti tessera cartacea → digitale ─────────────────────────────────────
+
+let _convertiClienteId = null;
+let _convertiTesseraId = null;
+
+function apriConvertiModal() {
+  _convertiClienteId = null;
+  _convertiTesseraId = null;
+  document.getElementById('converti-search').value = '';
+  document.getElementById('converti-risultati').innerHTML = '';
+  converti_step(1);
+  document.getElementById('converti-modal').classList.add('open');
+  setTimeout(() => document.getElementById('converti-search').focus(), 200);
+}
+
+function chiudiConvertiModal() {
+  document.getElementById('converti-modal').classList.remove('open');
+}
+
+function converti_step(n) {
+  document.getElementById('converti-step1').style.display = n === 1 ? '' : 'none';
+  document.getElementById('converti-step2').style.display = n === 2 ? '' : 'none';
+}
+
+function cercaClienteConversione() {
+  const q = document.getElementById('converti-search').value.trim().toLowerCase();
+  const el = document.getElementById('converti-risultati');
+  if (q.length < 2) { el.innerHTML = ''; return; }
+
+  const tessereMap = _buildTessereMap(); // clienteId → tessera attiva
+  const risultati = allClienti.filter(c => {
+    const hay = `${c.nome||''} ${c.cognome||''} ${c.telefono||''}`.toLowerCase();
+    return hay.includes(q);
+  }).slice(0, 8);
+
+  if (!risultati.length) { el.innerHTML = '<div style="font-size:13px;color:#94a3b8;padding:8px">Nessun cliente trovato</div>'; return; }
+
+  el.innerHTML = risultati.map(c => {
+    const t = tessereMap.get(c.id);
+    const sub = t
+      ? `${t.tipo||'standard'} · ${t.timbri_attuali||0}/12 timbri${t.ha_carta_digitale?' · già digitale':''}`
+      : 'Nessuna tessera';
+    return `<div onclick="selezionaClienteConversione('${c.id}')"
+      style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;border:1.5px solid #e2e8f0;margin-bottom:6px;background:#fff"
+      onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0">
+        ${(c.nome||'?')[0]}${(c.cognome||'')[0]||''}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#111">${esc(c.nome||'')} ${esc(c.cognome||'')}</div>
+        <div style="font-size:11px;color:#94a3b8">${sub}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selezionaClienteConversione(clienteId) {
+  const c = allClienti.find(x => x.id === clienteId);
+  if (!c) return;
+  _convertiClienteId = clienteId;
+  const tessereMap = _buildTessereMap();
+  const t = tessereMap.get(clienteId);
+  _convertiTesseraId = t?.id || null;
+
+  const timbriSuggeriti = Math.min(t?.timbri_attuali || 12, 12);
+  document.getElementById('converti-timbri').value = timbriSuggeriti;
+  document.getElementById('converti-cliente-info').innerHTML = `
+    <div style="font-weight:800;color:#111;margin-bottom:4px">${esc(c.nome||'')} ${esc(c.cognome||'')}</div>
+    <div style="color:#64748b">${t ? `Tessera ${t.tipo||'standard'}${t.codice_tessera?' · '+t.codice_tessera:''}` : 'Verrà creata una nuova tessera digitale'}</div>
+    ${t?.ha_carta_digitale ? '<div style="color:#f59e0b;font-weight:700;margin-top:4px">⚠️ Questo cliente ha già una tessera digitale attiva</div>' : ''}`;
+  aggiornaConvertiPreview();
+  converti_step(2);
+}
+
+function aggiornaConvertiPreview() {
+  const timbri = parseInt(document.getElementById('converti-timbri').value) || 0;
+  const tessereMap = _buildTessereMap();
+  const t = _convertiTesseraId ? allTessere.find(x => x.id === _convertiTesseraId) : null;
+  const tipo = t?.tipo || 'standard';
+  const sconto = digSconto(tipo);
+  const el = document.getElementById('converti-preview');
+  if (timbri >= DIG_TIMBRI_MAX) {
+    el.textContent = `🎉 Ciclo completato! Il cliente riceverà €${sconto} di sconto sulla nuova tessera digitale.`;
+  } else if (timbri > 0) {
+    el.textContent = `${timbri} timbri verranno trasferiti sulla tessera digitale.`;
+  } else {
+    el.textContent = 'La tessera digitale partirà da zero timbri.';
+  }
+}
+
+async function confermaConversione() {
+  if (!_convertiClienteId) return;
+  const btn = document.getElementById('btn-conferma-converti');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Elaborazione…';
+
+  try {
+    const c = allClienti.find(x => x.id === _convertiClienteId);
+    const timbriCartacea = parseInt(document.getElementById('converti-timbri').value) || 0;
+    const cicloCompletato = timbriCartacea >= DIG_TIMBRI_MAX;
+    let t = _convertiTesseraId ? allTessere.find(x => x.id === _convertiTesseraId) : null;
+    const tipo = t?.tipo || 'standard';
+    const sconto = digSconto(tipo);
+    const euroTimbro = digEuroTimbro(tipo);
+
+    // Genera slug univoco: nome_cognome (+ _2, _3 se già esiste)
+    const base = `${(c.nome||'').toLowerCase().replace(/[^a-z0-9]/g,'_')}_${(c.cognome||'').toLowerCase().replace(/[^a-z0-9]/g,'_')}`;
+    let slug = base;
+    const slugsUsati = new Set(allTessere.map(x => x.slug).filter(Boolean));
+    let sfx = 2;
+    while (slugsUsati.has(slug)) { slug = `${base}_${sfx++}`; }
+
+    const timbriNuovi   = cicloCompletato ? 0 : timbriCartacea;
+    const cicliNuovi    = cicloCompletato ? (t?.cicli_completati||0) + 1 : (t?.cicli_completati||0);
+    const saldoSconto   = cicloCompletato ? sconto : 0;
+
+    let updatedTessera;
+    if (t) {
+      // Aggiorna tessera esistente
+      const { data, error } = await _sb.from('tessere').update({
+        ha_carta_digitale: true,
+        token:             t.token || crypto.randomUUID(),
+        slug,
+        timbri_attuali:   timbriNuovi,
+        cicli_completati: cicliNuovi,
+        saldo_sconto:     saldoSconto,
+      }).eq('id', t.id).select().single();
+      if (error) throw error;
+      updatedTessera = data;
+      const idx = allTessere.findIndex(x => x.id === t.id);
+      if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updatedTessera };
+    } else {
+      // Crea nuova tessera digitale
+      const emporio = document.getElementById('f-emporio')?.value || allEmpori?.[0] || 'cremona';
+      const { data, error } = await _sb.from('tessere').insert({
+        cliente_id:       _convertiClienteId,
+        tipo:             'standard',
+        emporio,
+        attiva:           true,
+        ha_carta_digitale: true,
+        ha_carta_fisica:  false,
+        token:            crypto.randomUUID(),
+        slug,
+        data_emissione:   new Date().toISOString().slice(0,10),
+        timbri_attuali:   timbriNuovi,
+        cicli_completati: cicliNuovi,
+        saldo_sconto:     saldoSconto,
+        motivo_rinnovo:   'digitale',
+      }).select().single();
+      if (error) throw error;
+      updatedTessera = data;
+      allTessere.push(updatedTessera);
+    }
+
+    // Registra ciclo completato se applicabile
+    if (cicloCompletato) {
+      const today = new Date().toISOString();
+      await _sb.from('tessere_cicli_log').insert({
+        tessera_id: updatedTessera.id, ciclo_numero: cicliNuovi, completato_at: today
+      }).then(({ error: e }) => { if (e) console.warn('[cicli_log]', e.message); });
+    }
+
+    // Invia link WA se il cliente ha il telefono
+    const tel = (c?.telefono||'').replace(/\D/g,'');
+    const cartaUrl = `${location.origin}/tessera/${slug}`;
+    if (tel) {
+      const testoWa = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
+      window.open(`https://wa.me/39${tel}?text=${_encodeWAText(testoWa)}`, '_blank');
+    }
+
+    _invalidateMaps();
+    chiudiConvertiModal();
+    showTab('digitale');
+    showToast(`✓ Tessera digitale attivata per ${c?.nome||''} ${c?.cognome||''}${cicloCompletato ? ` — €${sconto} di sconto registrati` : ''}`);
+    renderDigitale();
+  } catch(e) {
+    alert('Errore: ' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-rotate"></i> Converti e invia link WA';
+  }
 }
 
 // ── Storico operazioni e annullamento ────────────────────────────────────────
