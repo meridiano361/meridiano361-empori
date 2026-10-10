@@ -415,6 +415,24 @@
             color: #94a3b8;
         }
 
+        .btn-wa-ordine {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #25D366;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: opacity .15s;
+            font-family: 'Nunito', sans-serif;
+        }
+        .btn-wa-ordine:hover { opacity: .85; }
+
     </style>
 </head>
 <body class="pb-20">
@@ -735,6 +753,7 @@
                         </div>
 
                         <div class="col-span-12 md:col-span-3">
+                            ${order.cliente_cellulare ? `<button class="btn-wa-ordine" onclick="inviaWaOrdine('${order.id}')"><i class="fab fa-whatsapp"></i> Invia WA</button>` : ''}
                             <div class="card-flags">
                                 <label class="check-flag">
                                     <input type="checkbox" ${cliente_avvisato ? 'checked' : ''} onchange="toggleClienteAvvisato('${order.id}', this.checked)">
@@ -780,6 +799,20 @@
                 console.error('Error updating order:', error);
                 alert('Errore nell\'aggiornamento');
             }
+        }
+
+        function inviaWaOrdine(orderId) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order || !order.cliente_cellulare) return;
+            const tel = order.cliente_cellulare.replace(/[^\d]/g, '');
+            const nome = (order.cliente_nome || '').trim();
+            const titolo = (order.titolo || generateTitoloOrdine(order) || '').trim();
+            const isSpedizione = (order.modalita_consegna || '').toLowerCase().includes('spediz');
+            const prodotto = titolo ? ` (${titolo})` : '';
+            const msg = isSpedizione
+                ? `Ciao ${nome}! 👋\nLa tua merce${prodotto} è pronta e verrà spedita a breve. Ti faremo sapere quando parte. A presto!`
+                : `Ciao ${nome}! 👋\nLa tua merce${prodotto} è pronta per il ritiro da Meridiano 361 - ${order.emporio || order.citta || ''}. Puoi venire quando preferisci. A presto!`;
+            window.open(`https://wa.me/39${tel}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         async function segnaRitirato(orderId, checked) {
