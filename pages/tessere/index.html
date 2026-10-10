@@ -826,8 +826,10 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
       <h3 id="trasferisci-modal-nome">Trasferisci timbri da cartacea</h3>
       <button onclick="chiudiTrasferisciModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
     </div>
-    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Quanti timbri ha il cliente sulla tessera cartacea da trasferire?</p>
     <p id="trasferisci-modal-sub" style="font-size:13px;font-weight:700;color:#64748b;margin-bottom:12px"></p>
+    <label style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">N° tessera cartacea</label>
+    <input type="text" id="trasferisci-codice" class="importo-input" style="font-size:18px;padding:10px 14px;margin-bottom:14px" placeholder="es. 00123" autocomplete="off">
+    <label style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Quanti timbri da trasferire?</label>
     <input type="number" id="trasferisci-timbri" class="importo-input" style="font-size:28px;padding:10px 14px;margin-bottom:8px" min="1" max="12" placeholder="0" oninput="aggiornaPreviewTrasferisci()">
     <div id="trasferisci-preview" style="font-size:13px;color:#f59e0b;font-weight:700;margin-bottom:16px;min-height:18px"></div>
     <div style="display:flex;gap:8px">
@@ -4866,14 +4868,15 @@ function apriTrasferisciTimbri(tesseraId) {
   document.getElementById('trasferisci-modal-nome').textContent = nome || 'Trasferisci timbri da cartacea';
   document.getElementById('trasferisci-modal-sub').textContent =
     `Timbri digitali attuali: ${t.timbri_attuali || 0} / ${DIG_TIMBRI_MAX}`;
+  document.getElementById('trasferisci-codice').value = '';
   document.getElementById('trasferisci-timbri').value = '';
   document.getElementById('trasferisci-preview').textContent = '';
   document.getElementById('btn-conferma-trasferisci').disabled = true;
-  document.getElementById('trasferisci-modal').style.display = 'flex';
+  document.getElementById('trasferisci-modal').classList.add('open');
 }
 
 function chiudiTrasferisciModal() {
-  document.getElementById('trasferisci-modal').style.display = 'none';
+  document.getElementById('trasferisci-modal').classList.remove('open');
   _trasferisciTesseraId = null;
 }
 
@@ -4892,8 +4895,9 @@ function aggiornaPreviewTrasferisci() {
 async function confermaTrasferimento() {
   const t = allTessere.find(x => x.id === _trasferisciTesseraId);
   if (!t) return;
-  const input = parseInt(document.getElementById('trasferisci-timbri').value, 10) || 0;
-  if (input <= 0) return;
+  const input  = parseInt(document.getElementById('trasferisci-timbri').value, 10) || 0;
+  const codice = document.getElementById('trasferisci-codice').value.trim();
+  if (input <= 0) { alert('Inserisci il numero di timbri da trasferire.'); return; }
 
   const attuali  = t.timbri_attuali || 0;
   const nuovi    = attuali + input;
@@ -4920,7 +4924,7 @@ async function confermaTrasferimento() {
     timbri_aggiunti: input,
     sconto_generato: cicliNuovi > 0 ? digSconto(t.tipo) * cicliNuovi : 0,
     operatore:       _user?.nome || '',
-    note:            'Da cartacea',
+    note:            codice ? `Da cartacea n° ${codice}` : 'Da cartacea',
   });
   if (errMov) console.warn('Errore movimento:', errMov.message);
 
