@@ -53,7 +53,7 @@ body{font-family:'ProximaNova',sans-serif;background:#fdf0ef;height:100dvh;displ
 .info-row strong{color:#555;font-weight:700}
 /* Azioni */
 .save-actions{display:flex;gap:8px;margin-top:10px;margin-bottom:0;justify-content:center}
-.btn-copy{width:50%;background:#B45050;color:#fff;border:none;border-radius:10px;padding:clamp(8px,1.5vh,12px) 8px;font-size:clamp(11px,1.6vh,13px);font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif;transition:opacity .15s}
+.btn-copy{flex:1;background:#B45050;color:#fff;border:none;border-radius:10px;padding:clamp(8px,1.5vh,12px) 8px;font-size:clamp(11px,1.6vh,13px);font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif;transition:opacity .15s}
 .btn-copy:active{opacity:.8}
 .btn-qr{flex:1;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:clamp(8px,1.5vh,12px) 8px;font-size:clamp(11px,1.6vh,13px);font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif;transition:background .15s}
 .btn-qr:active{background:#ebebeb}
@@ -96,6 +96,19 @@ body.amb{background:#e8e8e4}
 .info-modal-close{width:100%;background:#111;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
 .info-row-click{cursor:pointer}
 .info-row-click:active{background:#fafafa}
+/* Modal contattaci */
+.contattaci-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:0 0 20px}
+.contattaci-sheet{background:#fff;border-radius:20px;padding:22px 22px 18px;max-width:390px;width:calc(100% - 32px);box-shadow:0 -4px 30px rgba(0,0,0,.15)}
+.contattaci-title{font-size:15px;font-weight:700;color:#111;margin-bottom:14px;text-align:center}
+.contattaci-btn{display:flex;align-items:center;gap:12px;width:100%;border:none;border-radius:12px;padding:13px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif;margin-bottom:10px;text-decoration:none;color:#fff}
+.contattaci-btn.wa{background:#25d366}
+.contattaci-btn.problema{background:#64748b}
+.contattaci-btn-icon{font-size:20px;flex-shrink:0}
+.contattaci-textarea{width:100%;border:1.5px solid #e8e8e8;border-radius:12px;padding:12px;font-size:13px;font-family:'ProximaNova',sans-serif;resize:none;margin-bottom:10px;min-height:100px;outline:none}
+.contattaci-textarea:focus{border-color:#B45050}
+.contattaci-actions{display:flex;gap:8px}
+.contattaci-send{flex:2;background:#B45050;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
+.contattaci-cancel{flex:1;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:'ProximaNova',sans-serif}
 /* Install banner */
 .install-banner{max-width:390px;width:100%;margin-top:12px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08)}
 .install-banner-hdr{background:#111;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
@@ -266,6 +279,7 @@ async function loadCard() {
 
       <div class="save-actions">
         <button class="btn-copy" onclick="copyLink()">Salva link</button>
+        <button class="btn-copy" onclick="apriContattaci()" style="background:#64748b">Contattaci</button>
       </div>
       <div class="copy-toast" id="copy-toast"></div>
     </div>
@@ -315,6 +329,70 @@ function copyLink() {
       document.getElementById('btn-install-native').style.display = 'none';
       document.getElementById('install-android-manual').style.display = '';
     }
+  }
+}
+
+function apriContattaci() {
+  const overlay = document.createElement('div');
+  overlay.className = 'contattaci-overlay';
+  overlay.id = 'contattaci-overlay';
+  overlay.innerHTML = `
+    <div class="contattaci-sheet" id="contattaci-sheet">
+      <div class="contattaci-title">Come possiamo aiutarti?</div>
+      <a href="https://wa.me/393204404033" target="_blank" rel="noopener" class="contattaci-btn wa">
+        <span class="contattaci-btn-icon">💬</span>
+        <span>Scrivici su WhatsApp</span>
+      </a>
+      <button class="contattaci-btn problema" onclick="mostraFormProblema()">
+        <span class="contattaci-btn-icon">🔧</span>
+        <span>Segnala un problema tecnico</span>
+      </button>
+      <button onclick="chiudiContattaci()" style="width:100%;background:none;border:none;color:#bbb;font-size:13px;font-weight:600;cursor:pointer;padding:6px;font-family:'ProximaNova',sans-serif">Annulla</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) chiudiContattaci(); });
+}
+
+function chiudiContattaci() {
+  const el = document.getElementById('contattaci-overlay');
+  if (el) el.remove();
+}
+
+function mostraFormProblema() {
+  const sheet = document.getElementById('contattaci-sheet');
+  if (!sheet) return;
+  sheet.innerHTML = `
+    <div class="contattaci-title">Segnala un problema</div>
+    <p style="font-size:12px;color:#888;margin-bottom:10px;text-align:center">Descrivi il problema e lo riceveremo subito</p>
+    <textarea class="contattaci-textarea" id="problema-testo" placeholder="Es. Non riesco ad aprire la tessera, i timbri non sono aggiornati..."></textarea>
+    <div class="contattaci-actions">
+      <button class="contattaci-cancel" onclick="chiudiContattaci()">Annulla</button>
+      <button class="contattaci-send" id="btn-invia-problema" onclick="inviaSegnalazione()">Invia segnalazione</button>
+    </div>`;
+  document.getElementById('problema-testo').focus();
+}
+
+async function inviaSegnalazione() {
+  const testo = (document.getElementById('problema-testo')?.value || '').trim();
+  if (!testo) { alert('Scrivi prima il problema'); return; }
+  const btn = document.getElementById('btn-invia-problema');
+  btn.disabled = true;
+  btn.textContent = 'Invio...';
+  try {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('t');
+    await fetch(`${SUPA_URL}/functions/v1/send-segnalazione-tessera`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({ messaggio: testo, tessera_id: token || undefined }),
+    });
+    chiudiContattaci();
+    const toast = document.getElementById('copy-toast');
+    if (toast) { toast.textContent = '✓ Segnalazione inviata!'; setTimeout(() => toast.textContent = '', 3000); }
+  } catch (_) {
+    btn.disabled = false;
+    btn.textContent = 'Invia segnalazione';
+    alert('Errore di rete, riprova');
   }
 }
 

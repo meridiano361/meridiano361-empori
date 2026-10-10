@@ -783,6 +783,18 @@ body{font-family:'Nunito',sans-serif;background:#f8fafc}
   </div>
 </div>
 
+<!-- STORICO / ANNULLA MODAL -->
+<div class="spesa-modal" id="storico-modal" onclick="if(event.target===this)chiudiStoricoModal()">
+  <div class="spesa-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3 id="storico-modal-nome">Storico operazioni</h3>
+      <button onclick="chiudiStoricoModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Puoi annullare le operazioni recenti. L'annullamento è irreversibile.</p>
+    <div id="storico-lista" style="max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- MERGE MODAL -->
 <div class="small-modal" id="merge-modal">
   <div class="merge-modal-panel">
@@ -4353,6 +4365,9 @@ function renderDigitale() {
           <button class="btn btn-sm" style="background:#64748b;color:#fff" onclick="rimuoviTimbro('${t.id}')" ${timbriRaw === 0 ? 'disabled' : ''}>
             <i class="fas fa-minus"></i> Togli
           </button>
+          <button class="btn btn-sm" style="background:#e11d48;color:#fff" onclick="apriStoricoTessera('${t.id}')">
+            <i class="fas fa-clock-rotate-left"></i> Annulla
+          </button>
         </div>
       </div>
     </div>`;
@@ -4383,6 +4398,123 @@ async function usaSconto(tesseraId) {
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
   showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
+  renderDigitale();
+}
+
+// ── Storico operazioni e annullamento ────────────────────────────────────────
+
+let _storicoTesseraId = null;
+
+async function apriStoricoTessera(tesseraId) {
+  _storicoTesseraId = tesseraId;
+  const t = allTessere.find(x => x.id === tesseraId);
+  const c = allClienti.find(x => x.id === t?.cliente_id);
+  document.getElementById('storico-modal-nome').textContent =
+    `Storico — ${c ? `${c.nome||''} ${c.cognome||''}`.trim() : ''}`;
+  document.getElementById('storico-lista').innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">Caricamento...</div>';
+  document.getElementById('storico-modal').classList.add('open');
+
+  const [{ data: movimenti }, { data: sconti }] = await Promise.all([
+    _sb.from('movimenti_tessera').select('*').eq('tessera_id', tesseraId).order('created_at', { ascending: false }).limit(10),
+    _sb.from('tessere_sconti').select('*').eq('tessera_id', tesseraId).order('created_at', { ascending: false }).limit(10),
+  ]);
+
+  const fmtDt = s => s ? new Date(s).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' }) : '';
+
+  const rows = [
+    ...(movimenti||[]).map(m => ({
+      key: `mov-${m.id}`, ts: m.created_at,
+      icon: '€', color: '#059669',
+      label: `Spesa €${Number(m.importo).toFixed(2)} → +${m.timbri_aggiunti} timbr${m.timbri_aggiunti!==1?'i':'o'}${m.sconto_generato>0?` · 🎁 €${m.sconto_generato} sconto generato`:''}`,
+      sub: `${fmtDt(m.created_at)}${m.operatore?' · '+m.operatore:''}`,
+      onAnnulla: `annullaMovimento(${m.id},'${tesseraId}',${m.timbri_aggiunti},${m.importo},${m.sconto_generato||0})`,
+    })),
+    ...(sconti||[]).map(s => ({
+      key: `sc-${s.id}`, ts: s.created_at,
+      icon: s.tipo==='compleanno'?'🎂':'🎁', color: s.tipo==='compleanno'?'#ec4899':'#f59e0b',
+      label: s.tipo==='compleanno'
+        ? `Sconto compleanno 10% utilizzato`
+        : `Sconto tessera ${s.valore_sconto} utilizzato`,
+      sub: fmtDt(s.data_utilizzo),
+      onAnnulla: `annullaSconto('${s.id}','${tesseraId}','${s.tipo}','${s.valore_sconto}')`,
+    })),
+  ].sort((a,b) => new Date(b.ts) - new Date(a.ts));
+
+  if (!rows.length) {
+    document.getElementById('storico-lista').innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">Nessuna operazione registrata</div>';
+    return;
+  }
+
+  document.getElementById('storico-lista').innerHTML = rows.map(r => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #f4f4f4">
+      <div style="width:32px;height:32px;border-radius:50%;background:${r.color}15;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${r.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#111">${r.label}</div>
+        <div style="font-size:11px;color:#94a3b8">${r.sub}</div>
+      </div>
+      <button onclick="${r.onAnnulla}" style="background:#fee2e2;color:#e11d48;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;font-family:inherit">Annulla</button>
+    </div>`).join('');
+}
+
+function chiudiStoricoModal() {
+  document.getElementById('storico-modal').classList.remove('open');
+  _storicoTesseraId = null;
+}
+
+async function annullaMovimento(movId, tesseraId, timbriAggiunti, importo, scontoGenerato) {
+  if (!confirm(`Annullare questa spesa?\n• −${timbriAggiunti} timbr${timbriAggiunti!==1?'i':'o'}\n• −€${Number(importo).toFixed(2)} dalla spesa totale${scontoGenerato>0?`\n• −€${scontoGenerato} dal saldo sconto`:''}`)) return;
+
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const nuoviTimbri = Math.max(0, (t.timbri_attuali||0) - timbriAggiunti);
+  const nuovaSpesa  = Math.max(0, (t.totale_spesa||0) - importo);
+  const nuovoSaldo  = Math.max(0, (t.saldo_sconto||0) - scontoGenerato);
+
+  const { error: errDel } = await _sb.from('movimenti_tessera').delete().eq('id', movId);
+  if (errDel) { alert('Errore: ' + errDel.message); return; }
+
+  const { error: errUpd } = await _sb.from('tessere').update({
+    timbri_attuali: nuoviTimbri,
+    totale_spesa:   nuovaSpesa,
+    saldo_sconto:   nuovoSaldo,
+  }).eq('id', tesseraId);
+  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: nuoviTimbri, totale_spesa: nuovaSpesa, saldo_sconto: nuovoSaldo };
+  showToast('✓ Spesa annullata');
+  chiudiStoricoModal();
+  renderDigitale();
+  _updateHomeStats();
+}
+
+async function annullaSconto(scontoId, tesseraId, tipo, valoreSconto) {
+  const label = tipo === 'compleanno' ? 'sconto compleanno 10%' : `sconto tessera ${valoreSconto}`;
+  if (!confirm(`Annullare l'utilizzo del ${label}?`)) return;
+
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+
+  const { error: errDel } = await _sb.from('tessere_sconti').delete().eq('id', scontoId);
+  if (errDel) { alert('Errore: ' + errDel.message); return; }
+
+  const updatePayload = {};
+  if (tipo === 'compleanno') {
+    updatePayload.sconto_compleanno_anno   = null;
+    updatePayload.sconti_compleanno_totali = Math.max(0, (t.sconti_compleanno_totali||0) - 1);
+  } else {
+    // Ripristina saldo_sconto: estrae il valore numerico da "€20" → 20
+    const num = parseFloat((valoreSconto||'').replace(/[^0-9.]/g,'')) || 0;
+    updatePayload.saldo_sconto = (t.saldo_sconto||0) + num;
+  }
+
+  const { error: errUpd } = await _sb.from('tessere').update(updatePayload).eq('id', tesseraId);
+  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updatePayload };
+  showToast('✓ Sconto ripristinato');
+  chiudiStoricoModal();
   renderDigitale();
 }
 
