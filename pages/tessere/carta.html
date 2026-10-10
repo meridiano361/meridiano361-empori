@@ -237,6 +237,21 @@ async function loadCard() {
   // get_tessera_pubblica restituisce un singolo oggetto JSON
   window._tessera = raw;
   const t = raw;
+
+  // Conta tessere cartacee completate dallo storico Excel (2019-2025)
+  let cartaceeCompletate = 0;
+  try {
+    const sr = await fetch('/pages/tessere/storico_excel.json');
+    if (sr.ok) {
+      const storico = await sr.json();
+      const tel = (t.telefono || '').replace(/\D/g, '');
+      const normKey = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const nk = normKey(t.nome) + normKey(t.cognome);
+      const ex = (tel && storico.byTel?.[tel]) || (nk && storico.byName?.[nk]) || [];
+      cartaceeCompletate = ex.filter(x => x.eu).length;
+    }
+  } catch(e) {}
+  const tessereCompletate = (t.cicli_completati || 0) + cartaceeCompletate;
   const nome = t.nome || 'Cliente';
   const timbri = t.timbri_attuali || 0;
   const saldo = t.saldo_sconto || 0;
@@ -293,7 +308,7 @@ async function loadCard() {
         </div>
       </div>
 
-      <div class="info-row"><span>Cicli completati</span><strong>${(()=>{const c=t.cicli_completati||0;return c===0?'0':c>=5?'🏆 '+c:'⭐ '+c})()}</strong></div>
+      <div class="info-row"><span>Tessere completate</span><strong>${tessereCompletate===0?'0':tessereCompletate>=5?'🏆 '+tessereCompletate:'⭐ '+tessereCompletate}</strong></div>
       <div class="info-row"><span>Timbri omaggio ricevuti</span><strong>${t.timbri_omaggio || 0}</strong></div>
       ${isAmb && t.data_nascita ? `<div class="info-row info-row-click" onclick="mostraInfoCompleanno()"><span>Mese compleanno <span style="font-size:11px;font-weight:600">(10% sconto)</span> <span style="font-size:10px;color:#bbb">ⓘ</span></span><strong>${new Date(t.data_nascita).toLocaleDateString('it-IT',{month:'long'})}</strong></div>` : ''}
       ${isAmb ? `<div class="info-row"><span>Sconto compleanno ${new Date().getFullYear()}</span><strong style="color:${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? '#059669' : '#aaa'}">${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? 'Utilizzato' : 'Non ancora usato'}</strong></div>` : ''}
