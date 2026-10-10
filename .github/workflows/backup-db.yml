@@ -1,0 +1,55 @@
+name: Backup Database
+
+on:
+  schedule:
+    # Ogni notte alle 02:00 (ora italiana = 00:00 UTC in estate, 01:00 UTC in inverno)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # permette avvio manuale dalla tab Actions su GitHub
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (branch backups)
+        uses: actions/checkout@v4
+        with:
+          ref: backups
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Esporta tabelle critiche
+        env:
+          SUPA_URL: https://api.supabase.com/v1/projects/hsalynvxazxqtmsvjrzc/database/query
+          SUPA_TOKEN: ${{ secrets.SUPABASE_MGMT_TOKEN }}
+        run: |
+          mkdir -p data
+          DATE=$(date -u +%Y-%m-%d)
+
+          export_table() {
+            local TABLE=$1
+            local QUERY=$2
+            echo "Esportazione $TABLE..."
+            curl -sf -X POST "$SUPA_URL" \
+              -H "Authorization: Bearer $SUPA_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\": \"$QUERY\"}" \
+              -o "data/${TABLE}.json"
+            echo "  $(wc -c < data/${TABLE}.json) bytes"
+          }
+
+          export_table "turni"     "SELECT * FROM turni ORDER BY emporio, anno, mese, giorno, turno"
+          export_table "operatori" "SELECT * FROM operatori ORDER BY emporio, nome"
+          export_table "clienti"   "SELECT * FROM clienti ORDER BY emporio, cognome, nome"
+          export_table "tessere"   "SELECT * FROM tessere ORDER BY emporio, codice_tessera"
+          export_table "cassa"     "SELECT id, chiave, emporio, data, fondo_cassa, incassato_totale, spese_totali, created_at FROM cassa ORDER BY emporio, data LIMIT 5000"
+
+          echo "$DATE" > data/last_backup.txt
+          echo "Backup completato: $DATE"
+
+      - name: Commit e push backup
+        run: |
+          git config user.name  "GitHub Actions Backup"
+          git config user.email "actions@github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "Backup automatico $(date -u +%Y-%m-%d)"
+          git push
