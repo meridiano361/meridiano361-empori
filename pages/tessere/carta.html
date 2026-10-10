@@ -279,7 +279,8 @@ async function loadCard() {
   _initPwa(`${nome} ${t.cognome || ''}`.trim());
 
   // Adatta la card alla viewport — aspetta font + layout stabile
-  document.fonts.ready.then(() => { fitCard(); setTimeout(fitCard, 200); });
+  fitCard();
+  document.fonts.ready.then(() => { fitCard(); setTimeout(fitCard, 300); });
 }
 
 function fitCard() {
@@ -385,31 +386,11 @@ function _initPwa(nomeCliente) {
     navigator.serviceWorker.register('/pages/tessere/sw-carta.js', { scope: '/pages/tessere/' }).catch(() => {});
   }
 
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const banner = document.getElementById('install-banner');
-
-  if (isIOS) {
-    // iOS: mostra istruzioni Safari
-    showInstallOs('ios');
-    banner.style.display = '';
-  } else {
-    // Android/desktop: attendi beforeinstallprompt
-    window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      _deferredInstallPrompt = e;
-      document.getElementById('btn-install-native').style.display = '';
-      document.getElementById('install-android-manual').style.display = 'none';
-      banner.style.display = '';
-    });
-    // Se dopo 2s non arriva il prompt (già installata o browser non supporta), mostra manuale
-    setTimeout(() => {
-      if (!_deferredInstallPrompt && banner.style.display === 'none') {
-        document.getElementById('btn-install-native').style.display = 'none';
-        document.getElementById('install-android-manual').style.display = '';
-        banner.style.display = '';
-      }
-    }, 2000);
-  }
+  // Intercetta il prompt Android per usarlo dopo quando l'utente clicca Salva link
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+  });
 }
 
 function showInstallOs(os) {
