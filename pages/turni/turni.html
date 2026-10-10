@@ -2670,17 +2670,20 @@ function renderMonth() {
       if (!td.aperto) return '';
       const fascia = key.split('|')[4];
       const ds = `${currentAnno}-${String(currentMese+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      // Mesi passati: mostra tutti gli operatori storici (anche rimossi o non più attivi) in sola lettura
+      const _now = new Date();
+      const _isPastMonth = currentAnno < _now.getFullYear() || (currentAnno === _now.getFullYear() && (currentMese + 1) < (_now.getMonth() + 1));
       return (td.operatori||[]).map((o,i) => {
-        if (o.rimosso) return '';
-        if (_nomiValidiLoaded && !_nomiValidiEmporio.has(o.nome)) return '';
+        if (!_isPastMonth && o.rimosso) return '';
+        if (!_isPastMonth && _nomiValidiLoaded && !_nomiValidiEmporio.has(o.nome)) return '';
         const defOre = calcShiftHours(fascia, _opPausaMap[o.nome]);
         const isPartial = o.oremanuali != null && o.oremanuali < defOre;
         const partialStr = isPartial ? `<span title="Orario parziale" style="font-size:9px;opacity:.65;margin-left:1px">◐</span>` : '';
-        // chip-self: classe per il chip del proprio nome (usata da CSS turni-own-only)
         const selfCls = canInsertOwnNameOnly() && isCurrentUser(o.nome) ? ' chip-self' : '';
-        return `<span class="chip-nome-cal${selfCls}" ondblclick="event.stopPropagation();apriPopoverChip('${key}',${i},this)" title="Doppio click per modificare orario">${_nomeBreveMap[o.nome]||o.nome.split(' ')[0]}${partialStr}` +
-          `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span></span>`;
-      }).join('')+(canInsertOwnNameOnly()
+        const rimossoStyle = o.rimosso ? 'text-decoration:line-through;opacity:.5;' : '';
+        return `<span class="chip-nome-cal${selfCls}" style="${rimossoStyle}" ondblclick="event.stopPropagation();${_isPastMonth?'':` apriPopoverChip('${key}',${i},this)`}" title="${o.rimosso?'Rimosso dal turno':'Doppio click per modificare orario'}">${_nomeBreveMap[o.nome]||o.nome.split(' ')[0]}${partialStr}` +
+          `${_isPastMonth ? '' : `<span class="rm" onclick="event.stopPropagation();removeOp('${key}',${i})">×</span>`}</span>`;
+      }).join('')+(_isPastMonth ? '' : canInsertOwnNameOnly()
         ? `<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)" title="Aggiungiti a questo turno" style="color:#B5453A!important;font-weight:700!important;font-size:13px!important;border:1px solid #fca5a5!important;background:#fff5f5!important;padding:3px 9px!important;border-radius:6px!important">+ Io</span>`
         : `<span class="op-add" onclick="aggiungiOperatoreTurno('${ds}','${fascia}',this)" title="Aggiungi un operatore a questo turno">+</span>`);
     };
