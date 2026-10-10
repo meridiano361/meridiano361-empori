@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pianificatore Eventi</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root{--red:#B5453A;--red-dk:#8c362d;--red-lt:#fdf1f0;--s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;--s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s800:#1e293b}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Nunito',sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh;padding-bottom:100px}
+    .page{max-width:900px;margin:0 auto;padding:20px 16px}
+
+    /* header */
+    .ph{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+    .back-btn{background:#fff;border:1.5px solid var(--s200);border-radius:10px;padding:8px 14px;font:700 12px 'Nunito';color:var(--s500);cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;transition:all .15s}
+    .back-btn:hover{background:var(--red-lt);color:var(--red);border-color:var(--red)}
+    .ph-title{font-size:20px;font-weight:900;color:var(--s800);flex:1}
+    .wip-pill{display:inline-flex;align-items:center;gap:5px;background:#fef3c7;border:1px solid #fde68a;border-radius:20px;padding:3px 10px;font:800 9px 'Nunito';color:#92400e;text-transform:uppercase;letter-spacing:.07em}
+    .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;font:700 13px 'Nunito';cursor:pointer;border:none;transition:all .15s}
+    .btn-primary{background:var(--red);color:#fff}
+    .btn-primary:hover{background:var(--red-dk)}
+    .btn-ghost{background:#fff;border:1.5px solid var(--s200);color:var(--s600)}
+    .btn-ghost:hover{border-color:var(--red);color:var(--red);background:var(--red-lt)}
+
+    /* filtri */
+    .filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+    .filter-chip{padding:5px 13px;border-radius:20px;border:1.5px solid var(--s200);background:#fff;font:700 12px 'Nunito';color:var(--s500);cursor:pointer;transition:all .12s}
+    .filter-chip.active{background:var(--red);color:#fff;border-color:var(--red)}
+
+    /* lista eventi */
+    .eventi-list{display:flex;flex-direction:column;gap:12px}
+    .ev-card{background:#fff;border-radius:16px;border:1.5px solid var(--s200);padding:16px 18px;cursor:pointer;transition:all .15s;display:flex;gap:14px;align-items:flex-start}
+    .ev-card:hover{border-color:var(--red);box-shadow:0 4px 16px rgba(181,69,58,.1);transform:translateY(-1px)}
+    .ev-state-bar{width:4px;border-radius:4px;flex-shrink:0;align-self:stretch;min-height:60px}
+    .ev-body{flex:1;min-width:0}
+    .ev-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+    .ev-title{font-size:15px;font-weight:800;color:var(--s800);flex:1}
+    .ev-tipo-pill{font:700 10px 'Nunito';padding:2px 8px;border-radius:10px;white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
+    .ev-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--s500);font-weight:600}
+    .ev-meta span{display:inline-flex;align-items:center;gap:4px}
+    .ev-desc{font-size:12px;color:var(--s500);margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .ev-footer{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .ev-stato{font:700 10px 'Nunito';padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
+    .ev-team-chips{display:flex;gap:4px;flex-wrap:wrap}
+    .ev-team-chip{font:700 10px 'Nunito';padding:2px 8px;background:var(--s100);color:var(--s600);border-radius:8px}
+    .ev-task-count{margin-left:auto;font:600 11px 'Nunito';color:var(--s400);display:flex;align-items:center;gap:4px}
+    .progress-mini{width:60px;height:5px;background:var(--s200);border-radius:3px;overflow:hidden}
+    .progress-mini-fill{height:100%;border-radius:3px;background:var(--red);transition:width .3s}
+
+    /* empty state */
+    .empty{text-align:center;padding:60px 20px;color:var(--s400)}
+    .empty i{font-size:40px;margin-bottom:12px;opacity:.4}
+    .empty p{font-size:15px;font-weight:700;margin-bottom:6px;color:var(--s500)}
+    .empty small{font-size:13px}
+
+    /* ── PANEL DETTAGLIO ── */
+    .panel-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;opacity:0;pointer-events:none;transition:opacity .25s}
+    .panel-overlay.open{opacity:1;pointer-events:all}
+    .panel{position:fixed;top:0;right:0;bottom:0;width:min(600px,100vw);background:#fff;z-index:1001;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+    .panel.open{transform:translateX(0)}
+    .panel-hdr{padding:18px 20px;border-bottom:1.5px solid var(--s100);display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .panel-hdr-left{flex:1;min-width:0}
+    .panel-close{background:var(--s100);border:none;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--s500);font-size:16px;flex-shrink:0;transition:all .15s}
+    .panel-close:hover{background:var(--red-lt);color:var(--red)}
+    .panel-body{flex:1;overflow-y:auto;padding:20px}
+    .panel-footer{padding:14px 20px;border-top:1.5px solid var(--s100);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+
+    /* form fields */
+    .field{margin-bottom:16px}
+    .field label{display:block;font:700 11px 'Nunito';color:var(--s500);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+    .field input,.field select,.field textarea{width:100%;padding:9px 12px;border:1.5px solid var(--s200);border-radius:10px;font:600 14px 'Nunito';color:var(--s800);background:#fff;outline:none;transition:border-color .15s}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--red)}
+    .field textarea{min-height:80px;resize:vertical;line-height:1.5}
+    .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+    /* sezioni panel */
+    .sec{margin-bottom:24px}
+    .sec-hdr{font:800 10px 'Nunito';text-transform:uppercase;letter-spacing:.12em;color:var(--s400);display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .sec-hdr::before{content:'';width:3px;height:14px;background:var(--red);border-radius:2px;flex-shrink:0}
+    .sec-hdr-action{margin-left:auto;font:700 11px 'Nunito';color:var(--red);cursor:pointer;text-transform:none;letter-spacing:0}
+    .sec-hdr-action:hover{text-decoration:underline}
+
+    /* stato segmented */
+    .stato-seg{display:flex;gap:6px;flex-wrap:wrap}
+    .stato-opt{padding:6px 14px;border-radius:20px;border:1.5px solid var(--s200);font:700 12px 'Nunito';color:var(--s500);cursor:pointer;transition:all .15s}
+    .stato-opt.active{color:#fff;border-color:transparent}
+
+    /* empori multiselect */
+    .empori-grid{display:flex;gap:6px;flex-wrap:wrap}
+    .emp-chip{padding:6px 14px;border-radius:20px;border:1.5px solid var(--s200);font:700 12px 'Nunito';color:var(--s500);cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:5px}
+    .emp-chip.sel{color:#fff;border-color:transparent}
+
+    /* team */
+    .team-grid{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
+    .team-chip{display:flex;align-items:center;gap:6px;background:var(--s100);border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--s700)}
+    .team-chip .rm-small{cursor:pointer;color:var(--s400);font-size:10px;transition:color .1s}
+    .team-chip .rm-small:hover{color:var(--red)}
+    .add-team-row{display:flex;gap:8px;align-items:center}
+    .add-team-row select{flex:1;padding:7px 10px;border:1.5px solid var(--s200);border-radius:8px;font:600 13px 'Nunito';color:var(--s700);background:#fff;outline:none}
+    .add-team-row select:focus{border-color:var(--red)}
+    .role-input{width:120px;padding:7px 10px;border:1.5px solid var(--s200);border-radius:8px;font:600 13px 'Nunito';color:var(--s700);background:#fff;outline:none}
+    .role-input:focus{border-color:var(--red)}
+
+    /* task */
+    .task-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+    .task-item{background:var(--s50);border:1.5px solid var(--s200);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;transition:border-color .15s}
+    .task-item.done{opacity:.6}
+    .task-item.done .task-title{text-decoration:line-through;color:var(--s400)}
+    .task-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--s300);background:#fff;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;transition:all .15s;margin-top:1px}
+    .task-check.checked{background:var(--red);border-color:var(--red)}
+    .task-body{flex:1;min-width:0}
+    .task-title{font:700 13px 'Nunito';color:var(--s800);margin-bottom:3px}
+    .task-meta{display:flex;gap:8px;flex-wrap:wrap;font:600 11px 'Nunito';color:var(--s400)}
+    .task-prio{padding:1px 7px;border-radius:6px;font:700 9px 'Nunito';text-transform:uppercase;letter-spacing:.05em}
+    .task-rm{cursor:pointer;color:var(--s300);font-size:13px;flex-shrink:0;margin-top:2px;transition:color .15s}
+    .task-rm:hover{color:var(--red)}
+    .add-task-form{background:var(--s50);border:1.5px dashed var(--s300);border-radius:12px;padding:12px}
+    .add-task-form input,.add-task-form select{width:100%;padding:7px 10px;border:1.5px solid var(--s200);border-radius:8px;font:600 13px 'Nunito';color:var(--s700);background:#fff;outline:none;margin-bottom:8px}
+    .add-task-form input:focus,.add-task-form select:focus{border-color:var(--red)}
+    .add-task-row{display:flex;gap:6px}
+
+    /* progress bar */
+    .prog-bar{height:6px;background:var(--s200);border-radius:4px;overflow:hidden;margin-bottom:4px}
+    .prog-fill{height:100%;background:var(--red);border-radius:4px;transition:width .4s}
+    .prog-label{font:600 11px 'Nunito';color:var(--s400)}
+
+    /* colori tipo evento */
+    .tipo-workshop{background:#dbeafe;color:#1d4ed8}
+    .tipo-inaugurazione{background:#dcfce7;color:#166534}
+    .tipo-vendita{background:#fef3c7;color:#92400e}
+    .tipo-corso{background:#f3e8ff;color:#6b21a8}
+    .tipo-mostra{background:#ffedd5;color:#9a3412}
+    .tipo-degustazione{background:#ecfdf5;color:#065f46}
+    .tipo-altro{background:var(--s100);color:var(--s600)}
+
+    /* colori stato */
+    .stato-bozza{background:var(--s200);color:var(--s600)}
+    .stato-confermato{background:#dbeafe;color:#1d4ed8}
+    .stato-in-corso{background:#fef3c7;color:#92400e}
+    .stato-completato{background:#dcfce7;color:#166534}
+    .stato-annullato{background:#fee2e2;color:#991b1b}
+
+    /* loader */
+    .loader{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--s400);gap:10px;font:700 13px 'Nunito'}
+    .spin{animation:spin .8s linear infinite;font-size:18px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* toast */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--s800);color:#fff;padding:10px 20px;border-radius:12px;font:700 13px 'Nunito';z-index:9999;opacity:0;transition:all .3s;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    /* priorità */
+    .prio-alta{background:#fee2e2;color:#991b1b}
+    .prio-media{background:#fef3c7;color:#92400e}
+    .prio-bassa{background:var(--s100);color:var(--s600)}
+  </style>
+</head>
+<body>
+<script src="../../scripts/nav-script.js"></script>
+
+<div class="page">
+  <div class="ph">
+    <a href="../../index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Home</a>
+    <div class="ph-title">Pianificatore Eventi</div>
+    <span class="wip-pill"><i class="fas fa-hammer" style="font-size:9px"></i> In costruzione</span>
+    <button class="btn btn-primary" onclick="apriNuovoEvento()"><i class="fas fa-plus"></i> Nuovo Evento</button>
+  </div>
+
+  <!-- filtri -->
+  <div class="filter-bar" id="filter-bar">
+    <span class="filter-chip active" data-filter="tutti" onclick="setFilter('tutti',this)">Tutti</span>
+    <span class="filter-chip" data-filter="bozza" onclick="setFilter('bozza',this)">Bozze</span>
+    <span class="filter-chip" data-filter="confermato" onclick="setFilter('confermato',this)">Confermati</span>
+    <span class="filter-chip" data-filter="in-corso" onclick="setFilter('in-corso',this)">In corso</span>
+    <span class="filter-chip" data-filter="completato" onclick="setFilter('completato',this)">Completati</span>
+  </div>
+
+  <!-- lista -->
+  <div id="ev-list" class="eventi-list">
+    <div class="loader"><i class="fas fa-circle-notch spin"></i> Caricamento...</div>
+  </div>
+</div>
+
+<!-- PANEL OVERLAY -->
+<div class="panel-overlay" id="overlay" onclick="chiudiPanel()"></div>
+
+<!-- PANEL DETTAGLIO/FORM -->
+<div class="panel" id="panel">
+  <div class="panel-hdr">
+    <div class="panel-hdr-left">
+      <div id="panel-title" style="font:900 16px 'Nunito';color:var(--s800)">Nuovo Evento</div>
+      <div id="panel-subtitle" style="font:600 12px 'Nunito';color:var(--s400);margin-top:2px"></div>
+    </div>
+    <button class="panel-close" onclick="chiudiPanel()"><i class="fas fa-times"></i></button>
+  </div>
+  <div class="panel-body" id="panel-body"><!-- injected --></div>
+  <div class="panel-footer">
+    <button class="btn btn-ghost" onclick="chiudiPanel()">Annulla</button>
+    <button class="btn btn-primary" id="btn-salva" onclick="salvaEvento()"><i class="fas fa-check"></i> Salva</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const _db = supabase.createClient(
+  'https://hsalynvxazxqtmsvjrzc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+);
+
+const TIPI = {
+  workshop:      { label:'Workshop/Lab',     cls:'tipo-workshop',     icon:'fa-hands-bubbles' },
+  inaugurazione: { label:'Inaugurazione',    cls:'tipo-inaugurazione',icon:'fa-ribbon' },
+  vendita:       { label:'Vendita Speciale', cls:'tipo-vendita',      icon:'fa-tag' },
+  corso:         { label:'Corso',            cls:'tipo-corso',        icon:'fa-chalkboard-user' },
+  mostra:        { label:'Mostra/Expo',      cls:'tipo-mostra',       icon:'fa-image' },
+  degustazione:  { label:'Degustazione',     cls:'tipo-degustazione', icon:'fa-wine-glass' },
+  altro:         { label:'Altro',            cls:'tipo-altro',        icon:'fa-star' },
+};
+const STATI = {
+  bozza:      { label:'Bozza',      color:'#94a3b8', bg:'#f1f5f9' },
+  confermato: { label:'Confermato', color:'#1d4ed8', bg:'#dbeafe' },
+  'in-corso': { label:'In corso',   color:'#d97706', bg:'#fef3c7' },
+  completato: { label:'Completato', color:'#166534', bg:'#dcfce7' },
+  annullato:  { label:'Annullato',  color:'#991b1b', bg:'#fee2e2' },
+};
+const EMPORI_CONF = window.EMPORI_CONF || {};
+const EMPORI_ORDER = window.EMPORI_ORDER || [];
+
+let _eventi = [];
+let _operatori = [];
+let _filtroStato = 'tutti';
+let _editId = null; // null = nuovo
+let _editEvento = null;
+
+// ── INIT ──────────────────────────────────────────
+(async function init() {
+  const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+  const isEmilio = user && (user.email === 'emilio.mazzolari@gmail.com' || user.email === 'e.mazzolari@meridiano361.it');
+  if (!isEmilio) {
+    document.querySelector('.page').innerHTML = '<div class="empty"><i class="fas fa-lock"></i><p>Sezione riservata</p><small>Accesso non autorizzato.</small></div>';
+    return;
+  }
+  await Promise.all([caricaEventi(), caricaOperatori()]);
+})();
+
+async function caricaEventi() {
+  const { data, error } = await _db.from('eventi_emporio').select('*').order('data_inizio', { ascending: false });
+  if (error) { console.error(error); return; }
+  _eventi = data || [];
+  renderLista();
+}
+
+async function caricaOperatori() {
+  const { data } = await _db.from('operatori').select('nome, ruolo, emporio').eq('attivo', true).order('emporio').order('nome');
+  _operatori = data || [];
+}
+
+// ── RENDER LISTA ──────────────────────────────────
+function renderLista() {
+  const el = document.getElementById('ev-list');
+  const filtrati = _filtroStato === 'tutti' ? _eventi : _eventi.filter(e => e.stato === _filtroStato);
+  if (!filtrati.length) {
+    el.innerHTML = `<div class="empty"><i class="fas fa-calendar-star"></i><p>Nessun evento${_filtroStato !== 'tutti' ? ' in questo stato' : ''}</p><small>Crea il tuo primo evento con il pulsante "Nuovo Evento"</small></div>`;
+    return;
+  }
+  el.innerHTML = filtrati.map(ev => cardHtml(ev)).join('');
+}
+
+function cardHtml(ev) {
+  const tipo = TIPI[ev.tipo] || TIPI.altro;
+  const stato = STATI[ev.stato] || STATI.bozza;
+  const task = ev.task || [];
+  const team = ev.team || [];
+  const done = task.filter(t => t.completato).length;
+  const progPct = task.length ? Math.round(done / task.length * 100) : 0;
+  const emporiLabel = (ev.empori || []).map(e => {
+    const conf = Object.values(EMPORI_CONF).find(c => c.nome === e) || {};
+    return `<span style="display:inline-flex;align-items:center;gap:3px;font:700 10px 'Nunito';padding:2px 7px;border-radius:8px;background:${conf.colore||'#94a3b8'}22;color:${conf.colore||'#475569'}">${e}</span>`;
+  }).join('');
+  const dateLabel = ev.data_inizio ? fmtDate(ev.data_inizio) + (ev.data_fine && ev.data_fine !== ev.data_inizio ? ' → ' + fmtDate(ev.data_fine) : '') : 'Data da definire';
+  const teamPreview = team.slice(0,4).map(m => `<span class="ev-team-chip">${m.nome.split(' ')[0]}</span>`).join('') + (team.length > 4 ? `<span class="ev-team-chip">+${team.length-4}</span>` : '');
+
+  return `<div class="ev-card" onclick="apriEvento('${ev.id}')">
+    <div class="ev-state-bar" style="background:${stato.color}"></div>
+    <div class="ev-body">
+      <div class="ev-top">
+        <div class="ev-title">${esc(ev.titolo)}</div>
+        <span class="ev-tipo-pill ${tipo.cls}"><i class="fas ${tipo.icon}" style="font-size:9px"></i> ${tipo.label}</span>
+      </div>
+      <div class="ev-meta">
+        <span><i class="fas fa-calendar"></i> ${dateLabel}</span>
+        ${ev.ora_inizio ? `<span><i class="fas fa-clock"></i> ${ev.ora_inizio.slice(0,5)}${ev.ora_fine ? '–'+ev.ora_fine.slice(0,5) : ''}</span>` : ''}
+        ${ev.luogo ? `<span><i class="fas fa-location-dot"></i> ${esc(ev.luogo)}</span>` : ''}
+      </div>
+      ${emporiLabel ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${emporiLabel}</div>` : ''}
+      ${ev.descrizione ? `<div class="ev-desc">${esc(ev.descrizione)}</div>` : ''}
+      <div class="ev-footer">
+        <span class="ev-stato stato-${ev.stato}" style="background:${stato.bg};color:${stato.color}">${stato.label}</span>
+        <div class="ev-team-chips">${teamPreview}</div>
+        ${task.length ? `<div class="ev-task-count">
+          <div class="progress-mini"><div class="progress-mini-fill" style="width:${progPct}%"></div></div>
+          ${done}/${task.length} task
+        </div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── FILTRO ────────────────────────────────────────
+function setFilter(stato, el) {
+  _filtroStato = stato;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderLista();
+}
+
+// ── PANEL ─────────────────────────────────────────
+function apriPanel(title, subtitle) {
+  document.getElementById('panel-title').textContent = title;
+  document.getElementById('panel-subtitle').textContent = subtitle || '';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function chiudiPanel() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+  document.body.style.overflow = '';
+  _editId = null;
+  _editEvento = null;
+}
+
+// ── NUOVO EVENTO ──────────────────────────────────
+function apriNuovoEvento() {
+  _editId = null;
+  _editEvento = {
+    titolo:'', tipo:'workshop', empori:[], data_inizio:'', data_fine:'',
+    ora_inizio:'', ora_fine:'', luogo:'', descrizione:'', stato:'bozza',
+    team:[], task:[], budget:null, note:''
+  };
+  document.getElementById('panel-body').innerHTML = formHtml(_editEvento);
+  apriPanel('Nuovo Evento', '');
+  document.getElementById('btn-salva').innerHTML = '<i class="fas fa-plus"></i> Crea Evento';
+}
+
+// ── APRI EVENTO ESISTENTE ─────────────────────────
+function apriEvento(id) {
+  const ev = _eventi.find(e => e.id === id);
+  if (!ev) return;
+  _editId = id;
+  _editEvento = JSON.parse(JSON.stringify(ev));
+  document.getElementById('panel-body').innerHTML = formHtml(_editEvento);
+  apriPanel(ev.titolo, STATI[ev.stato]?.label || '');
+  document.getElementById('btn-salva').innerHTML = '<i class="fas fa-check"></i> Salva Modifiche';
+}
+
+// ── FORM HTML ─────────────────────────────────────
+function formHtml(ev) {
+  const task = ev.task || [];
+  const done = task.filter(t => t.completato).length;
+  const progPct = task.length ? Math.round(done / task.length * 100) : 0;
+
+  return `
+  <!-- INFO BASE -->
+  <div class="sec">
+    <div class="sec-hdr">Info Evento</div>
+    <div class="field">
+      <label>Titolo *</label>
+      <input id="f-titolo" value="${esc(ev.titolo)}" placeholder="Es: Workshop Kokedama – Novembre" oninput="ev_set('titolo',this.value)">
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label>Tipo</label>
+        <select id="f-tipo" onchange="ev_set('tipo',this.value)">
+          ${Object.entries(TIPI).map(([k,v]) => `<option value="${k}" ${ev.tipo===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Luogo</label>
+        <input id="f-luogo" value="${esc(ev.luogo||'')}" placeholder="Es: Emporio Cremona, sala..." oninput="ev_set('luogo',this.value)">
+      </div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label>Data inizio</label>
+        <input type="date" id="f-data-inizio" value="${ev.data_inizio||''}" onchange="ev_set('data_inizio',this.value)">
+      </div>
+      <div class="field">
+        <label>Data fine</label>
+        <input type="date" id="f-data-fine" value="${ev.data_fine||''}" onchange="ev_set('data_fine',this.value)">
+      </div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label>Orario inizio</label>
+        <input type="time" id="f-ora-inizio" value="${ev.ora_inizio||''}" onchange="ev_set('ora_inizio',this.value)">
+      </div>
+      <div class="field">
+        <label>Orario fine</label>
+        <input type="time" id="f-ora-fine" value="${ev.ora_fine||''}" onchange="ev_set('ora_fine',this.value)">
+      </div>
+    </div>
+    <div class="field">
+      <label>Descrizione</label>
+      <textarea id="f-desc" oninput="ev_set('descrizione',this.value)" placeholder="Descrizione breve dell'evento, cosa accade, per chi è...">${esc(ev.descrizione||'')}</textarea>
+    </div>
+    <div class="field">
+      <label>Budget previsto (€)</label>
+      <input type="number" id="f-budget" value="${ev.budget||''}" placeholder="Es: 150" oninput="ev_set('budget', this.value ? parseFloat(this.value) : null)">
+    </div>
+  </div>
+
+  <!-- EMPORI -->
+  <div class="sec">
+    <div class="sec-hdr">Empori coinvolti</div>
+    <div class="empori-grid" id="empori-grid">
+      ${renderEmporiChips(ev.empori)}
+    </div>
+  </div>
+
+  <!-- STATO -->
+  <div class="sec">
+    <div class="sec-hdr">Stato</div>
+    <div class="stato-seg" id="stato-seg">
+      ${Object.entries(STATI).map(([k,v]) => `<span class="stato-opt${ev.stato===k?' active':''}" style="${ev.stato===k?`background:${v.bg};color:${v.color};border-color:${v.color}`:''}" onclick="setStato('${k}',this)">${v.label}</span>`).join('')}
+    </div>
+  </div>
+
+  <!-- TEAM -->
+  <div class="sec">
+    <div class="sec-hdr">Team <span class="sec-hdr-action" onclick="mostraAddTeam()">+ Aggiungi</span></div>
+    <div class="team-grid" id="team-grid">${renderTeam(ev.team)}</div>
+    <div id="add-team-wrap"></div>
+  </div>
+
+  <!-- TASK -->
+  <div class="sec">
+    <div class="sec-hdr">
+      Cose da fare
+      ${task.length ? `<span style="font:600 11px 'Nunito';color:var(--s400);text-transform:none;letter-spacing:0;margin-left:4px">${done}/${task.length}</span>` : ''}
+      <span class="sec-hdr-action" onclick="mostraAddTask()">+ Aggiungi task</span>
+    </div>
+    ${task.length ? `<div class="prog-bar"><div class="prog-fill" style="width:${progPct}%"></div></div><div class="prog-label">${progPct}% completato</div><br>` : ''}
+    <div class="task-list" id="task-list">${renderTaskList(ev.task)}</div>
+    <div id="add-task-wrap"></div>
+  </div>
+
+  <!-- NOTE -->
+  <div class="sec">
+    <div class="sec-hdr">Note interne</div>
+    <div class="field" style="margin:0">
+      <textarea id="f-note" oninput="ev_set('note',this.value)" placeholder="Note logistiche, contatti fornitori, link utili...">${esc(ev.note||'')}</textarea>
+    </div>
+  </div>
+
+  ${_editId ? `<div style="margin-top:8px;padding-top:16px;border-top:1px solid var(--s100);display:flex;justify-content:flex-end">
+    <button class="btn" style="background:#fee2e2;color:#991b1b;border:none;font-size:12px" onclick="eliminaEvento('${_editId}')"><i class="fas fa-trash"></i> Elimina evento</button>
+  </div>` : ''}
+  `;
+}
+
+function renderEmporiChips(selected) {
+  const sel = selected || [];
+  return EMPORI_ORDER.map(k => {
+    const conf = EMPORI_CONF[k];
+    if (!conf) return '';
+    const isSel = sel.includes(conf.nome);
+    return `<span class="emp-chip${isSel?' sel':''}" style="${isSel?`background:${conf.colore};border-color:${conf.colore}`:''}" onclick="toggleEmporio('${conf.nome}',this,'${conf.colore}')" data-emp="${conf.nome}">
+      ${isSel ? '<i class="fas fa-check" style="font-size:10px"></i> ' : ''}${conf.nome}
+    </span>`;
+  }).join('');
+}
+
+function renderTeam(team) {
+  return (team||[]).map((m,i) => `<div class="team-chip">
+    <i class="fas fa-user" style="font-size:10px;color:var(--s400)"></i>
+    <span>${esc(m.nome)}</span>
+    ${m.ruolo_evento ? `<span style="color:var(--s400);font-weight:600">· ${esc(m.ruolo_evento)}</span>` : ''}
+    <span class="rm-small" onclick="removeTeam(${i})"><i class="fas fa-times"></i></span>
+  </div>`).join('');
+}
+
+function renderTaskList(task) {
+  return (task||[]).map((t,i) => `<div class="task-item${t.completato?' done':''}" id="task-${i}">
+    <div class="task-check${t.completato?' checked':''}" onclick="toggleTask(${i})">${t.completato?'<i class="fas fa-check" style="font-size:10px"></i>':''}</div>
+    <div class="task-body">
+      <div class="task-title">${esc(t.titolo)}</div>
+      <div class="task-meta">
+        ${t.assegnato_a ? `<span><i class="fas fa-user" style="font-size:9px"></i> ${esc(t.assegnato_a)}</span>` : ''}
+        ${t.scadenza ? `<span><i class="fas fa-clock" style="font-size:9px"></i> ${fmtDate(t.scadenza)}</span>` : ''}
+        ${t.categoria ? `<span><i class="fas fa-tag" style="font-size:9px"></i> ${esc(t.categoria)}</span>` : ''}
+        <span class="task-prio prio-${t.priorita||'bassa'}">${t.priorita||'bassa'}</span>
+      </div>
+    </div>
+    <i class="fas fa-times task-rm" onclick="removeTask(${i})"></i>
+  </div>`).join('');
+}
+
+// ── INTERAZIONI FORM ──────────────────────────────
+function ev_set(field, val) { if (_editEvento) _editEvento[field] = val; }
+
+function toggleEmporio(nome, el, colore) {
+  if (!_editEvento) return;
+  const list = _editEvento.empori || [];
+  const idx = list.indexOf(nome);
+  if (idx >= 0) { list.splice(idx, 1); el.classList.remove('sel'); el.style.background=''; el.style.borderColor=''; el.innerHTML = nome; }
+  else { list.push(nome); el.classList.add('sel'); el.style.background=colore; el.style.borderColor=colore; el.innerHTML = `<i class="fas fa-check" style="font-size:10px"></i> ${nome}`; }
+  _editEvento.empori = list;
+}
+
+function setStato(stato, el) {
+  if (!_editEvento) return;
+  _editEvento.stato = stato;
+  document.querySelectorAll('.stato-opt').forEach(o => { o.classList.remove('active'); o.style.background=''; o.style.color=''; o.style.borderColor=''; });
+  const s = STATI[stato];
+  el.classList.add('active'); el.style.background=s.bg; el.style.color=s.color; el.style.borderColor=s.color;
+}
+
+function mostraAddTeam() {
+  const wrap = document.getElementById('add-team-wrap');
+  if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
+  const opzioniEmpori = (_editEvento?.empori || []);
+  const opOps = _operatori
+    .filter(o => opzioniEmpori.length === 0 || opzioniEmpori.includes(o.emporio))
+    .filter(o => !(_editEvento?.team||[]).some(t => t.nome === o.nome));
+  wrap.innerHTML = `<div class="add-team-row">
+    <select id="new-team-nome">
+      <option value="">— Seleziona operatore —</option>
+      ${opOps.map(o => `<option value="${esc(o.nome)}">${esc(o.nome)} (${esc(o.emporio||'')})</option>`).join('')}
+      <option value="__custom__">+ Inserisci nome libero</option>
+    </select>
+    <input class="role-input" id="new-team-ruolo" placeholder="Ruolo (es: ospite)" oninput="">
+    <button class="btn btn-primary" style="padding:7px 12px;font-size:12px" onclick="addTeamMember()"><i class="fas fa-plus"></i></button>
+  </div>
+  <div id="custom-nome-wrap" style="display:none;margin-top:6px">
+    <input placeholder="Nome e cognome..." id="custom-nome" style="width:100%;padding:7px 10px;border:1.5px solid var(--s200);border-radius:8px;font:600 13px 'Nunito'">
+  </div>`;
+  document.getElementById('new-team-nome').addEventListener('change', function() {
+    document.getElementById('custom-nome-wrap').style.display = this.value === '__custom__' ? 'block' : 'none';
+  });
+}
+
+function addTeamMember() {
+  const sel = document.getElementById('new-team-nome');
+  const ruolo = (document.getElementById('new-team-ruolo')?.value || '').trim();
+  let nome = sel.value;
+  if (nome === '__custom__') nome = (document.getElementById('custom-nome')?.value || '').trim();
+  if (!nome) return;
+  if (!_editEvento.team) _editEvento.team = [];
+  _editEvento.team.push({ nome, ruolo_evento: ruolo });
+  document.getElementById('team-grid').innerHTML = renderTeam(_editEvento.team);
+  document.getElementById('add-team-wrap').innerHTML = '';
+}
+
+function removeTeam(i) {
+  _editEvento.team.splice(i, 1);
+  document.getElementById('team-grid').innerHTML = renderTeam(_editEvento.team);
+}
+
+function mostraAddTask() {
+  const wrap = document.getElementById('add-task-wrap');
+  if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
+  const teamNomi = (_editEvento?.team||[]).map(m => m.nome);
+  const opNomi = _operatori.filter(o => (_editEvento?.empori||[]).length===0 || (_editEvento?.empori||[]).includes(o.emporio)).map(o => o.nome);
+  const allNomi = [...new Set([...teamNomi, ...opNomi])];
+  wrap.innerHTML = `<div class="add-task-form">
+    <input id="new-task-titolo" placeholder="Cosa bisogna fare? Es: Preparare locandine">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <select id="new-task-assegnato">
+        <option value="">— Chi lo fa —</option>
+        ${allNomi.map(n => `<option>${esc(n)}</option>`).join('')}
+      </select>
+      <select id="new-task-categoria">
+        <option value="">Categoria</option>
+        <option>Allestimento</option>
+        <option>Comunicazione</option>
+        <option>Acquisti</option>
+        <option>Logistica</option>
+        <option>Accoglienza</option>
+        <option>Riordino</option>
+        <option>Cassa</option>
+        <option>Altro</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <input type="date" id="new-task-scadenza" placeholder="Scadenza">
+      <select id="new-task-prio">
+        <option value="bassa">Priorità bassa</option>
+        <option value="media">Priorità media</option>
+        <option value="alta">Priorità alta</option>
+      </select>
+    </div>
+    <div class="add-task-row">
+      <button class="btn btn-ghost" style="font-size:12px;padding:7px 12px" onclick="document.getElementById('add-task-wrap').innerHTML=''">Annulla</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:7px 14px" onclick="addTask()"><i class="fas fa-plus"></i> Aggiungi</button>
+    </div>
+  </div>`;
+}
+
+function addTask() {
+  const titolo = document.getElementById('new-task-titolo')?.value.trim();
+  if (!titolo) return;
+  if (!_editEvento.task) _editEvento.task = [];
+  _editEvento.task.push({
+    id: Date.now(),
+    titolo,
+    assegnato_a: document.getElementById('new-task-assegnato')?.value || '',
+    categoria: document.getElementById('new-task-categoria')?.value || '',
+    scadenza: document.getElementById('new-task-scadenza')?.value || '',
+    priorita: document.getElementById('new-task-prio')?.value || 'bassa',
+    completato: false
+  });
+  const task = _editEvento.task;
+  const done = task.filter(t => t.completato).length;
+  document.getElementById('task-list').innerHTML = renderTaskList(task);
+  document.getElementById('add-task-wrap').innerHTML = '';
+}
+
+function removeTask(i) {
+  _editEvento.task.splice(i, 1);
+  document.getElementById('task-list').innerHTML = renderTaskList(_editEvento.task);
+}
+
+function toggleTask(i) {
+  if (!_editEvento) return;
+  _editEvento.task[i].completato = !_editEvento.task[i].completato;
+  document.getElementById('task-list').innerHTML = renderTaskList(_editEvento.task);
+  // aggiorna progress
+  const task = _editEvento.task;
+  const done = task.filter(t => t.completato).length;
+  const progPct = task.length ? Math.round(done / task.length * 100) : 0;
+  const fill = document.querySelector('.prog-fill');
+  if (fill) fill.style.width = progPct + '%';
+}
+
+// ── SALVA ─────────────────────────────────────────
+async function salvaEvento() {
+  if (!_editEvento) return;
+  const titolo = (document.getElementById('f-titolo')?.value || _editEvento.titolo || '').trim();
+  if (!titolo) { showToast('Inserisci il titolo dell\'evento'); return; }
+  _editEvento.titolo = titolo;
+  _editEvento.updated_at = new Date().toISOString();
+
+  const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+  if (user && !_editEvento.created_by) _editEvento.created_by = user.nome || user.email;
+
+  const payload = {
+    titolo: _editEvento.titolo,
+    tipo: _editEvento.tipo || 'altro',
+    empori: _editEvento.empori || [],
+    data_inizio: _editEvento.data_inizio || null,
+    data_fine: _editEvento.data_fine || null,
+    ora_inizio: _editEvento.ora_inizio || null,
+    ora_fine: _editEvento.ora_fine || null,
+    luogo: _editEvento.luogo || null,
+    descrizione: _editEvento.descrizione || null,
+    stato: _editEvento.stato || 'bozza',
+    team: _editEvento.team || [],
+    task: _editEvento.task || [],
+    budget: _editEvento.budget || null,
+    note: _editEvento.note || null,
+    created_by: _editEvento.created_by || null,
+    updated_at: new Date().toISOString()
+  };
+
+  let error;
+  if (_editId) {
+    ({ error } = await _db.from('eventi_emporio').update(payload).eq('id', _editId));
+  } else {
+    ({ error } = await _db.from('eventi_emporio').insert(payload));
+  }
+
+  if (error) { showToast('Errore nel salvataggio: ' + error.message); console.error(error); return; }
+  showToast(_editId ? 'Evento aggiornato' : 'Evento creato!');
+  chiudiPanel();
+  await caricaEventi();
+}
+
+// ── ELIMINA ───────────────────────────────────────
+async function eliminaEvento(id) {
+  if (!confirm('Eliminare questo evento? L\'operazione non è reversibile.')) return;
+  const { error } = await _db.from('eventi_emporio').delete().eq('id', id);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  showToast('Evento eliminato');
+  chiudiPanel();
+  await caricaEventi();
+}
+
+// ── UTILS ─────────────────────────────────────────
+function fmtDate(d) {
+  if (!d) return '';
+  const [y,m,dd] = d.split('-');
+  return `${dd}/${m}/${y}`;
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') chiudiPanel(); });
+</script>
+</body>
+</html>
