@@ -153,6 +153,11 @@
       const { data: op } = await _gdb.from('operatori')
         .select('is_resp_acquisti').eq('id', _u.id).single();
       _authorized = !!(op?.is_resp_acquisti);
+      if (!_authorized) {
+        const { data: perm } = await _gdb.from('utenti_permessi')
+          .select('può_vedere').eq('utente_id', _u.id).eq('sezione', 'rifornimento').maybeSingle();
+        _authorized = perm?.['può_vedere'] === true;
+      }
     }
     if (!_authorized) { location.replace('/pages/rifornimento/index.html'); return; }
   })();
