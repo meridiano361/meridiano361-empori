@@ -278,8 +278,8 @@ async function loadCard() {
   // Avvia PWA dopo che la tessera è caricata e il nome è noto
   _initPwa(`${nome} ${t.cognome || ''}`.trim());
 
-  // Adatta la card alla viewport
-  requestAnimationFrame(fitCard);
+  // Adatta la card alla viewport — aspetta font + layout stabile
+  document.fonts.ready.then(() => { fitCard(); setTimeout(fitCard, 200); });
 }
 
 function fitCard() {
@@ -288,7 +288,7 @@ function fitCard() {
   card.style.zoom = '';
   const available = window.innerHeight - 24;
   const h = card.offsetHeight;
-  if (h > available) card.style.zoom = available / h;
+  if (h > available) card.style.zoom = (available / h).toFixed(4);
 }
 window.addEventListener('resize', fitCard);
 
