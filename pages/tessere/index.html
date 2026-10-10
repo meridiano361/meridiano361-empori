@@ -5189,31 +5189,35 @@ async function salvaSpesa() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-  // Lookup sync (in memoria) + apri WA subito nel contesto click → nessun popup blocker
+  // Tutti i dati sono in cache → calcola tutto sync, apri WA direttamente nel contesto click
   const tMap = new Map(allTessere.map(x => [x.id, x]));
   const cMap = new Map(allClienti.map(x => [x.id, x]));
   const t = tMap.get(_digSpesaTesseraId);
   const c = t ? cMap.get(t.cliente_id) : null;
   const tel = (c?.telefono || '').replace(/\D/g,'');
-  const waWin = (tel && t?.token) ? window.open('about:blank', '_blank') : null;
+
+  const tipo           = t.tipo || 'standard';
+  const euroTimbro     = digEuroTimbro(tipo);
+  const scontoPerCiclo = digSconto(tipo);
+  const timbriNuovi    = Math.floor(importo / euroTimbro);
+  let   timbriAttuali  = (t.timbri_attuali || 0) + timbriNuovi;
+  let   scontoGenerato = 0;
+  let   saldoSconto    = t.saldo_sconto || 0;
+
+  if (timbriAttuali >= DIG_TIMBRI_MAX) {
+    const cicli    = Math.floor(timbriAttuali / DIG_TIMBRI_MAX);
+    scontoGenerato = cicli * scontoPerCiclo;
+    saldoSconto   += scontoGenerato;
+  }
+
+  const cartaUrl = t.slug
+    ? `${location.origin}/tessera/${t.slug}`
+    : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
+  const _salvaUrl = `${location.origin}/salva-tessera`;
+  const _waMsg = `Ciao ${c?.nome||''}! 👋\nGrazie per il tuo acquisto di €${importo.toFixed(2)}. Hai ottenuto ${timbriNuovi} timbr${timbriNuovi>1?'i':'o'}.${scontoGenerato > 0 ? `\n🎉 Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : ''}\n\nGuarda qui la tua tessera aggiornata:\n${cartaUrl}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n${_salvaUrl}`;
+  const waWin = (tel && t?.token) ? window.open(`https://wa.me/39${tel}?text=${encodeURIComponent(_waMsg)}`, '_blank') : null;
 
   try {
-    const tipo           = t.tipo || 'standard';
-    const euroTimbro     = digEuroTimbro(tipo);
-    const scontoPerCiclo = digSconto(tipo);
-    const timbriNuovi    = Math.floor(importo / euroTimbro);
-    let   timbriAttuali  = (t.timbri_attuali || 0) + timbriNuovi;
-    let   scontoGenerato = 0;
-    let   saldoSconto    = t.saldo_sconto || 0;
-
-    if (timbriAttuali >= DIG_TIMBRI_MAX) {
-      const cicli    = Math.floor(timbriAttuali / DIG_TIMBRI_MAX);
-      scontoGenerato = cicli * scontoPerCiclo;
-      saldoSconto   += scontoGenerato;
-      // NON resettiamo: l'operatore avvia il ciclo successivo manualmente
-      // I timbri restano ≥ 12 per mostrare lo stato "completata"
-    }
-
     // movimenti_tessera: inserimento opzionale (non blocca se la tabella non è configurata)
     await _sb.from('movimenti_tessera').insert({
       tessera_id:      _digSpesaTesseraId,
@@ -5236,15 +5240,6 @@ async function salvaSpesa() {
       allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriAttuali, totale_spesa: (t.totale_spesa||0)+importo, saldo_sconto: saldoSconto };
     }
     _updateHomeStats();
-
-    // Naviga la finestra WA già aperta verso il messaggio del cliente
-    const cartaUrl = t.slug
-      ? `${location.origin}/tessera/${t.slug}`
-      : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
-    const _salvaUrl = `${location.origin}/salva-tessera`;
-    const _waMsg = `Ciao ${c?.nome||''}! 👋\nGrazie per il tuo acquisto di €${importo.toFixed(2)}. Hai ottenuto ${timbriNuovi} timbr${timbriNuovi>1?'i':'o'}.${scontoGenerato > 0 ? `\n🎉 Tessera completata! Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : ''}\n\nGuarda qui la tua tessera aggiornata:\n${cartaUrl}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n${_salvaUrl}`;
-    const waTxt = _encodeWAText(_waMsg);
-    if (waWin) waWin.location.href = `https://wa.me/39${tel}?text=${waTxt}`;
 
     const resultText = scontoGenerato > 0
       ? `🎉 +${timbriNuovi} timbr${timbriNuovi>1?'i':'o'} · Tessera completa! €${scontoGenerato} di sconto disponibile`

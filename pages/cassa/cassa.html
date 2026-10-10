@@ -1705,6 +1705,8 @@ function offerRestoreBackup(bkJson) {
 
 let _meteoMatConfirmed = false;
 let _meteoPomConfirmed = false;
+let _merciMatAsked = false;
+let _merciPomAsked = false;
 let _tempMat = null;
 let _tempPom = null;
 function setMeteoConfirmed(fascia, ok) {
@@ -3671,6 +3673,8 @@ function resetDayForm() {
   document.getElementById('meteo-pomeriggio').value = 'sereno';
   setMeteoConfirmed('mat', false);
   setMeteoConfirmed('pom', false);
+  _merciMatAsked = false;
+  _merciPomAsked = false;
   _tempMat = null; _tempPom = null;
   const _tm = document.getElementById('temp-mat'); if (_tm) _tm.textContent = '';
   const _tp = document.getElementById('temp-pom'); if (_tp) _tp.textContent = '';
@@ -4006,8 +4010,9 @@ async function saveDraft() {
 }
 
 async function saveMat() {
-  if (!document.getElementById('arrivo-merci').checked) {
-    const ans = await showConfirmDialog('È arrivata della merce oggi?', [
+  if (!document.getElementById('arrivo-merci').checked && !_merciMatAsked) {
+    _merciMatAsked = true;
+    const ans = await showConfirmDialog('È arrivata della merce stamattina?', [
       { label:'No',  value:'no' },
       { label:'Sì',  value:'yes', primary:true },
     ]);
@@ -4070,28 +4075,31 @@ async function saveDay() {
   const noteEl    = document.getElementById('note-arrivo-merci');
   const matChiuso = !!matOraChiusura;
 
-  if (tipo === 'entrambi' && matChiuso && merciEl.checked) {
-    // mattino aveva già merce: chiedi se è arrivata altra merce nel pomeriggio
-    const ans = await showConfirmDialog('È arrivata altra merce nel pomeriggio?', [
-      { label:'No',  value:'no' },
-      { label:'Sì',  value:'yes', primary:true },
-    ]);
-    if (ans === 'yes') {
-      const nota = await showInputDialog('Note sull\'arrivo merci pomeriggio:', 'Note aggiuntive...');
-      if (nota) {
-        const existing = noteEl.value.trim();
-        noteEl.value = existing ? existing + ' | ' + nota : nota;
+  if (!_merciPomAsked) {
+    _merciPomAsked = true;
+    if (tipo === 'entrambi' && matChiuso && merciEl.checked) {
+      // mattino aveva già merce: chiedi se è arrivata altra merce nel pomeriggio
+      const ans = await showConfirmDialog('È arrivata altra merce nel pomeriggio?', [
+        { label:'No',  value:'no' },
+        { label:'Sì',  value:'yes', primary:true },
+      ]);
+      if (ans === 'yes') {
+        const nota = await showInputDialog('Note sull\'arrivo merci pomeriggio:', 'Note aggiuntive...');
+        if (nota) {
+          const existing = noteEl.value.trim();
+          noteEl.value = existing ? existing + ' | ' + nota : nota;
+        }
       }
-    }
-  } else if (!merciEl.checked) {
-    const ans = await showConfirmDialog('È arrivata della merce oggi?', [
-      { label:'No',  value:'no' },
-      { label:'Sì',  value:'yes', primary:true },
-    ]);
-    if (ans === 'yes') {
-      merciEl.checked = true; toggleArrivoMerci();
-      const nota = await showInputDialog('Vuoi inserire delle note per l\'arrivo merci?', 'Note sull\'arrivo merci...');
-      if (nota) noteEl.value = nota;
+    } else if (!merciEl.checked) {
+      const ans = await showConfirmDialog('È arrivata della merce nel pomeriggio?', [
+        { label:'No',  value:'no' },
+        { label:'Sì',  value:'yes', primary:true },
+      ]);
+      if (ans === 'yes') {
+        merciEl.checked = true; toggleArrivoMerci();
+        const nota = await showInputDialog('Vuoi inserire delle note per l\'arrivo merci?', 'Note sull\'arrivo merci...');
+        if (nota) noteEl.value = nota;
+      }
     }
   }
   // Giornate passate: salta la conferma meteo interattiva
