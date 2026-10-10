@@ -484,6 +484,13 @@ function buildDetail(ev, s, tc, pdvArr) {
     </div>`;
   }
 
+  if (_adminUser) {
+    html += `<div class="ev-detail-section" style="padding-top:4px">
+      <button class="cc-admin-btn campagna" onclick="event.stopPropagation();openCCEdit('${ev.id}')"
+        style="font-size:12px;padding:6px 14px"><i class="fas fa-pen"></i> Modifica</button>
+    </div>`;
+  }
+
   return html || '<div style="font-size:13px;color:#94a3b8;font-weight:600">Nessun dettaglio disponibile</div>';
 }
 
@@ -506,11 +513,20 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── Modal nuova campagna / nuovo evento ──────────────────────────────────────
+// ── Modal nuova / modifica campagna / evento ─────────────────────────────────
 let _ccModalType = null;
+let _ccEditId    = null;
 
-function openCCModal(type) {
+function openCCEdit(id) {
+  const all = Object.values(_eventi).flat();
+  const ev  = all.find(e => String(e.id) === String(id));
+  if (!ev) return;
+  openCCModal(ev.record_type || 'campagna', ev);
+}
+
+function openCCModal(type, ev = null) {
   _ccModalType = type;
+  _ccEditId    = ev ? ev.id : null;
   const modal = document.getElementById('cc-modal');
   const title = document.getElementById('cc-modal-title');
   const body  = document.getElementById('cc-modal-body');
@@ -519,7 +535,7 @@ function openCCModal(type) {
   msg.style.color = '';
 
   if (type === 'campagna') {
-    title.innerHTML = '<i class="fas fa-tag" style="color:#B5453A"></i> Nuova campagna';
+    title.innerHTML = `<i class="fas fa-tag" style="color:#B5453A"></i> ${ev ? 'Modifica campagna' : 'Nuova campagna'}`;
     body.innerHTML = `
       <div class="cc-field"><label>Titolo *</label><input id="cc-f-titolo" type="text" placeholder="Nome della campagna"></div>
       <div class="cc-modal-row">
@@ -537,9 +553,19 @@ function openCCModal(type) {
         <div class="cc-field"><label>Data inizio</label><input id="cc-f-inizio" type="date"></div>
         <div class="cc-field"><label>Data fine</label><input id="cc-f-fine" type="date"></div>
       </div>
-      <div class="cc-field"><label>Meccanica</label><textarea id="cc-f-meccanica" placeholder="Descrizione meccanica promozione…"></textarea></div>`;
+      <div class="cc-field"><label>Meccanica</label><textarea id="cc-f-meccanica" placeholder="Descrizione meccanica promozione…"></textarea></div>
+      <div class="cc-field"><label>Link per il cliente <span style="font-size:10px;font-weight:600;color:#B5453A;background:#fdf1f0;padding:2px 6px;border-radius:4px;margin-left:4px">Visibile sulla tessera digitale</span></label><input id="cc-f-link-tessera" type="url" placeholder="https://…" style="font-size:13px"></div>`;
+    if (ev) {
+      document.getElementById('cc-f-titolo').value        = ev.titolo      || '';
+      document.getElementById('cc-f-tipo').value          = ev.tipologia   || '';
+      document.getElementById('cc-f-settore').value       = ev.settore     || '';
+      document.getElementById('cc-f-inizio').value        = ev.data_inizio || '';
+      document.getElementById('cc-f-fine').value          = ev.data_fine   || '';
+      document.getElementById('cc-f-meccanica').value     = ev.meccanica   || '';
+      document.getElementById('cc-f-link-tessera').value  = ev.link_tessera|| '';
+    }
   } else {
-    title.innerHTML = '<i class="fas fa-calendar-star" style="color:#0ea5e9"></i> Nuovo evento';
+    title.innerHTML = `<i class="fas fa-calendar-star" style="color:#0ea5e9"></i> ${ev ? 'Modifica evento' : 'Nuovo evento'}`;
     body.innerHTML = `
       <div class="cc-field"><label>Titolo *</label><input id="cc-f-titolo" type="text" placeholder="Nome dell'evento"></div>
       <div class="cc-modal-row">
@@ -547,6 +573,12 @@ function openCCModal(type) {
         <div class="cc-field"><label>Data fine</label><input id="cc-f-fine" type="date"></div>
       </div>
       <div class="cc-field"><label>Note</label><textarea id="cc-f-meccanica" placeholder="Descrizione o note sull'evento…"></textarea></div>`;
+    if (ev) {
+      document.getElementById('cc-f-titolo').value    = ev.titolo      || '';
+      document.getElementById('cc-f-inizio').value    = ev.data_inizio || '';
+      document.getElementById('cc-f-fine').value      = ev.data_fine   || '';
+      document.getElementById('cc-f-meccanica').value = ev.meccanica   || '';
+    }
   }
 
   modal.classList.add('open');
@@ -556,6 +588,7 @@ function openCCModal(type) {
 function closeCCModal() {
   document.getElementById('cc-modal').classList.remove('open');
   _ccModalType = null;
+  _ccEditId    = null;
 }
 
 async function saveCCRecord() {
@@ -578,14 +611,15 @@ async function saveCCRecord() {
   if (mecc) payload.meccanica = mecc;
 
   if (_ccModalType === 'campagna') {
-    const tipo    = document.getElementById('cc-f-tipo')?.value    || null;
-    const settore = document.getElementById('cc-f-settore')?.value || null;
-    if (tipo)    payload.tipologia = tipo;
-    if (settore) payload.settore   = settore;
+    payload.tipologia    = document.getElementById('cc-f-tipo')?.value          || null;
+    payload.settore      = document.getElementById('cc-f-settore')?.value       || null;
+    payload.link_tessera = document.getElementById('cc-f-link-tessera')?.value.trim() || null;
   }
 
   msg.style.color = '#64748b'; msg.textContent = 'Salvataggio…';
-  const { error } = await _sb.from('campagne_commerciali').insert(payload);
+  const { error } = _ccEditId
+    ? await _sb.from('campagne_commerciali').update(payload).eq('id', _ccEditId)
+    : await _sb.from('campagne_commerciali').insert(payload);
   if (error) {
     msg.style.color = '#dc2626'; msg.textContent = 'Errore: ' + error.message;
     return;
