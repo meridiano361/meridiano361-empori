@@ -592,6 +592,20 @@ async function salvaDatiPersonali() {
   const nameEl = document.querySelector('.card-name');
   if (nameEl) nameEl.textContent = [payload.nome, payload.cognome].filter(Boolean).join(' ');
 
+  // Notifica admin
+  const nomeCliente = `${payload.nome} ${payload.cognome}`.trim();
+  const tessera = window._tessera;
+  const codice = tessera?.codice_tessera ? ` (${tessera.codice_tessera})` : '';
+  fetch(`${SUPA_URL}/functions/v1/send-segnalazione-tessera`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` },
+    body: JSON.stringify({
+      messaggio: `${nomeCliente}${codice} ha aggiornato i propri dati dalla tessera digitale.`,
+      tessera_id: tessera?.id,
+      nome_cliente: nomeCliente,
+    }),
+  }).catch(() => {});
+
   chiudiDatiPersonali();
   const toast = document.getElementById('copy-toast');
   if (toast) { toast.textContent = '✓ Dati salvati!'; setTimeout(() => toast.textContent = '', 2500); }
