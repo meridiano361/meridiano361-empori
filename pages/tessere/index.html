@@ -502,7 +502,7 @@ body{font-family:'ProximaNova',sans-serif;background:#f8fafc}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <div>
         <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:2px">Compleanni</div>
-        <div style="font-size:12px;color:#64748b">Clienti con compleanno questo mese</div>
+        <div style="font-size:12px;color:#64748b">Oggi e prossimi 7 giorni</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div id="compleanni-count" style="font-size:12px;color:#94a3b8"></div>
@@ -2648,19 +2648,29 @@ function bdSelectAll(checked) {
 
 function renderCompleanni() {
   const today = new Date();
-  const thisMonth = today.getMonth();
+  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+
+  // Finestra di 7 giorni: oggi + prossimi 6
+  const window7 = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    window7.push({ month: d.getMonth(), day: d.getDate(), offset: i });
+  }
+  function bdOffset(c) {
+    const bd = new Date(c.data_nascita);
+    return window7.find(w => w.month === bd.getMonth() && w.day === bd.getDate())?.offset ?? 99;
+  }
+  function bdLabel(offset) {
+    if (offset === 0) return '<strong style="color:#B5453A">Oggi!</strong>';
+    if (offset === 1) return '<span style="color:#64748b">Domani</span>';
+    return `<span style="color:#94a3b8">tra ${offset} giorni</span>`;
+  }
+
   _bdList = allClienti.filter(c => {
     if (!c.data_nascita) return false;
-    return new Date(c.data_nascita).getMonth() === thisMonth;
-  }).sort((a,b) => {
-    const todayDay = today.getDate();
-    const da = new Date(a.data_nascita).getDate();
-    const db = new Date(b.data_nascita).getDate();
-    const aToday = da === todayDay ? 0 : 1;
-    const bToday = db === todayDay ? 0 : 1;
-    if (aToday !== bToday) return aToday - bToday;
-    return da - db;
-  });
+    return bdOffset(c) < 7;
+  }).sort((a, b) => bdOffset(a) - bdOffset(b));
 
   // Ripulisci selezione per clienti non più in lista
   const validIds = new Set(_bdList.map(c => c.id));
@@ -2671,14 +2681,12 @@ function renderCompleanni() {
 
   _bdUpdateSendBtn();
 
-  const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
   const hasTel = _bdList.filter(c => c.telefono);
 
   let html = '';
   if (!_bdList.length) {
-    html = '<div style="font-size:13px;color:#94a3b8">Nessun compleanno questo mese</div>';
+    html = '<div style="font-size:13px;color:#94a3b8">Nessun compleanno nei prossimi 7 giorni</div>';
   } else {
-    // Riga "seleziona tutti" se ci sono clienti con telefono
     if (hasTel.length > 1) {
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:2px solid #e2e8f0;margin-bottom:4px">
         <input type="checkbox" id="bd-select-all" onchange="bdSelectAll(this.checked)"
@@ -2688,7 +2696,8 @@ function renderCompleanni() {
     }
     html += _bdList.map(c => {
       const d = new Date(c.data_nascita);
-      const isToday = d.getDate() === today.getDate();
+      const off = bdOffset(c);
+      const isToday = off === 0;
       const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
       const isAmb = t?.tipo === 'ambassador';
       const isSel = _bdSelected.has(c.id) || _bdSelected.has(String(c.id));
@@ -2702,7 +2711,7 @@ function renderCompleanni() {
           <strong style="font-size:14px">${escName(c.cognome)} ${escName(c.nome)}</strong>
           ${isAmb ? '<span class="tipo-badge tipo-ambassador" style="margin-left:6px">Amb</span>' : ''}
           <br>
-          <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]}${isToday ? ' — <strong style="color:#B5453A">Oggi!</strong>' : ''}</span>
+          <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]} — ${bdLabel(off)}</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">
           <div style="display:flex;gap:4px">
