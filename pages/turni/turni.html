@@ -2511,14 +2511,18 @@ async function loadData() {
       _nomiValidiEmporio = new Set((opValidi || []).map(o => o.nome));
       _nomiValidiLoaded  = true;
     }
+    const _cleanupNow = new Date();
     (data||[]).forEach(r => {
       const key = `${r.emporio}|${r.anno}|${r.mese}|${r.giorno}|${r.turno}`;
-      const opFiltrati = _nomiValidiLoaded
-        ? (r.operatori||[]).filter(o => o.rimosso || _nomiValidiEmporio.has(o.nome))
-        : (r.operatori||[]);
+      // Mesi passati: non filtrare e non sovrascrivere — storico intoccabile
+      const _rIsPast = r.anno < _cleanupNow.getFullYear() ||
+        (r.anno === _cleanupNow.getFullYear() && r.mese < (_cleanupNow.getMonth() + 1));
+      const opFiltrati = (_rIsPast || !_nomiValidiLoaded)
+        ? (r.operatori||[])
+        : (r.operatori||[]).filter(o => o.rimosso || _nomiValidiEmporio.has(o.nome));
       turniData[key] = {aperto: r.aperto, operatori: opFiltrati};
-      // Guard: non auto-pulire se la lista operatori è vuota (potrebbe essere un errore di query, non assenza reale di operatori)
-      if (_nomiValidiLoaded && _nomiValidiEmporio.size > 0 && opFiltrati.length !== (r.operatori||[]).length) saveTurno(key, turniData[key], true);
+      // Auto-cleanup solo per mese corrente/futuro, mai per lo storico
+      if (!_rIsPast && _nomiValidiLoaded && _nomiValidiEmporio.size > 0 && opFiltrati.length !== (r.operatori||[]).length) saveTurno(key, turniData[key], true);
       const dayKey = `${r.emporio}|${r.anno}|${r.mese}|${r.giorno}`;
       if (r.assenze) Object.assign(assenzeData, r.assenze);
       if (r.note) noteData[dayKey] = r.note;
