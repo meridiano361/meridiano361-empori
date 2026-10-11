@@ -5060,6 +5060,20 @@ async function usaScontoCompleanno(tesseraId) {
   }
   const c = allClienti.find(x => x.id === t.cliente_id);
   const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+
+  // Controllo mese di compleanno
+  if (c?.data_nascita) {
+    const meseNascita = new Date(c.data_nascita).getMonth() + 1; // 1-12
+    const meseCorrente = new Date().getMonth() + 1;
+    const nomiMesi = ['','gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+    if (meseNascita !== meseCorrente) {
+      const ok = confirm(
+        `⚠️ ATTENZIONE\n\n${nome} è nata/o in ${nomiMesi[meseNascita]}, non in ${nomiMesi[meseCorrente]}.\n\nStai registrando lo sconto compleanno in un mese diverso da quello di nascita.\n\nVuoi procedere comunque?`
+      );
+      if (!ok) return;
+    }
+  }
+
   if (!confirm(`Confermi che ${nome} ha usato lo sconto compleanno 10% oggi?\n\nRicorda: può usarlo una sola volta per anno.`)) return;
 
   const today = new Date().toISOString().split('T')[0];
