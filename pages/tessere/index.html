@@ -196,7 +196,12 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 .client-list.view-compact .client-card{padding:8px 10px}
 .client-list.view-compact .client-nome{font-size:13px}
 .client-list.view-compact .client-card-sub{font-size:11px;margin-top:1px}
-.btn{padding:9px 18px;border-radius:9px;border:none;font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .12s}
+.btn{padding:9px 18px;border-radius:9px;border:none;font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .12s;position:relative}
+/* Tooltip sistema */
+[data-tip]{position:relative}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:11px;font-weight:500;font-family:'CenturyGothic','Century Gothic',sans-serif;white-space:nowrap;padding:5px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;line-height:1.4;max-width:220px;white-space:normal;text-align:center}
+[data-tip]::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999}
+[data-tip]:hover::after,[data-tip]:hover::before{opacity:1}
 .btn-outline{background:#fff;border:1.5px solid #e2e8f0;color:#475569}
 .btn-outline:hover{border-color:#94a3b8}
 .btn-red{background:var(--red);color:#fff}
@@ -470,7 +475,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
   <div id="tab-digitale" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div></div>
-      <button class="btn btn-sm" style="background:#1e293b;color:#fff;flex-shrink:0" onclick="apriConvertiModal()">
+      <button class="btn btn-sm" style="background:#1e293b;color:#fff;flex-shrink:0" data-tip="Converte una tessera cartacea esistente in tessera digitale" onclick="apriConvertiModal()">
         <i class="fas fa-rotate"></i> Da cartacea
       </button>
     </div>
@@ -4462,7 +4467,7 @@ function renderDigitale() {
     const completaBanner = completa
       ? `<div style="background:#dcfce7;border:1.5px solid #16a34a;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
            <span style="font-size:13px;font-weight:800;color:#166534">🎉 Tessera completata!</span>
-           <button class="btn btn-sm" style="background:#16a34a;color:#fff;flex-shrink:0" onclick="avviaCiclo('${t.id}')">
+           <button class="btn btn-sm" style="background:#16a34a;color:#fff;flex-shrink:0" data-tip="La tessera è completa: avvia il ciclo successivo azzerando i timbri e assegnando lo sconto" onclick="avviaCiclo('${t.id}')">
              <i class="fas fa-rotate"></i> Avvia una nuova tessera
            </button>
          </div>`
@@ -4472,14 +4477,14 @@ function renderDigitale() {
     const scontoBanner = saldo > 0
       ? `<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
            <span style="font-size:13px;font-weight:800;color:#92400e">🎁 €${saldo.toFixed(0)} di sconto da usare</span>
-           <button class="btn btn-sm" style="background:#f59e0b;color:#fff;flex-shrink:0" onclick="usaSconto('${t.id}')">
+           <button class="btn btn-sm" style="background:#f59e0b;color:#fff;flex-shrink:0" data-tip="Il cliente sta usando il suo sconto: registralo qui prima di applicarlo in cassa" onclick="usaSconto('${t.id}')">
              <i class="fas fa-check"></i> Registra uso sconto
            </button>
          </div>`
       : scontoUsato
         ? `<div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
              <span>🎁 Sconto tessera già utilizzato</span>
-             <button class="btn btn-sm" style="background:none;border:1px solid #f59e0b;color:#92400e;font-size:10px;padding:2px 8px" onclick="rettificaUltimoScontoTessera('${t.id}')">Rettifica</button>
+             <button class="btn btn-sm" style="background:none;border:1px solid #f59e0b;color:#92400e;font-size:10px;padding:2px 8px" data-tip="Annulla l'utilizzo dello sconto tessera registrato per errore e ripristina il saldo" onclick="rettificaUltimoScontoTessera('${t.id}')">Rettifica</button>
            </div>`
         : '';
 
@@ -4488,11 +4493,11 @@ function renderDigitale() {
       ? (t.sconto_compleanno_anno === currentYear
           ? `<div style="font-size:11px;color:#9d174d;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
                <span>🎂 Sconto compleanno ${currentYear} già utilizzato</span>
-               <button class="btn btn-sm" style="background:none;border:1px solid #f9a8d4;color:#9d174d;font-size:10px;padding:2px 8px" onclick="rettificaScontoCompleanno('${t.id}')">Rettifica</button>
+               <button class="btn btn-sm" style="background:none;border:1px solid #f9a8d4;color:#9d174d;font-size:10px;padding:2px 8px" data-tip="Annulla lo sconto compleanno registrato per errore e lo rimarca come non utilizzato" onclick="rettificaScontoCompleanno('${t.id}')">Rettifica</button>
              </div>`
           : `<div style="background:#fce7f3;border:1.5px solid #f9a8d4;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
                <span style="font-size:13px;font-weight:800;color:#9d174d">🎂 Sconto compleanno 10%</span>
-               <button class="btn btn-sm" style="background:#ec4899;color:#fff;flex-shrink:0" onclick="usaScontoCompleanno('${t.id}')">
+               <button class="btn btn-sm" style="background:#ec4899;color:#fff;flex-shrink:0" data-tip="Registra che il cliente Ambassador ha usato lo sconto del 10% del mese di compleanno" onclick="usaScontoCompleanno('${t.id}')">
                  <i class="fas fa-check"></i> Registra uso
                </button>
              </div>`)
@@ -4528,25 +4533,25 @@ function renderDigitale() {
         <div class="dig-stamps">${stampsHtml}</div>
         <div class="dig-progress-text">${progressTxt}</div>
         <div class="dig-actions">
-          <button class="btn btn-red btn-sm" onclick="apriSpesaModal('${t.id}')" ${completa ? 'disabled title="Prima avvia il ciclo successivo"' : ''}>
+          <button class="btn btn-red btn-sm" data-tip="Registra un acquisto del cliente e aggiunge i timbri corrispondenti" onclick="apriSpesaModal('${t.id}')" ${completa ? 'disabled title="Prima avvia il ciclo successivo"' : ''}>
             <i class="fas fa-euro-sign"></i> Registra spesa
           </button>
-          <button class="btn btn-sm" style="background:#94a3b8;color:#fff" onclick="aggiungiTimbroOmaggio('${t.id}')">
+          <button class="btn btn-sm" style="background:#94a3b8;color:#fff" data-tip="Aggiunge 1 timbro omaggio senza acquisto (es. regalo, promozione)" onclick="aggiungiTimbroOmaggio('${t.id}')">
             <i class="fas fa-plus"></i> Omaggio
           </button>
-          <button class="btn btn-sm" style="background:#94a3b8;color:#fff" onclick="rimuoviTimbro('${t.id}')" ${timbriRaw === 0 ? 'disabled' : ''}>
+          <button class="btn btn-sm" style="background:#94a3b8;color:#fff" data-tip="Rimuove l'ultimo timbro aggiunto" onclick="rimuoviTimbro('${t.id}')" ${timbriRaw === 0 ? 'disabled' : ''}>
             <i class="fas fa-minus"></i> Togli
           </button>
-          <button class="btn btn-sm" style="background:#15803d;color:#fff" onclick="ripristinaTimbro('${t.id}')">
+          <button class="btn btn-sm" style="background:#15803d;color:#fff" data-tip="Ripristina i timbri al valore prima dell'ultima modifica manuale" onclick="ripristinaTimbro('${t.id}')">
             <i class="fas fa-rotate-right"></i> Ripristina
           </button>
-          <button class="btn btn-sm" style="background:#dc2626;color:#fff" onclick="apriStoricoTessera('${t.id}')">
+          <button class="btn btn-sm" style="background:#dc2626;color:#fff" data-tip="Apre lo storico movimenti per annullare una spesa o uno sconto registrato per errore" onclick="apriStoricoTessera('${t.id}')">
             <i class="fas fa-rotate-left"></i> Annulla
           </button>
-          ${tel && (t.token || t.slug) ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff">
+          ${tel && (t.token || t.slug) ? `<a href="${waHref}" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff" data-tip="Invia al cliente il link della tessera digitale via WhatsApp">
             <i class="fab fa-whatsapp"></i> Invia tessera
           </a>` : ''}
-          <button class="btn btn-sm" style="background:#1e293b;color:#fff" onclick="apriTrasferisciTimbri('${t.id}')">
+          <button class="btn btn-sm" style="background:#1e293b;color:#fff" data-tip="Trasferisce i timbri da una tessera cartacea alla tessera digitale del cliente" onclick="apriTrasferisciTimbri('${t.id}')">
             <i class="fas fa-arrow-right-arrow-left"></i> Da cartacea
           </button>
         </div>
