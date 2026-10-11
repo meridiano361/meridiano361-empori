@@ -1360,7 +1360,7 @@ async function loadAll() {
   // provincia/campi_privacy caricati on-demand in openClienteModal (risparmio ~30% payload)
   const C_COLS = 'id,cognome,nome,telefono,wa,email,data_nascita,citta,emporio,consenso_privacy';
   // ha_whatsapp/vuole_news_whatsapp/in_lista_broadcast_whatsapp/messaggio_benvenuto_inviato caricati on-demand in openClienteModal
-  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,timbri_omaggio,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale,cicli_completati,sconto_compleanno_anno,sconti_compleanno_totali';
+  const T_COLS = 'id,cliente_id,tipo,emporio,codice_tessera,data_emissione,data_rinnovo,attiva,timbri_attuali,timbri_omaggio,timbri_cartacea,note,created_at,motivo_rinnovo,token,totale_spesa,saldo_sconto,slug,ha_carta_fisica,ha_carta_digitale,cicli_completati,sconto_compleanno_anno,sconti_compleanno_totali';
 
   // Se c'è una cache fresca → render immediato, poi aggiorna in background
   const cached = _loadCache();
@@ -4475,7 +4475,7 @@ function renderDigitale() {
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
             <div class="dig-name" onclick="event.stopPropagation();apriSchedaCliente('${t.cliente_id}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:#e2e8f0">${esc(nomeCompleto)}</div>
-            <button onclick="event.stopPropagation();window.open('${cartaUrl}','_blank','noopener,noreferrer')" title="Vedi tessera digitale" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;border:1px solid #e2e8f0;white-space:nowrap;font-family:inherit" tabindex="-1"><i class="fas fa-arrow-up-right-from-square"></i> Vedi tessera</button>
+            <a href="${cartaUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Vedi tessera digitale" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700;text-decoration:none;flex-shrink:0;border:1px solid #e2e8f0;white-space:nowrap" tabindex="-1"><i class="fas fa-arrow-up-right-from-square"></i> Vedi tessera</a>
           </div>
           <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? 'Ambassador' : 'Standard'} · ${timbri}/${DIG_TIMBRI_MAX}${completa ? ' 🎉' : ''}</div>
         </div>
@@ -5085,7 +5085,10 @@ async function confermaTrasferimento() {
   const c = allClienti.find(x => x.id === t.cliente_id);
   const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
 
-  const updates = { timbri_attuali: timbriFinali };
+  const updates = {
+    timbri_attuali:  timbriFinali,
+    timbri_cartacea: (t.timbri_cartacea || 0) + input,
+  };
   if (cicliNuovi > 0) {
     updates.cicli_completati = totCicli;
     const scontoBase = digSconto(t.tipo);
