@@ -1,19 +1,22 @@
 -- Ritorna le campagne commerciali attive oggi per l'emporio della tessera
+DROP FUNCTION IF EXISTS get_promo_attive(text, date);
+
 CREATE OR REPLACE FUNCTION get_promo_attive(
   p_emporio text,
   p_data    date DEFAULT CURRENT_DATE
 )
 RETURNS TABLE(
-  id         bigint,
-  titolo     text,
-  tipologia  text,
-  meccanica  text,
-  data_inizio date,
-  data_fine   date
+  id           bigint,
+  titolo       text,
+  tipologia    text,
+  meccanica    text,
+  data_inizio  date,
+  data_fine    date,
+  link_tessera text
 )
 LANGUAGE sql SECURITY DEFINER STABLE
 SET search_path = public AS $$
-  SELECT id, titolo, tipologia, meccanica, data_inizio, data_fine
+  SELECT id, titolo, tipologia, meccanica, data_inizio, data_fine, link_tessera
   FROM campagne_commerciali
   WHERE
     (data_inizio IS NULL OR data_inizio <= p_data)
