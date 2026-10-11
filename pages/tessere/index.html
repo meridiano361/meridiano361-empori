@@ -4467,6 +4467,7 @@ function renderDigitale() {
          </div>`
       : '';
 
+    const scontoUsato = saldo === 0 && ((t.cicli_completati||0) > 0 || timbri >= DIG_TIMBRI_MAX);
     const scontoBanner = saldo > 0
       ? `<div style="background:#fef9c3;border:1.5px solid #fbbf24;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
            <span style="font-size:13px;font-weight:800;color:#92400e">🎁 €${saldo.toFixed(0)} di sconto da usare</span>
@@ -4474,12 +4475,20 @@ function renderDigitale() {
              <i class="fas fa-check"></i> Registra uso sconto
            </button>
          </div>`
-      : '';
+      : scontoUsato
+        ? `<div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+             <span>🎁 Sconto tessera già utilizzato</span>
+             <button class="btn btn-sm" style="background:none;border:1px solid #f59e0b;color:#92400e;font-size:10px;padding:2px 8px" onclick="rettificaUltimoScontoTessera('${t.id}')">Rettifica</button>
+           </div>`
+        : '';
 
     const currentYear = new Date().getFullYear();
     const scontoComplBanner = t.tipo === 'ambassador'
       ? (t.sconto_compleanno_anno === currentYear
-          ? `<div style="font-size:11px;color:#9d174d;font-weight:700;margin-bottom:8px">🎂 Sconto compleanno ${currentYear} già utilizzato</div>`
+          ? `<div style="font-size:11px;color:#9d174d;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+               <span>🎂 Sconto compleanno ${currentYear} già utilizzato</span>
+               <button class="btn btn-sm" style="background:none;border:1px solid #f9a8d4;color:#9d174d;font-size:10px;padding:2px 8px" onclick="rettificaScontoCompleanno('${t.id}')">Rettifica</button>
+             </div>`
           : `<div style="background:#fce7f3;border:1.5px solid #f9a8d4;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
                <span style="font-size:13px;font-weight:800;color:#9d174d">🎂 Sconto compleanno 10%</span>
                <button class="btn btn-sm" style="background:#ec4899;color:#fff;flex-shrink:0" onclick="usaScontoCompleanno('${t.id}')">
@@ -4569,6 +4578,67 @@ async function usaSconto(tesseraId) {
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
   showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
+  renderDigitale();
+}
+
+// ── Rettifica sconto tessera (annulla ultimo utilizzo registrato per errore) ──
+async function rettificaUltimoScontoTessera(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const scontoPerCiclo = digSconto(t.tipo);
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+  if (!confirm(`Rettificare l'utilizzo dello sconto tessera di ${nome}?\nIl saldo (€${scontoPerCiclo}) verrà ripristinato.`)) return;
+
+  const { data: sconti } = await _sb.from('tessere_sconti')
+    .select('id, valore_sconto')
+    .eq('tessera_id', String(tesseraId))
+    .eq('tipo', 'tessera')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (sconti && sconti.length > 0) {
+    await _sb.from('tessere_sconti').delete().eq('id', sconti[0].id);
+  }
+  const num = (sconti && sconti.length > 0)
+    ? (parseFloat((sconti[0].valore_sconto||'').replace(/[^0-9.]/g,'')) || scontoPerCiclo)
+    : scontoPerCiclo;
+  const nuovoSaldo = (t.saldo_sconto||0) + num;
+  const { error } = await _sb.from('tessere').update({ saldo_sconto: nuovoSaldo }).eq('id', tesseraId);
+  if (error) { alert('Errore: ' + error.message); return; }
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: nuovoSaldo };
+  showToast(`✓ Sconto tessera rettificato — €${num} ripristinati`);
+  renderDigitale();
+}
+
+// ── Rettifica sconto compleanno (annulla utilizzo registrato per errore) ──────
+async function rettificaScontoCompleanno(tesseraId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+  if (!confirm(`Rettificare lo sconto compleanno di ${nome}?\nViene rimarcato come non utilizzato.`)) return;
+
+  const { data: sconti } = await _sb.from('tessere_sconti')
+    .select('id')
+    .eq('tessera_id', String(tesseraId))
+    .eq('tipo', 'compleanno')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (sconti && sconti.length > 0) {
+    await _sb.from('tessere_sconti').delete().eq('id', sconti[0].id);
+  }
+  const updatePayload = {
+    sconto_compleanno_anno:   null,
+    sconti_compleanno_totali: Math.max(0, (t.sconti_compleanno_totali||0) - 1),
+  };
+  const { error } = await _sb.from('tessere').update(updatePayload).eq('id', tesseraId);
+  if (error) { alert('Errore: ' + error.message); return; }
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updatePayload };
+  showToast('✓ Sconto compleanno rettificato');
   renderDigitale();
 }
 
