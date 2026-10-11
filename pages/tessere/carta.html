@@ -45,11 +45,13 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#fdf0e
 .progress-text{font-size:12px;color:#aaa;font-weight:600;text-align:center}
 .progress-text strong{color:#B45050}
 /* Sconto banner */
-.sconto-banner{background:#f6fdf9;border:1px solid #c6f0d8;border-radius:12px;padding:16px;margin-bottom:18px;text-align:center}
-.sconto-banner-icon{font-size:22px;margin-bottom:6px}
-.sconto-amount{font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:30px;font-weight:500;color:#065f46;line-height:1}
-.sconto-label{font-size:12px;color:#059669;font-weight:700;margin-top:4px}
-.sconto-hint{font-size:11px;color:#34d399;margin-top:3px}
+.sconto-banner{background:rgba(0,0,0,0.05);border:none;border-radius:12px;padding:18px 16px 14px;margin-bottom:18px;text-align:center}
+.sconto-banner-icon{font-size:22px;margin-bottom:8px}
+.sconto-intro{font-size:13px;font-weight:600;color:#444;margin-bottom:2px}
+.sconto-amount{font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:38px;font-weight:900;color:#1e293b;line-height:1.1;margin:4px 0 2px}
+.sconto-sub{font-size:12px;color:#555;font-weight:600;margin-top:4px;margin-bottom:10px}
+.sconto-info-link{display:inline-block;font-size:11px;color:#888;font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:#ccc;cursor:pointer;margin-top:2px}
+.sconto-hint{font-size:11px;color:#777;margin-top:3px}
 /* Info rows */
 .info-row{display:flex;justify-content:space-between;align-items:center;padding:clamp(5px,1vh,9px) 0;border-top:1px solid #f4f4f4;font-size:clamp(10px,1.5vh,12px);color:#111}
 .info-row strong{color:#555;font-weight:700}
@@ -268,9 +270,11 @@ async function loadCard() {
   const scontoBanner = saldo > 0 ? `
     <div class="sconto-banner">
       <div class="sconto-banner-icon">🎁</div>
-      <div class="sconto-amount">€${saldo.toFixed(0)}</div>
-      <div class="sconto-label">di sconto disponibile</div>
-      <div class="sconto-hint">Mostra questa schermata in negozio</div>
+      <div class="sconto-intro">Hai uno sconto di</div>
+      <div class="sconto-amount">€ ${saldo.toFixed(0)}</div>
+      <div class="sconto-sub">su una prossima spesa a tua scelta.</div>
+      <span class="sconto-info-link" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">Come usarlo ⓘ</span>
+      <div style="display:none;font-size:11px;color:#666;margin-top:6px;line-height:1.5;background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px">Quando vuoi utilizzare lo sconto, comunicalo all'operatore in cassa prima del pagamento.</div>
     </div>` : '';
 
   const progressText = timbri >= TIMBRI_MAX
@@ -580,13 +584,13 @@ function apriRegolamento() {
   const nomeEmporio = (t?.emporio || 'Cremona').replace(/\b\w/g, l => l.toUpperCase());
 
   const ambSection = isAmb ? `
-        <div style="padding:12px 14px;background:#f5f3ff;border-radius:10px;border:1px solid #ddd6fe">
-          <div style="font-size:12px;font-weight:800;color:#5b21b6;margin-bottom:8px;letter-spacing:.03em">AMBASSADOR</div>
-          <ul style="padding-left:16px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4c1d95">
-            <li>I timbri si accumulano ogni <strong>€ 30</strong> di acquisto (anziché € 25 della tessera Standard).</li>
-            <li>La tessera completa dà diritto a uno <strong>sconto di € 25</strong> (anziché € 20 della tessera Standard).</li>
-            <li>Nel mese del tuo compleanno hai diritto a uno <strong>sconto del 10%</strong> su una spesa a tua scelta, utilizzabile una volta per anno solare.</li>
-          </ul>
+        <div style="padding:14px 16px;background:#fef2f2;border-radius:12px;border:1.5px solid #fca5a5">
+          <div style="font-size:12px;font-weight:800;color:#b91c1c;margin-bottom:8px;letter-spacing:.04em">RICORDA!</div>
+          <p style="font-size:13px;color:#7f1d1d;line-height:1.65;margin-bottom:14px">Nel mese del tuo compleanno hai diritto a uno <strong>sconto del 10%</strong> su una spesa a tua scelta.</p>
+          <button id="btn-promemoria-compleanno" onclick="attivaPromemoriaCompleanno()" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:9px;padding:11px 14px;font-size:12px;font-weight:800;cursor:pointer;font-family:'CenturyGothic','Century Gothic',sans-serif;letter-spacing:.03em;transition:opacity .15s">
+            🔔 ATTIVA PROMEMORIA COMPLEANNO
+          </button>
+          <div id="promemoria-stato" style="text-align:center;font-size:11px;font-weight:700;margin-top:8px;min-height:16px"></div>
         </div>` : '';
 
   const overlay = document.createElement('div');
@@ -768,6 +772,75 @@ async function salvaDatiPersonali() {
   chiudiDatiPersonali();
   const toast = document.getElementById('copy-toast');
   if (toast) { toast.textContent = '✓ Dati salvati!'; setTimeout(() => toast.textContent = '', 2500); }
+}
+
+// ── Promemoria compleanno Ambassador (push notification) ─────────────────────
+const VAPID_PUB = 'BDp6t_puD0DL_xwGbaZwMQ_zbfd6ZSzWFuJ8Br87NsxuLhLoeoN4SZin10Vg3YqpgIocZzRXwW-WKQ9sZoLC8aw';
+
+function _urlBase64ToUint8Array(b64) {
+  const pad = b64.replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(pad);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function attivaPromemoriaCompleanno() {
+  const t = window._tessera;
+  if (!t?.id) return;
+
+  const btn   = document.getElementById('btn-promemoria-compleanno');
+  const stato = document.getElementById('promemoria-stato');
+
+  // Già attivo?
+  const lsKey = `promemoria_tessera_${t.id}`;
+  if (localStorage.getItem(lsKey)) {
+    if (stato) stato.textContent = '✓ Promemoria già attivo';
+    return;
+  }
+
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    if (stato) stato.style.color = '#b91c1c';
+    if (stato) stato.textContent = 'Notifiche non supportate su questo browser.';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Attivazione…'; }
+
+  let permission = Notification.permission;
+  if (permission === 'default') {
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== 'granted') {
+    if (btn) { btn.disabled = false; btn.textContent = '🔔 ATTIVA PROMEMORIA COMPLEANNO'; }
+    if (stato) { stato.style.color = '#b91c1c'; stato.textContent = 'Permesso notifiche negato. Abilitalo dalle impostazioni del browser.'; }
+    return;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(VAPID_PUB),
+      });
+    }
+
+    const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const { error } = await sb.from('tessera_push_subscriptions').upsert({
+      tessera_id:   String(t.id),
+      endpoint:     sub.endpoint,
+      subscription: sub.toJSON(),
+    }, { onConflict: 'endpoint' });
+
+    if (error) throw new Error(error.message);
+
+    localStorage.setItem(lsKey, '1');
+    if (btn)   { btn.textContent = '✓ Promemoria attivo'; btn.style.background = '#15803d'; }
+    if (stato) { stato.style.color = '#15803d'; stato.textContent = 'Riceverai un promemoria il 1° del mese del tuo compleanno.'; }
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = '🔔 ATTIVA PROMEMORIA COMPLEANNO'; }
+    if (stato) { stato.style.color = '#b91c1c'; stato.textContent = 'Errore: ' + err.message; }
+  }
 }
 </script>
 </body>
