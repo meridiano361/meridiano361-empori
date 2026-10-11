@@ -4377,6 +4377,25 @@ let _digSpesaTipo      = 'standard';
 let _scontoSubitoData  = null;
 let _trasferisciTesseraId = null;
 
+// Apre la tessera in una nuova scheda del BROWSER anche quando Chrome
+// ha la PWA installata. In modalità standalone (PWA) usa window.open normale.
+function apriVediTessera(e, url) {
+  e.stopPropagation();
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches
+             || window.matchMedia('(display-mode: fullscreen)').matches
+             || window.navigator.standalone === true;
+  if (isPWA) {
+    // Dalla PWA: apre nel browser di sistema
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } else {
+    // Dal browser: crea prima un tab vuoto poi naviga,
+    // aggirando il link-capturing della PWA installata
+    const w = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    if (w) { w.location.href = url; }
+    else    { window.open(url, '_blank', 'noopener,noreferrer'); }
+  }
+}
+
 function renderDigitale() {
   const grid = document.getElementById('dig-grid');
   if (!grid) return;
@@ -4485,7 +4504,7 @@ function renderDigitale() {
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px">
             <div class="dig-name" onclick="event.stopPropagation();apriSchedaCliente('${t.cliente_id}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:#e2e8f0">${esc(nomeCompleto)}</div>
-            <a href="${cartaUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Vedi tessera digitale" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700;text-decoration:none;flex-shrink:0;border:1px solid #e2e8f0;white-space:nowrap" tabindex="-1"><i class="fas fa-arrow-up-right-from-square"></i> Vedi tessera</a>
+            <button onclick="apriVediTessera(event,'${cartaUrl}')" title="Vedi tessera digitale" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;border:1px solid #e2e8f0;white-space:nowrap;font-family:inherit" tabindex="-1"><i class="fas fa-arrow-up-right-from-square"></i> Vedi tessera</button>
           </div>
           <div class="dig-sub">${esc(t.codice_tessera || '—')} · ${t.tipo === 'ambassador' ? 'Ambassador' : 'Standard'} · ${timbri}/${DIG_TIMBRI_MAX}${completa ? ' 🎉' : ''}</div>
         </div>
