@@ -1582,7 +1582,7 @@ function showTab(tab) {
   if (tab === 'consensi')    _ensureFotoCounts().then(() => renderConsensi());
   if (tab === 'tessere')     renderTessereTab();
   if (tab === 'analisi')     renderAnalisi();
-  if (tab === 'digitale')    renderDigitale();
+  if (tab === 'digitale')    { loadStoricoExcel().then(renderDigitale); }
   if (tab === 'messaggi') {
     _ensureMessages().then(() => { renderMsgList(); _refreshConsentMsgPreview(); });
     // Reset sezioni chiuse quando si rientra nel tab
@@ -2973,7 +2973,8 @@ let _storicoExcel = null;
 let _storicoLoading = false;
 
 async function loadStoricoExcel() {
-  if (_storicoExcel || _storicoLoading) return;
+  if (_storicoExcel) return;
+  if (_storicoLoading) { await new Promise(r => setTimeout(r, 400)); return; }
   _storicoLoading = true;
   try {
     const r = await fetch('storico_excel.json');
@@ -4423,9 +4424,18 @@ function renderDigitale() {
         ? `Nessun timbro ancora`
         : `${timbri}/${DIG_TIMBRI_MAX} timbri · ancora €${rimasti * euroTimbro} per completare`;
 
-    const cicliInfo = cicli > 0
-      ? `<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:6px">
-           🏆 ${cicli} tessera${cicli > 1 ? 'e' : ''} completata${cicli > 1 ? 'e' : ''}
+    const cartaceeCompletate = _storicoExcel
+      ? (_getExcelData(c, t.tipo).tessere.filter(x => x.eu).length)
+      : 0;
+    const digitaliCompletate = cicli + (completa ? 1 : 0);
+    const totaleCompletate   = digitaliCompletate + cartaceeCompletate;
+    const cicliTooltip = `${digitaliCompletate} digital${digitaliCompletate !== 1 ? 'i' : 'e'} + ${cartaceeCompletate} cartace${cartaceeCompletate !== 1 ? 'e' : 'a'}`;
+    const cicliInfo = totaleCompletate > 0
+      ? `<div onclick="event.stopPropagation();this.querySelector('.cicli-detail').style.display=this.querySelector('.cicli-detail').style.display==='none'?'inline':'none'"
+             title="${cicliTooltip}"
+             style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+           🏆 ${totaleCompletate} tessera${totaleCompletate > 1 ? 'e' : ''} completata${totaleCompletate > 1 ? 'e' : ''}
+           <span class="cicli-detail" style="display:none;font-weight:400;color:#94a3b8">(${cicliTooltip})</span>
          </div>`
       : '';
 
