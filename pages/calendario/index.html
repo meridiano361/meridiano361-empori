@@ -162,6 +162,15 @@
     .form-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--s500);margin-bottom:4px;display:block}
     .form-input{width:100%;border:1px solid var(--s200);border-radius:9px;padding:9px 13px;font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:14px;font-weight:600;color:var(--s800);background:#fff;outline:none;transition:border .15s}
     .form-input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(181,69,58,.1)}
+    /* Rich text meccanica */
+    #f-meccanica-toolbar{display:flex;align-items:center;gap:3px;padding:5px 8px;background:#f8fafc;border:1px solid var(--s200);border-bottom:none;border-radius:9px 9px 0 0}
+    #f-meccanica-toolbar button{display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:5px;cursor:pointer;padding:3px 7px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:700;color:#475569;transition:background .1s}
+    #f-meccanica-toolbar button:hover{background:#e2e8f0;border-color:#cbd5e1}
+    #f-meccanica-toolbar .sep{width:1px;height:16px;background:#e2e8f0;margin:0 3px;flex-shrink:0}
+    #f-meccanica-toolbar .col-dot{width:15px;height:15px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px #cbd5e1;cursor:pointer;padding:0;flex-shrink:0}
+    #f-meccanica[contenteditable]{border-radius:0 0 9px 9px;min-height:72px;cursor:text;line-height:1.6;white-space:pre-wrap}
+    #f-meccanica[contenteditable]:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(181,69,58,.1)}
+    #f-meccanica[contenteditable]:empty:before{content:attr(data-placeholder);color:#94a3b8;font-weight:400;pointer-events:none}
     .btn-prim{background:var(--red);color:#fff;border:none;border-radius:9px;padding:10px 22px;font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:14px;font-weight:800;cursor:pointer}
     .btn-ghost{background:var(--s100);color:var(--s600);border:1px solid var(--s200);border-radius:9px;padding:10px 18px;font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:14px;font-weight:700;cursor:pointer}
     .btn-del{background:#fff;color:var(--red);border:1px solid #fecaca;border-radius:9px;padding:10px 16px;font-family:'CenturyGothic', 'Century Gothic', sans-serif;font-size:14px;font-weight:700;cursor:pointer}
@@ -431,7 +440,16 @@ function getCurrentPageId(){ return 'calendario'; }
       </div>
       <div>
         <label class="form-label">Meccanica</label>
-        <textarea id="f-meccanica" class="form-input" rows="3" placeholder="Descrizione della meccanica promozionale…" style="resize:vertical"></textarea>
+        <div id="f-meccanica-toolbar">
+          <button type="button" onclick="mecCmd('bold')" title="Grassetto"><b>B</b></button>
+          <button type="button" onclick="mecCmd('italic')" title="Corsivo"><i style="font-style:italic">I</i></button>
+          <div class="sep"></div>
+          <button type="button" class="col-dot" onclick="mecCmd('foreColor','#1e293b')" title="Nero" style="background:#1e293b"></button>
+          <button type="button" class="col-dot" onclick="mecCmd('foreColor','#64748b')" title="Grigio" style="background:#64748b"></button>
+          <button type="button" class="col-dot" onclick="mecCmd('foreColor','#B45050')" title="Rosso M361" style="background:#B45050"></button>
+          <button type="button" onclick="mecCmd('removeFormat')" title="Rimuovi formattazione" style="margin-left:auto;font-size:11px;font-weight:600;color:#94a3b8;padding:2px 6px">✕</button>
+        </div>
+        <div id="f-meccanica" class="form-input" contenteditable="true" data-placeholder="Descrizione della meccanica promozionale…" spellcheck="true"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
@@ -635,6 +653,11 @@ let _calDate = new Date();
 let _calWeekStart = null;
 
 function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function mecCmd(cmd, val) {
+  const el = document.getElementById('f-meccanica');
+  el.focus();
+  document.execCommand(cmd, false, val ?? null);
+}
 function fmtDate(ds){
   if(!ds) return '';
   const [,m,d] = ds.split('-');
@@ -919,7 +942,7 @@ function renderTable(evs){
     const s      = SETTORI[ev.settore]||SETTORI.G;
     const evC    = ev.record_type==='evento'?EV_COLOR:s.color;
     const pdv    = ev.pdv_data||defaultPdvData();
-    const mecH   = escH(ev.meccanica||'');
+    const mecH   = ev.meccanica||'';
     const isFw   = !!mecH; // has meccanica
     const isPast   = !!(ev.data_fine   && ev.data_fine   < todayStr);
     const isFuture = !!(ev.data_inizio && ev.data_inizio > todayStr);
@@ -1229,7 +1252,7 @@ function openDetail(evId){
   if(doi){ ordEl.style.display='block'; document.getElementById('ev-detail-ordini-val').textContent=(dof&&dof!==doi)?`${doi} → ${dof}`:doi; }
   else { ordEl.style.display='none'; }
   const mecEl = document.getElementById('ev-detail-meccanica');
-  if(ev.meccanica){ mecEl.style.display='block'; document.getElementById('ev-detail-meccanica-val').textContent=ev.meccanica; }
+  if(ev.meccanica){ mecEl.style.display='block'; document.getElementById('ev-detail-meccanica-val').innerHTML=ev.meccanica; }
   else { mecEl.style.display='none'; }
   const allEl = document.getElementById('ev-detail-allegato');
   if(ev.link_info){ allEl.style.display='block'; document.getElementById('ev-detail-allegato-btn').href=ev.link_info; }
@@ -1253,7 +1276,7 @@ function openForm(evId){
   document.getElementById('f-anno').value      = ev?.anno||_annoAttivo;
   document.getElementById('f-settore').value   = ev?.settore||'G';
   document.getElementById('f-tipologia').value = ev?.tipologia||'';
-  document.getElementById('f-meccanica').value = ev?.meccanica||'';
+  document.getElementById('f-meccanica').innerHTML = ev?.meccanica||'';
   document.getElementById('f-data-ini').value        = ev?.data_inizio||'';
   document.getElementById('f-data-fin').value        = ev?.data_fine||'';
   document.getElementById('f-data-ordini-ini').value = ev?.data_inizio_ordini||'';
@@ -1360,7 +1383,7 @@ async function saveEvento(){
     titolo:          titolo.toUpperCase(),
     settore:         document.getElementById('f-settore').value,
     tipologia:       document.getElementById('f-tipologia').value||null,
-    meccanica:       document.getElementById('f-meccanica').value.trim()||null,
+    meccanica:       document.getElementById('f-meccanica').innerHTML.trim()||null,
     data_inizio:          document.getElementById('f-data-ini').value||null,
     data_fine:            document.getElementById('f-data-fin').value||null,
     data_inizio_ordini:   document.getElementById('f-data-ordini-ini').value||null,
