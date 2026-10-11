@@ -833,8 +833,11 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <button onclick="chiudiTrasferisciModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
     </div>
     <p id="trasferisci-modal-sub" style="font-size:13px;font-weight:700;color:#64748b;margin-bottom:12px"></p>
-    <label style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">N° tessera cartacea</label>
-    <input type="text" id="trasferisci-codice" class="importo-input" style="font-size:18px;padding:10px 14px;margin-bottom:14px" placeholder="es. 00123" autocomplete="off">
+    <label style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">N° tessera cartacea <span id="trasferisci-codice-hint" style="font-weight:400;text-transform:none;font-size:10px;color:#cbd5e1"></span></label>
+    <div style="position:relative;margin-bottom:14px">
+      <input type="text" id="trasferisci-codice" class="importo-input" style="font-size:18px;padding:10px 14px;width:100%" placeholder="es. 00123" autocomplete="off" ondblclick="mostraStoricoCodici()">
+      <div id="trasferisci-storico-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.10);z-index:10;max-height:180px;overflow-y:auto;margin-top:4px"></div>
+    </div>
     <label style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Quanti timbri da trasferire?</label>
     <input type="number" id="trasferisci-timbri" class="importo-input" style="font-size:28px;padding:10px 14px;margin-bottom:8px" min="1" max="12" placeholder="0" oninput="aggiornaPreviewTrasferisci()">
     <div id="trasferisci-preview" style="font-size:13px;color:#f59e0b;font-weight:700;margin-bottom:16px;min-height:18px"></div>
@@ -4987,7 +4990,9 @@ async function usaScontoCompleanno(tesseraId) {
 }
 
 // ── Trasferisci timbri da cartacea → digitale ────────────────────────────────
-function apriTrasferisciTimbri(tesseraId) {
+let _storicoCartacee = []; // tessere cartacee del cliente corrente
+
+async function apriTrasferisciTimbri(tesseraId) {
   const t = allTessere.find(x => x.id === tesseraId);
   if (!t) return;
   const c = allClienti.find(x => x.id === t.cliente_id);
@@ -4999,13 +5004,57 @@ function apriTrasferisciTimbri(tesseraId) {
   document.getElementById('trasferisci-codice').value = '';
   document.getElementById('trasferisci-timbri').value = '';
   document.getElementById('trasferisci-preview').textContent = '';
+  document.getElementById('trasferisci-storico-list').style.display = 'none';
   document.getElementById('btn-conferma-trasferisci').disabled = true;
+
+  // Carica storico cartacee del cliente
+  _storicoCartacee = [];
+  try {
+    const sr = await fetch('/pages/tessere/storico_excel.json');
+    if (sr.ok) {
+      const storico = sr._parsed || (sr._parsed = await sr.json());
+      const normKey = s => (s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const tel = (c?.telefono||'').replace(/\D/g,'');
+      const nk = normKey(c?.nome) + normKey(c?.cognome);
+      _storicoCartacee = (tel && storico.byTel?.[tel]) || (nk && storico.byName?.[nk]) || [];
+    }
+  } catch(e) {}
+
+  const hint = document.getElementById('trasferisci-codice-hint');
+  hint.textContent = _storicoCartacee.length > 0 ? `(doppio click per vedere storico: ${_storicoCartacee.length} tessere)` : '';
+
   document.getElementById('trasferisci-modal').classList.add('open');
 }
 
 function chiudiTrasferisciModal() {
   document.getElementById('trasferisci-modal').classList.remove('open');
+  document.getElementById('trasferisci-storico-list').style.display = 'none';
   _trasferisciTesseraId = null;
+  _storicoCartacee = [];
+}
+
+function mostraStoricoCodici() {
+  const list = document.getElementById('trasferisci-storico-list');
+  if (!_storicoCartacee.length) { list.style.display = 'none'; return; }
+  list.innerHTML = _storicoCartacee.map(x => {
+    const completata = x.eu ? `<span style="color:#059669;font-size:10px;font-weight:700;margin-left:6px">✓ completata</span>` : '';
+    const anno = x.a ? `<span style="color:#94a3b8;font-size:10px;margin-left:4px">${x.a}</span>` : '';
+    return `<div onclick="selezionaCodiceCartacea('${x.c}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px;font-weight:700;display:flex;align-items:center;gap:4px" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background=''">
+      <span style="color:#1e293b">N° ${x.c}</span>${anno}${completata}
+    </div>`;
+  }).join('');
+  list.style.display = 'block';
+  document.addEventListener('click', chiudiStoricoCodici, { once: true, capture: true });
+}
+
+function selezionaCodiceCartacea(codice) {
+  document.getElementById('trasferisci-codice').value = codice;
+  document.getElementById('trasferisci-storico-list').style.display = 'none';
+}
+
+function chiudiStoricoCodici(e) {
+  const list = document.getElementById('trasferisci-storico-list');
+  if (list && !list.contains(e.target)) list.style.display = 'none';
 }
 
 function aggiornaPreviewTrasferisci() {
