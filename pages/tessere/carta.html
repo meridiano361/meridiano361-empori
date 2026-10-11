@@ -181,7 +181,7 @@ body.amb{background:#e8e8e4}
           <span style="font-size:18px">📲</span> Installa come App
         </button>
         <div id="install-android-manual" style="display:none">
-          <div class="install-step"><div class="install-step-num">1</div><span>Apri questa pagina in <strong>Chrome</strong> — <a id="apri-in-chrome" href="#" onclick="apriInChrome(event)" style="color:#B45050;font-weight:700;text-decoration:underline;text-underline-offset:2px">Clicca qui</a></span></div>
+          <div class="install-step"><div class="install-step-num">1</div><span>Apri questa pagina in <strong>Chrome</strong> — <a href="#" onclick="copiaLink(event,this)" style="color:#B45050;font-weight:700;text-decoration:underline;text-underline-offset:2px">Copia il link</a></span></div>
           <div class="install-step"><div class="install-step-num">2</div><span>Tocca i <strong>⋮ tre puntini</strong> in alto a destra</span></div>
           <div class="install-step"><div class="install-step-num">3</div><span>Seleziona <strong>"Aggiungi a schermata Home"</strong></span></div>
         </div>
@@ -189,7 +189,7 @@ body.amb{background:#e8e8e4}
     </div>
     <!-- iOS: istruzioni Safari -->
     <div id="install-ios" style="display:none">
-      <div class="install-step"><div class="install-step-num">1</div><span>Apri questa pagina in <strong>Safari</strong> — <a href="#" onclick="apriInSafari(event)" style="color:#B45050;font-weight:700;text-decoration:underline;text-underline-offset:2px">Clicca qui</a></span></div>
+      <div class="install-step"><div class="install-step-num">1</div><span>Apri questa pagina in <strong>Safari</strong> — <a href="#" onclick="copiaLink(event,this)" style="color:#B45050;font-weight:700;text-decoration:underline;text-underline-offset:2px">Copia il link</a></span></div>
       <div class="install-step"><div class="install-step-num">2</div><span>Tocca il tasto <strong>Condividi</strong> ↑ in basso al centro</span></div>
       <div class="install-step"><div class="install-step-num">3</div><span>Scorri e tocca <strong>"Aggiungi a schermata Home"</strong></span></div>
       <div class="install-step" style="margin-bottom:0"><div class="install-step-num">4</div><span>Tocca <strong>Aggiungi</strong> in alto a destra — fatto!</span></div>
@@ -778,17 +778,22 @@ async function salvaDatiPersonali() {
 }
 
 // ── Apri in Chrome (Android intent) ─────────────────────────────────────────
-function apriInChrome(e) {
+async function copiaLink(e, el) {
   e.preventDefault();
-  const url = location.href;
-  const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') +
-    '#Intent;scheme=https;package=com.android.chrome;end';
-  location.href = intentUrl;
-}
-function apriInSafari(e) {
-  e.preventDefault();
-  // x-safari-https apre la pagina corrente in Safari su iOS
-  location.href = 'x-safari-' + location.href;
+  try {
+    await navigator.clipboard.writeText(location.href);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = location.href;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  const orig = el.textContent;
+  el.textContent = '✓ Copiato!';
+  el.style.color = '#059669';
+  setTimeout(() => { el.textContent = orig; el.style.color = '#B45050'; }, 2000);
 }
 
 // ── Promemoria compleanno Ambassador (push notification) ─────────────────────
