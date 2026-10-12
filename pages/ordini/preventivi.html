@@ -2314,22 +2314,31 @@ function stampaPDFConColonne() {
     const cc      = getCondizioniCommerciali();
     const logoUrl = window.location.origin + '/assets/images/logom361.webp';
 
-    const showTotII = document.getElementById('pdf-show-tot-ii')?.checked ?? true;
-    const showTotIE = document.getElementById('pdf-show-tot-ie')?.checked ?? true;
+    const showTotII   = document.getElementById('pdf-show-tot-ii')?.checked   ?? true;
+    const showTotIE   = document.getElementById('pdf-show-tot-ie')?.checked   ?? false;
+    const showTotIISc = document.getElementById('pdf-show-tot-ii-sc')?.checked ?? false;
+    const showTotIESc = document.getElementById('pdf-show-tot-ie-sc')?.checked ?? false;
+    const showGrpII   = sel.has('grp_ii');
+    const showGrpIE   = sel.has('grp_ie');
+    const showGrpIISc = sel.has('grp_ii_sc');
+    const showGrpIESc = sel.has('grp_ie_sc');
+    const showAnyGrp  = showGrpII || showGrpIE || showGrpIISc || showGrpIESc;
 
     const colDefs = [
-        { key:'foto',  label:'',                  align:'center' },
-        { key:'codice',label:'Codice',            align:'left'   },
-        { key:'desc',  label:'Descrizione',       align:'left'   },
-        { key:'qty',   label:'Qtà',          align:'center' },
-        { key:'pii',   label:'Prezzo i.i.',       align:'right'  },
-        { key:'iva',   label:'IVA %',             align:'center' },
-        { key:'pie',   label:'Prezzo i.e.',       align:'right'  },
-        { key:'sconto',label:'Sconto %',          align:'center' },
-        { key:'piisc', label:'Prezzo i.i. sc.',   align:'right'  },
-        { key:'piesc', label:'Prezzo i.e. sc.',   align:'right'  },
-        { key:'tot_ii',label:'Totale i.i.',        align:'right'  },
-        { key:'tot_ie',label:'Totale i.e.',        align:'right'  },
+        { key:'foto',      label:'',               align:'center' },
+        { key:'codice',    label:'Codice',         align:'left'   },
+        { key:'desc',      label:'Descrizione',    align:'left'   },
+        { key:'iva',       label:'IVA %',          align:'center' },
+        { key:'qty',       label:'Qtà',            align:'center' },
+        { key:'sconto',    label:'Sconto %',       align:'center' },
+        { key:'pii',       label:'Prezzo i.i.',    align:'right'  },
+        { key:'pie',       label:'Prezzo i.e.',    align:'right'  },
+        { key:'piisc',     label:'Prezzo i.i. sc.',align:'right'  },
+        { key:'piesc',     label:'Prezzo i.e. sc.',align:'right'  },
+        { key:'tot_ii',    label:'Tot. riga i.i.', align:'right'  },
+        { key:'tot_ie',    label:'Tot. riga i.e.', align:'right'  },
+        { key:'tot_ii_sc', label:'Tot. riga i.i. sc.', align:'right' },
+        { key:'tot_ie_sc', label:'Tot. riga i.e. sc.', align:'right' },
     ].filter(c => sel.has(c.key));
 
     const _collectProductRows = (container) => {
@@ -2348,18 +2357,25 @@ function stampaPDFConColonne() {
             const _effII  = _piisc || _pii;
             const _effIE  = _piesc || _pie || _effII;
             out.push({
-                foto:   fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
+                foto:      fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
                 codice, desc,
-                pii:    row.querySelector('.price-input')?.value || '—',
-                iva:    row.querySelector('.iva-input')?.value || '—',
-                pie:    row.querySelector('.ie-value')?.textContent || '—',
-                sconto: row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
-                piisc:  row.querySelector('.ii-sc-value')?.textContent || '—',
-                piesc:  row.querySelector('.ie-sc-value')?.textContent || '—',
-                tot_ii: _qty > 0 && _effII > 0 ? '€ ' + itFmt(_effII * _qty) : '—',
-                tot_ie: _qty > 0 && _effIE > 0 ? '€ ' + itFmt(_effIE * _qty) : '—',
-                qty:    row.querySelector('.qty-input')?.value || '',
-                tot:    '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
+                pii:       row.querySelector('.price-input')?.value || '—',
+                iva:       row.querySelector('.iva-input')?.value || '—',
+                pie:       row.querySelector('.ie-value')?.textContent || '—',
+                sconto:    row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
+                piisc:     row.querySelector('.ii-sc-value')?.textContent || '—',
+                piesc:     row.querySelector('.ie-sc-value')?.textContent || '—',
+                tot_ii:    _qty > 0 && _pii > 0   ? '€ ' + itFmt(_pii   * _qty) : '—',
+                tot_ie:    _qty > 0 && _pie > 0   ? '€ ' + itFmt(_pie   * _qty) : '—',
+                tot_ii_sc: _qty > 0 && _piisc > 0 ? '€ ' + itFmt(_piisc * _qty) : '—',
+                tot_ie_sc: _qty > 0 && _piesc > 0 ? '€ ' + itFmt(_piesc * _qty) : '—',
+                qty:       row.querySelector('.qty-input')?.value || '',
+                tot:       '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
+                // internal numerics for subtotals
+                _n_pii:   _pii * _qty,
+                _n_pie:   _pie * _qty,
+                _n_effII: _effII * _qty,
+                _n_effIE: _effIE * _qty,
             });
         });
         return out;
@@ -2375,6 +2391,10 @@ function stampaPDFConColonne() {
         if (productRows.length) groupsForPdf.push({ gid, groupFotoSrc, groupName, groupType, qty, productRows });
     });
     const rows = groupsForPdf.flatMap(g => g.productRows);
+    const grandTotII   = rows.reduce((s,r) => s + r._n_pii,   0);
+    const grandTotIE   = rows.reduce((s,r) => s + r._n_pie,   0);
+    const grandTotIISc = rows.reduce((s,r) => s + r._n_effII, 0);
+    const grandTotIESc = rows.reduce((s,r) => s + r._n_effIE, 0);
 
     const ccRows = [
         cc.scadenza          ? `Scadenza ordini: ${fmtData(cc.scadenza)}` : '',
@@ -2390,6 +2410,23 @@ function stampaPDFConColonne() {
     const tdRows = rows.map(r => `<tr>${colDefs.map(c => `<td style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>`).join('');
     const hasGroupPhotos = groupsForPdf.some(g => g.groupFotoSrc);
     const useGroupLayout = groupsForPdf.length > 1 || hasGroupPhotos;
+
+    const _grpSubtotalDiv = (productRows) => {
+        if (!showAnyGrp) return '';
+        const gII   = productRows.reduce((s,r) => s + r._n_pii,   0);
+        const gIE   = productRows.reduce((s,r) => s + r._n_pie,   0);
+        const gIISc = productRows.reduce((s,r) => s + r._n_effII, 0);
+        const gIESc = productRows.reduce((s,r) => s + r._n_effIE, 0);
+        const parts = [
+            showGrpII   && gII   > 0 ? `<span>Gruppo i.i.: <strong style="color:#1e293b">€ ${itFmt(gII)}</strong></span>`   : '',
+            showGrpIE   && gIE   > 0 ? `<span>Gruppo i.e.: <strong style="color:#1e293b">€ ${itFmt(gIE)}</strong></span>`   : '',
+            showGrpIISc && gIISc > 0 ? `<span>Gruppo i.i. sc.: <strong style="color:#B5453A">€ ${itFmt(gIISc)}</strong></span>` : '',
+            showGrpIESc && gIESc > 0 ? `<span>Gruppo i.e. sc.: <strong style="color:#B5453A">€ ${itFmt(gIESc)}</strong></span>` : '',
+        ].filter(Boolean);
+        if (!parts.length) return '';
+        return `<div style="display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;padding:7px 8px;margin-top:-12px;margin-bottom:10px;background:#f8fafc;border-radius:0 0 6px 6px;border-top:1.5px solid #e2e8f0;font-size:10px;color:#475569">${parts.join('')}</div>`;
+    };
+
     const groupTablesHtml = useGroupLayout ? groupsForPdf.map(g => {
         const typeLabel = TIPI_GRUPPO[g.groupType] || g.groupType;
         const gLabel = [typeLabel, g.groupName].filter(Boolean).join(' — ');
@@ -2402,7 +2439,7 @@ function stampaPDFConColonne() {
                 </div>
             </div>` : '';
         const gTdRows = g.productRows.map(r => `<tr>${colDefs.map(c => `<td style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>`).join('');
-        return `${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>`;
+        return `${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>${_grpSubtotalDiv(g.productRows)}`;
     }).join('') : '';
 
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
@@ -2456,10 +2493,14 @@ function stampaPDFConColonne() {
         </div>
     </div>
     ${titolo ? `<div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1e293b">${titolo}</div>` : ''}
-    ${useGroupLayout ? groupTablesHtml : `<table><thead><tr>${thRow}</tr></thead><tbody>${tdRows}</tbody></table>`}
+    ${useGroupLayout
+        ? groupTablesHtml
+        : `<table><thead><tr>${thRow}</tr></thead><tbody>${tdRows}</tbody></table>${_grpSubtotalDiv(rows)}`}
     <div class="totali">
-        ${showTotII ? `<div class="tot-box ii"><span class="tot-lbl">Totale i.i.</span><span class="tot-val">${document.getElementById('grand-total')?.textContent || '€ 0,00'}</span></div>` : ''}
-        ${showTotIE ? `<div class="tot-box ie"><span class="tot-lbl">Totale i.e.</span><span class="tot-val">${document.getElementById('grand-total-ie')?.textContent || '€ 0,00'}</span></div>` : ''}
+        ${showTotII   ? `<div class="tot-box ii"><span class="tot-lbl">Totale i.i.</span><span class="tot-val">€ ${itFmt(grandTotII)}</span></div>` : ''}
+        ${showTotIE   ? `<div class="tot-box ie"><span class="tot-lbl">Totale i.e.</span><span class="tot-val">€ ${itFmt(grandTotIE)}</span></div>` : ''}
+        ${showTotIISc ? `<div class="tot-box" style="background:#fef3c7"><span class="tot-lbl">Totale i.i. sc.</span><span class="tot-val" style="color:#92400e">€ ${itFmt(grandTotIISc)}</span></div>` : ''}
+        ${showTotIESc ? `<div class="tot-box" style="background:#d1fae5"><span class="tot-lbl">Totale i.e. sc.</span><span class="tot-val" style="color:#065f46">€ ${itFmt(grandTotIESc)}</span></div>` : ''}
     </div>
     ${ccRows.length ? `<div class="cc"><div class="cc-title">Condizioni commerciali</div><div>${ccRows.map(r=>`<span class="cc-row">• ${r}</span>`).join('')}</div></div>` : ''}
     <script>window.onload=()=>{window.print();}<\/script></body></html>`;
@@ -2575,33 +2616,61 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="../../scripts/auth.js"></script>
 <!-- ═══════ MODALE COLONNE PDF ═══════ -->
 <div id="pdf-col-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,.5)">
-  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4" style="max-height:90vh;overflow-y:auto">
     <div class="section-title mb-4">Seleziona colonne per il PDF</div>
-    <div class="grid grid-cols-2 gap-2 mb-5" id="pdf-col-checks">
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="foto" value="foto"> Foto prodotto</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="codice" value="codice" checked> Codice</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="desc" value="desc" checked> Descrizione</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="pii" value="pii" checked> Prezzo i.i.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="iva" value="iva"> IVA %</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="pie" value="pie"> Prezzo i.e.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="sconto" value="sconto"> Sconto %</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piisc" value="piisc"> Prezzo i.i. sc.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="piesc" value="piesc"> Prezzo i.e. sc.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="tot_ii" value="tot_ii"> Totale i.i. riga</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="tot_ie" value="tot_ie"> Totale i.e. riga</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-col="qty" value="qty" checked> Qtà</label>
+
+    <!-- ── Colonne prodotto ── -->
+    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Colonne prodotto</div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="foto" checked> Foto prodotto</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="codice" checked> Codice</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="desc" checked> Descrizione</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="iva"> IVA %</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="qty" checked> Qtà</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="sconto"> Sconto %</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="pii" checked> Prezzo i.i.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="pie"> Prezzo i.e.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piisc"> Prezzo i.i. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piesc"> Prezzo i.e. sc.</label>
     </div>
-    <div class="border-t border-slate-100 pt-3 mt-1 mb-4">
-      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Riquadri totale</div>
-      <div class="flex gap-4">
-        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ii" checked> Totale i.i.</label>
-        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ie" checked> Totale i.e.</label>
+
+    <!-- ── Tot. riga ── -->
+    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Totale riga</div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ii"> Tot. riga i.i.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ie"> Tot. riga i.e.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ii_sc"> Tot. riga i.i. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ie_sc"> Tot. riga i.e. sc.</label>
+    </div>
+
+    <!-- ── Subtotale gruppo ── -->
+    <div class="border-t border-slate-100 pt-3 mb-3">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Subtotale gruppo <span class="font-normal normal-case text-slate-300">(riga riassuntiva sotto ogni gruppo)</span></div>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-2">
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ii"> Gruppo i.i.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ie"> Gruppo i.e.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ii_sc"> Gruppo i.i. sc.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ie_sc"> Gruppo i.e. sc.</label>
       </div>
     </div>
-    <div class="border-t border-slate-100 pt-3 mt-1 mb-4">
+
+    <!-- ── Riquadri totale ── -->
+    <div class="border-t border-slate-100 pt-3 mb-3">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Riquadri totale</div>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-2">
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ii" checked> Tot. i.i.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ie"> Tot. i.e.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ii-sc"> Tot. i.i. sc.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ie-sc"> Tot. i.e. sc.</label>
+      </div>
+    </div>
+
+    <!-- ── Data ── -->
+    <div class="border-t border-slate-100 pt-3 mb-5">
       <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Data sul preventivo</div>
       <input type="date" id="pdf-data-stampa" class="form-input w-full">
     </div>
+
     <div class="flex gap-3">
       <button onclick="document.getElementById('pdf-col-modal').classList.add('hidden')" class="flex-1 py-3 border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50">Annulla</button>
       <button onclick="stampaPDFConColonne()" class="flex-1 py-3 bg-[#B5453A] text-white rounded-xl text-sm font-bold hover:opacity-90"><i class="fas fa-print mr-2"></i>Stampa PDF</button>
