@@ -99,6 +99,10 @@
         .foto-ov-change:hover{background:rgba(181,69,58,.88);}
         .foto-ov-zoom i,.foto-ov-change i{color:#fff;font-size:9px;}
         .foto-ov-lbl{color:#fff;font-size:6px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1;}
+        /* ── FOTO GRUPPO ── */
+        .group-foto-label{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:52px;height:52px;background:#f1f5f9;border-radius:10px;overflow:hidden;transition:background .15s;position:relative;flex-shrink:0;border:1.5px dashed #cbd5e1;}
+        .group-foto-label:hover{background:#e2e8f0;border-color:#94a3b8;}
+        .group-foto-label.has-foto{border:none;}
 [data-tip]{position:relative}
 [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:11px;font-weight:500;font-family:'CenturyGothic','Century Gothic',sans-serif;white-space:nowrap;padding:5px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;line-height:1.4;max-width:220px;white-space:normal;text-align:center}
 [data-tip]::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999}
@@ -1163,6 +1167,17 @@ async function apriPreventivo(id) {
             const groupQty   = righe[0]?.group_qty   || 1;
             addGroup(tipName, tipoGruppo, groupQty);
             const curGid = groupCount;
+            const groupFotoUrl = righe[0]?.group_foto_url;
+            if (groupFotoUrl) {
+                const gInp = document.getElementById(`group-foto-input-${curGid}`);
+                const gImg = document.getElementById(`group-foto-img-${curGid}`);
+                const gIcon = document.getElementById(`group-foto-icon-${curGid}`);
+                const gLbl = document.getElementById(`group-foto-label-${curGid}`);
+                if (gInp) gInp.dataset.foto = groupFotoUrl;
+                if (gImg) { gImg.src = groupFotoUrl; gImg.classList.remove('hidden'); }
+                if (gIcon) gIcon.classList.add('hidden');
+                if (gLbl) gLbl.classList.add('has-foto');
+            }
             // rimuovi riga vuota (e relativa sotto-riga interna) aggiunta da addGroup
             const tbody = document.getElementById(`rows-container-${curGid}`);
             tbody?.querySelector('.product-row')?.remove();
@@ -1333,6 +1348,32 @@ function onFotoChange(input) {
     reader.readAsDataURL(file);
 }
 
+function onGroupFotoChange(gid, input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const tmpImg = new Image();
+        tmpImg.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxSize = 400;
+            const scale = Math.min(1, maxSize / Math.max(tmpImg.width, tmpImg.height));
+            canvas.width = Math.round(tmpImg.width * scale);
+            canvas.height = Math.round(tmpImg.height * scale);
+            canvas.getContext('2d').drawImage(tmpImg, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            input.dataset.foto = dataUrl;
+            const img = document.getElementById(`group-foto-img-${gid}`);
+            const icon = document.getElementById(`group-foto-icon-${gid}`);
+            const lbl = document.getElementById(`group-foto-label-${gid}`);
+            if (img) { img.src = dataUrl; img.classList.remove('hidden'); }
+            if (icon) icon.classList.add('hidden');
+            if (lbl) lbl.classList.add('has-foto');
+        };
+        tmpImg.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 function onModConsegnaChange() {
     const val = document.querySelector('input[name="mod_consegna"]:checked')?.value;
     document.getElementById('consegna-datetime')?.classList.toggle('hidden', !val);
@@ -1383,6 +1424,18 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
                     oninput="setGroupQty(${gid}, this.value)"
                     class="border-2 border-[#B5453A] rounded-lg px-2 py-1.5 text-sm font-bold text-[#B5453A] text-center w-20 focus:outline-none">
             </div>
+            <div class="flex flex-col items-center gap-1">
+                <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest whitespace-nowrap">Foto gruppo</span>
+                <label id="group-foto-label-${gid}" class="group-foto-label" title="Foto del gruppo">
+                    <img id="group-foto-img-${gid}" class="hidden w-full h-full object-cover absolute inset-0 rounded-lg">
+                    <i class="fas fa-image text-slate-300 text-base" id="group-foto-icon-${gid}"></i>
+                    <div class="foto-ov-wrap">
+                        <div class="foto-ov-zoom group-foto-zoom-${gid}" title="Ingrandisci"><i class="fas fa-magnifying-glass-plus"></i><span class="foto-ov-lbl">vedi</span></div>
+                        <div class="foto-ov-change" title="Cambia foto"><i class="fas fa-camera"></i><span class="foto-ov-lbl">cambia</span></div>
+                    </div>
+                    <input type="file" accept="image/*" class="hidden group-foto-input" id="group-foto-input-${gid}">
+                </label>
+            </div>
             ${trashBtn}
         </div>`;
     const div = document.createElement('div');
@@ -1416,6 +1469,13 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
         </div>${subtotalSection}`;
     container.appendChild(div);
     div.querySelector('.add-row-btn').addEventListener('click', () => addRow(gid));
+    const gFotoInput = div.querySelector('.group-foto-input');
+    gFotoInput.addEventListener('change', function() { onGroupFotoChange(gid, this); });
+    div.querySelector(`.group-foto-zoom-${gid}`).addEventListener('click', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        const img = document.getElementById(`group-foto-img-${gid}`);
+        if (img && !img.classList.contains('hidden')) apriLightbox(img.src, gFotoInput);
+    });
     addRow(gid);
     if (currentType === 'bomboniere') addBomboniereSubRows(document.getElementById(`rows-container-${gid}`), gid);
 }
@@ -2128,6 +2188,7 @@ async function savePreventivo(event) {
                 sconto_perc: parseFloat(row.querySelector('.sconto-input')?.value)||0,
                 costo_ii:   parseFloat(document.getElementById(`internal-${row.id.replace('row-','')}`)?.querySelector('.costo-ii-input')?.value.replace('€','').replace(',','.').trim())||0,
                 foto_url:   row.querySelector('.foto-input')?.dataset.foto || null,
+                group_foto_url: document.getElementById(`group-foto-input-${gid}`)?.dataset.foto || null,
                 qta,
                 totale: itParse(row.querySelector('.row-total').textContent),
                 confezionamento: isConfez, confez_tipo: confezTipo, confez_costo: confezCosto,
@@ -2271,36 +2332,49 @@ function stampaPDFConColonne() {
         { key:'tot_ie',label:'Totale i.e.',        align:'right'  },
     ].filter(c => sel.has(c.key));
 
-    const rows = [];
-    document.querySelectorAll('.product-row').forEach(row => {
-        const rowId = row.id.replace('row-','');
-        const codice = row.querySelector('.codice-input')?.value || '';
-        const desc   = row.querySelector('.desc-input')?.value || '';
-        if (!codice && !desc) return;
-        const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
-        const _parseE = s => s && s !== '—' ? (parseFloat(s.replace(/[€\s]/g,'').replace(',','.')) || 0) : 0;
-        const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
-        const _pii    = _parseE(row.querySelector('.price-input')?.value);
-        const _pie    = _parseE(row.querySelector('.ie-value')?.textContent);
-        const _piisc  = _parseE(row.querySelector('.ii-sc-value')?.textContent);
-        const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
-        const _effII  = _piisc || _pii;
-        const _effIE  = _piesc || _pie || _effII;
-        rows.push({
-            foto:   fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
-            codice, desc,
-            pii:    row.querySelector('.price-input')?.value || '—',
-            iva:    row.querySelector('.iva-input')?.value || '—',
-            pie:    row.querySelector('.ie-value')?.textContent || '—',
-            sconto: row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
-            piisc:  row.querySelector('.ii-sc-value')?.textContent || '—',
-            piesc:  row.querySelector('.ie-sc-value')?.textContent || '—',
-            tot_ii: _qty > 0 && _effII > 0 ? '€ ' + itFmt(_effII * _qty) : '—',
-            tot_ie: _qty > 0 && _effIE > 0 ? '€ ' + itFmt(_effIE * _qty) : '—',
-            qty:    row.querySelector('.qty-input')?.value || '',
-            tot:    '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
+    const _collectProductRows = (container) => {
+        const out = [];
+        container.querySelectorAll('.product-row').forEach(row => {
+            const codice = row.querySelector('.codice-input')?.value || '';
+            const desc   = row.querySelector('.desc-input')?.value || '';
+            if (!codice && !desc) return;
+            const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
+            const _parseE = s => s && s !== '—' ? (parseFloat(s.replace(/[€\s]/g,'').replace(',','.')) || 0) : 0;
+            const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
+            const _pii    = _parseE(row.querySelector('.price-input')?.value);
+            const _pie    = _parseE(row.querySelector('.ie-value')?.textContent);
+            const _piisc  = _parseE(row.querySelector('.ii-sc-value')?.textContent);
+            const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
+            const _effII  = _piisc || _pii;
+            const _effIE  = _piesc || _pie || _effII;
+            out.push({
+                foto:   fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
+                codice, desc,
+                pii:    row.querySelector('.price-input')?.value || '—',
+                iva:    row.querySelector('.iva-input')?.value || '—',
+                pie:    row.querySelector('.ie-value')?.textContent || '—',
+                sconto: row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
+                piisc:  row.querySelector('.ii-sc-value')?.textContent || '—',
+                piesc:  row.querySelector('.ie-sc-value')?.textContent || '—',
+                tot_ii: _qty > 0 && _effII > 0 ? '€ ' + itFmt(_effII * _qty) : '—',
+                tot_ie: _qty > 0 && _effIE > 0 ? '€ ' + itFmt(_effIE * _qty) : '—',
+                qty:    row.querySelector('.qty-input')?.value || '',
+                tot:    '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
+            });
         });
+        return out;
+    };
+    const groupsForPdf = [];
+    document.querySelectorAll('#groups-container > [id^="group-"]').forEach(groupEl => {
+        const gid = groupEl.id.replace('group-','');
+        const groupFotoSrc = document.getElementById(`group-foto-input-${gid}`)?.dataset.foto || '';
+        const groupName    = document.getElementById(`tipologia-name-${gid}`)?.value || '';
+        const groupType    = document.getElementById(`gtype-${gid}`)?.value || 'confezione';
+        const qty          = parseInt(document.getElementById(`group-qty-${gid}`)?.value) || 1;
+        const productRows  = _collectProductRows(groupEl);
+        if (productRows.length) groupsForPdf.push({ gid, groupFotoSrc, groupName, groupType, qty, productRows });
     });
+    const rows = groupsForPdf.flatMap(g => g.productRows);
 
     const ccRows = [
         cc.scadenza          ? `Scadenza ordini: ${fmtData(cc.scadenza)}` : '',
@@ -2314,6 +2388,22 @@ function stampaPDFConColonne() {
 
     const thRow = colDefs.map(c => `<th style="text-align:${c.align}">${c.label}</th>`).join('');
     const tdRows = rows.map(r => `<tr>${colDefs.map(c => `<td style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>`).join('');
+    const hasGroupPhotos = groupsForPdf.some(g => g.groupFotoSrc);
+    const useGroupLayout = groupsForPdf.length > 1 || hasGroupPhotos;
+    const groupTablesHtml = useGroupLayout ? groupsForPdf.map(g => {
+        const typeLabel = TIPI_GRUPPO[g.groupType] || g.groupType;
+        const gLabel = [typeLabel, g.groupName].filter(Boolean).join(' — ');
+        const groupHeader = (g.groupFotoSrc || g.groupName || groupsForPdf.length > 1) ? `
+            <div style="display:flex;align-items:center;gap:12px;margin:16px 0 6px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;">
+                ${g.groupFotoSrc ? `<img src="${g.groupFotoSrc}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;flex-shrink:0">` : ''}
+                <div>
+                    <div style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8">Gruppo ${g.gid}${g.qty > 1 ? ` · ${g.qty} pz` : ''}</div>
+                    ${gLabel ? `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">${gLabel}</div>` : ''}
+                </div>
+            </div>` : '';
+        const gTdRows = g.productRows.map(r => `<tr>${colDefs.map(c => `<td style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>`).join('');
+        return `${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>`;
+    }).join('') : '';
 
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
     <title>${numero} — ${cliente}</title>
@@ -2366,7 +2456,7 @@ function stampaPDFConColonne() {
         </div>
     </div>
     ${titolo ? `<div style="font-size:14px;font-weight:700;margin-bottom:12px;color:#1e293b">${titolo}</div>` : ''}
-    <table><thead><tr>${thRow}</tr></thead><tbody>${tdRows}</tbody></table>
+    ${useGroupLayout ? groupTablesHtml : `<table><thead><tr>${thRow}</tr></thead><tbody>${tdRows}</tbody></table>`}
     <div class="totali">
         ${showTotII ? `<div class="tot-box ii"><span class="tot-lbl">Totale i.i.</span><span class="tot-val">${document.getElementById('grand-total')?.textContent || '€ 0,00'}</span></div>` : ''}
         ${showTotIE ? `<div class="tot-box ie"><span class="tot-lbl">Totale i.e.</span><span class="tot-val">${document.getElementById('grand-total-ie')?.textContent || '€ 0,00'}</span></div>` : ''}
