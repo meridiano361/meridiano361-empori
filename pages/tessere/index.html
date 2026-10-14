@@ -1747,8 +1747,13 @@ function openClienteModal(clienteId) {
     // Fetch lazy: campi non inclusi nel caricamento iniziale (risparmio payload)
     _sb.from('clienti').select('telefoni_extra,emails_extra,provincia,consenso_privacy_modalita,consenso_privacy_data,consent_token').eq('id', clienteId).single().then(({data:ex}) => {
       if (!ex) return;
-      _editTelefoni = [c.telefono || '', ...(Array.isArray(ex.telefoni_extra) ? ex.telefoni_extra : [])].filter((v,i) => i===0 || v);
-      _editEmails   = [c.email || '',   ...(Array.isArray(ex.emails_extra)   ? ex.emails_extra   : [])].filter((v,i) => i===0 || v);
+      // Sincronizza valori già digitati dall'utente prima di sovrascrivere gli array
+      const domTels   = [...document.querySelectorAll('#contatti-telefoni-wrap input')].map(el => el.value.replace(/[^\d+]/g,''));
+      const domEmails = [...document.querySelectorAll('#contatti-emails-wrap input')].map(el => el.value.trim().toLowerCase());
+      const tel0   = domTels[0]   !== undefined ? domTels[0]   : (c.telefono || '');
+      const email0 = domEmails[0] !== undefined ? domEmails[0] : (c.email    || '');
+      _editTelefoni = [tel0,   ...(Array.isArray(ex.telefoni_extra) ? ex.telefoni_extra : [])].filter((v,i) => i===0 || v);
+      _editEmails   = [email0, ...(Array.isArray(ex.emails_extra)   ? ex.emails_extra   : [])].filter((v,i) => i===0 || v);
       if (!_editTelefoni.length) _editTelefoni = [''];
       if (!_editEmails.length)   _editEmails   = [''];
       _renderContattiUI();
@@ -1775,7 +1780,7 @@ function openClienteModal(clienteId) {
       const cicli = t?.cicli_completati || 0;
       if (cicli > 0) {
         cicliEl.style.display = '';
-        cicliEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:#7c3aed">🏆 ${cicli} tessera${cicli>1?'e':''} completata${cicli>1?'e':''}</span>`;
+        cicliEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:#7c3aed">🏆 ${cicli} cicl${cicli>1?'i':'o'} completat${cicli>1?'i':'o'}</span>`;
       } else { cicliEl.style.display = 'none'; }
     }
     // Valori WA: default dal cliente.wa, poi aggiornati dalla fetch lazy sulla tessera
@@ -4497,7 +4502,7 @@ function renderDigitale() {
       ? `<div onclick="event.stopPropagation();this.querySelector('.cicli-detail').style.display=this.querySelector('.cicli-detail').style.display==='none'?'inline':'none'"
              title="${cicliTooltip}"
              style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:6px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
-           🏆 ${totaleCompletate} tessera${totaleCompletate > 1 ? 'e' : ''} completata${totaleCompletate > 1 ? 'e' : ''}
+           🏆 ${totaleCompletate} cicl${totaleCompletate > 1 ? 'i' : 'o'} completat${totaleCompletate > 1 ? 'i' : 'o'}
            <span class="cicli-detail" style="display:none;font-weight:400;color:#94a3b8">(${cicliTooltip})</span>
          </div>`
       : '';
