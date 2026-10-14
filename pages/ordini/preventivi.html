@@ -92,12 +92,14 @@
         /* ── SPLIT OVERLAY THUMBNAIL ── */
         .foto-ov-wrap{display:none;position:absolute;inset:0;}
         label.has-foto:hover .foto-ov-wrap{display:flex;}
-        .foto-ov-zoom,.foto-ov-change{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:background .12s;}
+        .foto-ov-zoom,.foto-ov-change,.foto-ov-delete{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:background .12s;}
         .foto-ov-zoom{background:rgba(30,41,59,.52);border-radius:6px 0 0 6px;}
         .foto-ov-zoom:hover{background:rgba(30,41,59,.78);}
-        .foto-ov-change{background:rgba(181,69,58,.58);border-radius:0 6px 6px 0;}
+        .foto-ov-change{background:rgba(181,69,58,.58);border-radius:0;}
         .foto-ov-change:hover{background:rgba(181,69,58,.88);}
-        .foto-ov-zoom i,.foto-ov-change i{color:#fff;font-size:9px;}
+        .foto-ov-delete{background:rgba(100,100,100,.52);border-radius:0 6px 6px 0;}
+        .foto-ov-delete:hover{background:rgba(60,60,60,.85);}
+        .foto-ov-zoom i,.foto-ov-change i,.foto-ov-delete i{color:#fff;font-size:9px;}
         .foto-ov-lbl{color:#fff;font-size:6px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1;}
         /* ── FOTO GRUPPO ── */
         .group-foto-label{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:52px;height:52px;background:#f1f5f9;border-radius:10px;overflow:hidden;transition:background .15s;position:relative;flex-shrink:0;border:1.5px dashed #cbd5e1;}
@@ -1432,6 +1434,7 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
                     <div class="foto-ov-wrap">
                         <div class="foto-ov-zoom group-foto-zoom-${gid}" title="Ingrandisci"><i class="fas fa-magnifying-glass-plus"></i><span class="foto-ov-lbl">vedi</span></div>
                         <div class="foto-ov-change" title="Cambia foto"><i class="fas fa-camera"></i><span class="foto-ov-lbl">cambia</span></div>
+                        <div class="foto-ov-delete group-foto-delete-${gid}" title="Elimina foto"><i class="fas fa-trash"></i><span class="foto-ov-lbl">togli</span></div>
                     </div>
                     <input type="file" accept="image/*" class="hidden group-foto-input" id="group-foto-input-${gid}">
                 </label>
@@ -1476,6 +1479,16 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
         const img = document.getElementById(`group-foto-img-${gid}`);
         if (img && !img.classList.contains('hidden')) apriLightbox(img.src, gFotoInput);
     });
+    div.querySelector(`.group-foto-delete-${gid}`).addEventListener('click', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        const img  = document.getElementById(`group-foto-img-${gid}`);
+        const icon = document.getElementById(`group-foto-icon-${gid}`);
+        const lbl  = document.getElementById(`group-foto-label-${gid}`);
+        gFotoInput.value = ''; delete gFotoInput.dataset.foto;
+        if (img)  { img.src = ''; img.classList.add('hidden'); }
+        if (icon) icon.classList.remove('hidden');
+        if (lbl)  lbl.classList.remove('has-foto');
+    });
     addRow(gid);
     if (currentType === 'bomboniere') addBomboniereSubRows(document.getElementById(`rows-container-${gid}`), gid);
 }
@@ -1514,6 +1527,7 @@ function addRow(gid) {
                 <div class="foto-ov-wrap">
                     <div class="foto-ov-zoom" title="Ingrandisci"><i class="fas fa-magnifying-glass-plus"></i><span class="foto-ov-lbl">vedi</span></div>
                     <div class="foto-ov-change" title="Cambia foto"><i class="fas fa-camera"></i><span class="foto-ov-lbl">cambia</span></div>
+                    <div class="foto-ov-delete" title="Elimina foto"><i class="fas fa-trash"></i><span class="foto-ov-lbl">togli</span></div>
                 </div>
                 <input type="file" accept="image/*" class="hidden foto-input">
             </label>
@@ -1566,6 +1580,17 @@ function addRow(gid) {
         e.preventDefault(); e.stopPropagation();
         const lbl = this.closest('label');
         apriLightbox(lbl.querySelector('.foto-img').src, lbl.querySelector('.foto-input'));
+    });
+    row.querySelector('.foto-ov-delete').addEventListener('click', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        const lbl = this.closest('label');
+        const inp = lbl.querySelector('.foto-input');
+        const img = lbl.querySelector('.foto-img');
+        const ico = lbl.querySelector('.foto-icon');
+        inp.value = ''; delete inp.dataset.foto;
+        if (img) { img.src = ''; img.classList.add('hidden'); }
+        if (ico) ico.classList.remove('hidden');
+        lbl.classList.remove('has-foto');
     });
     row.querySelector('.desc-input').addEventListener('input', function() { if (this.value) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1); });
     internalRow.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
