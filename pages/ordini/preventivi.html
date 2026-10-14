@@ -1606,12 +1606,12 @@ function addRow(gid) {
 function calcRow(rowId, gid) {
     const row = document.getElementById(`row-${rowId}`); if (!row) return;
     const qty     = parseInt(row.querySelector('.qty-input').value) || 0;
-    const priceII = parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim()) || 0;
+    const priceII = itParse(row.querySelector('.price-input').value);
     const iva     = parseFloat(row.querySelector('.iva-input')?.value) || 0;
     const sconto  = parseFloat(row.querySelector('.sconto-input')?.value) || 0;
 
     const internalRow = document.getElementById(`internal-${rowId}`);
-    const costoII  = parseFloat(internalRow?.querySelector('.costo-ii-input')?.value.replace('€','').replace(',','.').trim()) || 0;
+    const costoII  = itParse(internalRow?.querySelector('.costo-ii-input')?.value);
 
     const priceIE   = iva > 0 ? priceII / (1 + iva / 100) : null;
     const priceIISc = sconto > 0 ? priceII * (1 - sconto / 100) : null;
@@ -1925,7 +1925,7 @@ function calcConfezOmaggio(gid) {
     const totEl   = document.getElementById(`confez-total-${gid}`);
     if (!checked) { if (totEl) totEl.textContent = '0,00'; calcOmaggioDisp(gid); calcSubtotal(gid); calcGrandTotal(); return; }
     const qty  = parseInt(document.getElementById(`confez-qty-${gid}`)?.value) || 0;
-    const cost = parseFloat(document.getElementById(`confez-cost-inp-${gid}`)?.value.replace('€','').replace(',','.').trim()) || 0;
+    const cost = itParse(document.getElementById(`confez-cost-inp-${gid}`)?.value);
     if (totEl) totEl.textContent = itFmt(qty * cost);
     calcOmaggioDisp(gid); calcSubtotal(gid); calcGrandTotal();
 }
@@ -2197,7 +2197,7 @@ async function savePreventivo(event) {
             const gid = parseInt(row.closest('[id^="group-"]').id.replace('group-',''));
             const confezTipo  = document.querySelector(`input[name="confez-tipo-${gid}"]:checked`)?.value || 'completo';
             const isConfez    = document.getElementById(`check-conf-${gid}`)?.checked || false;
-            const confezCosto = parseFloat(document.getElementById(`confez-cost-inp-${gid}`)?.value.replace('€','').replace(',','.').trim()) || 0;
+            const confezCosto = itParse(document.getElementById(`confez-cost-inp-${gid}`)?.value);
             const tipoGruppo  = document.getElementById(`gtype-${gid}`)?.value || 'confezione';
             const groupQty    = parseInt(document.getElementById(`group-qty-${gid}`)?.value) || 1;
             const qta = parseInt(row.querySelector('.qty-input').value) || 0;
@@ -2208,10 +2208,10 @@ async function savePreventivo(event) {
                 tipologia: document.getElementById(`tipologia-name-${gid}`)?.value || '',
                 codice:     row.querySelector('.codice-input').value,
                 descrizione: row.querySelector('.desc-input').value,
-                prezzo:     parseFloat(row.querySelector('.price-input').value.replace('€','').replace(',','.').trim())||0,
+                prezzo:     itParse(row.querySelector('.price-input').value),
                 iva_perc:   parseFloat(row.querySelector('.iva-input')?.value)||0,
                 sconto_perc: parseFloat(row.querySelector('.sconto-input')?.value)||0,
-                costo_ii:   parseFloat(document.getElementById(`internal-${row.id.replace('row-','')}`)?.querySelector('.costo-ii-input')?.value.replace('€','').replace(',','.').trim())||0,
+                costo_ii:   itParse(document.getElementById(`internal-${row.id.replace('row-','')}`)?.querySelector('.costo-ii-input')?.value),
                 foto_url:   row.querySelector('.foto-input')?.dataset.foto || null,
                 group_foto_url: document.getElementById(`group-foto-input-${gid}`)?.dataset.foto || null,
                 qta,
@@ -2373,7 +2373,7 @@ function stampaPDFConColonne() {
             const desc   = row.querySelector('.desc-input')?.value || '';
             if (!codice && !desc) return;
             const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
-            const _parseE = s => s && s !== '—' ? (parseFloat(s.replace(/[€\s]/g,'').replace(',','.')) || 0) : 0;
+            const _parseE = s => s && s !== '—' ? itParse(s) : 0;
             const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
             const _pii    = _parseE(row.querySelector('.price-input')?.value);
             const _pie    = _parseE(row.querySelector('.ie-value')?.textContent);
@@ -2548,7 +2548,7 @@ function esportaExcel() {
 
     const rows = [['Codice','Descrizione','Prezzo i.i.','IVA %','Prezzo i.e.','Sconto %','Prezzo i.i. sc.','P.i.e. sc.','Qtà','Totale']];
     document.querySelectorAll('.product-row').forEach(row => {
-        const parse = s => parseFloat((s||'').replace('€','').replace(',','.').trim()) || '';
+        const parse = s => itParse(s) || '';
         rows.push([
             row.querySelector('.codice-input')?.value || '',
             row.querySelector('.desc-input')?.value || '',
