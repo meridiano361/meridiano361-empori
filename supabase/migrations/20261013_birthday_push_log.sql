@@ -24,10 +24,10 @@ SELECT cron.schedule(
   '0 8 * * *',
   $$
   SELECT net.http_post(
-    url := (SELECT value FROM app_settings WHERE key = 'supabase_functions_url') || '/send-birthday-push-client',
+    url := 'https://hsalynvxazxqtmsvjrzc.supabase.co/functions/v1/send-birthday-push-client',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (SELECT value FROM app_settings WHERE key = 'supabase_anon_key')
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
     ),
     body := '{}'::jsonb
   );
