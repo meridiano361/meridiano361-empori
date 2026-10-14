@@ -1400,10 +1400,16 @@ function addGroup(tipologiaName, tipoGruppo, groupQty) {
             <div class="text-right">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Per pezzo</span>
                 <span id="unit-price-${gid}" class="text-base font-bold text-slate-500">€ 0,00</span>
+                <span class="text-[10px] text-slate-400 block">i.i.</span>
+                <span id="unit-price-ie-${gid}" class="text-sm font-semibold text-slate-400">€ 0,00</span>
+                <span class="text-[10px] text-slate-400 block">i.e.</span>
             </div>
             <div class="text-right">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Subtotale Gruppo ${gid}</span>
                 <span id="subtotal-${gid}" class="text-2xl font-bold text-[#B5453A]">€ 0,00</span>
+                <span class="text-[10px] text-slate-400 block">i.i.</span>
+                <span id="subtotal-ie-${gid}" class="text-base font-semibold text-slate-400">€ 0,00</span>
+                <span class="text-[10px] text-slate-400 block">i.e.</span>
             </div>
         </div>`;
     const trashBtn = gid > 1 ? `<button type="button" onclick="removeGroup(${gid})" class="text-slate-300 hover:text-red-500 transition-colors p-1 ml-1" title="Rimuovi gruppo"><i class="fas fa-trash-can text-sm"></i></button>` : '';
@@ -1682,18 +1688,24 @@ function validateGlobal() {
 }
 
 function calcSubtotal(gid) {
-    let sub = 0;
-    document.getElementById(`rows-container-${gid}`)?.querySelectorAll('.row-total').forEach(el => sub += itParse(el.textContent));
+    let sub = 0, subIE = 0;
+    document.getElementById(`rows-container-${gid}`)?.querySelectorAll('.product-row').forEach(row => {
+        sub   += itParse(row.querySelector('.row-total')?.textContent);
+        subIE += parseFloat(row.dataset.totalIe || 0);
+    });
     if (currentType === 'bomboniere') {
         const confezOn  = document.getElementById(`check-conf-${gid}`)?.checked;
         const confezTot = document.getElementById(`confez-total-${gid}`);
-        if (confezTot && confezOn) sub += itParse(confezTot.textContent);
+        if (confezTot && confezOn) { const v = itParse(confezTot.textContent); sub += v; subIE += v; }
     }
-    const el = document.getElementById(`subtotal-${gid}`); if (el) el.textContent = '€ ' + itFmt(sub);
+    const el   = document.getElementById(`subtotal-${gid}`);    if (el)   el.textContent   = '€ ' + itFmt(sub);
+    const elIE = document.getElementById(`subtotal-ie-${gid}`); if (elIE) elIE.textContent = '€ ' + itFmt(subIE);
     // Prezzo per pezzo
-    const qty = parseInt(document.getElementById(`group-qty-${gid}`)?.value) || 1;
+    const qty    = parseInt(document.getElementById(`group-qty-${gid}`)?.value) || 1;
     const unitEl = document.getElementById(`unit-price-${gid}`);
     if (unitEl) unitEl.textContent = '€ ' + itFmt(qty > 0 ? sub / qty : 0);
+    const unitElIE = document.getElementById(`unit-price-ie-${gid}`);
+    if (unitElIE) unitElIE.textContent = '€ ' + itFmt(qty > 0 ? subIE / qty : 0);
 }
 
 function calcGrandTotal() {
