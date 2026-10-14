@@ -2475,6 +2475,17 @@
             savedId = idOrig;
         }
         if (error) {
+            // Migrazione SQL non ancora eseguita: riprova senza le colonne date
+            if ((error.message || '').includes('readonly_da') || (error.message || '').includes('readonly_a')) {
+                const { readonly_da: _rd, readonly_a: _ra, ...payloadBase } = payload;
+                if (isNuovo) {
+                    const { data: d2, error: e2 } = await db.from('operatori').insert(payloadBase).select('id').single();
+                    if (!e2) return d2?.id ?? null;
+                } else {
+                    const { error: e2 } = await db.from('operatori').update(payloadBase).eq('id', idOrig);
+                    if (!e2) return idOrig;
+                }
+            }
             // Rilevazione robusta del duplicate-key
             const isDuplicate = error.code === '23505' ||
                                 (error.message || '').toLowerCase().includes('duplicate key') ||
