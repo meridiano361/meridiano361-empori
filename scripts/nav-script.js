@@ -821,6 +821,40 @@ function buildNav() {
       }
     }
 
+    // Controlla sola lettura globale con range date
+    const { data: opRO } = await _supabase
+      .from('operatori')
+      .select('is_readonly, readonly_da, readonly_a')
+      .eq('id', user.id).single();
+
+    if (opRO?.is_readonly) {
+      const today = new Date().toISOString().slice(0, 10);
+      const inRange = (!opRO.readonly_da || today >= opRO.readonly_da)
+                   && (!opRO.readonly_a  || today <= opRO.readonly_a);
+      if (inRange) {
+        const whenReady = (fn) => document.readyState === 'loading'
+          ? document.addEventListener('DOMContentLoaded', fn, { once: true }) : fn();
+        whenReady(() => {
+          applyReadonlyMode();
+          if (!document.getElementById('m361-readonly-banner')) {
+            const banner = document.createElement('div');
+            banner.id = 'm361-readonly-banner';
+            const da = opRO.readonly_da ? new Date(opRO.readonly_da+'T00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}) : null;
+            const a  = opRO.readonly_a  ? new Date(opRO.readonly_a +'T00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}) : null;
+            const range = da || a ? ` (${da ? 'dal '+da : ''}${da && a ? ' ' : ''}${a ? 'al '+a : ''})` : '';
+            banner.style.cssText =
+              'background:#fef3c7;border-bottom:2px solid #f59e0b;padding:10px 20px;' +
+              'font-size:14px;font-weight:600;color:#92400e;text-align:center;' +
+              'position:sticky;top:56px;z-index:8999';
+            banner.textContent = `👁 Modalità sola lettura${range} — non puoi modificare`;
+            document.body.insertBefore(banner,
+              document.getElementById('m361-header')?.nextSibling || document.body.firstChild);
+          }
+        });
+        return; // non caricare utenti_permessi, sola lettura globale ha precedenza
+      }
+    }
+
     const { data: permessi } = await _supabase
       .from('utenti_permessi')
       .select('sezione, può_vedere, può_operare')

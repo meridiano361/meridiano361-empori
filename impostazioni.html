@@ -1252,10 +1252,24 @@
                 </div>
                 <div class="campo-gruppo">
                     <label>Sola lettura</label>
-                    <select id="edit-op-readonly" class="campo-input">
+                    <select id="edit-op-readonly" class="campo-input" onchange="toggleReadonlyDates()">
                         <option value="false">No — può fare modifiche</option>
                         <option value="true">Sì — solo visualizzazione</option>
                     </select>
+                </div>
+                <div class="campo-gruppo" id="gruppo-readonly-dates" style="display:none">
+                    <label>Periodo sola lettura</label>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:120px">
+                            <span style="font-size:12px;color:#64748b;white-space:nowrap">Dal</span>
+                            <input type="date" id="edit-op-readonly-da" class="campo-input" style="flex:1">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:120px">
+                            <span style="font-size:12px;color:#64748b;white-space:nowrap">Al</span>
+                            <input type="date" id="edit-op-readonly-a" class="campo-input" style="flex:1">
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px">Lascia vuoto per sola lettura senza scadenza.</div>
                 </div>
                 <div class="campo-gruppo">
                     <label>Telefono</label>
@@ -2136,7 +2150,7 @@
                         ${op.is_resp_personale ? '<span style="font-size:10px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile del personale">👑 Resp. Personale</span>' : ''}
                         ${op.is_resp_acquisti  ? '<span style="font-size:10px;background:#ecfdf5;color:#065f46;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile acquisti">🛒 Resp. Acquisti</span>' : ''}
                         ${op.is_resp_emporio   ? '<span style="font-size:10px;background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Responsabile emporio">🏪 Resp. Emporio</span>' : ''}
-                        ${op.is_readonly ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px">Sola lettura</span>' : ''}
+                        ${op.is_readonly ? (() => { const da = op.readonly_da ? new Date(op.readonly_da+'T00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}) : null; const a = op.readonly_a ? new Date(op.readonly_a+'T00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}) : null; const range = da||a ? ` (${da||'…'}–${a||'…'})` : ''; return `<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Sola lettura${range}">👁 Solo lettura${range}</span>`; })() : ''}
                         ${op.attivo === false ? '<span style="font-size:10px;background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Operatore non attivo — non compare nel controllo cassa">⏸ Non attivo</span>' : ''}
                         ${(op.referente_alimentari||op.referente_casa||op.referente_moda||op.referente_cosmesi||op.referente_ricorrenze||op.referente_contabilita) ? (() => { const settori=[]; if(op.referente_alimentari)settori.push('ali'); if(op.referente_casa)settori.push('casa'); if(op.referente_moda)settori.push('moda'); if(op.referente_cosmesi)settori.push('cos'); if(op.referente_ricorrenze)settori.push('ric'); if(op.referente_contabilita)settori.push('cont'); return `<span style="font-size:10px;background:#fff7ed;color:#c2410c;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:4px" title="Referente: ${settori.join(', ')}">📦 Ref.</span>`; })() : ''}
                     </div>
@@ -2279,6 +2293,9 @@
         document.getElementById('edit-op-emporio').value     = empChiave || EMPORI_ORDER[0];
         document.getElementById('edit-op-ruolo').value       = 'volontario';
         document.getElementById('edit-op-readonly').value    = 'false';
+        document.getElementById('edit-op-readonly-da').value = '';
+        document.getElementById('edit-op-readonly-a').value  = '';
+        document.getElementById('gruppo-readonly-dates').style.display = 'none';
         document.getElementById('edit-op-telefono').value    = '';
         document.getElementById('edit-op-email-field').value = '';
         document.getElementById('edit-op-note').value        = '';
@@ -2305,6 +2322,9 @@
         document.getElementById('edit-op-email-field').value  = op.email || '';
         document.getElementById('edit-op-note').value         = op.note || '';
         document.getElementById('edit-op-readonly').value     = op.is_readonly ? 'true' : 'false';
+        document.getElementById('edit-op-readonly-da').value  = op.readonly_da || '';
+        document.getElementById('edit-op-readonly-a').value   = op.readonly_a  || '';
+        document.getElementById('gruppo-readonly-dates').style.display = op.is_readonly ? '' : 'none';
 
         // Emporio principale: normalizza a chiave select
         const empChiave = normalizzaEmporio(op.emporio);
@@ -2393,6 +2413,15 @@
     }
 
     // ── SALVATAGGIO OPERATORE ─────────────────────────────────────────────
+    function toggleReadonlyDates() {
+        const isRo = document.getElementById('edit-op-readonly').value === 'true';
+        document.getElementById('gruppo-readonly-dates').style.display = isRo ? '' : 'none';
+        if (!isRo) {
+            document.getElementById('edit-op-readonly-da').value = '';
+            document.getElementById('edit-op-readonly-a').value  = '';
+        }
+    }
+
     function buildOpPayload() {
         const empChiave  = document.getElementById('edit-op-emporio').value;
         const empDisplay = EMPORI_LABEL[empChiave] || empChiave;
@@ -2409,6 +2438,9 @@
                 email:               document.getElementById('edit-op-email-field').value.trim().toLowerCase() || null,
                 empori_aggiuntivi:   extraDisplay.length > 0 ? extraDisplay : null,
                 note:                document.getElementById('edit-op-note').value.trim() || null,
+                is_readonly:            document.getElementById('edit-op-readonly').value === 'true',
+                readonly_da:            document.getElementById('edit-op-readonly-da').value || null,
+                readonly_a:             document.getElementById('edit-op-readonly-a').value  || null,
                 is_resp_personale:      respCb ? respCb.checked : false,
                 is_resp_acquisti:       document.getElementById('edit-op-resp-acquisti')?.checked ?? false,
                 is_resp_emporio:        document.getElementById('edit-op-resp-emporio')?.checked ?? false,
