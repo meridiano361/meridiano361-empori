@@ -40,6 +40,10 @@
 })();
 
 function getOperatoreLoggato() {
+  try {
+    const imp = sessionStorage.getItem('m361_impersonate');
+    if (imp) return JSON.parse(imp);
+  } catch {}
   try { return JSON.parse(localStorage.getItem('m361_user') || 'null'); }
   catch { return null; }
 }

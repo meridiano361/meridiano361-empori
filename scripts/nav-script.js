@@ -91,7 +91,12 @@
   /* ═══════════════════════════════════════
      SESSIONE UTENTE
   ═══════════════════════════════════════ */
+  function isImpersonating() {
+    return !!sessionStorage.getItem('m361_impersonate');
+  }
   function getUserProfile() {
+    const imp = sessionStorage.getItem('m361_impersonate');
+    if (imp) { try { return JSON.parse(imp); } catch {} }
     try { return JSON.parse(localStorage.getItem('m361_user') || 'null'); } catch { return null; }
   }
   function getUserSections() {
@@ -668,6 +673,41 @@ function buildNav() {
 }
 
   /* ═══════════════════════════════════════
+     BANNER IMPERSONAZIONE
+  ═══════════════════════════════════════ */
+  function injectImpersonateBanner() {
+    const imp = sessionStorage.getItem('m361_impersonate');
+    if (!imp) return;
+    let op;
+    try { op = JSON.parse(imp); } catch { return; }
+
+    const exitUrl = BASE + 'impostazioni.html';
+    const banner  = document.createElement('div');
+    banner.id     = 'm361-impersonate-banner';
+    banner.style.cssText = [
+      'position:fixed', 'bottom:0', 'left:0', 'right:0', 'z-index:99999',
+      'background:#f59e0b', 'color:#1c1917',
+      'padding:6px 16px', 'display:flex', 'align-items:center',
+      'justify-content:center', 'gap:12px',
+      "font-size:13px", 'font-weight:700',
+      "font-family:'CenturyGothic','Century Gothic',sans-serif",
+      'box-shadow:0 -2px 8px rgba(0,0,0,.25)', 'line-height:1',
+    ].join(';');
+    banner.innerHTML =
+      `<span>👁 Vista come: <strong>${op.nome || op.email || 'Operatore'}</strong>` +
+      (op.emporio ? ` · ${op.emporio}` : '') + '</span>' +
+      `<button onclick="sessionStorage.removeItem('m361_impersonate');` +
+        `sessionStorage.removeItem('ruolo');sessionStorage.removeItem('permessi');` +
+        `window.location.href='${exitUrl}'" ` +
+        `style="background:#1c1917;color:#fef9c3;border:none;border-radius:6px;` +
+        `padding:4px 12px;cursor:pointer;font-size:11px;font-weight:700;` +
+        `font-family:inherit">✕ Esci dalla vista</button>`;
+
+    document.body.appendChild(banner);
+    document.body.style.paddingBottom = 'calc(' + (document.body.style.paddingBottom || '0px') + ' + 40px)';
+  }
+
+  /* ═══════════════════════════════════════
      INIT — SINCRONO, MAI BLOCCA
   ═══════════════════════════════════════ */
   async function init() {
@@ -694,7 +734,7 @@ function buildNav() {
         if (_sb) {
           const { data: op } = await _sb.from('operatori').select('*').ilike('email', user.email).single();
           if (op?.nome) {
-            localStorage.setItem('m361_user', JSON.stringify(op));
+            if (!isImpersonating()) localStorage.setItem('m361_user', JSON.stringify(op));
             user = op;
           } else {
             localStorage.removeItem('m361_user');
@@ -715,6 +755,7 @@ function buildNav() {
     injectResponsiveCSS();
     buildHeader();
     buildNav();
+    injectImpersonateBanner();
     injectChangePasswordModal();
     injectGuide();
 
@@ -765,7 +806,7 @@ function buildNav() {
       const { data: opDB } = await _supabase.from('operatori').select('is_resp_acquisti').eq('id', user.id).single();
       if (opDB?.is_resp_acquisti) {
         user.is_resp_acquisti = true;
-        localStorage.setItem('m361_user', JSON.stringify({ ...user, is_resp_acquisti: true }));
+        if (!isImpersonating()) localStorage.setItem('m361_user', JSON.stringify({ ...user, is_resp_acquisti: true }));
         const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
         if (preordItem && !preordItem.active) {
           preordItem.active = true;
