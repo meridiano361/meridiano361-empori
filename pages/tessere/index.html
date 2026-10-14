@@ -725,8 +725,11 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <select id="tess-stato-sel" onchange="_tessereStato=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Tutti gli stati</option>
         <option value="attiva">Attive</option>
-        <option value="completa">Complete</option>
-        <option value="archiviata">Archiviate</option>
+        <option value="completata">Completate</option>
+        <option value="smarrita">Smarrite</option>
+        <option value="digitale">Convertite in digitale</option>
+        <option value="cambio_status">Cambio status</option>
+        <option value="archiviata">Archiviate (tutte)</option>
       </select>
       <select id="tess-attiv-sel" onchange="_tessereAttivita=this.value;_tessPage=0;renderTessereTab()" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:13px;color:#1e293b;background:#fff;cursor:pointer">
         <option value="tutti">Iscrizioni + Rinnovi</option>
@@ -937,19 +940,19 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
     <div onclick="selectMotivo(event)">
       <div class="rinnovo-opt" data-motivo="completata">
         <div class="rinnovo-opt-icon" style="color:#16a34a"><i class="fas fa-circle-check"></i></div>
-        <div><div class="rinnovo-opt-label">Tessera completata</div><div class="rinnovo-opt-sub">Tutti i timbri esauriti, il cliente ricomincia</div></div>
+        <div><div class="rinnovo-opt-label">Completata</div><div class="rinnovo-opt-sub">Tutti i timbri esauriti, il cliente ricomincia</div></div>
       </div>
-      <div class="rinnovo-opt" data-motivo="persa">
+      <div class="rinnovo-opt" data-motivo="smarrita">
         <div class="rinnovo-opt-icon" style="color:#f59e0b"><i class="fas fa-triangle-exclamation"></i></div>
-        <div><div class="rinnovo-opt-label">Tessera persa o danneggiata</div><div class="rinnovo-opt-sub">Sostituzione della tessera fisica</div></div>
+        <div><div class="rinnovo-opt-label">Smarrita</div><div class="rinnovo-opt-sub">Tessera persa, rubata o danneggiata</div></div>
       </div>
-      <div class="rinnovo-opt" data-motivo="upgrade">
-        <div class="rinnovo-opt-icon" style="color:#7c3aed"><i class="fas fa-arrow-up"></i></div>
-        <div><div class="rinnovo-opt-label">Cambio tipo tessera</div><div class="rinnovo-opt-sub">Es. upgrade da Standard ad Ambassador</div></div>
+      <div class="rinnovo-opt" data-motivo="digitale">
+        <div class="rinnovo-opt-icon" style="color:#0ea5e9"><i class="fas fa-mobile-screen-button"></i></div>
+        <div><div class="rinnovo-opt-label">Conversione a tessera digitale</div><div class="rinnovo-opt-sub">Il cliente passa dalla cartacea alla digitale</div></div>
       </div>
-      <div class="rinnovo-opt" data-motivo="altro">
-        <div class="rinnovo-opt-icon" style="color:#94a3b8"><i class="fas fa-ellipsis"></i></div>
-        <div><div class="rinnovo-opt-label">Altro motivo</div></div>
+      <div class="rinnovo-opt" data-motivo="cambio_status">
+        <div class="rinnovo-opt-icon" style="color:#7c3aed"><i class="fas fa-arrow-right-arrow-left"></i></div>
+        <div><div class="rinnovo-opt-label">Cambio status tessera</div><div class="rinnovo-opt-sub">Da Standard ad Ambassador o viceversa</div></div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -1021,7 +1024,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </select>
         </div>
         <div><div class="field-label">Codice tessera</div><input class="field-input" id="f-codice"></div>
-        <div><div class="field-label">Data iscrizione</div><input class="field-input" id="f-emissione" type="date"></div>
+        <div><div class="field-label" id="lbl-emissione">Data emissione</div><input class="field-input" id="f-emissione" type="date"></div>
         <div><div class="field-label">Data rinnovo</div><input class="field-input" id="f-rinnovo" type="date"></div>
         <div style="grid-column:1/-1">
           <div class="field-label">Formato tessera</div>
@@ -1040,7 +1043,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
         </div>
       </div>
       <button id="btn-nuova-tessera" class="btn btn-outline btn-sm" style="margin-top:10px;display:none" onclick="nuovaTessera()">
-        <i class="fas fa-plus"></i> Nuova tessera (archivia attuale)
+        <i class="fas fa-plus"></i> Nuova tessera
       </button>
     </div>
 
@@ -1832,12 +1835,16 @@ function openClienteModal(clienteId) {
     document.getElementById('f-lista-wa').checked = false;
     document.getElementById('f-benvenuto').checked = false;
     document.getElementById('wa-section').style.display = 'none';
-    document.getElementById('privacy-section').style.display = 'none';
+    document.getElementById('privacy-section').style.display = '';
     document.getElementById('btn-elimina').style.display = 'none';
     document.getElementById('btn-elimina-hdr').style.display = 'none';
     _editingConsentToken = null;
     _consentActive = false;
     _consentModalita = 'offline';
+    _updateConsentToggle(null);
+    document.getElementById('btn-wa-consent').style.display = 'none';
+    document.getElementById('btn-edit-consent-msg').style.display = 'none';
+    document.getElementById('btn-revoca-consent').style.display = 'none';
     document.getElementById('btn-salva-altro').style.display = '';
     document.getElementById('btn-nuova-tessera').style.display = 'none';
     document.getElementById('tessere-storico-section').style.display = 'none';
@@ -3262,10 +3269,10 @@ let _tessereSort     = 'numero';
 let _tessereDir      = 'asc'; // 'asc' | 'desc'
 
 function _motivoLabel(m) {
-  return {completata:'Completata',persa:'Persa/Danneggiata',upgrade:'Cambio tipo',altro:'Altro'}[m] || m;
+  return {completata:'Completata',smarrita:'Smarrita',digitale:'→ Digitale',cambio_status:'Cambio status',persa:'Persa/Danneggiata',upgrade:'Cambio tipo',altro:'Altro'}[m] || m;
 }
 function _motivoColor(m) {
-  return {completata:'#16a34a',persa:'#f59e0b',upgrade:'#7c3aed',altro:'#94a3b8'}[m] || '#94a3b8';
+  return {completata:'#16a34a',smarrita:'#f59e0b',digitale:'#0ea5e9',cambio_status:'#7c3aed',persa:'#f59e0b',upgrade:'#7c3aed',altro:'#94a3b8'}[m] || '#94a3b8';
 }
 
 // La prima tessera emessa per cliente = iscrizione; le successive = rinnovi
@@ -3297,11 +3304,13 @@ function renderTessereTab() {
     tessere = tessere.filter(t => (t.tipo||'standard') === _tessereTipo);
   if (_tessereStato !== 'tutti') {
     tessere = tessere.filter(t => {
-      const isCompl  = (t.timbri_attuali||0) >= TIMBRI_MAX;
       const isAttiva = t.attiva !== false;
-      if (_tessereStato === 'attiva')     return isAttiva && !isCompl;
-      if (_tessereStato === 'completa')   return isCompl;
-      if (_tessereStato === 'archiviata') return !isAttiva && !isCompl;
+      if (_tessereStato === 'attiva')       return isAttiva;
+      if (_tessereStato === 'archiviata')   return !isAttiva;
+      if (_tessereStato === 'completata')   return !isAttiva && t.motivo_rinnovo === 'completata';
+      if (_tessereStato === 'smarrita')     return !isAttiva && t.motivo_rinnovo === 'smarrita';
+      if (_tessereStato === 'digitale')     return !isAttiva && t.motivo_rinnovo === 'digitale';
+      if (_tessereStato === 'cambio_status') return !isAttiva && t.motivo_rinnovo === 'cambio_status';
       return true;
     });
   }
