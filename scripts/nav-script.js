@@ -117,6 +117,10 @@
     const db = getSupabase();
     if (db) { try { await db.auth.signOut(); } catch {} }
     localStorage.removeItem('m361_user');
+    sessionStorage.removeItem('m361_impersonate');
+    sessionStorage.removeItem('ruolo');
+    sessionStorage.removeItem('permessi');
+    sessionStorage.removeItem('m361_return_url');
     window.location.href = BASE + 'login.html';
   }
   window.__m361Logout = doLogout;
