@@ -845,8 +845,8 @@ function buildNav() {
             banner.style.cssText =
               'background:#fef3c7;border-bottom:2px solid #f59e0b;padding:10px 20px;' +
               'font-size:14px;font-weight:600;color:#92400e;text-align:center;' +
-              'position:sticky;top:56px;z-index:8999';
-            banner.textContent = `👁 Modalità sola lettura${range} — non puoi modificare`;
+              'position:sticky;top:56px;z-index:8999;display:flex;align-items:center;justify-content:center;gap:12px';
+            banner.innerHTML = `<span>👁 Modalità sola lettura${range} — non puoi modificare</span><button onclick="window.__m361Logout&&window.__m361Logout()" style="background:#92400e;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;pointer-events:auto!important;flex-shrink:0">Esci →</button>`;
             document.body.insertBefore(banner,
               document.getElementById('m361-header')?.nextSibling || document.body.firstChild);
           }
@@ -927,8 +927,8 @@ function buildNav() {
           banner.style.cssText =
             'background:#fef3c7;border-bottom:2px solid #f59e0b;padding:10px 20px;' +
             'font-size:14px;font-weight:600;color:#92400e;text-align:center;' +
-            'position:sticky;top:56px;z-index:8999';
-          banner.textContent = '👁 Modalità sola lettura — non puoi modificare questa sezione';
+            'position:sticky;top:56px;z-index:8999;display:flex;align-items:center;justify-content:center;gap:12px';
+          banner.innerHTML = `<span>👁 Modalità sola lettura — non puoi modificare questa sezione</span><button onclick="window.__m361Logout&&window.__m361Logout()" style="background:#92400e;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;pointer-events:auto!important;flex-shrink:0">Esci →</button>`;
           document.body.insertBefore(banner,
             document.getElementById('m361-header')?.nextSibling || document.body.firstChild);
         }
