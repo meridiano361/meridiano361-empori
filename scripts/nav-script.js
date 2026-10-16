@@ -567,7 +567,7 @@ html.m361-grande{zoom:1.25}
             <span class="hd-user-email">${emailFull}</span>
           </div>
         </a>` : ''}
-        <button id="m361-logout-btn" onclick="if(confirm('Vuoi uscire?'))window.__m361Logout&&window.__m361Logout()" title="Esci" style="background:none;border:none;cursor:pointer;padding:6px 8px;color:#64748b;font-size:17px;display:flex;align-items:center;flex-shrink:0;line-height:1;transition:color .15s" onmouseenter="this.style.color='#B5453A'" onmouseleave="this.style.color='#64748b'">
+        <button id="m361-logout-btn" onclick="window.__m361Logout&&window.__m361Logout()" title="Esci" style="background:none;border:none;cursor:pointer;padding:6px 8px;color:#64748b;font-size:17px;display:flex;align-items:center;flex-shrink:0;line-height:1;transition:color .15s;pointer-events:auto!important;display:flex!important;opacity:1!important" onmouseenter="this.style.color='#B5453A'" onmouseleave="this.style.color='#64748b'">
           <i class="fas fa-right-from-bracket"></i>
         </button>
       </div>
@@ -1045,6 +1045,14 @@ function buildNav() {
       input[type="checkbox"].readonly-toggle {
         pointer-events: none !important;
         opacity: 0.5 !important;
+      }
+
+      /* Logout sempre cliccabile anche in readonly */
+      #m361-logout-btn {
+        display: flex !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        visibility: visible !important;
       }
 
       /* Badge SOLA LETTURA nell'header */
