@@ -2765,9 +2765,15 @@ let _bdList = [];            // lista corrente (usata dalla coda)
 let _bdQueueIdx = 0;
 
 function _decodeTplText(raw) {
-  const ta = document.createElement('textarea');
-  ta.innerHTML = raw || '';
-  return ta.value;
+  if (!raw) return '';
+  return raw
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)));
 }
 
 function _encodeWAText(text) {
