@@ -355,9 +355,18 @@
                             <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold border border-slate-200 rounded-xl px-3 py-2 text-slate-500">Annulla</button>
                         </div>
                     </div>
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Tipo cliente:</span>
+                        <div class="flex p-1 bg-gray-100 rounded-xl">
+                            <button type="button" id="tipo-privato-btn" onclick="setCustTipo('privato')" class="px-3 py-1 rounded-lg bg-white text-xs font-bold shadow-sm transition-all">Privato</button>
+                            <button type="button" id="tipo-azienda-btn" onclick="setCustTipo('azienda')" class="px-3 py-1 rounded-lg text-xs font-bold text-slate-400 transition-all">Azienda / Assoc.</button>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input" oninput="clearSelectedCliente()">
-                        <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="clearSelectedCliente()">
+                        <div id="cust-cognome-wrap">
+                            <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="clearSelectedCliente()">
+                        </div>
                         <div class="relative">
                             <input type="cel" id="cust-cel" placeholder="Cellulare *" required class="form-input pr-10">
                             <button type="button" id="btn-wa" class="absolute right-3 top-3 transition-colors wa-active">
@@ -492,6 +501,27 @@
         let currentType = 'standard';
         let groupCount = 0;
         let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Mantova", "Viadana"];
+        let _custTipo = 'privato';
+
+        function setCustTipo(tipo) {
+            _custTipo = tipo;
+            const isAz = tipo === 'azienda';
+            const activeClass = 'px-3 py-1 rounded-lg bg-white text-xs font-bold shadow-sm transition-all';
+            const inactiveClass = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-400 transition-all';
+            document.getElementById('tipo-privato-btn').className = isAz ? inactiveClass : activeClass;
+            document.getElementById('tipo-azienda-btn').className = isAz ? activeClass : inactiveClass;
+            const nomeInput = document.getElementById('cust-nome');
+            const cogWrap = document.getElementById('cust-cognome-wrap');
+            const cogInput = document.getElementById('cust-cognome');
+            nomeInput.placeholder = isAz ? 'Ragione sociale *' : 'Nome *';
+            cogWrap.style.display = isAz ? 'none' : '';
+            cogInput.required = !isAz;
+            if (isAz) {
+                cogInput.value = '';
+                document.getElementById('salva-rubrica-bar')?.classList.add('hidden');
+                document.getElementById('rubrica-actions')?.classList.add('hidden');
+            }
+        }
 
         const OPERATORI_DATA = {
             "Cremona": ["Chiara Monteverdi", "Emilio Mazzolari"],
@@ -645,6 +675,7 @@
             // Cliente
             setValueSafe('cust-nome', order.cliente_nome);
             setValueSafe('cust-cognome', order.cliente_cognome);
+            if (!order.cliente_cognome) setCustTipo('azienda'); else setCustTipo('privato');
             setValueSafe('cust-cel', order.cliente_cellulare);
             setValueSafe('cust-email', order.cliente_email);
             
@@ -1341,8 +1372,8 @@
         function validaFormOrdine() {
             const campiObbligatori = [
                 { id: 'select-emporio', label: 'Emporio' },
-                { id: 'cust-nome',      label: 'Nome cliente' },
-                { id: 'cust-cognome',   label: 'Cognome cliente' },
+                { id: 'cust-nome',      label: _custTipo === 'azienda' ? 'Ragione sociale' : 'Nome cliente' },
+                ...(_custTipo !== 'azienda' ? [{ id: 'cust-cognome', label: 'Cognome cliente' }] : []),
                 { id: 'cust-cel',       label: 'Cellulare cliente' },
             ];
             for (const campo of campiObbligatori) {
@@ -1458,7 +1489,7 @@
                     operatore: document.getElementById('select-operatore').value,
                     data_ordine: document.getElementById('order-date').value,
                     cliente_nome: document.getElementById('cust-nome').value,
-                    cliente_cognome: document.getElementById('cust-cognome').value,
+                    cliente_cognome: _custTipo === 'azienda' ? null : (document.getElementById('cust-cognome').value || null),
                     cliente_cellulare: document.getElementById('cust-cel').value,
                     cliente_email: document.getElementById('cust-email').value,
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),

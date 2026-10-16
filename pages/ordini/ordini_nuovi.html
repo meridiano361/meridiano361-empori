@@ -478,9 +478,16 @@
                             <button type="button" onclick="toggleNuovoClienteForm()" class="text-xs font-bold border border-slate-200 rounded-xl px-3 py-2 text-slate-500">Annulla</button>
                         </div>
                     </div>
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Tipo cliente:</span>
+                        <div class="flex p-1 bg-gray-100 rounded-xl">
+                            <button type="button" id="tipo-privato-btn" onclick="setCustTipo('privato')" class="px-3 py-1 rounded-lg bg-white text-xs font-bold shadow-sm transition-all">Privato</button>
+                            <button type="button" id="tipo-azienda-btn" onclick="setCustTipo('azienda')" class="px-3 py-1 rounded-lg text-xs font-bold text-slate-400 transition-all">Azienda / Assoc.</button>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <input type="text" id="cust-nome" placeholder="Nome *" required class="form-input" oninput="onCustFieldInput()">
-                        <div class="relative">
+                        <div id="cust-cognome-wrap" class="relative">
                             <input type="text" id="cust-cognome" placeholder="Cognome *" required class="form-input" oninput="onCustFieldInput()">
                             <div id="cognome-ac-dropdown" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
                         </div>
@@ -1131,6 +1138,27 @@ function calcSubtotal(groupId) {
         let _crResults = [];
         let _crTimer  = null;
         let _selectedClienteId = null;
+        let _custTipo = 'privato';
+
+        function setCustTipo(tipo) {
+            _custTipo = tipo;
+            const isAz = tipo === 'azienda';
+            const activeClass = 'px-3 py-1 rounded-lg bg-white text-xs font-bold shadow-sm transition-all';
+            const inactiveClass = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-400 transition-all';
+            document.getElementById('tipo-privato-btn').className = isAz ? inactiveClass : activeClass;
+            document.getElementById('tipo-azienda-btn').className = isAz ? activeClass : inactiveClass;
+            const nomeInput = document.getElementById('cust-nome');
+            const cogWrap = document.getElementById('cust-cognome-wrap');
+            const cogInput = document.getElementById('cust-cognome');
+            nomeInput.placeholder = isAz ? 'Ragione sociale *' : 'Nome *';
+            cogWrap.style.display = isAz ? 'none' : '';
+            cogInput.required = !isAz;
+            if (isAz) { cogInput.value = ''; }
+            if (isAz) {
+                document.getElementById('salva-rubrica-bar')?.classList.add('hidden');
+                document.getElementById('rubrica-actions')?.classList.add('hidden');
+            }
+        }
 
         function escHtml(str) {
             return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1178,6 +1206,7 @@ function calcSubtotal(groupId) {
 
         function onCustFieldInput() {
             clearSelectedCliente();
+            if (_custTipo === 'azienda') return;
             const nome    = document.getElementById('cust-nome')?.value.trim();
             const cognome = document.getElementById('cust-cognome')?.value.trim();
             const bar = document.getElementById('salva-rubrica-bar');
@@ -1603,7 +1632,7 @@ function calcSubtotal(groupId) {
                     operatore: getValueSafe('select-operatore'),
                     data_ordine: document.getElementById('order-date').value || today,
                     cliente_nome: getValueSafe('cust-nome'),
-                    cliente_cognome: getValueSafe('cust-cognome'),
+                    cliente_cognome: _custTipo === 'azienda' ? null : (getValueSafe('cust-cognome') || null),
                     cliente_cellulare: getValueSafe('cust-cel'),
                     cliente_email: getValueSafe('cust-email'),
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),
