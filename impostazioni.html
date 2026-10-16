@@ -2991,7 +2991,7 @@
     }
 
     // Sezioni bloccate dal sistema MA sbloccabili dall'admin via utenti_permessi
-    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento']);
+    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento', 'cassa', 'analisi-commerciale']);
 
     // ── RESTRIZIONI DI SISTEMA ────────────────────────────────────────────
     function _sistemaSezioniNascoste(op) {
@@ -3003,9 +3003,10 @@
         const isAdminOp = ruolo === 'admin' || ruolo === 'dipendente';
         const isRespAcq = !!(op.is_resp_acquisti);
         const hidden = new Set();
-        // Lista Spesa, Analisi Commerciale: solo Emilio — non sbloccabili
-        if (!isEmilio) { hidden.add('lista-spesa'); hidden.add('analisi-commerciale'); }
-        // Cassa: solo Emilio o Cremona — non sbloccabile
+        // Lista Spesa: solo Emilio — non sbloccabile
+        if (!isEmilio) { hidden.add('lista-spesa'); }
+        // Analisi Commerciale, Cassa: solo Emilio per default — sbloccabili dall'admin
+        if (!isEmilio) { hidden.add('analisi-commerciale'); }
         if (!isEmilio && emporio !== 'cremona') hidden.add('cassa');
         // Preordini: bloccata se non Emilio e non is_resp_acquisti — SBLOCCABILE via permessi
         if (!isEmilio && !isRespAcq) hidden.add('preordini');
