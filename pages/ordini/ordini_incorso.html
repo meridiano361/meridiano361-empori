@@ -566,6 +566,8 @@
             }
         }
 
+        let _ordineProTemplates = {};
+
         const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -802,6 +804,16 @@
             }
         }
 
+        async function _loadOrdineProTemplates() {
+            try {
+                const { data } = await _supabase
+                    .from('tessere_messaggi')
+                    .select('tipo,testo')
+                    .in('tipo', ['ordine_pronto_ritiro', 'ordine_pronto_spedizione']);
+                if (data) data.forEach(r => { _ordineProTemplates[r.tipo] = r.testo; });
+            } catch(e) {}
+        }
+
         function inviaWaOrdine(orderId) {
             const order = allOrders.find(o => o.id === orderId);
             if (!order || !order.cliente_cellulare) return;
@@ -810,9 +822,16 @@
             const titolo = (order.titolo || generateTitoloOrdine(order) || '').trim();
             const isSpedizione = (order.modalita_consegna || '').toLowerCase().includes('spediz');
             const prodotto = titolo ? ` (${titolo})` : '';
-            const msg = isSpedizione
-                ? `Ciao ${nome}! 👋\nLa tua merce${prodotto} è pronta e verrà spedita a breve. Ti faremo sapere quando parte. A presto!`
-                : `Ciao ${nome}! 👋\nLa tua merce${prodotto} è pronta per il ritiro da Meridiano 361 - ${order.emporio || order.citta || ''}. Puoi venire quando preferisci. A presto!`;
+            const emporio = order.emporio || order.citta || '';
+            const defRitiro = `Ciao {nome}! 👋\nLa tua merce{prodotto} è pronta per il ritiro da Meridiano 361 - {emporio}. Puoi venire quando preferisci. A presto!`;
+            const defSped   = `Ciao {nome}! 👋\nLa tua merce{prodotto} è pronta e verrà spedita a breve. Ti faremo sapere quando parte. A presto!`;
+            const tmpl = isSpedizione
+                ? (_ordineProTemplates['ordine_pronto_spedizione'] || defSped)
+                : (_ordineProTemplates['ordine_pronto_ritiro']     || defRitiro);
+            const msg = tmpl
+                .replace(/\{nome\}/gi, nome)
+                .replace(/\{prodotto\}/gi, prodotto)
+                .replace(/\{emporio\}/gi, emporio);
             window.open(`https://wa.me/39${tel}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -1130,6 +1149,7 @@
                 }
             }
             loadOrders();
+            _loadOrdineProTemplates();
         });
     </script>
 
