@@ -156,17 +156,20 @@
     else el.style.display = 'none';
   });
 
-  // Card Cassa: Emilio e Chiara Monteverdi = card normale piena; tutti gli altri = badge WIP visibile
+  // Card Cassa: Emilio, Chiara Monteverdi e operatori Cremona = card normale piena
+  // Per altri empori: sbloccabile via utenti_permessi (Forza accesso in Impostazioni)
   const isChiara = (user.nome || '').toLowerCase().includes('chiara') && (user.cognome || '').toLowerCase().includes('monteverdi');
-  const isCassaOwner = isEmilio || isChiara;
-  document.querySelectorAll('[data-wip-cassa]').forEach(el => {
-    if (isCassaOwner) {
+  const isCassaOwner = isEmilio || isChiara || _emporio === 'cremona';
+
+  function _attivaCassaCard() {
+    document.querySelectorAll('[data-wip-cassa]').forEach(el => {
       el.classList.remove('wip');
       const badge = el.querySelector('.wip-badge');
       if (badge) badge.style.display = 'none';
-    }
-    // Gli altri vedono la card con badge "In costruzione" (non nascosta)
-  });
+    });
+  }
+
+  if (isCassaOwner) _attivaCassaCard();
 
   try {
     const _db = supabase.createClient(
@@ -176,13 +179,17 @@
     const { data } = await _db
       .from('utenti_permessi')
       .select('sezione, può_vedere')
-      .eq('utente_id', user.id)
-      .eq('può_vedere', false);
+      .eq('utente_id', user.id);
     if (data) {
-      data.forEach(p => {
+      const permMap = {};
+      data.forEach(p => { permMap[p.sezione] = p['può_vedere']; });
+      // Nascondi sezioni esplicitamente disabilitate
+      data.filter(p => p['può_vedere'] === false).forEach(p => {
         const el = document.querySelector(`[data-sezione="${p.sezione}"]`);
         if (el) el.style.display = 'none';
       });
+      // Cassa: sblocca se l'admin ha forzato l'accesso per altri empori
+      if (!isCassaOwner && permMap['cassa'] === true) _attivaCassaCard();
     }
   } catch (e) { /* ignora */ }
 })();
