@@ -2846,10 +2846,22 @@ async function _loadBirthdayPushLog() {
   return map;
 }
 
+async function _loadBirthdayWaLog() {
+  const anno = new Date().getFullYear();
+  const { data } = await _sb
+    .from('birthday_wa_log')
+    .select('cliente_id, esito')
+    .eq('anno', anno);
+  const map = new Map();
+  (data || []).forEach(r => map.set(String(r.cliente_id), r));
+  return map;
+}
+
 async function renderCompleanni() {
   const today = new Date();
   const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
   const pushLogMap = await _loadBirthdayPushLog();
+  const waLogMap = await _loadBirthdayWaLog();
 
   // Finestra di 7 giorni: oggi + prossimi 6
   const window7 = [];
@@ -2916,6 +2928,19 @@ async function renderCompleanni() {
                  </span>`
               : '')
         : '';
+      const waLog = c.telefono ? waLogMap.get(String(c.id)) : null;
+      const waOk = waLog?.esito === 'ok';
+      const waBadge = c.telefono
+        ? waOk
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#15803d;background:#dcfce7;border-radius:6px;padding:2px 6px;margin-top:3px">
+               <i class="fab fa-whatsapp"></i> WA inviato alle 9:00
+             </span>`
+          : (isToday
+              ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8;background:#f1f5f9;border-radius:6px;padding:2px 6px;margin-top:3px">
+                   <i class="fab fa-whatsapp"></i> WA non ancora inviato
+                 </span>`
+              : '')
+        : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9">
         ${c.telefono
           ? `<input type="checkbox" class="bd-check" data-id="${c.id}" ${isSel?'checked':''} onchange="bdToggle('${c.id}',this.checked)"
@@ -2930,6 +2955,7 @@ async function renderCompleanni() {
           </div>
           <span style="font-size:12px;color:#64748b">${d.getDate()} ${mesi[d.getMonth()]} — ${bdLabel(off)}</span>
           ${pushBadge ? `<div>${pushBadge}</div>` : ''}
+          ${waBadge ? `<div>${waBadge}</div>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;align-items:flex-end">
           <div style="display:flex;gap:4px">
