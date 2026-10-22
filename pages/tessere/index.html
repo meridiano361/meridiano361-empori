@@ -2857,6 +2857,18 @@ async function _loadBirthdayWaLog() {
   return map;
 }
 
+async function _bdMarkWaSent(clienteId) {
+  const anno = new Date().getFullYear();
+  const { error } = await _sb.from('birthday_wa_log').upsert({
+    cliente_id: clienteId,
+    anno,
+    data_invio: new Date().toISOString(),
+    esito: 'manuale',
+  }, { onConflict: 'cliente_id,anno' });
+  if (error) { showToast('Errore: ' + error.message); return; }
+  await renderCompleanni();
+}
+
 async function renderCompleanni() {
   const today = new Date();
   const mesi = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
@@ -2929,16 +2941,17 @@ async function renderCompleanni() {
               : '')
         : '';
       const waLog = c.telefono ? waLogMap.get(String(c.id)) : null;
-      const waOk = waLog?.esito === 'ok';
+      const waEsito = waLog?.esito;
+      const waOk = waEsito === 'ok' || waEsito === 'manuale';
       const waBadge = c.telefono
         ? waOk
           ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#15803d;background:#dcfce7;border-radius:6px;padding:2px 6px;margin-top:3px">
-               <i class="fab fa-whatsapp"></i> WA inviato alle 9:00
+               <i class="fab fa-whatsapp"></i> ${waEsito === 'manuale' ? 'WA inviato ✓' : 'WA inviato alle 9:00'}
              </span>`
           : (isToday
-              ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#94a3b8;background:#f1f5f9;border-radius:6px;padding:2px 6px;margin-top:3px">
-                   <i class="fab fa-whatsapp"></i> WA non ancora inviato
-                 </span>`
+              ? `<button onclick="_bdMarkWaSent(${c.id})" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;margin-top:3px;cursor:pointer">
+                   <i class="fab fa-whatsapp"></i> Segna WA inviato
+                 </button>`
               : '')
         : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f1f5f9">
