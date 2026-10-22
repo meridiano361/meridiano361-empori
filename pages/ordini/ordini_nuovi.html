@@ -419,12 +419,6 @@
                             <select id="select-operatore" required class="form-select flex-1">
                                 <option value="">Seleziona Operatore *</option>
                             </select>
-                            <button type="button" id="btn-add-operator" data-tip="Aggiungi operatore" class="bg-red-50 px-3 rounded-xl hover:bg-red-100 text-m361-red">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                            <button type="button" id="btn-remove-operator" data-tip="Rimuovi operatore" class="bg-red-50 px-3 rounded-xl hover:bg-red-200 text-m361-red">
-                                <i class="fas fa-trash-can"></i>
-                            </button>
                         </div>
 
                         <input type="date" id="order-date" required class="form-input">
@@ -636,9 +630,22 @@
         let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Mantova", "Viadana"];
 
         // Operatori per emporio: caricati da DB, fallback statico
-        let OPERATORI_DATA = {};
+        const OPERATORI_FALLBACK = {
+            "Cremona":       ["Chiara Monteverdi", "Emilio Mazzolari", "Silvia Sofia"],
+            "Casalmaggiore": ["Alessandra Rivetti", "Barbara Araldi", "Carla Maffei", "Chiara Monteverdi", "Edoardo Pavesi", "Emilio Mazzolari", "Erica Bossi", "Francesco Lunardini", "Giovanna Raineri", "Giulia Frigeri", "Giuseppe Lunardini", "Ileana Galli", "Maria Marcella Scaravonati", "Matilde Chiarini", "Michele Marchini", "Roberta Vezzosi", "Teyssir Mabrouk", "Vittoria Lunardini"],
+            "Viadana":       ["Alessia Rovina", "Ave Aroldi", "Barbara Piotrowska", "Carla Bellelli", "Carla Chittolini", "Chiara Monteverdi", "Claudio Mortini", "Donatella Falugi", "Elena Ghelfi", "Emilio Mazzolari", "Franco Furlotti", "Giuseppina Amadini", "Manuela Scazza", "Marta Sanfelici", "Mariagrazia Bertolini", "Mirella Panato", "Roberta Alberini", "Sara Germani", "Tiziana Bortesi"],
+            "Reggio Emilia": ["Alessia Bartolomei", "Elsa Scarpa", "Manuela Capanni", "Marica Pioli"],
+        };
+        let OPERATORI_DATA = { ...OPERATORI_FALLBACK };
         const OPERATORI_ESHOP = ["Chiara Monteverdi", "Emilio Mazzolari", "Silvia Sofia"];
         const CANALI_ESHOP = ["meridiano361.it", "on-earth.it"];
+
+        // Normalizza nome emporio per matchare le chiavi del select (es. 'cremona' → 'Cremona')
+        function _normalizzaEmporio(emp) {
+            if (!emp) return '';
+            const map = { cremona: 'Cremona', casalmaggiore: 'Casalmaggiore', viadana: 'Viadana', 'reggio emilia': 'Reggio Emilia', mantova: 'Mantova' };
+            return map[emp.toLowerCase().trim()] || emp.trim();
+        }
 
         async function caricaOperatori() {
             try {
@@ -651,13 +658,15 @@
                     const map = {};
                     data.forEach(op => {
                         const nomeCompleto = `${op.nome || ''} ${op.cognome || ''}`.trim();
-                        const emp = op.emporio || '';
+                        const emp = _normalizzaEmporio(op.emporio);
+                        if (!emp || !nomeCompleto) return;
                         if (!map[emp]) map[emp] = [];
-                        if (nomeCompleto && !map[emp].includes(nomeCompleto)) map[emp].push(nomeCompleto);
+                        if (!map[emp].includes(nomeCompleto)) map[emp].push(nomeCompleto);
                     });
-                    OPERATORI_DATA = map;
+                    // Usa dati DB solo se contenuto plausibile (>= 2 empori trovati)
+                    if (Object.keys(map).length >= 2) OPERATORI_DATA = map;
                 }
-            } catch(e) { /* usa fallback vuoto, l'utente può aggiungere manualmente */ }
+            } catch(e) { /* usa fallback statico */ }
         }
 
         // ORDER NUMBER FUNCTIONS
@@ -2165,8 +2174,8 @@ function toggleGusto(groupId) {
             
             document.getElementById('btn-add-city').addEventListener('click', addNewCityPrompt);
             document.getElementById('btn-remove-city').addEventListener('click', removeCurrentCity);
-            document.getElementById('btn-add-operator').addEventListener('click', addNewOperatorPrompt);
-            document.getElementById('btn-remove-operator').addEventListener('click', removeCurrentOperator);
+            document.getElementById('btn-add-operator')?.addEventListener('click', addNewOperatorPrompt);
+            document.getElementById('btn-remove-operator')?.addEventListener('click', removeCurrentOperator);
             
             // Customer fields
             document.getElementById('cust-nome').addEventListener('input', refreshNumeroOrdinePreview);
