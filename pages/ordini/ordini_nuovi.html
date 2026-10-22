@@ -635,12 +635,30 @@
         let groupCount = 0;
         let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Mantova", "Viadana"];
 
-        const OPERATORI_DATA = {
-            "Cremona": ["Chiara Monteverdi", "Emilio Mazzolari"],
-            "Casalmaggiore": ["Alessandra Rivetti", "Barbara Araldi", "Carla Maffei", "Chiara Monteverdi", "Edoardo Pavesi", "Emilio Mazzolari", "Erica Bossi", "Francesco Lunardini", "Giovanna Raineri", "Giulia Frigeri", "Giuseppe Lunardini", "Ileana Galli", "Maria Marcella Scaravonati", "Matilde Chiarini", "Michele Marchini", "Roberta Vezzosi", "Teyssir Mabrouk", "Vittoria Lunardini"],
-            "Viadana": ["Alessia Rovina", "Ave Aroldi", "Barbara Piotrowska", "Carla Bellelli", "Carla Chittolini", "Chiara Monteverdi", "Claudio Mortini", "Donatella Falugi", "Elena Ghelfi", "Emilio Mazzolari", "Franco Furlotti", "Giuseppina Amadini", "Manuela Scazza", "Marta Sanfelici", "Mariagrazia Bertolini", "Mirella Panato", "Roberta Alberini", "Sara Germani", "Tiziana Bortesi"],
-            "Reggio Emilia": ["Alessia Bartolomei", "Elsa Scarpa", "Manuela Capanni", "Marica Pioli"]
-        };
+        // Operatori per emporio: caricati da DB, fallback statico
+        let OPERATORI_DATA = {};
+        const OPERATORI_ESHOP = ["Chiara Monteverdi", "Emilio Mazzolari", "Silvia Sofia"];
+        const CANALI_ESHOP = ["meridiano361.it", "on-earth.it"];
+
+        async function caricaOperatori() {
+            try {
+                const { data } = await _supabase
+                    .from('operatori')
+                    .select('nome, cognome, emporio')
+                    .eq('attivo', true)
+                    .order('cognome');
+                if (data && data.length) {
+                    const map = {};
+                    data.forEach(op => {
+                        const nomeCompleto = `${op.nome || ''} ${op.cognome || ''}`.trim();
+                        const emp = op.emporio || '';
+                        if (!map[emp]) map[emp] = [];
+                        if (nomeCompleto && !map[emp].includes(nomeCompleto)) map[emp].push(nomeCompleto);
+                    });
+                    OPERATORI_DATA = map;
+                }
+            } catch(e) { /* usa fallback vuoto, l'utente può aggiungere manualmente */ }
+        }
 
         // ORDER NUMBER FUNCTIONS
         function emporioCode(citta) {
@@ -742,22 +760,34 @@ document.getElementById('numero-ordine-preview').value = '';
             refreshNumeroOrdinePreview();
         }
 
-        function handleCittaChange() {
+        function _popolaOperatori() {
             const citta = getValueSafe('select-emporio');
-            const canaleContainer = document.getElementById('canale-cremona-container');
+            const canale = getValueSafe('select-canale');
             const opSelect = document.getElementById('select-operatore');
-            
-            canaleContainer.classList.toggle('hidden', citta !== 'Cremona');
-            document.getElementById('select-canale').required = (citta === 'Cremona');
-            
+            const prevVal = opSelect.value;
+            const isEshop = CANALI_ESHOP.includes(canale);
+            const lista = isEshop
+                ? OPERATORI_ESHOP.slice().sort()
+                : (OPERATORI_DATA[citta] || []).slice().sort();
             opSelect.innerHTML = '<option value="">Seleziona Operatore *</option>';
-            (OPERATORI_DATA[citta] || []).sort().forEach(op => {
+            lista.forEach(op => {
                 const opt = document.createElement('option');
                 opt.value = op;
                 opt.text = op;
                 opSelect.add(opt);
             });
-            
+            if (prevVal && lista.includes(prevVal)) opSelect.value = prevVal;
+        }
+
+        function handleCittaChange() {
+            const citta = getValueSafe('select-emporio');
+            const canaleContainer = document.getElementById('canale-cremona-container');
+
+            canaleContainer.classList.toggle('hidden', citta !== 'Cremona');
+            document.getElementById('select-canale').required = (citta === 'Cremona');
+            if (citta !== 'Cremona') document.getElementById('select-canale').value = '';
+
+            _popolaOperatori();
             updateAllEmporiDropdowns();
             refreshNumeroOrdinePreview();
         }
@@ -2121,13 +2151,15 @@ function toggleGusto(groupId) {
             
             // Emporio management
             document.getElementById('select-emporio').addEventListener('change', function() { handleCittaChange(); updateNumeroOrdine(); });
+            document.getElementById('select-canale').addEventListener('change', function() { _popolaOperatori(); refreshNumeroOrdinePreview(); });
             // Pre-imposta emporio dell'utente (modificabile da tutti)
-            if (typeof inizializzaSelectEmporio === 'function') {
-                inizializzaSelectEmporio('select-emporio', { lock: false });
-                handleCittaChange();
-                updateNumeroOrdine();
-            }
-            document.getElementById('select-canale').addEventListener('change', refreshNumeroOrdinePreview);
+            caricaOperatori().then(() => {
+                if (typeof inizializzaSelectEmporio === 'function') {
+                    inizializzaSelectEmporio('select-emporio', { lock: false });
+                    handleCittaChange();
+                    updateNumeroOrdine();
+                }
+            });
             document.getElementById('select-operatore').addEventListener('change', refreshNumeroOrdinePreview);
             document.getElementById('order-date').addEventListener('change', function() { refreshNumeroOrdinePreview(); updateNumeroOrdine(); });
             
