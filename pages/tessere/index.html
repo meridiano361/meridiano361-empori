@@ -3445,14 +3445,35 @@ async function _renderMovimentiToEl(el, tesseraId) {
   const fmtDt = s => s ? new Date(s).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
 
   const rows = [
-    ...(movimenti || []).map(m => ({
-      ts: m.created_at,
-      icon: 'fa-euro-sign', iconColor: '#059669',
-      label: m.note === 'Da cartacea'
-        ? `Da cartacea: +${m.timbri_aggiunti} timbr${m.timbri_aggiunti !== 1 ? 'i' : 'o'}`
-        : `Spesa €${Number(m.importo).toFixed(2)} → +${m.timbri_aggiunti} timbr${m.timbri_aggiunti !== 1 ? 'i' : 'o'}`,
-      sub: fmtDt(m.created_at) + (m.operatore ? ' · ' + m.operatore : '') + (m.sconto_generato > 0 ? ` · +€${Number(m.sconto_generato).toFixed(2)} sconto` : ''),
-    })),
+    ...(movimenti || []).map(m => {
+      const note = (m.note || '').trim();
+      const delta = Number(m.timbri_aggiunti) || 0;
+      const importo = Number(m.importo) || 0;
+      let icon, iconColor, label;
+      if (note === 'Omaggio') {
+        icon = 'fa-gift'; iconColor = '#f59e0b';
+        label = `+${delta} timbr${delta !== 1 ? 'i' : 'o'} omaggio`;
+      } else if (note === 'Rettifica' || delta < 0) {
+        icon = 'fa-minus-circle'; iconColor = '#dc2626';
+        label = `Rettifica: ${delta} timbr${Math.abs(delta) !== 1 ? 'i' : 'o'}`;
+      } else if (note === 'Ripristino') {
+        icon = 'fa-rotate-right'; iconColor = '#64748b';
+        label = `Ripristino: +${delta} timbr${delta !== 1 ? 'i' : 'o'}`;
+      } else if (note.startsWith('Da cartacea')) {
+        icon = 'fa-arrow-right-arrow-left'; iconColor = '#7c3aed';
+        label = `${note}: +${delta} timbr${delta !== 1 ? 'i' : 'o'}`;
+      } else if (importo > 0) {
+        icon = 'fa-euro-sign'; iconColor = '#059669';
+        label = `Spesa €${importo.toFixed(2)} → +${delta} timbr${delta !== 1 ? 'i' : 'o'}`;
+      } else {
+        icon = 'fa-stamp'; iconColor = '#94a3b8';
+        label = note ? `${note}: ${delta > 0 ? '+' : ''}${delta} timbr${Math.abs(delta) !== 1 ? 'i' : 'o'}` : `+${delta} timbr${delta !== 1 ? 'i' : 'o'}`;
+      }
+      return {
+        ts: m.created_at, icon, iconColor, label,
+        sub: fmtDt(m.created_at) + (m.operatore ? ' · ' + m.operatore : '') + (m.sconto_generato > 0 ? ` · +€${Number(m.sconto_generato).toFixed(2)} sconto generato` : ''),
+      };
+    }),
     ...(sconti || []).map(s => ({
       ts: s.created_at || s.data_utilizzo,
       icon: s.tipo === 'compleanno' ? 'fa-birthday-cake' : 'fa-gift', iconColor: s.tipo === 'compleanno' ? '#ec4899' : '#f59e0b',
@@ -5368,15 +5389,36 @@ async function apriStoricoTessera(tesseraId) {
   const fmtDt = s => s ? new Date(s).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' }) : '';
 
   const rows = [
-    ...(movimenti||[]).map(m => ({
-      key: `mov-${m.id}`, ts: m.created_at,
-      icon: '€', color: '#059669',
-      label: m.note==='Da cartacea'
-        ? `Da cartacea: +${m.timbri_aggiunti} timbr${m.timbri_aggiunti!==1?'i':'o'}${m.sconto_generato>0?` · 🎁 €${m.sconto_generato} sconto generato`:''}`
-        : `Spesa €${Number(m.importo).toFixed(2)} → +${m.timbri_aggiunti} timbr${m.timbri_aggiunti!==1?'i':'o'}${m.sconto_generato>0?` · 🎁 €${m.sconto_generato} sconto generato`:''}`,
-      sub: `${fmtDt(m.created_at)}${m.operatore?' · '+m.operatore:''}`,
-      onAnnulla: `annullaMovimento(${m.id},'${tesseraId}',${m.timbri_aggiunti},${m.importo},${m.sconto_generato||0})`,
-    })),
+    ...(movimenti||[]).map(m => {
+      const note = (m.note || '').trim();
+      const delta = Number(m.timbri_aggiunti) || 0;
+      const importo = Number(m.importo) || 0;
+      let icon, color, label;
+      if (note === 'Omaggio') {
+        icon = '🎁'; color = '#f59e0b';
+        label = `+${delta} timbr${delta !== 1 ? 'i' : 'o'} omaggio`;
+      } else if (note === 'Rettifica' || delta < 0) {
+        icon = '−'; color = '#dc2626';
+        label = `Rettifica: ${delta} timbr${Math.abs(delta) !== 1 ? 'i' : 'o'}`;
+      } else if (note === 'Ripristino') {
+        icon = '↩'; color = '#64748b';
+        label = `Ripristino: +${delta} timbr${delta !== 1 ? 'i' : 'o'}`;
+      } else if (note.startsWith('Da cartacea')) {
+        icon = '⇄'; color = '#7c3aed';
+        label = `${note}: +${delta} timbr${delta !== 1 ? 'i' : 'o'}${m.sconto_generato > 0 ? ` · 🎁 €${m.sconto_generato} sconto` : ''}`;
+      } else if (importo > 0) {
+        icon = '€'; color = '#059669';
+        label = `Spesa €${importo.toFixed(2)} → +${delta} timbr${delta !== 1 ? 'i' : 'o'}${m.sconto_generato > 0 ? ` · 🎁 €${m.sconto_generato} sconto` : ''}`;
+      } else {
+        icon = '·'; color = '#94a3b8';
+        label = note || `+${delta} timbr${delta !== 1 ? 'i' : 'o'}`;
+      }
+      return {
+        key: `mov-${m.id}`, ts: m.created_at, icon, color, label,
+        sub: `${fmtDt(m.created_at)}${m.operatore?' · '+m.operatore:''}`,
+        onAnnulla: `annullaMovimento(${m.id},'${tesseraId}',${m.timbri_aggiunti},${m.importo},${m.sconto_generato||0})`,
+      };
+    }),
     ...(sconti||[]).map(s => ({
       key: `sc-${s.id}`, ts: s.created_at,
       icon: s.tipo==='compleanno'?'🎂':'🎁', color: s.tipo==='compleanno'?'#ec4899':'#f59e0b',
@@ -5734,6 +5776,16 @@ async function setTimbriOmaggio(tesseraId, nuovi) {
   const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : '';
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updatePayload };
+  // Registra il movimento per lasciare traccia nello storico
+  await _sb.from('movimenti_tessera').insert({
+    tessera_id:      tesseraId,
+    importo:         0,
+    timbri_aggiunti: delta,
+    sconto_generato: 0,
+    operatore:       _user?.nome || '',
+    note:            delta > 0 ? 'Omaggio' : 'Rettifica',
+  }).then(({ error: e }) => { if (e) console.warn('[movimenti_tessera omaggio]', e.message); });
+  _digMovLoaded.delete(tesseraId); // forza ricarico storico se già aperto
   showToast(delta > 0 ? `+${delta} timbr${delta>1?'i':'o'} omaggio → ${nome}` : `${Math.abs(delta)} timbr${Math.abs(delta)>1?'i':'o'} rimoss${Math.abs(delta)>1?'i':'o'} → ${nome}`);
   renderDigitale();
   _updateHomeStats();
@@ -5761,6 +5813,15 @@ async function ripristinaTimbro(tesseraId) {
   const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : '';
   const idx = allTessere.findIndex(x => x.id === tesseraId);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: nuovi };
+  await _sb.from('movimenti_tessera').insert({
+    tessera_id:      tesseraId,
+    importo:         0,
+    timbri_aggiunti: 1,
+    sconto_generato: 0,
+    operatore:       _user?.nome || '',
+    note:            'Ripristino',
+  }).then(({ error: e }) => { if (e) console.warn('[movimenti_tessera ripristino]', e.message); });
+  _digMovLoaded.delete(tesseraId);
   showToast(`↩ Timbro ripristinato → ${nome}`);
   renderDigitale();
   _updateHomeStats();
