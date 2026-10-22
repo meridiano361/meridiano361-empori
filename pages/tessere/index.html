@@ -914,6 +914,52 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
   </div>
 </div>
 
+<!-- MODIFICA TESSERA STORICO MODAL -->
+<div class="spesa-modal" id="tessera-edit-modal" onclick="if(event.target===this)chiudiEditTessera()">
+  <div class="spesa-sheet" style="max-width:380px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 id="tessera-edit-title" style="margin:0;font-size:16px;font-weight:800">Modifica tessera</h3>
+      <button onclick="chiudiEditTessera()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="tessera-edit-id">
+    <input type="hidden" id="tessera-edit-cliente-id">
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex:2">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Codice tessera</label>
+        <input id="tessera-edit-codice" type="text" class="importo-input" style="font-size:15px;padding:9px 12px">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Timbri</label>
+        <input id="tessera-edit-timbri" type="number" min="0" max="12" class="importo-input" style="font-size:15px;padding:9px 12px">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Data emissione</label>
+      <input id="tessera-edit-emissione" type="date" class="importo-input" style="font-size:15px;padding:9px 12px">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Data rinnovo</label>
+      <input id="tessera-edit-rinnovo" type="date" class="importo-input" style="font-size:15px;padding:9px 12px">
+    </div>
+    <div id="tessera-edit-motivo-wrap" style="margin-bottom:18px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Motivo rinnovo</label>
+      <select id="tessera-edit-motivo" class="importo-input" style="font-size:14px;padding:9px 12px">
+        <option value="">— nessuno —</option>
+        <option value="completata">Completata</option>
+        <option value="smarrita">Smarrita</option>
+        <option value="digitale">→ Digitale</option>
+        <option value="cambio_status">Cambio status</option>
+        <option value="persa">Persa/Danneggiata</option>
+        <option value="upgrade">Cambio tipo</option>
+        <option value="altro">Altro</option>
+      </select>
+    </div>
+    <button onclick="salvaEditTessera()" class="btn" style="width:100%;background:#B5453A;color:#fff;font-size:14px;padding:12px">
+      <i class="fas fa-floppy-disk"></i> Salva modifiche
+    </button>
+  </div>
+</div>
+
 <!-- SCHEDA ANAGRAFICA CLIENTE MODAL -->
 <div class="spesa-modal" id="scheda-modal" onclick="if(event.target===this)chiudiSchedaCliente()">
   <div class="spesa-sheet" style="max-width:400px">
@@ -3292,13 +3338,27 @@ function renderStoricoTessere(clienteId) {
       const dataEm  = t.data_emissione ? fmtDate(t.data_emissione) : '—';
       const dataRin = t.data_rinnovo   ? ` → ${fmtDate(t.data_rinnovo)}` : '';
       const timbri  = t.timbri_attuali != null ? ` <span style="color:#94a3b8;font-size:10px">${t.timbri_attuali}/${TIMBRI_MAX}</span>` : '';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;gap:8px">
-        <div style="min-width:0">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">${ordLabel}</div>
-          <div style="font-weight:700;color:#1e293b">${codice}${timbri}</div>
-          <div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div>
+      const movimentiBlocco = t.ha_carta_digitale
+        ? `<div id="mov-${t.id}" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border-radius:8px;font-size:11px">
+             <div style="color:#94a3b8;text-align:center">Caricamento…</div>
+           </div>
+           <button onclick="_toggleMovimenti('${t.id}')" style="margin-top:4px;font-size:10px;font-weight:700;color:#0ea5e9;background:none;border:none;cursor:pointer;padding:0">
+             <i class="fas fa-list-check" style="font-size:9px"></i> Storico timbri
+           </button>`
+        : '';
+      return `<div style="padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">${ordLabel}</div>
+            <div style="font-weight:700;color:#1e293b">${codice}${timbri}</div>
+            <div style="color:#94a3b8;margin-top:1px">${dataEm}${dataRin}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:11px;font-weight:800;color:${statoColor};white-space:nowrap"><i class="fas ${statoIcon}" style="font-size:10px"></i> ${statoLabel}</span>
+            <button onclick="apriEditTessera('${t.id}','${clienteId}')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;cursor:pointer;font-size:11px;color:#475569" title="Modifica"><i class="fas fa-pen"></i></button>
+          </div>
         </div>
-        <span style="font-size:11px;font-weight:800;color:${statoColor};white-space:nowrap"><i class="fas ${statoIcon}" style="font-size:10px"></i> ${statoLabel}</span>
+        ${movimentiBlocco}
       </div>`;
     }).join('');
   }
@@ -3360,6 +3420,116 @@ function renderStoricoTessere(clienteId) {
 }
 
 let _selectedMotivo = null;
+
+// ── Storico timbri digitali ───────────────────────────────────────────────────
+
+const _movLoaded = new Set();
+
+async function _toggleMovimenti(tesseraId) {
+  const el = document.getElementById('mov-' + tesseraId);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : '';
+  if (!isOpen && !_movLoaded.has(tesseraId)) {
+    _movLoaded.add(tesseraId);
+    await _renderMovimenti(tesseraId);
+  }
+}
+
+async function _renderMovimenti(tesseraId) {
+  const el = document.getElementById('mov-' + tesseraId);
+  if (!el) return;
+
+  const [{ data: movimenti }, { data: sconti }] = await Promise.all([
+    _sb.from('movimenti_tessera').select('*').eq('tessera_id', tesseraId).order('created_at', { ascending: false }),
+    _sb.from('tessere_sconti').select('*').eq('tessera_id', tesseraId).order('created_at', { ascending: false }),
+  ]);
+
+  const fmtDt = s => s ? new Date(s).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+
+  const rows = [
+    ...(movimenti || []).map(m => ({
+      ts: m.created_at,
+      icon: 'fa-euro-sign', iconColor: '#059669',
+      label: m.note === 'Da cartacea'
+        ? `Da cartacea: +${m.timbri_aggiunti} timbr${m.timbri_aggiunti !== 1 ? 'i' : 'o'}`
+        : `Spesa €${Number(m.importo).toFixed(2)} → +${m.timbri_aggiunti} timbr${m.timbri_aggiunti !== 1 ? 'i' : 'o'}`,
+      sub: fmtDt(m.created_at) + (m.operatore ? ' · ' + m.operatore : '') + (m.sconto_generato > 0 ? ` · +€${Number(m.sconto_generato).toFixed(2)} sconto` : ''),
+    })),
+    ...(sconti || []).map(s => ({
+      ts: s.created_at || s.data_utilizzo,
+      icon: s.tipo === 'compleanno' ? 'fa-birthday-cake' : 'fa-gift', iconColor: s.tipo === 'compleanno' ? '#ec4899' : '#f59e0b',
+      label: s.tipo === 'compleanno' ? 'Sconto compleanno 10% utilizzato' : `Sconto tessera ${s.valore_sconto} utilizzato`,
+      sub: fmtDt(s.data_utilizzo),
+    })),
+  ].sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="color:#94a3b8;text-align:center">Nessun movimento</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Storico timbri</div>
+    ${rows.map(r => `
+      <div style="display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid #e2e8f0">
+        <div style="width:22px;height:22px;border-radius:50%;background:${r.iconColor}18;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
+          <i class="fas ${r.icon}" style="font-size:9px;color:${r.iconColor}"></i>
+        </div>
+        <div style="min-width:0">
+          <div style="font-weight:700;color:#1e293b">${r.label}</div>
+          <div style="color:#94a3b8;font-size:10px">${r.sub}</div>
+        </div>
+      </div>`).join('')}`;
+}
+
+// ── Modifica tessera storico ──────────────────────────────────────────────────
+
+function apriEditTessera(tesseraId, clienteId) {
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const isFirst = !t.motivo_rinnovo && allTessere.filter(x => x.cliente_id === t.cliente_id).length > 1
+    ? allTessere.filter(x => x.cliente_id === t.cliente_id)
+        .sort((a, b) => (a.data_emissione || a.created_at || '') > (b.data_emissione || b.created_at || '') ? 1 : -1)[0]?.id === tesseraId
+    : true;
+
+  document.getElementById('tessera-edit-id').value = tesseraId;
+  document.getElementById('tessera-edit-cliente-id').value = clienteId;
+  document.getElementById('tessera-edit-title').textContent = `Modifica ${isFirst ? 'iscrizione' : 'rinnovo'}`;
+  document.getElementById('tessera-edit-codice').value = t.codice_tessera || '';
+  document.getElementById('tessera-edit-timbri').value = t.timbri_attuali ?? '';
+  document.getElementById('tessera-edit-emissione').value = t.data_emissione ? t.data_emissione.slice(0, 10) : '';
+  document.getElementById('tessera-edit-rinnovo').value = t.data_rinnovo ? t.data_rinnovo.slice(0, 10) : '';
+  document.getElementById('tessera-edit-motivo').value = t.motivo_rinnovo || '';
+  document.getElementById('tessera-edit-modal').classList.add('open');
+}
+
+function chiudiEditTessera() {
+  document.getElementById('tessera-edit-modal').classList.remove('open');
+}
+
+async function salvaEditTessera() {
+  const tesseraId = document.getElementById('tessera-edit-id').value;
+  const clienteId = document.getElementById('tessera-edit-cliente-id').value;
+  const payload = {
+    codice_tessera: document.getElementById('tessera-edit-codice').value.trim() || null,
+    timbri_attuali: parseInt(document.getElementById('tessera-edit-timbri').value, 10) || 0,
+    data_emissione: document.getElementById('tessera-edit-emissione').value || null,
+    data_rinnovo:   document.getElementById('tessera-edit-rinnovo').value || null,
+    motivo_rinnovo: document.getElementById('tessera-edit-motivo').value || null,
+    updated_at:     new Date().toISOString(),
+  };
+
+  const { error } = await _sb.from('tessere').update(payload).eq('id', tesseraId);
+  if (error) { showToast('Errore: ' + error.message); return; }
+
+  const idx = allTessere.findIndex(x => x.id === tesseraId);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...payload };
+
+  chiudiEditTessera();
+  renderStoricoTessere(clienteId);
+  showToast('Tessera aggiornata ✓');
+}
 
 function selectMotivo(e) {
   const opt = e.target.closest('.rinnovo-opt');
