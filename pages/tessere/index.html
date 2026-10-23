@@ -3758,6 +3758,25 @@ function renderTessereTab() {
     });
   }
 
+  // Deduplicazione: una sola tessera per cliente_id (la più "rilevante")
+  // Priorità: attiva > data_rinnovo/emissione più recente
+  {
+    const best = new Map();
+    tessere.forEach(t => {
+      const key = String(t.cliente_id);
+      const isAttiva = t.attiva !== false;
+      const existing = best.get(key);
+      if (!existing) { best.set(key, t); return; }
+      const existingAttiva = existing.attiva !== false;
+      if (isAttiva && !existingAttiva) { best.set(key, t); return; }
+      if (!isAttiva && existingAttiva) return;
+      const dateA = t.data_rinnovo || t.data_emissione || '';
+      const dateB = existing.data_rinnovo || existing.data_emissione || '';
+      if (dateA > dateB) best.set(key, t);
+    });
+    tessere = Array.from(best.values());
+  }
+
   // Sort
   const _cm = _getClientiMap();
   tessere.sort((a, b) => {
@@ -3786,7 +3805,7 @@ function renderTessereTab() {
   const nIscr = tessere.filter(t => iscrizioniSet.has(t.id)).length;
   const nRinn = totale - nIscr;
   const countEl = document.getElementById('tess-count');
-  if (countEl) countEl.innerHTML = `<span style="color:#64748b">${totale} tessere</span>`
+  if (countEl) countEl.innerHTML = `<span style="color:#64748b">${totale} clienti</span>`
     + (nIscr > 0 ? ` &nbsp;<span style="font-size:11px;background:#dcfce7;color:#16a34a;border-radius:20px;padding:1px 8px;font-weight:700">${nIscr} iscrizioni</span>` : '')
     + (nRinn > 0 ? ` <span style="font-size:11px;background:#dbeafe;color:#2563eb;border-radius:20px;padding:1px 8px;font-weight:700">${nRinn} rinnovi</span>` : '');
 
