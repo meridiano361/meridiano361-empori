@@ -984,7 +984,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
     <div style="display:flex;gap:10px;margin-bottom:12px">
       <div style="flex:2">
         <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Città</label>
-        <input id="scheda-citta" type="text" class="importo-input" style="font-size:15px;padding:9px 12px">
+        <input id="scheda-citta" type="text" class="importo-input" style="font-size:15px;padding:9px 12px" oninput="autoProvincia('scheda-citta')" onblur="autoProvincia('scheda-citta')">
       </div>
       <div style="flex:1">
         <label style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;display:block;margin-bottom:4px">Prov.</label>
@@ -3916,6 +3916,39 @@ const _CITTA_PROV = {
   'milano':'MI','bergamo':'BG','brescia':'BS','como':'CO',
   'cremona':'CR','casalmaggiore':'CR','crema':'CR','soresina':'CR','piadena':'CR',
   'rivarolo del re':'CR','isola dovarese':'CR','bozzolo':'MN',
+  // CR – comuni provincia di Cremona (lista completa)
+  'acquanegra cremonese':'CR','annicco':'CR','azzanello':'CR','bagnolo cremasco':'CR',
+  'bottaiano':'CR','bonemerse':'CR','calvatone':'CR','cappella cantone':'CR',
+  'cappella de\' picenardi':'CR','casalbuttano ed uniti':'CR','casale cremasco-vidolasco':'CR',
+  'casaletto ceredano':'CR','casaletto di sopra':'CR','casaletto vaprio':'CR',
+  'castel gabbiano':'CR','casteldidone':'CR','castelleone':'CR','castelverde':'CR',
+  'castelvisconti':'CR','cella dati':'CR','cicognolo':'CR','cingia de\' botti':'CR',
+  'corte de\' cortesi con cignone':'CR','corte de\' frati':'CR',
+  'credera rubbiano':'CR','cremosano':'CR','derovere':'CR','dovera':'CR',
+  'fiesco':'CR','formigara':'CR','gadesco-pieve delmona':'CR','gerre de\' caprioli':'CR',
+  'grumello cremonese':'CR','gussola':'CR','izano':'CR','jovenazze':'CR',
+  'azzanello':'CR','malagnino':'CR','martignana di po':'CR','monte cremasco':'CR',
+  'montodine':'CR','moscazzano':'CR','motta baluffi':'CR','offanengo':'CR',
+  'olmeneta':'CR','ostiano':'CR','paderno ponchielli':'CR','palace':'CR',
+  'pandino':'CR','pescarolo ed uniti':'CR','pessina cremonese':'CR',
+  'pieve d\'olmi':'CR','pieve san giacomo':'CR','pizzighettone':'CR','polesine parmense':'CR',
+  'quintano':'CR','ricengo':'CR','ripalta arpina':'CR','ripalta cremasca':'CR',
+  'ripalta guerina':'CR','rivolta d\'adda':'CR','robecco d\'oglio':'CR',
+  'romanengo':'CR','salvirola':'CR','san bassano':'CR','san daniele po':'CR',
+  'san giovanni in croce':'CR','san martino del lago':'CR',
+  'scandolara ravara':'CR','scandolara ripa d\'oglio':'CR',
+  'sergnano':'CR','sesto ed uniti':'CR','soma lombardo':'CR','spineda':'CR',
+  'stagno lombardo':'CR','ticengo':'CR','torlino vimercati':'CR',
+  'torricella del pizzo':'CR','trescore cremasco':'CR','trigolo':'CR',
+  'vescovato':'CR','volongo':'CR','voltido':'CR',
+  'motta de\' conti':'CR','pescarolo':'CR','san marino':'CR',
+  // MN – comuni zona Viadana/Castiglione
+  'viadana':'MN','dosolo':'MN','pomponesco':'MN','sabbioneta':'MN',
+  'commessaggio':'MN','gazzuolo':'MN','san martino dall\'argine':'MN',
+  'schivenoglia':'MN','sustinente':'MN','villa poma':'MN','st.benedetto po':'MN',
+  'san benedetto po':'MN','quingentole':'MN','borgofranco sul po':'MN',
+  'rodigo':'MN','porto mantovano':'MN','virgilio':'MN','curtatone':'MN',
+  'roncoferraro':'MN','roverbella':'MN','bigarello':'MN',
   'lecco':'LC','lodi':'LO','mantova':'MN','monza':'MB','pavia':'PV',
   'sondrio':'SO','varese':'VA','busto arsizio':'VA','gallarate':'VA','saronno':'VA',
   'viadana':'MN','suzzara':'MN','gonzaga':'MN','ostiglia':'MN','guidizzolo':'MN',
@@ -3983,12 +4016,22 @@ const _CITTA_PROV = {
   'iglesias':'SU','carbonia':'SU',
 };
 
-function autoProvincia() {
-  const cittaEl = document.getElementById('f-citta');
-  const provEl  = document.getElementById('f-provincia');
-  if (!cittaEl || !provEl) return;
-  if (provEl.value.trim()) return; // non sovrascrivere se già compilata
-  const citta = (cittaEl.value || '').trim().toLowerCase();
+function _capitalizzaCitta(s) {
+  return (s || '').trim().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function autoProvincia(sourceId) {
+  const cittaId = sourceId || 'f-citta';
+  const provId  = cittaId === 'f-citta' ? 'f-provincia' : 'scheda-provincia';
+  const cittaEl = document.getElementById(cittaId);
+  const provEl  = document.getElementById(provId);
+  if (!cittaEl) return;
+  // Capitalizza sempre la prima lettera di ogni parola
+  const raw = cittaEl.value || '';
+  const cap = _capitalizzaCitta(raw);
+  if (cap !== raw) cittaEl.value = cap;
+  if (!provEl || provEl.value.trim()) return; // non sovrascrivere se già compilata
+  const citta = cap.toLowerCase();
   if (!citta) return;
   const prov = _CITTA_PROV[citta];
   if (prov) {
