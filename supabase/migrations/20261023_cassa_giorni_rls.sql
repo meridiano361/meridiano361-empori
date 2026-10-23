@@ -16,12 +16,9 @@ DO $$ BEGIN
 EXCEPTION WHEN others THEN NULL;
 END $$;
 
--- SELECT: admin vede tutto, operatori attivi vedono solo il loro emporio
+-- SELECT: tutti gli autenticati possono leggere (tool interno, access control è a livello app)
 CREATE POLICY "cassa_giorni_select" ON cassa_giorni FOR SELECT TO authenticated
-  USING (
-    is_admin_user()
-    OR (is_active_operatore() AND emporio = my_emporio())
-  );
+  USING (true);
 
 -- INSERT: admin ovunque, operatori attivi solo per il loro emporio
 CREATE POLICY "cassa_giorni_insert" ON cassa_giorni FOR INSERT TO authenticated
