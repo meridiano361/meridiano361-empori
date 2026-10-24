@@ -851,11 +851,10 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 <!-- CONVERTI CARTACEA → DIGITALE MODAL -->
 <div class="spesa-modal" id="converti-modal" onclick="if(event.target===this)chiudiConvertiModal()">
   <div class="spesa-sheet">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <h3>Converti tessera cartacea → digitale</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin:0">Da cartacea a digitale</h3>
       <button onclick="chiudiConvertiModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
     </div>
-    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Il cliente ha completato la tessera cartacea e vuole passare alla digitale.</p>
 
     <!-- Step 1: cerca cliente -->
     <div id="converti-step1">
@@ -865,15 +864,45 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <div id="converti-risultati" style="max-height:220px;overflow-y:auto"></div>
     </div>
 
-    <!-- Step 2: riepilogo + dati -->
+    <!-- Step 2: timbri + conferma -->
     <div id="converti-step2" style="display:none">
-      <div id="converti-cliente-info" style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px"></div>
-      <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Timbri già presenti sulla tessera cartacea</label>
-      <input type="number" id="converti-timbri" class="importo-input" style="font-size:20px;padding:10px 14px;margin-bottom:6px" min="0" max="12" value="12" oninput="aggiornaConvertiPreview()">
-      <div id="converti-preview" style="font-size:12px;color:#7c3aed;font-weight:700;margin-bottom:14px"></div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:18px">
+        <div id="converti-avatar" style="width:42px;height:42px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">?</div>
+        <div>
+          <div id="converti-nome-display" style="font-size:16px;font-weight:800;color:#111;line-height:1.3"></div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px">Verrà creata la tessera digitale</div>
+          <div id="converti-ha-gia-dig" style="display:none;font-size:11px;color:#f59e0b;font-weight:700;margin-top:3px">⚠️ Ha già una tessera digitale attiva</div>
+        </div>
+      </div>
+
+      <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Timbri già presenti sulla tessera cartacea</label>
+      <input type="number" id="converti-timbri" class="importo-input" style="font-size:24px;padding:10px 14px;margin-bottom:6px;width:100%;text-align:center;font-weight:800" min="0" max="12" value="0" oninput="aggiornaConvertiPreview()">
+      <div id="converti-preview" style="font-size:12px;font-weight:700;margin-bottom:10px;min-height:18px"></div>
+      <label id="converti-forza-label" style="display:none;align-items:center;gap:8px;font-size:12px;color:#dc2626;font-weight:600;margin-bottom:14px;cursor:pointer;padding:8px 10px;background:#fef2f2;border-radius:8px;border:1px solid #fca5a5">
+        <input type="checkbox" id="converti-forza-cb" onchange="_toggleForzaTimbri(this)" style="accent-color:#dc2626;width:14px;height:14px;flex-shrink:0">
+        Forza (supera il limite di 12 timbri — previo consenso del responsabile)
+      </label>
+
+      <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn btn-outline btn-sm" style="flex:1" onclick="converti_step(1)"><i class="fas fa-arrow-left"></i> Indietro</button>
-        <button class="btn btn-sm" style="flex:2;background:#7c3aed;color:#fff;font-weight:800" id="btn-conferma-converti" onclick="confermaConversione()"><i class="fas fa-rotate"></i> Converti e invia link WA</button>
+        <button class="btn btn-sm" style="flex:2;background:#7c3aed;color:#fff;font-weight:800" id="btn-conferma-converti" onclick="confermaConversione()"><i class="fas fa-rotate"></i> Converti</button>
+      </div>
+    </div>
+
+    <!-- Step 3: successo + azioni post-conversione -->
+    <div id="converti-step3" style="display:none;text-align:center;padding:4px 0 8px">
+      <div style="width:56px;height:56px;border-radius:50%;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px">
+        <i class="fas fa-check"></i>
+      </div>
+      <div id="converti-success-nome" style="font-size:17px;font-weight:800;color:#111;margin-bottom:4px"></div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:22px">Tessera digitale attivata con successo!</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-sm" style="flex:1;background:#25d366;color:#fff;font-size:14px;font-weight:700" id="btn-converti-wa" onclick="inviaWADopoConversione()">
+          <i class="fab fa-whatsapp"></i> Invia su WA
+        </button>
+        <button class="btn btn-outline btn-sm" style="flex:1;font-size:14px" onclick="chiudiConvertiModal()">
+          Chiudi
+        </button>
       </div>
     </div>
   </div>
@@ -5196,6 +5225,7 @@ async function rettificaScontoCompleanno(tesseraId) {
 
 let _convertiClienteId = null;
 let _convertiTesseraId = null;
+let _converti_waData   = null;
 
 // ── Scheda anagrafica cliente (da tessera digitale) ──────────────────────────
 let _schedaClienteId = null;
@@ -5259,26 +5289,25 @@ function rinviaLinkWA(clienteId, tesseraId) {
 }
 
 function avviaConversioneRiga(clienteId, tesseraId) {
-  // Apre il wizard direttamente allo step 2 con il cliente pre-selezionato
   apriConvertiModal();
   _convertiClienteId = clienteId;
   _convertiTesseraId = tesseraId;
   const c = allClienti.find(x => String(x.id) === String(clienteId));
   const t = allTessere.find(x => x.id === tesseraId);
-  const timbriSuggeriti = Math.min(t?.timbri_attuali || 0, 12);
-  document.getElementById('converti-timbri').value = timbriSuggeriti;
-  document.getElementById('converti-cliente-info').innerHTML = `
-    <div style="font-weight:800;color:#111;margin-bottom:4px">${esc(c?.nome||'')} ${esc(c?.cognome||'')}</div>
-    <div style="color:#64748b">${t ? `Tessera ${t.tipo||'standard'}${t.codice_tessera?' · '+t.codice_tessera:''}` : ''}</div>`;
-  aggiornaConvertiPreview();
+  _popolaConvertiCliente(c, t);
   converti_step(2);
 }
 
 function apriConvertiModal() {
   _convertiClienteId = null;
   _convertiTesseraId = null;
+  _converti_waData   = null;
   document.getElementById('converti-search').value = '';
   document.getElementById('converti-risultati').innerHTML = '';
+  document.getElementById('converti-timbri').value = 0;
+  document.getElementById('converti-timbri').max   = 12;
+  document.getElementById('converti-forza-cb').checked = false;
+  document.getElementById('converti-forza-label').style.display = 'none';
   converti_step(1);
   document.getElementById('converti-modal').classList.add('open');
   setTimeout(() => document.getElementById('converti-search').focus(), 200);
@@ -5291,6 +5320,7 @@ function chiudiConvertiModal() {
 function converti_step(n) {
   document.getElementById('converti-step1').style.display = n === 1 ? '' : 'none';
   document.getElementById('converti-step2').style.display = n === 2 ? '' : 'none';
+  document.getElementById('converti-step3').style.display = n === 3 ? '' : 'none';
 }
 
 function cercaClienteConversione() {
@@ -5332,31 +5362,66 @@ function selezionaClienteConversione(clienteId) {
   const tessereMap = _buildTessereMap();
   const t = tessereMap.get(clienteId);
   _convertiTesseraId = t?.id || null;
-
-  const timbriSuggeriti = Math.min(t?.timbri_attuali || 12, 12);
-  document.getElementById('converti-timbri').value = timbriSuggeriti;
-  document.getElementById('converti-cliente-info').innerHTML = `
-    <div style="font-weight:800;color:#111;margin-bottom:4px">${esc(c.nome||'')} ${esc(c.cognome||'')}</div>
-    <div style="color:#64748b">${t ? `Tessera ${t.tipo||'standard'}${t.codice_tessera?' · '+t.codice_tessera:''}` : 'Verrà creata una nuova tessera digitale'}</div>
-    ${t?.ha_carta_digitale ? '<div style="color:#f59e0b;font-weight:700;margin-top:4px">⚠️ Questo cliente ha già una tessera digitale attiva</div>' : ''}`;
-  aggiornaConvertiPreview();
+  _popolaConvertiCliente(c, t);
   converti_step(2);
+}
+
+function _popolaConvertiCliente(c, t) {
+  const nome = `${c?.nome||''} ${c?.cognome||''}`.trim();
+  document.getElementById('converti-avatar').textContent = `${(c?.nome||'?')[0].toUpperCase()}${(c?.cognome||'')[0]?.toUpperCase()||''}`;
+  document.getElementById('converti-nome-display').textContent = nome;
+  const haGiaDig = document.getElementById('converti-ha-gia-dig');
+  haGiaDig.style.display = t?.ha_carta_digitale ? '' : 'none';
+  document.getElementById('converti-timbri').value = 0;
+  document.getElementById('converti-timbri').max   = 12;
+  document.getElementById('converti-forza-cb').checked = false;
+  document.getElementById('converti-forza-label').style.display = 'none';
+  aggiornaConvertiPreview();
 }
 
 function aggiornaConvertiPreview() {
   const timbri = parseInt(document.getElementById('converti-timbri').value) || 0;
-  const tessereMap = _buildTessereMap();
-  const t = _convertiTesseraId ? allTessere.find(x => x.id === _convertiTesseraId) : null;
-  const tipo = t?.tipo || 'standard';
-  const sconto = digSconto(tipo);
-  const el = document.getElementById('converti-preview');
+  const forzaCb    = document.getElementById('converti-forza-cb');
+  const forzaLabel = document.getElementById('converti-forza-label');
+  const btnConv    = document.getElementById('btn-conferma-converti');
+  const el         = document.getElementById('converti-preview');
+  const t          = _convertiTesseraId ? allTessere.find(x => x.id === _convertiTesseraId) : null;
+  const tipo       = t?.tipo || 'standard';
+  const sconto     = digSconto(tipo);
+
+  if (timbri > DIG_TIMBRI_MAX && !forzaCb.checked) {
+    forzaLabel.style.display = 'flex';
+    el.textContent  = `Limite massimo: ${DIG_TIMBRI_MAX} timbri — abilita "Forza" per procedere`;
+    el.style.color  = '#dc2626';
+    btnConv.disabled = true;
+    return;
+  }
+
+  forzaLabel.style.display = timbri > DIG_TIMBRI_MAX ? 'flex' : 'none';
+  btnConv.disabled = false;
+
   if (timbri >= DIG_TIMBRI_MAX) {
     el.textContent = `🎉 Ciclo completato! Il cliente riceverà €${sconto} di sconto sulla nuova tessera digitale.`;
+    el.style.color = '#7c3aed';
   } else if (timbri > 0) {
     el.textContent = `${timbri} timbri verranno trasferiti sulla tessera digitale.`;
+    el.style.color = '#7c3aed';
   } else {
     el.textContent = 'La tessera digitale partirà da zero timbri.';
+    el.style.color = '#94a3b8';
   }
+}
+
+function _toggleForzaTimbri(cb) {
+  document.getElementById('converti-timbri').max = cb.checked ? '' : DIG_TIMBRI_MAX;
+  aggiornaConvertiPreview();
+}
+
+function inviaWADopoConversione() {
+  if (_converti_waData) {
+    window.open(_waUrl(_converti_waData.tel, _converti_waData.testo), '_blank');
+  }
+  chiudiConvertiModal();
 }
 
 async function confermaConversione() {
@@ -5431,23 +5496,29 @@ async function confermaConversione() {
       }).then(({ error: e }) => { if (e) console.warn('[cicli_log]', e.message); });
     }
 
-    // Invia link WA se il cliente ha il telefono
+    // Prepara dati WA (inviato solo se l'operatore clicca il pulsante nello step 3)
     const tel = (c?.telefono||'').replace(/\D/g,'');
     const cartaUrl = `${location.origin}/tessera/${slug}`;
     if (tel) {
       const testoWa = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
-      window.open(_waUrl(tel, testoWa), '_blank');
+      _converti_waData = { tel, testo: testoWa };
+    } else {
+      _converti_waData = null;
     }
 
+    const nomeCliente = `${c?.nome||''} ${c?.cognome||''}`.trim();
+    document.getElementById('converti-success-nome').textContent = nomeCliente;
+    document.getElementById('btn-converti-wa').style.display = tel ? '' : 'none';
+    converti_step(3);
+
     _invalidateMaps();
-    chiudiConvertiModal();
     showTab('digitale');
-    showToast(`✓ Tessera digitale attivata per ${c?.nome||''} ${c?.cognome||''}${cicloCompletato ? ` — €${sconto} di sconto registrati` : ''}`);
+    showToast(`✓ Tessera digitale attivata per ${nomeCliente}${cicloCompletato ? ` — €${sconto} di sconto registrati` : ''}`);
     renderDigitale();
   } catch(e) {
     alert('Errore: ' + e.message);
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-rotate"></i> Converti e invia link WA';
+    btn.innerHTML = '<i class="fas fa-rotate"></i> Converti';
   }
 }
 
