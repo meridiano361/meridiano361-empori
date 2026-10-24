@@ -2038,7 +2038,7 @@ function _openInstallAppWa(phone, clienteId) {
   const testo = _getInstallAppMsgTesto()
     .replace(/\{nome\}/gi, nome)
     .replace(/\{url\}/gi, cartaUrl);
-  window.open(`https://wa.me/39${phone}?text=${_encodeWAText(testo)}`, '_blank');
+  window.open(_waUrl(phone, testo), '_blank');
 }
 
 // ── Privacy consenso ─────────────────────────────────────────────────────────
@@ -2129,7 +2129,7 @@ function sendConsentWa() {
   const url = _consentUrl();
   if (!url) { showToast('Esegui prima la migration SQL per generare il link'); return; }
   const text = _getConsentMsgTesto().replace(/{nome}/g, nome).replace(/{url}/g, url);
-  window.open(`https://wa.me/39${phone}?text=${_encodeWAText(text)}`, '_blank');
+  window.open(_waUrl(phone, text), '_blank');
 }
 
 function _refreshConsentMsgPreview() {
@@ -2658,7 +2658,7 @@ async function markBcSent(id) {
 function sendBcWa(id) {
   const m = allBroadcast.find(x => x.id === id);
   if (!m) return;
-  const url = `https://api.whatsapp.com/send?text=${_encodeWAText(m.testo)}`;
+  const url = `whatsapp://send?text=${encodeURIComponent(m.testo)}`;
   const w = window.open(url, '_blank');
   if (!w) {
     navigator.clipboard.writeText(m.testo).catch(() => {});
@@ -2830,20 +2830,21 @@ function _encodeWAText(text) {
   return encodeURIComponent(text || '');
 }
 
-// Apre WhatsApp con testo pre-compilato usando lo schema whatsapp:// direttamente,
-// bypassando il redirect wa.me che corrompe le emoji nel Desktop app su macOS
-function _openWADirect(tel, text) {
+// Costruisce URL whatsapp:// diretto (bypassando il redirect wa.me che corrompe le emoji)
+function _waUrl(tel, text) {
   const phone = '39' + (tel || '').replace(/[^\d]/g, '');
-  const url = text
+  return text
     ? `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`
     : `whatsapp://send?phone=${phone}`;
-  window.open(url, '_blank');
+}
+function _openWADirect(tel, text) {
+  window.open(_waUrl(tel, text), '_blank');
 }
 
 function _openWAMsg(tel, msgId) {
   const msg = allMsgTemplates.find(m => String(m.id) === String(msgId));
   if (!msg) return;
-  window.open(`https://wa.me/39${tel.replace(/[^\d]/g,'')}?text=${_encodeWAText(_decodeTplText(msg.testo))}`, '_blank');
+  window.open(_waUrl(tel, _decodeTplText(msg.testo)), '_blank');
 }
 
 function _bdWaUrlByTipo(c, tipo) {
@@ -2852,7 +2853,7 @@ function _bdWaUrlByTipo(c, tipo) {
   const nome = titleCase(c.nome || c.cognome || '');
   const testoFinal = testo.replace(/\{nome\}/gi, () => nome);
   const tel = (c.telefono || '').replace(/[^\d]/g, '');
-  return `https://wa.me/39${tel}?text=${_encodeWAText(testoFinal)}`;
+  return _waUrl(tel, testoFinal);
 }
 function _bdSendWA(c, tipo) {
   const testo = _decodeTplText(allMsgTemplates.find(m => m.tipo === tipo)?.testo || '');
@@ -5047,8 +5048,7 @@ function renderDigitale() {
       : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
     const _salvaUrl = `${location.origin}/salva-tessera`;
     const _waLinkMsg = `Ciao ${c.nome||''}! 👋\n\nGuarda qui la tua tessera aggiornata:\n${cartaUrl}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n${_salvaUrl}`;
-    const waTxt = _encodeWAText(_waLinkMsg);
-    const waHref = tel ? `https://wa.me/39${tel}?text=${waTxt}` : '#';
+    const waHref = tel ? _waUrl(tel, _waLinkMsg) : '#';
 
     const isCollapsed = !_digExpanded.has(t.id);
     return `<div class="dig-card${isCollapsed ? ' collapsed' : ''}" id="digcard-${t.id}">
@@ -5255,7 +5255,7 @@ function rinviaLinkWA(clienteId, tesseraId) {
     ? `${location.origin}/tessera/${t.slug}`
     : `${location.origin}/pages/tessere/carta.html?t=${t.token||''}`;
   const testo = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
-  window.open(`https://wa.me/39${tel}?text=${_encodeWAText(testo)}`, '_blank');
+  window.open(_waUrl(tel, testo), '_blank');
 }
 
 function avviaConversioneRiga(clienteId, tesseraId) {
@@ -5436,7 +5436,7 @@ async function confermaConversione() {
     const cartaUrl = `${location.origin}/tessera/${slug}`;
     if (tel) {
       const testoWa = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
-      window.open(`https://wa.me/39${tel}?text=${_encodeWAText(testoWa)}`, '_blank');
+      window.open(_waUrl(tel, testoWa), '_blank');
     }
 
     _invalidateMaps();
@@ -5992,7 +5992,7 @@ async function salvaSpesa() {
     : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
   const _salvaUrl = `${location.origin}/salva-tessera`;
   const _waMsg = `Ciao ${c?.nome||''}! 👋\nGrazie per il tuo acquisto di €${importo.toFixed(2)}. Hai ottenuto ${timbriNuovi} timbr${timbriNuovi>1?'i':'o'}.${scontoGenerato > 0 ? `\n🎉 Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : ''}\n\nGuarda qui la tua tessera aggiornata:\n${cartaUrl}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n${_salvaUrl}`;
-  const waWin = (tel && t?.token) ? window.open(`https://wa.me/39${tel}?text=${encodeURIComponent(_waMsg)}`, '_blank') : null;
+  const waWin = (tel && t?.token) ? window.open(_waUrl(tel, _waMsg), '_blank') : null;
 
   try {
     // movimenti_tessera: inserimento opzionale (non blocca se la tabella non è configurata)
