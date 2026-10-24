@@ -1116,13 +1116,13 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
     <div class="panel-sec">
       <div class="panel-sec-title"><i class="fas fa-user"></i> Anagrafica</div>
       <div class="field-grid">
-        <div><div class="field-label">Nome *</div><input class="field-input" id="f-nome"></div>
-        <div><div class="field-label">Cognome</div><input class="field-input" id="f-cognome"></div>
+        <div><div class="field-label">Nome *</div><input class="field-input" id="f-nome" oninput="_capFirstLetters(this)" onblur="_capFirstLetters(this)"></div>
+        <div><div class="field-label">Cognome</div><input class="field-input" id="f-cognome" oninput="_capFirstLetters(this)" onblur="_capFirstLetters(this)"></div>
         <div><div class="field-label">Data di nascita</div><input class="field-input" id="f-nascita" type="date"></div>
         <div style="grid-column:1/-1"><div id="contatti-telefoni-wrap"></div></div>
         <div style="grid-column:1/-1"><div id="contatti-emails-wrap"></div></div>
         <div><div class="field-label">Città</div><input class="field-input" id="f-citta" oninput="autoProvincia()" onblur="autoProvincia()"></div>
-        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia"></div>
+        <div><div class="field-label">Provincia</div><input class="field-input" id="f-provincia" maxlength="2" placeholder="CR" oninput="_formatProvincia(this)" onblur="_formatProvincia(this)"></div>
       </div>
     </div>
 
@@ -1812,7 +1812,7 @@ function _renderContattiUI() {
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
         <button type="button" title="${i===0?'Preferito':'Rendi preferito'}"
           onclick="_setPreferitoContatto('${tipo}',${i})"
-          style="border:1px solid ${i===0?'#B5453A':'transparent'};background:${i===0?'#fef2f2':'transparent'};border-radius:6px;cursor:pointer;font-size:10px;font-weight:800;color:${i===0?'#B5453A':'#cbd5e1'};padding:2px 6px;flex-shrink:0;font-family:'CenturyGothic', 'Century Gothic', sans-serif;line-height:1.4">${i===0?'PREF':'○'}</button>
+          style="border:1px solid ${i===0?'#B5453A':'transparent'};background:${i===0?'#fef2f2':'transparent'};border-radius:6px;cursor:pointer;font-size:10px;font-weight:800;color:${i===0?'#B5453A':'#cbd5e1'};padding:2px 6px;flex-shrink:0;font-family:'CenturyGothic', 'Century Gothic', sans-serif;line-height:1.4">${i===0?'Preferito':'○'}</button>
         <input class="field-input" style="flex:1;margin:0" type="${inputType}"
           value="${esc(v)}"
           oninput="_editContatto('${tipo}',${i},this.value)"
@@ -2747,7 +2747,7 @@ async function saveCliente(closeAfter = true) {
     email:           emailPref,
     emails_extra:    emailExtra,
     citta:           document.getElementById('f-citta').value.trim() || null,
-    provincia:       document.getElementById('f-provincia').value.trim() || null,
+    provincia:       document.getElementById('f-provincia').value.trim().toUpperCase().slice(0,2) || null,
     wa:              document.getElementById('f-ha-wa').checked,
     emporio:         document.getElementById('f-emporio').value,
     consenso_privacy_modalita: _consentModalita,
@@ -4064,6 +4064,15 @@ const _CITTA_PROV = {
   'iglesias':'SU','carbonia':'SU',
 };
 
+function _capFirstLetters(el) {
+  const pos = el.selectionStart;
+  el.value = (el.value || '').replace(/\b\w/g, c => c.toUpperCase());
+  try { el.setSelectionRange(pos, pos); } catch(e) {}
+}
+function _formatProvincia(el) {
+  el.value = (el.value || '').replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2);
+}
+
 function _capitalizzaCitta(s) {
   return (s || '').trim().replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -4726,12 +4735,12 @@ function _renderMergeBody() {
           style="accent-color:#B5453A;width:15px;height:15px;flex-shrink:0">
         <button type="button" onclick="_setPreferitoMerge('${tipo}',${i})"
           title="${i===0&&item.preferito?'Preferito':'Rendi preferito'}"
-          style="border:1px solid ${item.preferito?'#B5453A':'#e2e8f0'};background:${item.preferito?'#fef2f2':'#fff'};border-radius:5px;cursor:pointer;font-size:10px;font-weight:800;color:${item.preferito?'#B5453A':'#94a3b8'};padding:2px 5px;flex-shrink:0;font-family:'CenturyGothic', 'Century Gothic', sans-serif;line-height:1.4">${item.preferito?'PREF':''}</button>
+          style="border:1px solid ${item.preferito?'#B5453A':'#e2e8f0'};background:${item.preferito?'#fef2f2':'#fff'};border-radius:5px;cursor:pointer;font-size:10px;font-weight:800;color:${item.preferito?'#B5453A':'#94a3b8'};padding:2px 5px;flex-shrink:0;font-family:'CenturyGothic', 'Century Gothic', sans-serif;line-height:1.4">${item.preferito?'Preferito':''}</button>
         <span style="font-size:13px;font-weight:${item.preferito?'700':'500'};color:${item.checked?'#1e293b':'#94a3b8'};flex:1;text-decoration:${item.checked?'none':'line-through'}">${esc(item.valore)}</span>
         ${sourceBadge(item.source)}
       </div>`).join('');
     return `<div class="merge-section-title" style="margin-top:14px"><i class="fas fa-${tipo==='telefono'?'phone':'envelope'}" style="margin-right:4px"></i>${labelTitle}</div>
-      <p style="font-size:11px;color:#64748b;margin:3px 0 8px">Seleziona quali tenere. PREF = preferito (usato per WhatsApp e ricerche).</p>
+      <p style="font-size:11px;color:#64748b;margin:3px 0 8px">Seleziona quali tenere. "Preferito" = usato per WhatsApp e ricerche.</p>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 12px">${rows}</div>`;
   };
   const contattiSection =
