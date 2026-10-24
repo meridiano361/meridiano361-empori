@@ -2830,20 +2830,14 @@ function _encodeWAText(text) {
   return encodeURIComponent(text || '');
 }
 
-// Apre WhatsApp copiando il testo negli appunti (emoji intatte) e aprendo la chat
-// Evita la corruzione delle emoji che avviene passandole via URL nel Desktop app
-async function _openWAClipboard(tel, text) {
+// Apre WhatsApp con testo pre-compilato usando lo schema whatsapp:// direttamente,
+// bypassando il redirect wa.me che corrompe le emoji nel Desktop app su macOS
+function _openWADirect(tel, text) {
   const phone = '39' + (tel || '').replace(/[^\d]/g, '');
-  if (!text) { window.open(`https://wa.me/${phone}`, '_blank'); return; }
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast('✓ Messaggio copiato — incolla nella chat (Cmd+V / Ctrl+V)', 'success', 3500);
-  } catch(e) {
-    // Fallback: testo in un prompt per copia manuale
-    prompt('Copia il testo e incollalo in WhatsApp:', text);
-  }
-  // Apre WhatsApp direttamente sulla chat, senza ?text= (che corrompe le emoji)
-  setTimeout(() => window.open(`https://wa.me/${phone}`, '_blank'), 300);
+  const url = text
+    ? `whatsapp://send?phone=${phone}&text=${encodeURIComponent(text)}`
+    : `whatsapp://send?phone=${phone}`;
+  window.open(url, '_blank');
 }
 
 function _openWAMsg(tel, msgId) {
@@ -2861,12 +2855,11 @@ function _bdWaUrlByTipo(c, tipo) {
   return `https://wa.me/39${tel}?text=${_encodeWAText(testoFinal)}`;
 }
 function _bdSendWA(c, tipo) {
-  // Emoji-safe: copia negli appunti e apre WhatsApp senza ?text=
   const testo = _decodeTplText(allMsgTemplates.find(m => m.tipo === tipo)?.testo || '');
   const nome = titleCase(c.nome || c.cognome || '');
   const testoFinal = testo.replace(/\{nome\}/gi, () => nome);
   const tel = (c.telefono || '').replace(/[^\d]/g, '');
-  _openWAClipboard(tel, testoFinal);
+  _openWADirect(tel, testoFinal);
 }
 function _bdWaUrl(c) {
   const t = allTessere.find(x => String(x.cliente_id) === String(c.id));
