@@ -890,17 +890,33 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
     </div>
 
     <!-- Step 3: successo + azioni post-conversione -->
-    <div id="converti-step3" style="display:none;text-align:center;padding:4px 0 8px">
-      <div style="width:56px;height:56px;border-radius:50%;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px">
-        <i class="fas fa-check"></i>
+    <div id="converti-step3" style="display:none;padding:4px 0 8px">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="width:52px;height:52px;border-radius:50%;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px">
+          <i class="fas fa-check"></i>
+        </div>
+        <div id="converti-success-nome" style="font-size:17px;font-weight:800;color:#111;margin-bottom:3px"></div>
+        <div style="font-size:13px;color:#64748b">Tessera digitale attivata con successo!</div>
       </div>
-      <div id="converti-success-nome" style="font-size:17px;font-weight:800;color:#111;margin-bottom:4px"></div>
-      <div style="font-size:13px;color:#64748b;margin-bottom:22px">Tessera digitale attivata con successo!</div>
+
+      <!-- Spesa opzionale -->
+      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;color:#374151;cursor:pointer">
+          <input type="checkbox" id="converti-spesa-toggle" onchange="_toggleConvertiSpesa(this)" style="accent-color:var(--red);width:15px;height:15px;flex-shrink:0">
+          Registra anche una spesa adesso
+        </label>
+        <div id="converti-spesa-fields" style="display:none;margin-top:14px">
+          <div class="field-label" style="margin-bottom:6px">Importo spesa (€)</div>
+          <input type="number" id="converti-spesa-importo" class="importo-input" style="font-size:22px;padding:10px 14px;width:100%;text-align:center;font-weight:800" min="0" step="0.01" placeholder="0,00" oninput="_aggiornaPrevConvSpesa()">
+          <div id="converti-spesa-preview" style="font-size:12px;font-weight:700;margin-top:6px;min-height:18px;text-align:center"></div>
+        </div>
+      </div>
+
       <div style="display:flex;gap:10px">
-        <button class="btn btn-sm" style="flex:1;background:#25d366;color:#fff;font-size:14px;font-weight:700" id="btn-converti-wa" onclick="inviaWADopoConversione()">
-          <i class="fab fa-whatsapp"></i> Invia su WA
+        <button class="btn btn-sm" style="flex:2;background:#25d366;color:#fff;font-size:13px;font-weight:700" id="btn-converti-wa" onclick="inviaWADopoConversione()">
+          <i class="fab fa-whatsapp"></i> <span id="btn-converti-wa-label">Invia su WA</span>
         </button>
-        <button class="btn btn-outline btn-sm" style="flex:1;font-size:14px" onclick="chiudiConvertiModal()">
+        <button class="btn btn-outline btn-sm" style="flex:1;font-size:13px" onclick="chiudiConvertiModal()">
           Chiudi
         </button>
       </div>
@@ -5317,6 +5333,11 @@ function apriConvertiModal() {
   document.getElementById('converti-timbri').max   = 12;
   document.getElementById('converti-forza-cb').checked = false;
   document.getElementById('converti-forza-label').style.display = 'none';
+  document.getElementById('converti-spesa-toggle').checked = false;
+  document.getElementById('converti-spesa-fields').style.display = 'none';
+  document.getElementById('converti-spesa-importo').value = '';
+  document.getElementById('converti-spesa-preview').textContent = '';
+  document.getElementById('btn-converti-wa-label').textContent = 'Invia su WA';
   converti_step(1);
   document.getElementById('converti-modal').classList.add('open');
   setTimeout(() => document.getElementById('converti-search').focus(), 200);
@@ -5426,10 +5447,81 @@ function _toggleForzaTimbri(cb) {
   aggiornaConvertiPreview();
 }
 
-function inviaWADopoConversione() {
-  if (_converti_waData) {
-    window.open(_waUrl(_converti_waData.tel, _converti_waData.testo), '_blank');
+function _toggleConvertiSpesa(cb) {
+  document.getElementById('converti-spesa-fields').style.display = cb.checked ? '' : 'none';
+  document.getElementById('btn-converti-wa-label').textContent = cb.checked ? 'Registra spesa e invia WA' : 'Invia su WA';
+  if (cb.checked) {
+    setTimeout(() => document.getElementById('converti-spesa-importo').focus(), 50);
+    _aggiornaPrevConvSpesa();
+  } else {
+    document.getElementById('converti-spesa-importo').value = '';
+    document.getElementById('converti-spesa-preview').textContent = '';
   }
+}
+
+function _aggiornaPrevConvSpesa() {
+  const importo = parseFloat(document.getElementById('converti-spesa-importo').value) || 0;
+  const t = allTessere.find(x => x.id === _convertiTesseraId);
+  const et = digEuroTimbro(t?.tipo || 'standard');
+  const timbri = Math.floor(importo / et);
+  const prev = document.getElementById('converti-spesa-preview');
+  if (importo <= 0) { prev.textContent = ''; return; }
+  if (timbri > 0) {
+    prev.textContent = `+${timbri} timbr${timbri !== 1 ? 'i' : 'o'}`;
+    prev.style.color = '#7c3aed';
+  } else {
+    prev.textContent = `Servono almeno €${et} per guadagnare 1 timbro`;
+    prev.style.color = '#94a3b8';
+  }
+}
+
+async function inviaWADopoConversione() {
+  const conSpesa  = document.getElementById('converti-spesa-toggle').checked;
+  const importo   = conSpesa ? (parseFloat(document.getElementById('converti-spesa-importo').value) || 0) : 0;
+  const t = allTessere.find(x => x.id === _convertiTesseraId);
+  const c = allClienti.find(x => String(x.id) === String(_convertiClienteId));
+  const tel = _converti_waData?.tel || (c?.telefono||'').replace(/\D/g,'');
+
+  if (conSpesa && importo > 0 && t) {
+    // Messaggio combinato: presentazione tessera + info spesa
+    const tipo         = t.tipo || 'standard';
+    const euroTimbro   = digEuroTimbro(tipo);
+    const scontoPerCiclo = digSconto(tipo);
+    const timbriSpesa  = Math.floor(importo / euroTimbro);
+    const timbriTotali = (t.timbri_attuali || 0) + timbriSpesa;
+    const scontoGen    = timbriTotali >= DIG_TIMBRI_MAX
+      ? Math.floor(timbriTotali / DIG_TIMBRI_MAX) * scontoPerCiclo : 0;
+    const cartaUrl     = _converti_waData?.cartaUrl || `${location.origin}/tessera/${t.slug||''}`;
+    const salvaUrl     = `${location.origin}/salva-tessera`;
+    const nome         = c?.nome || '';
+
+    const waMsg = `Ciao ${nome}! 👋\n\nEcco la tua nuova Tessera Fedeltà digitale Meridiano 361! ✨\n\nPer la spesa di oggi di €${importo.toFixed(2)} hai ottenuto ${timbriSpesa} timbr${timbriSpesa!==1?'i':'o'}. Ora hai ${Math.min(timbriTotali, DIG_TIMBRI_MAX)}/${DIG_TIMBRI_MAX} timbri.${scontoGen > 0 ? `\n🎉 Hai completato la tessera! Hai €${scontoGen} di sconto sulla prossima spesa.` : ''}\n\n📲 Guarda qui la tua tessera:\n${cartaUrl}\n\n💾 Puoi salvare la tua tessera sul dispositivo, scopri qui come:\n${salvaUrl}`;
+
+    // Apri WA subito (contesto click) poi salva async
+    if (tel) window.open(_waUrl(tel, waMsg), '_blank');
+
+    await _sb.from('movimenti_tessera').insert({
+      tessera_id:      t.id,
+      importo,
+      timbri_aggiunti: timbriSpesa,
+      sconto_generato: scontoGen,
+      operatore:       _user?.nome || ''
+    }).then(({ error }) => { if (error) console.warn('[movimenti_tessera]', error.message); });
+
+    await _sb.from('tessere').update({
+      timbri_attuali: timbriTotali,
+      totale_spesa:   (t.totale_spesa || 0) + importo,
+      saldo_sconto:   (t.saldo_sconto || 0) + scontoGen
+    }).eq('id', t.id);
+
+    const idx = allTessere.findIndex(x => x.id === t.id);
+    if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriTotali, totale_spesa: (t.totale_spesa||0)+importo, saldo_sconto: (t.saldo_sconto||0)+scontoGen };
+    renderDigitale();
+  } else if (tel && _converti_waData?.testo) {
+    // Solo link tessera digitale
+    window.open(_waUrl(tel, _converti_waData.testo), '_blank');
+  }
+
   chiudiConvertiModal();
 }
 
@@ -5495,6 +5587,7 @@ async function confermaConversione() {
       if (error) throw error;
       updatedTessera = data;
       allTessere.push(updatedTessera);
+      _convertiTesseraId = updatedTessera.id;
     }
 
     // Registra ciclo completato se applicabile
@@ -5508,12 +5601,8 @@ async function confermaConversione() {
     // Prepara dati WA (inviato solo se l'operatore clicca il pulsante nello step 3)
     const tel = (c?.telefono||'').replace(/\D/g,'');
     const cartaUrl = `${location.origin}/tessera/${slug}`;
-    if (tel) {
-      const testoWa = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
-      _converti_waData = { tel, testo: testoWa };
-    } else {
-      _converti_waData = null;
-    }
+    const testoWaBase = _getDigLinkMsgTesto().replace(/{nome}/g, c.nome||'').replace(/{url}/g, cartaUrl);
+    _converti_waData = tel ? { tel, testo: testoWaBase, cartaUrl } : null;
 
     const nomeCliente = `${c?.nome||''} ${c?.cognome||''}`.trim();
     document.getElementById('converti-success-nome').textContent = nomeCliente;
