@@ -209,7 +209,7 @@ body { font-family: 'Nunito', sans-serif; padding-top: 64px; padding-bottom: 68p
 #m361-header .hd-logo { height:28px;object-fit:contain;flex-shrink:0; }
 #m361-header .hd-logo-fb { font-weight:900;font-size:16px;color:#B5453A;letter-spacing:.08em;flex-shrink:0;display:none; }
 #m361-header .hd-sep { width:1px;height:22px;background:#e5e7eb;margin:0 12px;flex-shrink:0; }
-#m361-header #header-title { font-size:15px;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px; }
+#m361-header #header-title { font-size:15px;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 #m361-header .hd-right { display:flex;align-items:center;gap:8px;flex-shrink:0; }
 #back-btn { display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#64748b;background:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif;transition:color .15s; }
 #back-btn:hover { color:#B5453A; }
