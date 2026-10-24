@@ -214,7 +214,7 @@ body { font-family: 'Nunito', sans-serif; padding-top: 64px; padding-bottom: 68p
 #back-btn { display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#64748b;background:none;border:none;cursor:pointer;font-family:'Nunito',sans-serif;transition:color .15s; }
 #back-btn:hover { color:#B5453A; }
 #back-btn.hidden { display:none; }
-@media(max-width:480px) { #m361-header #header-title { font-size:13px;max-width:120px; } }
+@media(max-width:480px) { #m361-header #header-title { font-size:13px;max-width:155px; } }
 #m361-nav { position:fixed;bottom:0;left:0;right:0;height:60px;background:#B5453A;border-top:2px solid #9e3f3f;z-index:9000;display:flex;align-items:stretch;justify-content:flex-start;overflow:hidden;box-shadow:0 -2px 10px rgba(0,0,0,.15);padding-bottom:env(safe-area-inset-bottom,0px); }
 #m361-nav-scroll { flex:1;overflow-x:auto;overflow-y:hidden;display:flex;align-items:stretch;scrollbar-width:none;-webkit-overflow-scrolling:touch; }
 #m361-nav-scroll::-webkit-scrollbar { display:none; }
