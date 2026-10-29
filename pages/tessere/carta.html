@@ -139,6 +139,14 @@ body.amb{background:#e8e8e4}
 .promo-card-link{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;color:#B45050;text-decoration:none}
 .promo-empty{text-align:center;padding:24px 0;color:#94a3b8;font-size:14px}
 .promo-close{width:100%;background:#f6f6f4;color:#555;border:1px solid #e8e8e8;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'CenturyGothic', 'Century Gothic', sans-serif;margin-top:8px}
+/* Birthday popup */
+.bd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10001;display:flex;align-items:center;justify-content:center;padding:0 20px}
+.bd-modal{background:#fff;border-radius:24px;padding:32px 24px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.bd-emoji{font-size:52px;line-height:1;margin-bottom:14px}
+.bd-title{font-size:20px;font-weight:900;color:#111;margin-bottom:8px}
+.bd-sub{font-size:14px;color:#555;line-height:1.6;margin-bottom:22px}
+.bd-close{width:100%;background:#B45050;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:'CenturyGothic','Century Gothic',sans-serif}
+.bd-close:active{opacity:.85}
 /* Install banner */
 .install-banner{max-width:390px;width:100%;margin-top:12px;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08)}
 .install-banner-hdr{background:#111;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
@@ -359,6 +367,9 @@ async function loadCard() {
   // Adatta la card alla viewport — aspetta font + layout stabile
   fitCard();
   document.fonts.ready.then(() => { fitCard(); setTimeout(fitCard, 300); });
+
+  // Popup auguri se oggi è il compleanno del cliente
+  setTimeout(() => mostraBdPopup(t), 600);
 }
 
 function fitCard() {
@@ -476,6 +487,28 @@ function mostraInfoCompleanno() {
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function mostraBdPopup(t) {
+  if (!t.data_nascita) return;
+  const [, mm, dd] = t.data_nascita.split('-');
+  const oggi = new Date();
+  if (parseInt(mm, 10) !== oggi.getMonth() + 1 || parseInt(dd, 10) !== oggi.getDate()) return;
+  const key = `m361_bd_popup_${t.id}_${oggi.getFullYear()}`;
+  if (localStorage.getItem(key)) return;
+  const nome = t.nome ? t.nome.split(' ')[0] : '';
+  const overlay = document.createElement('div');
+  overlay.className = 'bd-overlay';
+  overlay.innerHTML = `
+    <div class="bd-modal">
+      <div class="bd-emoji">🎂</div>
+      <div class="bd-title">Buon compleanno${nome ? ', ' + nome : ''}!</div>
+      <div class="bd-sub">Tanti auguri da tutto il team di <strong>Meridiano 361</strong>.<br>Che questa giornata sia speciale come te! 🎉</div>
+      <button class="bd-close" onclick="this.closest('.bd-overlay').remove()">Grazie! 🥳</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  localStorage.setItem(key, '1');
 }
 
 function toggleQr() {
