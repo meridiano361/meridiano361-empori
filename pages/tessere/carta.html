@@ -495,20 +495,22 @@ function mostraBdPopup(t) {
   const oggi = new Date();
   if (parseInt(mm, 10) !== oggi.getMonth() + 1 || parseInt(dd, 10) !== oggi.getDate()) return;
   const key = `m361_bd_popup_${t.id}_${oggi.getFullYear()}`;
-  if (localStorage.getItem(key)) return;
+  const preview = new URLSearchParams(location.search).get('bd_preview') === '1';
+  if (!preview && localStorage.getItem(key)) return;
   const nome = t.nome ? t.nome.split(' ')[0] : '';
+  const isAmb = t.tipo === 'ambassador';
   const overlay = document.createElement('div');
   overlay.className = 'bd-overlay';
   overlay.innerHTML = `
     <div class="bd-modal">
       <div class="bd-emoji">🎂</div>
       <div class="bd-title">Buon compleanno${nome ? ', ' + nome : ''}!</div>
-      <div class="bd-sub">Tanti auguri da tutto il team di <strong>Meridiano 361</strong>.<br>Che questa giornata sia speciale come te! 🎉</div>
-      <button class="bd-close" onclick="this.closest('.bd-overlay').remove()">Grazie! 🥳</button>
+      <div class="bd-sub">Tanti auguri<br>da tutto il team di Meridiano 361.<br>Che questa giornata<br>sia speciale come te!</div>
+      ${isAmb ? `<button class="bd-close" onclick="this.closest('.bd-overlay').remove(); mostraInfoCompleanno()">🎁 Ricorda: questo mese puoi usare il tuo sconto del 10% su una spesa a tua scelta</button>` : ''}
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  localStorage.setItem(key, '1');
+  if (!preview) localStorage.setItem(key, '1');
 }
 
 function toggleQr() {
