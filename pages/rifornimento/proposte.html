@@ -36,6 +36,8 @@
       font-family: 'CenturyGothic', 'Century Gothic', sans-serif;
     }
     select:focus, input[type=text]:focus { outline: none; border-color: #94a3b8; }
+    .btn-del{background:none;border:none;cursor:pointer;padding:4px;border-radius:8px;color:#cbd5e1;transition:color .15s,background .15s;flex-shrink:0}
+    .btn-del:hover{color:#ef4444;background:#fef2f2}
 [data-tip]{position:relative}
 [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:11px;font-weight:500;font-family:'CenturyGothic','Century Gothic',sans-serif;white-space:nowrap;padding:5px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;line-height:1.4;max-width:220px;white-space:normal;text-align:center}
 [data-tip]::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999}
@@ -199,15 +201,31 @@ async function carica() {
           </div>
           ${p.note ? `<div class="text-xs text-slate-500 mt-1 italic">${p.note}</div>` : ''}
         </div>
-        <svg class="w-4 h-4 text-slate-300 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          ${isEmilio ? `<button class="btn-del" onclick="eliminaRichiesta(${p.id}, event)" data-tip="Elimina richiesta">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>` : ''}
+          <svg class="w-4 h-4 text-slate-300 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
       </div>
     </div>
   `).join('');
 }
 
 function apri(id) { window.location.href = `proposta.html?id=${id}`; }
+
+async function eliminaRichiesta(id, event) {
+  event.stopPropagation();
+  if (!confirm('Eliminare definitivamente questa richiesta?\nL\'operazione non è reversibile.')) return;
+  await db.from('rifornimento_proposte_righe').delete().eq('proposal_id', id);
+  const { error } = await db.from('rifornimento_proposte').delete().eq('id', id);
+  if (error) { alert('Errore: ' + error.message); return; }
+  carica();
+}
 
 document.getElementById('f-emporio').addEventListener('change', carica);
 document.getElementById('f-stato').addEventListener('change', carica);
