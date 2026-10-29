@@ -4686,16 +4686,10 @@ async function loadIvaData() {
     const chiavi = mese ? emps.flatMap(e => chiaveMonth(e, anno, mese))
                         : emps.flatMap(e => chiaveYear(e, anno));
     let q = db.from('cassa_giorni').select(SEL_IVA).in('chiave', chiavi);
-    if (emporio) q = q.eq('emporio', emporio);
+    // emporio già codificato nella chiave — filtro ridondante rimosso per non escludere
+    // righe con campo emporio NULL o diverso salvate in passato
     let { data, error } = await q;
     if (error) throw error;
-    // Fallback: se in() non trova nulla ma emporio+mese specifici, prova con like
-    if ((!data || !data.length) && emporio && mese) {
-      const pattern = `${emporio}_${anno}_${+mese}_%`;
-      let q2 = db.from('cassa_giorni').select(SEL_IVA).like('chiave', pattern).eq('emporio', emporio);
-      const res2 = await q2;
-      if (!res2.error && res2.data && res2.data.length) data = res2.data;
-    }
 
     const rows = normCassa(data || []);
     const map = {};
@@ -4849,7 +4843,7 @@ async function loadPagamentiData() {
 
     // Fetch corrispettivi + DDT in parallelo
     const [{ data: corrRaw, error: corrErr }, { data: ddtRaw, error: ddtErr }] = await Promise.all([
-      (() => { let q = db.from('cassa_giorni').select(SEL_PAG).in('chiave', chiavi); if (emporio) q = q.eq('emporio', emporio); return q; })(),
+      db.from('cassa_giorni').select(SEL_PAG).in('chiave', chiavi),
       db.from('cassa_ddt_fatture').select('*').in('chiave', chiavi).order('chiave').order('created_at')
     ]);
     if (corrErr) throw corrErr;
@@ -5057,7 +5051,6 @@ async function loadCassaforteData() {
     let q = db.from('cassa_giorni')
       .select(SEL_FULL + ',turno_type,versamenti')
       .in('chiave', emps.flatMap(e => chiaveMonth(e, anno, mm)));
-    if (emporio) q = q.eq('emporio', emporio);
     const { data, error } = await q;
     if (error) throw error;
     const rows = normCassa(data || []);
@@ -5308,8 +5301,7 @@ async function loadVistaMensileData() {
 
     const { data: rawData, error } = await db.from('cassa_giorni')
       .select(SEL_VM)
-      .in('chiave', chiavi)
-      .eq('emporio', emporio);
+      .in('chiave', chiavi);
     if (error) throw error;
     const data = normCassa(rawData || []);
 
@@ -5320,7 +5312,6 @@ async function loadVistaMensileData() {
     const { data: prevRaw } = await db.from('cassa_giorni')
       .select('chiave,fondo_residuo')
       .in('chiave', prevChiavi)
-      .eq('emporio', emporio)
       .not('fondo_residuo', 'is', null);
     const prevRows = normCassa(prevRaw || []).sort((a,b) => b._day - a._day);
     const riporto = parseFloat(prevRows[0]?.fondo_residuo || 0);
