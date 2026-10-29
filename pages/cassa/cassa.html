@@ -4511,24 +4511,23 @@ function setAdminMese(pfx, yyyyMM) {
 
 // Trova il mese più recente con dati per l'emporio dato.
 // richiedeCorr=true → solo righe con corrispettivi > 0 (per IVA/Pagamenti).
+// Cerca mese per mese a ritroso (corretto per mesi a 2 cifre ott/nov/dic
+// che con ordinamento alfabetico su chiave verrebbero trovati dopo settembre).
 async function findLatestMeseConDati(emporio, richiedeCorr = false) {
   const emps = emporio ? [emporio] : EMPORIOS_NOTI;
-  let q = db.from('cassa_giorni')
-    .select('chiave')
-    .in('emporio', emps)
-    .order('chiave', { ascending: false })
-    .limit(60);
-  if (richiedeCorr) q = q.or('mat_corrispettivi.gt.0,pom_corrispettivi.gt.0');
-  const { data } = await q;
-  if (!data || !data.length) return null;
-  let bestYear = 0, bestMon = 0;
-  for (const row of data) {
-    const p = row.chiave.split('_');
-    const yr = +p[p.length - 3], mo = +p[p.length - 2];
-    if (isNaN(yr) || isNaN(mo) || yr < 2020 || mo < 1 || mo > 12) continue;
-    if (yr > bestYear || (yr === bestYear && mo > bestMon)) { bestYear = yr; bestMon = mo; }
+  const oggi = new Date();
+  let yr = oggi.getFullYear();
+  let mo = oggi.getMonth() + 1;
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const chiavi = emps.flatMap(e => chiaveMonth(e, yr, mo));
+    let q = db.from('cassa_giorni').select('chiave').in('chiave', chiavi).limit(1);
+    if (richiedeCorr) q = q.or('mat_corrispettivi.gt.0,pom_corrispettivi.gt.0');
+    const { data } = await q;
+    if (data && data.length > 0) return yr + '-' + String(mo).padStart(2, '0');
+    if (--mo < 1) { mo = 12; yr--; }
+    if (yr < 2020) break;
   }
-  return bestYear ? bestYear + '-' + String(bestMon).padStart(2,'0') : null;
+  return null;
 }
 
 const fmt = v => (v != null && v !== '' && !isNaN(v)) ? '€ ' + numIT(parseFloat(v)) : '–';
@@ -4688,8 +4687,15 @@ async function loadIvaData() {
                         : emps.flatMap(e => chiaveYear(e, anno));
     let q = db.from('cassa_giorni').select(SEL_IVA).in('chiave', chiavi);
     if (emporio) q = q.eq('emporio', emporio);
-    const { data, error } = await q;
+    let { data, error } = await q;
     if (error) throw error;
+    // Fallback: se in() non trova nulla ma emporio+mese specifici, prova con like
+    if ((!data || !data.length) && emporio && mese) {
+      const pattern = `${emporio}_${anno}_${+mese}_%`;
+      let q2 = db.from('cassa_giorni').select(SEL_IVA).like('chiave', pattern).eq('emporio', emporio);
+      const res2 = await q2;
+      if (!res2.error && res2.data && res2.data.length) data = res2.data;
+    }
 
     const rows = normCassa(data || []);
     const map = {};
