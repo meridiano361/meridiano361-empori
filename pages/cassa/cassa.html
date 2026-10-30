@@ -2309,7 +2309,7 @@ function renderOnlineEditor(turno, id, label, area, btn) {
     saveBtn.innerHTML='<i class="fas fa-check"></i> Salva';
     saveBtn.addEventListener('click',()=>{
       const filtrate = voci.filter(v=>v.importo||v.nome||v.sito);
-      const senzaSito = filtrate.filter(v=>!v.sito);
+      const senzaSito = id !== 'bonifico' ? filtrate.filter(v=>!v.sito) : [];
       if (senzaSito.length) {
         warnEl.style.display = '';
         area.querySelectorAll('.online-note-voce').forEach((vr, i) => {
@@ -2317,7 +2317,6 @@ function renderOnlineEditor(turno, id, label, area, btn) {
           if (!sw) return;
           if (voci[i] && !voci[i].sito && (voci[i].importo || voci[i].nome)) {
             sw.classList.add('sito-btns-warn');
-            // forza re-trigger animazione
             void sw.offsetWidth;
           } else {
             sw.classList.remove('sito-btns-warn');
@@ -3910,7 +3909,7 @@ function checkIva(corId, errors) {
   const cor = getNum(corId);
   if (Math.abs(iva - cor) >= 0.015) errors.push('IVA giornaliera (non corrisponde ai corrispettivi)');
 }
-const NOTE_OBBLIGATORIE_IDS = ['satispay_online','carte_online','paypal','bonifico'];
+const NOTE_OBBLIGATORIE_IDS = ['satispay_online','carte_online','paypal'];
 function checkNoteObbligatorie(turni, errors) {
   NOTE_OBBLIGATORIE_IDS.forEach(id => {
     const label = PAGAMENTI.find(p => p.id === id)?.label || id;
