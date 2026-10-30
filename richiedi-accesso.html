@@ -7,7 +7,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Richiedi accesso</title>
-  
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -58,24 +58,80 @@
       color: #64748b;
       font-weight: 400;
       line-height: 1.6;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
     }
 
-    .contact-link {
+    .form-field {
+      margin-bottom: 14px;
+      text-align: left;
+    }
+    .form-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 6px;
+    }
+    .form-field input,
+    .form-field select {
+      width: 100%;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: 'CenturyGothic', 'Century Gothic', sans-serif;
+      color: #1e293b;
+      background: #fff;
+      transition: border-color .15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .form-field input:focus,
+    .form-field select:focus {
+      outline: none;
+      border-color: #B5453A;
+    }
+    .form-field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+
+    .btn-send {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       background: #B5453A;
       color: #fff;
-      text-decoration: none;
+      border: none;
+      cursor: pointer;
       border-radius: 8px;
       padding: 0 24px;
       height: 48px;
       font-size: 14px;
       font-weight: 700;
+      font-family: 'CenturyGothic', 'Century Gothic', sans-serif;
       transition: background .15s;
+      width: 100%;
+      margin-top: 8px;
     }
-    .contact-link:hover { background: #8c362d; }
+    .btn-send:hover { background: #8c362d; }
+    .btn-send:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    .msg {
+      margin-top: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: none;
+    }
+    .msg.ok  { background: #f0fdf4; color: #16a34a; display: block; }
+    .msg.err { background: #fef2f2; color: #dc2626; display: block; }
 
     .back-link {
       display: block;
@@ -87,10 +143,6 @@
       transition: color .15s;
     }
     .back-link:hover { color: #B5453A; }
-[data-tip]{position:relative}
-[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:11px;font-weight:500;font-family:'CenturyGothic','Century Gothic',sans-serif;white-space:nowrap;padding:5px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;line-height:1.4;max-width:220px;white-space:normal;text-align:center}
-[data-tip]::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999}
-[data-tip]:hover::after,[data-tip]:hover::before{opacity:1}
   </style>
 </head>
 <body>
@@ -99,12 +151,89 @@
       <i class="fas fa-key"></i>
     </div>
     <h1>Richiedi credenziali di accesso.</h1>
-    <p>Per richiedere l'accesso alla piattaforma M361 Empori contatta il responsabile del tuo emporio o scrivi a Emilio Mazzolari.</p>
-    <a href="mailto:emilio.mazzolari@meridiano361.it" class="contact-link">
-      <i class="fas fa-envelope"></i>
-      Scrivi una email
-    </a>
+    <p>Per richiedere l'accesso alla piattaforma M361 Empori richiedi l'accesso.</p>
+
+    <div id="form-wrap">
+      <div class="form-field">
+        <label>Il tuo nome</label>
+        <input type="text" id="field-nome" placeholder="Nome e cognome" autocomplete="name">
+      </div>
+      <div class="form-field">
+        <label>Emporio</label>
+        <select id="field-emporio">
+          <option value="">Seleziona emporio...</option>
+          <option>Casalmaggiore</option>
+          <option>Cremona</option>
+          <option>Reggio Emilia</option>
+          <option>Mantova</option>
+          <option>Viadana</option>
+        </select>
+      </div>
+      <button class="btn-send" id="btn-send" onclick="inviaRichiesta()">
+        <i class="fas fa-paper-plane"></i>
+        Invia richiesta
+      </button>
+      <div class="msg" id="msg"></div>
+    </div>
+
     <a href="/login.html" class="back-link">← Torna al login</a>
   </div>
+
+<script>
+const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+// UUID Emilio Mazzolari — admin M361
+const EMILIO_ID = 'd318a06f-dcae-4762-841b-f951f7a9788f';
+
+async function inviaRichiesta() {
+  const nome    = document.getElementById('field-nome').value.trim();
+  const emporio = document.getElementById('field-emporio').value;
+  const msg     = document.getElementById('msg');
+  const btn     = document.getElementById('btn-send');
+
+  msg.className = 'msg';
+  msg.textContent = '';
+
+  if (!nome)    { msg.className = 'msg err'; msg.textContent = 'Inserisci il tuo nome.'; return; }
+  if (!emporio) { msg.className = 'msg err'; msg.textContent = 'Seleziona il tuo emporio.'; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Invio...';
+
+  try {
+    await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({
+        titolo: 'Meridiano 361',
+        testo:  `Richiesta di accesso da ${nome} (${emporio})`,
+        target: 'admin',
+        tipo:   'generali',
+        operatore_ids: [EMILIO_ID],
+        url: '/impostazioni.html',
+      }),
+    });
+
+    document.getElementById('form-wrap').innerHTML = `
+      <div style="text-align:center;padding:12px 0">
+        <div style="font-size:42px;margin-bottom:12px">✅</div>
+        <div style="font-size:15px;font-weight:700;color:#16a34a;margin-bottom:6px">Richiesta inviata!</div>
+        <div style="font-size:13px;color:#64748b;line-height:1.5">Riceverai le credenziali non appena l'amministratore approva la tua richiesta.</div>
+      </div>`;
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Invia richiesta';
+    msg.className = 'msg err';
+    msg.textContent = 'Errore di rete. Riprova tra poco.';
+  }
+}
+
+document.getElementById('field-nome').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('field-emporio').focus();
+});
+document.getElementById('field-emporio').addEventListener('keydown', e => {
+  if (e.key === 'Enter') inviaRichiesta();
+});
+</script>
 </body>
 </html>

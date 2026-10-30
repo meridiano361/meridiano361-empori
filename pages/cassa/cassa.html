@@ -4510,20 +4510,17 @@ function setAdminMese(pfx, yyyyMM) {
   if (elY && y) elY.value = y;
 }
 
-// Trova il mese più recente con dati per l'emporio dato.
-// richiedeCorr=true → solo righe con corrispettivi > 0 (per IVA/Pagamenti).
+// Trova il mese più recente con qualsiasi dato salvato per l'emporio dato.
 // Cerca mese per mese a ritroso (corretto per mesi a 2 cifre ott/nov/dic
 // che con ordinamento alfabetico su chiave verrebbero trovati dopo settembre).
-async function findLatestMeseConDati(emporio, richiedeCorr = false) {
+async function findLatestMeseConDati(emporio) {
   const emps = emporio ? [emporio] : EMPORIOS_NOTI;
   const oggi = new Date();
   let yr = oggi.getFullYear();
   let mo = oggi.getMonth() + 1;
   for (let attempt = 0; attempt < 24; attempt++) {
     const chiavi = emps.flatMap(e => chiaveMonth(e, yr, mo));
-    let q = db.from('cassa_giorni').select('chiave').in('chiave', chiavi).limit(1);
-    if (richiedeCorr) q = q.or('mat_corrispettivi.gt.0,pom_corrispettivi.gt.0');
-    const { data } = await q;
+    const { data } = await db.from('cassa_giorni').select('chiave').in('chiave', chiavi).limit(1);
     if (data && data.length > 0) return yr + '-' + String(mo).padStart(2, '0');
     if (--mo < 1) { mo = 12; yr--; }
     if (yr < 2020) break;
@@ -4716,7 +4713,7 @@ async function loadIvaData() {
     const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
     if (!aggRows.length) {
       if (mese) {
-        const latest = await findLatestMeseConDati(emporio, true);
+        const latest = await findLatestMeseConDati(emporio);
         if (latest && latest !== _ivaMese) {
           sessionStorage.setItem('cassa_mese_iva', latest);
           setAdminMese('iva', latest);
@@ -4874,7 +4871,7 @@ async function loadPagamentiData() {
       return `<td class="number"><span class="pag-has-note" onclick="showPagNote(this,event)" data-mn="${enc}" title="Vedi nota">${fmt(amount)}</span></td>`;
     };
     if (!rows.length && !(ddtRaw || []).length) {
-      const latest = await findLatestMeseConDati(emporio, true);
+      const latest = await findLatestMeseConDati(emporio);
       if (latest && latest !== mese) {
         sessionStorage.setItem('cassa_mese_pag', latest);
         setAdminMese('pag', latest);
