@@ -1055,6 +1055,43 @@ input[type=month].btn-export{min-width:160px;}
         </div>
       </div>
 
+      <!-- Omaggi / incassi non riscossi -->
+      <div style="margin-top:12px;border:1px solid #e0e7ff;border-radius:16px;overflow:hidden;">
+        <div style="background:#f0f4ff;padding:8px 14px;font-size:10px;font-weight:800;color:#4f46e5;text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:6px">
+          <i class="fas fa-gift" style="font-size:11px"></i> Omaggi — incassi non riscossi
+        </div>
+        <div class="iva-grid" style="border:none;border-radius:0;">
+          <div class="iva-block">
+            <div class="iva-aliq-tag">Omaggio</div>
+            <div class="iva-aliq-num" style="color:#4f46e5">22%</div>
+            <input id="iva-om-22" class="iva-amount-inp" placeholder="€ 0,00" value="€ 0,00"
+              oninput="calcIva()" onblur="formatMiniMoney(this)" onfocus="clearMiniMoney(this)"
+              style="border-bottom-color:#c7d2fe;">
+          </div>
+          <div class="iva-block">
+            <div class="iva-aliq-tag">Omaggio</div>
+            <div class="iva-aliq-num" style="color:#4f46e5">10%</div>
+            <input id="iva-om-10" class="iva-amount-inp" placeholder="€ 0,00" value="€ 0,00"
+              oninput="calcIva()" onblur="formatMiniMoney(this)" onfocus="clearMiniMoney(this)"
+              style="border-bottom-color:#c7d2fe;">
+          </div>
+          <div class="iva-block">
+            <div class="iva-aliq-tag">Omaggio</div>
+            <div class="iva-aliq-num" style="color:#4f46e5">4%</div>
+            <input id="iva-om-4" class="iva-amount-inp" placeholder="€ 0,00" value="€ 0,00"
+              oninput="calcIva()" onblur="formatMiniMoney(this)" onfocus="clearMiniMoney(this)"
+              style="border-bottom-color:#c7d2fe;">
+          </div>
+          <div class="iva-block" style="border-right:none;">
+            <div class="iva-aliq-tag">Omaggio</div>
+            <div class="iva-aliq-num esente" style="color:#64748b">Esente</div>
+            <input id="iva-om-esente" class="iva-amount-inp" placeholder="€ 0,00" value="€ 0,00"
+              oninput="calcIva()" onblur="formatMiniMoney(this)" onfocus="clearMiniMoney(this)"
+              style="border-bottom-color:#c7d2fe;">
+          </div>
+        </div>
+      </div>
+
       <div class="iva-summary">
         <div class="iva-sum-block">
           <div class="iva-sum-lbl">Somma totale</div>
@@ -3075,19 +3112,20 @@ function calcTotScontrini() {
 function calcIva() {
   const tipo = document.querySelector('input[name="turno_type"]:checked').value;
   const a=getNum('iva-22'),b=getNum('iva-10'),c=getNum('iva-4'),d=getNum('iva-esente');
-  const somma=a+b+c+d, net=a+b+c;
+  const om22=getNum('iva-om-22'),om10=getNum('iva-om-10'),om4=getNum('iva-om-4'),omes=getNum('iva-om-esente');
+  const somma=a+b+c+d+om22+om10+om4+omes, net=a+b+c;
   document.getElementById('iva-somma').value=somma;
   document.getElementById('iva-net-es').value=net;
   document.getElementById('iva-somma-disp').textContent=euro(somma);
   document.getElementById('iva-net-es-disp').textContent=euro(net);
-  
+
   let cor;
   if (tipo === 'solo_mattino') {
     cor = getNum('mat-corrispettivi');
   } else {
     cor = getNum('pom-corrispettivi');
   }
-  
+
   const ok=Math.abs(somma-cor)<0.015;
   const cell=document.getElementById('iva-ver-cell');
   cell.textContent=ok?'✓ OK':'✗ ERR';
@@ -3312,6 +3350,10 @@ function fillForm(data) {
   if(data.iva_22!=null)   document.getElementById('iva-22').value=euro(data.iva_22);
   if(data.iva_10!=null)   document.getElementById('iva-10').value=euro(data.iva_10);
   if(data.iva_4!=null)    document.getElementById('iva-4').value=euro(data.iva_4);
+  if(data.iva_om_22!=null)     document.getElementById('iva-om-22').value=euro(data.iva_om_22);
+  if(data.iva_om_10!=null)     document.getElementById('iva-om-10').value=euro(data.iva_om_10);
+  if(data.iva_om_4!=null)      document.getElementById('iva-om-4').value=euro(data.iva_om_4);
+  if(data.iva_om_esente!=null) document.getElementById('iva-om-esente').value=euro(data.iva_om_esente);
   // Carica voci IVA esente
   document.getElementById('esente-voci').innerHTML = '';
   if (data.iva_esente_dettaglio) {
@@ -3664,7 +3706,8 @@ function resetDayForm() {
   ['nota-mattino','nota-pomeriggio','note-arrivo-merci'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
-  ['iva-22','iva-10','iva-4','cassaforte','mat-corrispettivi','pom-corrispettivi','global-scontrini'].forEach(id => {
+  ['iva-22','iva-10','iva-4','iva-om-22','iva-om-10','iva-om-4','iva-om-esente',
+   'cassaforte','mat-corrispettivi','pom-corrispettivi','global-scontrini'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
   document.getElementById('esente-voci').innerHTML = '';
@@ -3965,6 +4008,11 @@ async function saveDraft() {
   if (iva22) payload.iva_22 = iva22;
   if (iva10) payload.iva_10 = iva10;
   if (iva4)  payload.iva_4  = iva4;
+  const om22=getNum('iva-om-22'),om10=getNum('iva-om-10'),om4v=getNum('iva-om-4'),omes=getNum('iva-om-esente');
+  if (om22)  payload.iva_om_22     = om22;
+  if (om10)  payload.iva_om_10     = om10;
+  if (om4v)  payload.iva_om_4      = om4v;
+  if (omes)  payload.iva_om_esente = omes;
 
   TAGLI.forEach(t => {
     const k = String(t).replace('.', '_');
@@ -4249,6 +4297,8 @@ async function saveDay() {
     iva_22:  getNum('iva-22'), iva_10: getNum('iva-10'), iva_4: getNum('iva-4'),
     iva_esente: getNum('iva-esente'),
     iva_esente_dettaglio: (() => { const v=getEsenteVoci(); return v.length?JSON.stringify(v):null; })(),
+    iva_om_22: getNum('iva-om-22')||null, iva_om_10: getNum('iva-om-10')||null,
+    iva_om_4:  getNum('iva-om-4')||null,  iva_om_esente: getNum('iva-om-esente')||null,
     iva_net_es:  parseFloat(document.getElementById('iva-net-es').value)||0,
     iva_somma:   ivaSomma,
     mat_corrispettivi: getNum('mat-corrispettivi'),
@@ -4637,7 +4687,7 @@ function normCassa(rows) {
 }
 const SEL_FULL = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,mat_contanti_netti,pom_contanti_netti,mat_pay_bancomat,pom_pay_bancomat,mat_pay_carte,pom_pay_carte,mat_pay_satispay,pom_pay_satispay,mat_pay_satispay_online,pom_pay_satispay_online,mat_pay_carte_online,pom_pay_carte_online,mat_pay_paypal,pom_pay_paypal,mat_pay_bonifico,pom_pay_bonifico,mat_pay_gift_card,pom_pay_gift_card,mat_pay_gift_card_online,pom_pay_gift_card_online,mat_pay_buoni,pom_pay_buoni,mat_pay_rimborsi_online,pom_pay_rimborsi_online,mat_pay_spese,pom_pay_spese,cassaforte,mat_cassaforte,fondo_cassa,fondo_residuo,note_giornata';
 const SEL_PAG  = SEL_FULL + ',note_mat_pay_satispay,note_pom_pay_satispay,note_mat_pay_satispay_online,note_pom_pay_satispay_online,note_mat_pay_carte_online,note_pom_pay_carte_online,note_mat_pay_paypal,note_pom_pay_paypal,note_mat_pay_bonifico,note_pom_pay_bonifico,note_mat_pay_gift_card_online,note_pom_pay_gift_card_online,note_mat_pay_rimborsi_online,note_pom_pay_rimborsi_online,pag_contab_ok';
-const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_admin_ok,iva_admin_note';
+const SEL_IVA  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,iva_22,iva_10,iva_4,iva_esente,iva_esente_dettaglio,iva_om_22,iva_om_10,iva_om_4,iva_om_esente,iva_admin_ok,iva_admin_note';
 const SEL_VM   = SEL_FULL + ',iva_22,iva_10,iva_4,iva_esente,meteo_note,note_amm,num_scontrini,corrispettivi_25,num_scontrini_25';
 const SEL_COM  = 'chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,iva_esente,iva_4,iva_10,iva_22,meteo_mattino,meteo_pomeriggio,arrivo_merci,note_arrivo_merci,note_giornata,turno_type';
 
@@ -4703,10 +4753,10 @@ async function loadIvaData() {
       };
       const g = map[key];
       g.lordo   += r.totale_corrispettivi;
-      g.lordo22 += parseFloat(r.iva_22 || 0);
-      g.lordo10 += parseFloat(r.iva_10 || 0);
-      g.lordo4  += parseFloat(r.iva_4  || 0);
-      g.esente  += parseFloat(r.iva_esente || 0);
+      g.lordo22 += parseFloat(r.iva_22 || 0) + parseFloat(r.iva_om_22 || 0);
+      g.lordo10 += parseFloat(r.iva_10 || 0) + parseFloat(r.iva_om_10 || 0);
+      g.lordo4  += parseFloat(r.iva_4  || 0) + parseFloat(r.iva_om_4  || 0);
+      g.esente  += parseFloat(r.iva_esente || 0) + parseFloat(r.iva_om_esente || 0);
     });
 
     const aggRows = Object.values(map).sort((a,b) => a.periodo.localeCompare(b.periodo) || (a.emporio||'').localeCompare(b.emporio||''));
