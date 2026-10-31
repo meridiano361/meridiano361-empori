@@ -22,6 +22,24 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Push notification — promemoria sconto compleanno Ambassador
+self.addEventListener('push', e => {
+  let data = { title: 'Meridiano 361', body: '' };
+  try { data = e.data?.json() ?? data; } catch {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow('/'));
+});
+
 // Network-first: tenta rete, fallback cache (utile offline)
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
