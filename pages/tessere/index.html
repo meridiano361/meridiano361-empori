@@ -2937,11 +2937,27 @@ function bdSelectAll(checked) {
   _bdList.filter(c => c.telefono).forEach(c => {
     if (checked) _bdSelected.add(c.id); else _bdSelected.delete(c.id);
   });
-  // aggiorna tutte le checkbox
   document.querySelectorAll('.bd-check').forEach(cb => {
     const id = cb.dataset.id;
     cb.checked = _bdSelected.has(id) || _bdSelected.has(Number(id));
   });
+  _bdUpdateSendBtn();
+}
+
+function bdSelectOggi() {
+  const oggi = new Date();
+  _bdList.forEach(c => _bdSelected.delete(c.id));
+  _bdList.filter(c => {
+    if (!c.data_nascita || !c.telefono) return false;
+    const bd = new Date(c.data_nascita);
+    return bd.getMonth() === oggi.getMonth() && bd.getDate() === oggi.getDate();
+  }).forEach(c => _bdSelected.add(c.id));
+  document.querySelectorAll('.bd-check').forEach(cb => {
+    const id = cb.dataset.id;
+    cb.checked = _bdSelected.has(id) || _bdSelected.has(Number(id));
+  });
+  const all = document.getElementById('bd-select-all');
+  if (all) { all.checked = false; all.indeterminate = _bdSelected.size > 0; }
   _bdUpdateSendBtn();
 }
 
@@ -3023,10 +3039,12 @@ async function renderCompleanni() {
     html = '<div style="font-size:13px;color:#94a3b8">Nessun compleanno nei prossimi 7 giorni</div>';
   } else {
     if (hasTel.length > 1) {
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:2px solid #e2e8f0;margin-bottom:4px">
+      const oggiCount = _bdList.filter(c => c.telefono && bdOffset(c) === 0).length;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:2px solid #e2e8f0;margin-bottom:4px;flex-wrap:wrap">
         <input type="checkbox" id="bd-select-all" onchange="bdSelectAll(this.checked)"
           style="width:16px;height:16px;accent-color:#25d366;cursor:pointer;flex-shrink:0">
-        <span style="font-size:12px;font-weight:700;color:#64748b">Seleziona tutti (${hasTel.length} con WhatsApp)</span>
+        <span style="font-size:12px;font-weight:700;color:#64748b">Seleziona tutti (${hasTel.length})</span>
+        ${oggiCount > 0 ? `<button onclick="bdSelectOggi()" style="margin-left:4px;background:#fef3c7;border:1.5px solid #fcd34d;color:#92400e;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px"><i class="fas fa-birthday-cake"></i> Solo oggi${oggiCount > 1 ? ' ('+oggiCount+')' : ''}</button>` : ''}
       </div>`;
     }
     html += _bdList.map(c => {
