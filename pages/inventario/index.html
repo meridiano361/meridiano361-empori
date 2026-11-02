@@ -97,16 +97,22 @@
 <script>
 const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
-const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+const SUPA_CLIENT = (window._supabase && typeof window._supabase.from === 'function')
+  ? window._supabase
+  : supabase.createClient(SUPA_URL, SUPA_KEY);
+const db = SUPA_CLIENT;
 
 const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
-if (!user) location.replace('/login.html');
+if (!user) { location.replace('/login.html'); }
 
 const em = (user?.email || '').toLowerCase();
 const isAdmin = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
 
-(function init() {
-  const sel = document.getElementById('f-emporio');
+async function init() {
+  /* Assicura che la sessione auth sia caricata prima di fare query */
+  try { await db.auth.getSession(); } catch {}
+
+  const sel  = document.getElementById('f-emporio');
   const mSel = document.getElementById('m-emporio');
   if (!isAdmin) {
     const emp = user?.emporio || '';
@@ -114,8 +120,9 @@ const isAdmin = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@merid
     sel.disabled = true;
     if (mSel) { mSel.value = emp; mSel.disabled = true; }
   }
-  carica();
-})();
+  await carica();
+}
+init();
 
 function fmtDate(iso) {
   if (!iso) return '';
@@ -123,36 +130,37 @@ function fmtDate(iso) {
 }
 
 async function carica() {
-  const empFilter = document.getElementById('f-emporio').value;
-  let q = db.from('inventario_sessioni')
-    .select('id,emporio,operatore,note,created_at')
-    .order('created_at', { ascending: false });
-
-  if (!isAdmin) q = q.eq('emporio', user?.emporio || '');
-  else if (empFilter) q = q.eq('emporio', empFilter);
-
-  const { data, error } = await q.limit(100);
   const lista = document.getElementById('lista');
+  try {
+    const empFilter = document.getElementById('f-emporio').value;
+    let q = db.from('inventario_sessioni')
+      .select('id,emporio,operatore,note,created_at')
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px">Errore: ${error.message}</div>`;
-    return;
-  }
+    if (!isAdmin) q = q.eq('emporio', user?.emporio || '');
+    else if (empFilter) q = q.eq('emporio', empFilter);
 
-  if (!data?.length) {
-    lista.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#94a3b8;font-size:14px"><div style="font-size:36px;margin-bottom:12px">📦</div>Nessuna sessione inventario.<br>Premi "Nuova sessione" per iniziare.</div>`;
-    return;
-  }
+    const { data, error } = await q;
 
-  // Recupera conteggio righe per ogni sessione
-  const ids = data.map(s => s.id);
-  const { data: counts } = await db.from('inventario_righe')
-    .select('sessione_id')
-    .in('sessione_id', ids);
-  const countMap = {};
-  (counts || []).forEach(r => { countMap[r.sessione_id] = (countMap[r.sessione_id] || 0) + 1; });
+    if (error) {
+      lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">Errore DB: ${error.message}<br><small style="color:#94a3b8;font-weight:400">${error.code||''}</small></div>`;
+      return;
+    }
 
-  lista.innerHTML = data.map(s => {
+    if (!data?.length) {
+      lista.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#94a3b8;font-size:14px"><div style="font-size:36px;margin-bottom:12px">📦</div>Nessuna sessione inventario.<br>Premi "Nuova sessione" per iniziare.</div>`;
+      return;
+    }
+
+    // Recupera conteggio righe per ogni sessione
+    const ids = data.map(s => s.id);
+    const { data: counts } = await db.from('inventario_righe')
+      .select('sessione_id')
+      .in('sessione_id', ids);
+    const countMap = {};
+    (counts || []).forEach(r => { countMap[r.sessione_id] = (countMap[r.sessione_id] || 0) + 1; });
+
+    lista.innerHTML = data.map(s => {
     const n = countMap[s.id] || 0;
     return `
     <div class="sess-card" onclick="apri(${s.id})">
@@ -178,7 +186,10 @@ async function carica() {
         </div>
       </div>
     </div>`;
-  }).join('');
+    }).join('');
+  } catch(e) {
+    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">Errore inatteso: ${e.message}</div>`;
+  }
 }
 
 function apri(id) { location.href = `sessione.html?id=${id}`; }
