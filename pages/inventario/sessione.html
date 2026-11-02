@@ -12,17 +12,12 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    :root {
-      --R:#B5453A; --Rl:rgba(181,69,58,.1);
-      --S:#1e293b; --S2:#334155; --S3:#475569;
-      --G:#94a3b8; --Gl:#e2e8f0; --bg:#f1f5f9;
-    }
+    :root{--R:#B5453A;--Rl:rgba(181,69,58,.1);--S:#1e293b;--S2:#334155;--S3:#475569;--G:#94a3b8;--Gl:#e2e8f0;--bg:#f1f5f9}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:var(--bg);padding-bottom:100px}
 
-    /* Toolbar */
     .toolbar{position:sticky;top:56px;z-index:100;background:#fff;border-bottom:1px solid var(--Gl);padding:10px 14px;display:flex;align-items:center;gap:8px}
-    .btn-back{background:none;border:none;cursor:pointer;color:var(--G);font-size:18px;padding:4px 8px 4px 0;flex-shrink:0;line-height:1}
+    .btn-back{background:none;border:none;cursor:pointer;color:var(--G);font-size:20px;padding:4px 8px 4px 0;flex-shrink:0;line-height:1}
     .btn-back:hover{color:var(--R)}
     .tb-info{flex:1;min-width:0}
     .tb-title{font-weight:800;color:var(--S);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -30,7 +25,6 @@
     .btn-exp{background:none;border:1.5px solid var(--Gl);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--S3);font-family:inherit;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:4px}
     .btn-exp:hover{border-color:var(--R);color:var(--R)}
 
-    /* Scan zone */
     .scan-zone{background:#fff;margin:14px;border-radius:16px;border:2px dashed var(--Gl);padding:22px 20px;display:flex;flex-direction:column;align-items:center;gap:12px}
     .btn-scan{background:var(--R);color:#fff;border:none;border-radius:14px;padding:15px 28px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:10px;transition:background .15s;width:100%;max-width:320px;justify-content:center}
     .btn-scan:hover{background:#8c362d}
@@ -39,36 +33,38 @@
     .manual-wrap{display:flex;gap:8px;width:100%;max-width:320px}
     .manual-input{flex:1;border:1.5px solid var(--Gl);border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;color:var(--S);background:var(--bg);outline:none;transition:border-color .15s}
     .manual-input:focus{border-color:var(--R);background:#fff}
-    .btn-manual-go{background:var(--S);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer;font-family:inherit;transition:background .15s;flex-shrink:0}
+    .btn-manual-go{background:var(--S);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:16px;cursor:pointer;font-family:inherit;transition:background .15s;flex-shrink:0}
     .btn-manual-go:hover{background:var(--S2)}
 
-    /* Add panel */
-    .add-panel{background:#fff;margin:0 14px 14px;border-radius:16px;border:2px solid var(--R);padding:18px 20px;display:none}
-    .add-panel.visible{display:block}
-    .ap-title{font-size:12px;font-weight:800;color:var(--R);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;display:flex;align-items:center;gap:6px}
-    .field{margin-bottom:12px}
-    .field label{display:block;font-size:11px;font-weight:700;color:var(--G);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    /* Add/edit panel */
+    .panel{background:#fff;margin:0 14px 14px;border-radius:16px;border:2px solid var(--R);padding:18px 20px;display:none}
+    .panel.visible{display:block}
+    .panel-title{font-size:12px;font-weight:800;color:var(--R);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+    .field{margin-bottom:11px}
+    .field label{display:block;font-size:11px;font-weight:700;color:var(--G);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
     .field input{width:100%;border:1.5px solid var(--Gl);border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;color:var(--S);background:var(--bg);outline:none;transition:border-color .15s}
     .field input:focus{border-color:var(--R);background:#fff}
-    .ap-actions{display:flex;gap:10px;margin-top:6px}
-    .btn-add-ok{flex:1;background:var(--R);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s}
-    .btn-add-ok:hover{background:#8c362d}
-    .btn-add-ok:disabled{background:var(--G);cursor:not-allowed}
-    .btn-ancora{background:none;border:1.5px solid var(--Gl);border-radius:10px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--S3);font-family:inherit;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:5px}
-    .btn-ancora:hover{border-color:var(--R);color:var(--R)}
+    .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .panel-actions{display:flex;gap:10px;margin-top:6px}
+    .btn-ok{flex:1;background:var(--R);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s}
+    .btn-ok:hover{background:#8c362d}
+    .btn-ok:disabled{background:var(--G);cursor:not-allowed}
+    .btn-sec{background:none;border:1.5px solid var(--Gl);border-radius:10px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer;color:var(--S3);font-family:inherit;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:5px}
+    .btn-sec:hover{border-color:var(--R);color:var(--R)}
 
-    /* List */
+    .merge-badge{display:inline-block;background:#fef9c3;color:#854d0e;font-size:10px;font-weight:700;border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:middle}
+
     .list-hd{padding:8px 14px 4px;display:flex;align-items:center;justify-content:space-between}
     .list-count{font-size:11px;font-weight:800;color:var(--G);text-transform:uppercase;letter-spacing:.06em}
     .list-total{font-size:12px;font-weight:700;color:var(--S3)}
     .items{padding:0 14px;display:flex;flex-direction:column;gap:8px}
 
-    /* Item card */
     .item-card{background:#fff;border:1px solid var(--Gl);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color .15s}
-    .item-card.new-flash{border-color:var(--R);animation:flash .6s ease-out}
-    @keyframes flash{0%{background:var(--Rl)}100%{background:#fff}}
+    .item-card.flash{animation:cardflash .7s ease-out}
+    @keyframes cardflash{0%{border-color:var(--R);background:var(--Rl)}100%{border-color:var(--Gl);background:#fff}}
     .item-body{flex:1;min-width:0;cursor:pointer}
-    .item-code{font-size:11px;font-weight:700;color:var(--G);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+    .item-code{font-size:11px;font-weight:700;color:var(--G);font-variant-numeric:tabular-nums}
+    .item-art{font-size:11px;color:#64748b;font-weight:600;margin-top:1px}
     .item-desc{font-size:14px;font-weight:700;color:var(--S);margin-top:2px}
     .item-desc.empty{color:var(--G);font-style:italic;font-weight:500}
     .item-right{text-align:right;flex-shrink:0;min-width:40px}
@@ -79,26 +75,27 @@
     .btn-ic.del:hover{color:#ef4444;background:#fef2f2}
 
     /* Camera overlay */
-    .camera-ov{position:fixed;inset:0;z-index:1000;background:#000;display:none;flex-direction:column}
-    .camera-ov.visible{display:flex}
-    .cam-header{padding:env(safe-area-inset-top,0) 16px 12px;padding-top:max(env(safe-area-inset-top,0), 16px);display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.6);flex-shrink:0}
+    .cam-ov{position:fixed;inset:0;z-index:1000;background:#000;display:none;flex-direction:column}
+    .cam-ov.visible{display:flex}
+    .cam-hdr{padding:max(env(safe-area-inset-top,0),16px) 16px 12px;display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.6);flex-shrink:0}
     .cam-title{color:#fff;font-size:14px;font-weight:700}
     .btn-close-cam{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:10px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
     #cam-preview{flex:1;overflow:hidden;position:relative}
     #cam-preview video{width:100%!important;height:100%!important;object-fit:cover!important;display:block}
-    .cam-hint{padding:14px 16px;text-align:center;color:rgba(255,255,255,.7);font-size:13px;font-weight:600;background:rgba(0,0,0,.6);flex-shrink:0;padding-bottom:max(env(safe-area-inset-bottom,0), 14px)}
+    .cam-hint{padding:14px 16px;text-align:center;color:rgba(255,255,255,.7);font-size:13px;font-weight:600;background:rgba(0,0,0,.6);flex-shrink:0;padding-bottom:max(env(safe-area-inset-bottom,0),14px)}
 
     /* Edit bottom sheet */
     .edit-ov{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
     .edit-ov.visible{display:flex}
-    .edit-sheet{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px;padding-bottom:max(env(safe-area-inset-bottom,0), 24px);width:100%;max-width:480px}
-    .edit-title{font-size:15px;font-weight:800;color:var(--S);margin-bottom:18px}
+    .edit-sheet{background:#fff;border-radius:20px 20px 0 0;padding:24px 20px;padding-bottom:max(env(safe-area-inset-bottom,0),24px);width:100%;max-width:480px}
+    .edit-title{font-size:15px;font-weight:800;color:var(--S);margin-bottom:16px}
     .edit-actions{display:flex;gap:10px;margin-top:8px}
-    .btn-cancel{flex:0 0 auto;border:1.5px solid var(--Gl);background:#fff;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;color:var(--S3);font-family:inherit}
+    .btn-cancel{border:1.5px solid var(--Gl);background:#fff;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;color:var(--S3);font-family:inherit}
     .btn-save{flex:1;background:var(--R);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
 
     .empty-state{text-align:center;padding:48px 20px;color:var(--G);font-size:14px;font-weight:600}
     .empty-icon{font-size:36px;margin-bottom:12px}
+    .err-box{background:#fef2f2;color:#dc2626;border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;margin:14px}
   </style>
 </head>
 <body>
@@ -106,8 +103,8 @@
 <script src="../../scripts/auth.js"></script>
 
 <!-- Camera overlay -->
-<div id="cam-ov" class="camera-ov">
-  <div class="cam-header">
+<div id="cam-ov" class="cam-ov">
+  <div class="cam-hdr">
     <span class="cam-title">&#x1F4F7; Scansiona codice a barre</span>
     <button class="btn-close-cam" onclick="chiudiCamera()">&#x2715; Chiudi</button>
   </div>
@@ -121,16 +118,22 @@
     <div class="edit-title">Modifica prodotto</div>
     <div class="field">
       <label>Codice a barre</label>
-      <input type="text" id="e-barcode" autocomplete="off" inputmode="numeric">
+      <input type="text" id="e-bc" autocomplete="off" inputmode="numeric">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Cod. articolo</label>
+        <input type="text" id="e-art" autocomplete="off" placeholder="es. ART-001">
+      </div>
+      <div class="field">
+        <label>Quantità</label>
+        <input type="number" id="e-qty" min="0.001" step="any" inputmode="decimal"
+          onkeydown="if(event.key==='Enter')salvaEdit()">
+      </div>
     </div>
     <div class="field">
       <label>Descrizione</label>
       <input type="text" id="e-desc" placeholder="es. Pasta 500g" autocomplete="off">
-    </div>
-    <div class="field">
-      <label>Quantità</label>
-      <input type="number" id="e-qty" min="0.001" step="any" inputmode="decimal"
-        onkeydown="if(event.key==='Enter')salvaEdit()">
     </div>
     <div class="edit-actions">
       <button class="btn-cancel" onclick="chiudiEdit()">Annulla</button>
@@ -146,11 +149,11 @@
     <div class="tb-title" id="tb-title">Inventario</div>
     <div class="tb-sub" id="tb-sub">Caricamento...</div>
   </div>
-  <button class="btn-exp" onclick="exportCSV()" title="Esporta CSV">
+  <button class="btn-exp" onclick="exportCSV()">
     <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
     CSV
   </button>
-  <button class="btn-exp" onclick="exportXLS()" title="Esporta Excel">
+  <button class="btn-exp" onclick="exportXLS()">
     <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
     XLS
   </button>
@@ -164,53 +167,50 @@
     </svg>
     Scansiona prodotto
   </button>
-  <span class="scan-sep">oppure</span>
+  <span class="scan-sep">oppure inserisci il codice a mano</span>
   <div class="manual-wrap">
     <input type="text" class="manual-input" id="manual-bc"
-      placeholder="Inserisci codice a mano"
+      placeholder="Codice a barre..."
       autocomplete="off" inputmode="numeric"
       onkeydown="if(event.key==='Enter')onManuale()">
-    <button class="btn-manual-go" onclick="onManuale()" title="Aggiungi">&#8594;</button>
+    <button class="btn-manual-go" onclick="onManuale()" title="Vai">&#8594;</button>
   </div>
 </div>
 
-<!-- Add panel (appare dopo scansione) -->
-<div class="add-panel" id="add-panel">
-  <div class="ap-title">
-    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-    </svg>
-    Aggiungi prodotto
-  </div>
+<!-- Add panel -->
+<div class="panel" id="add-panel">
+  <div class="panel-title" id="ap-title">&#x2795; Aggiungi prodotto</div>
   <div class="field">
     <label>Codice a barre</label>
     <input type="text" id="ap-bc" autocomplete="off" inputmode="numeric">
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label>Cod. articolo <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--G)">(opz.)</span></label>
+      <input type="text" id="ap-art" autocomplete="off" placeholder="es. ART-001">
+    </div>
+    <div class="field">
+      <label>Quantità</label>
+      <input type="number" id="ap-qty" value="1" min="0.001" step="any" inputmode="decimal"
+        onkeydown="if(event.key==='Enter')aggiungiProdotto()">
+    </div>
   </div>
   <div class="field">
     <label>Descrizione <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--G)">(opzionale)</span></label>
     <input type="text" id="ap-desc" placeholder="es. Pasta 500g" autocomplete="off"
       onkeydown="if(event.key==='Enter')document.getElementById('ap-qty').focus()">
   </div>
-  <div class="field">
-    <label>Quantità</label>
-    <input type="number" id="ap-qty" value="1" min="0.001" step="any" inputmode="decimal"
-      onkeydown="if(event.key==='Enter')aggiungiProdotto()">
-  </div>
-  <div class="ap-actions">
-    <button class="btn-ancora" onclick="riscansiona()">
-      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-      </svg>
+  <div class="panel-actions">
+    <button class="btn-sec" onclick="riscansiona()">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       Scansiona ancora
     </button>
-    <button class="btn-add-ok" id="btn-add-ok" onclick="aggiungiProdotto()">
-      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align:middle;margin-right:5px">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/>
-      </svg>
-      Aggiungi
-    </button>
+    <button class="btn-ok" id="btn-add-ok" onclick="aggiungiProdotto()">Aggiungi</button>
   </div>
 </div>
+
+<!-- Error box -->
+<div id="err-box" class="err-box" style="display:none"></div>
 
 <!-- List -->
 <div class="list-hd">
@@ -229,7 +229,7 @@ const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
-if (!user) location.replace('/login.html');
+if (!user) { location.replace('/login.html'); }
 
 const sessioneId = parseInt(new URLSearchParams(location.search).get('id'));
 if (!sessioneId) location.replace('index.html');
@@ -242,26 +242,32 @@ let editingId = null;
 
 /* ── Bootstrap ── */
 async function init() {
-  const { data: s, error } = await db.from('inventario_sessioni').select('*').eq('id', sessioneId).single();
-  if (error || !s) { alert('Sessione non trovata.'); location.replace('index.html'); return; }
-  sessione = s;
-  document.title = `Inventario ${s.emporio}`;
-  document.getElementById('tb-title').textContent = `Inventario — ${s.emporio}`;
-  document.getElementById('tb-sub').textContent =
-    fmtDate(s.created_at) +
-    (s.operatore ? ' · ' + s.operatore : '') +
-    (s.note ? ' · ' + s.note : '');
-  await caricaRighe();
+  try {
+    const { data: s, error } = await db.from('inventario_sessioni').select('*').eq('id', sessioneId).single();
+    if (error) { mostraErrore('Errore caricamento sessione: ' + error.message); return; }
+    if (!s) { alert('Sessione non trovata.'); location.replace('index.html'); return; }
+    sessione = s;
+    document.title = `Inventario ${s.emporio}`;
+    document.getElementById('tb-title').textContent = `Inventario — ${s.emporio}`;
+    document.getElementById('tb-sub').textContent =
+      fmtDate(s.created_at) +
+      (s.operatore ? ' · ' + s.operatore : '') +
+      (s.note ? ' · ' + s.note : '');
+    await caricaRighe();
+  } catch(e) {
+    mostraErrore('Errore inatteso: ' + e.message);
+  }
 }
 
 async function caricaRighe() {
-  const { data } = await db.from('inventario_righe')
+  const { data, error } = await db.from('inventario_righe')
     .select('*').eq('sessione_id', sessioneId).order('created_at', { ascending: true });
+  if (error) { mostraErrore('Errore righe: ' + error.message); return; }
   righe = data || [];
   renderRighe();
 }
 
-/* ── Render ── */
+/* ── Render list ── */
 function renderRighe(flashId) {
   const el    = document.getElementById('items');
   const count = document.getElementById('list-count');
@@ -277,9 +283,10 @@ function renderRighe(flashId) {
   }
 
   el.innerHTML = righe.map(r => `
-    <div class="item-card${r.id === flashId ? ' new-flash' : ''}" id="ic-${r.id}">
+    <div class="item-card${r.id === flashId ? ' flash' : ''}" id="ic-${r.id}">
       <div class="item-body" onclick="apriEdit(${r.id})">
         <div class="item-code">${r.codice_barre || '—'}</div>
+        ${r.codice_articolo ? `<div class="item-art">Art. ${r.codice_articolo}</div>` : ''}
         <div class="item-desc${!r.descrizione ? ' empty' : ''}">${r.descrizione || 'Nessuna descrizione'}</div>
       </div>
       <div class="item-right">
@@ -287,60 +294,37 @@ function renderRighe(flashId) {
         <div class="item-unit">pz</div>
       </div>
       <button class="btn-ic" onclick="apriEdit(${r.id})" title="Modifica">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-        </svg>
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
       </button>
       <button class="btn-ic del" onclick="eliminaRiga(${r.id})" title="Elimina">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-        </svg>
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
       </button>
     </div>
   `).join('');
 }
 
-function fmtQty(q) {
-  const n = parseFloat(q) || 0;
-  return n % 1 === 0 ? n.toString() : parseFloat(n.toFixed(3)).toString();
-}
-function fmtDate(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
-}
-function fmtDateFile(iso) {
-  return iso ? new Date(iso).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
-}
-
 /* ── Camera ── */
 async function avviaCamera() {
-  const btn = document.getElementById('btn-scan');
-  btn.disabled = true;
+  document.getElementById('btn-scan').disabled = true;
   document.getElementById('cam-ov').classList.add('visible');
-
   if (!scanner) scanner = new Html5Qrcode('cam-preview');
-
   const w = Math.min(window.innerWidth * 0.75, 300);
   try {
     await scanner.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: Math.floor(w), height: Math.floor(w * 0.45) } },
-      onScanOk,
-      () => {}
+      onScanOk, () => {}
     );
     scannerOn = true;
   } catch(e) {
     document.getElementById('cam-ov').classList.remove('visible');
-    btn.disabled = false;
-    alert('Impossibile accedere alla fotocamera.\n' + e);
+    document.getElementById('btn-scan').disabled = false;
+    alert('Fotocamera non disponibile: ' + e);
   }
 }
 
 async function chiudiCamera() {
-  if (scanner && scannerOn) {
-    try { await scanner.stop(); } catch {}
-    scannerOn = false;
-  }
+  if (scanner && scannerOn) { try { await scanner.stop(); } catch {} scannerOn = false; }
   document.getElementById('cam-ov').classList.remove('visible');
   document.getElementById('btn-scan').disabled = false;
 }
@@ -353,11 +337,23 @@ async function onScanOk(text) {
 
 /* ── Add panel ── */
 function mostraPanel(barcode) {
+  /* Controlla se esiste già un prodotto con stesso barcode */
+  const esistente = barcode ? righe.find(r => r.codice_barre === barcode) : null;
+
   document.getElementById('ap-bc').value   = barcode || '';
-  document.getElementById('ap-desc').value = '';
+  document.getElementById('ap-art').value  = esistente?.codice_articolo || '';
+  document.getElementById('ap-desc').value = esistente?.descrizione || '';
   document.getElementById('ap-qty').value  = '1';
+
+  if (esistente) {
+    document.getElementById('ap-title').innerHTML =
+      '&#x2795; Aggiungi prodotto <span class="merge-badge">+ quantità esistente</span>';
+  } else {
+    document.getElementById('ap-title').textContent = '✚ Aggiungi prodotto';
+  }
+
   document.getElementById('add-panel').classList.add('visible');
-  document.getElementById('ap-desc').focus();
+  document.getElementById('ap-qty').focus();
   document.getElementById('add-panel').scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
@@ -367,6 +363,7 @@ function chiudiPanel() {
 
 async function aggiungiProdotto() {
   const barcode = document.getElementById('ap-bc').value.trim();
+  const art     = document.getElementById('ap-art').value.trim();
   const desc    = document.getElementById('ap-desc').value.trim();
   const qty     = parseFloat(document.getElementById('ap-qty').value);
   if (!qty || qty <= 0) { document.getElementById('ap-qty').focus(); return; }
@@ -374,30 +371,44 @@ async function aggiungiProdotto() {
   const btn = document.getElementById('btn-add-ok');
   btn.disabled = true;
 
-  const { data, error } = await db.from('inventario_righe').insert({
-    sessione_id:  sessioneId,
-    codice_barre: barcode || null,
-    descrizione:  desc    || null,
-    quantita:     qty,
-  }).select().single();
+  /* Merge se stesso barcode già presente */
+  const esistente = barcode ? righe.find(r => r.codice_barre === barcode) : null;
 
-  btn.disabled = false;
-  if (error) { alert('Errore: ' + error.message); return; }
+  if (esistente) {
+    const nuovaQty = parseFloat(esistente.quantita) + qty;
+    const { error } = await db.from('inventario_righe').update({
+      quantita:        nuovaQty,
+      descrizione:     desc     || esistente.descrizione  || null,
+      codice_articolo: art      || esistente.codice_articolo || null,
+    }).eq('id', esistente.id);
 
-  righe.push(data);
-  chiudiPanel();
-  renderRighe(data.id);
-  setTimeout(() => {
-    document.getElementById('ic-' + data.id)?.scrollIntoView({ behavior:'smooth', block:'nearest' });
-  }, 50);
+    btn.disabled = false;
+    if (error) { mostraErrore('Errore aggiornamento: ' + error.message); return; }
+    const idx = righe.findIndex(r => r.id === esistente.id);
+    righe[idx] = { ...righe[idx], quantita: nuovaQty, descrizione: desc || righe[idx].descrizione, codice_articolo: art || righe[idx].codice_articolo };
+    chiudiPanel();
+    renderRighe(esistente.id);
+    setTimeout(() => document.getElementById('ic-' + esistente.id)?.scrollIntoView({ behavior:'smooth', block:'nearest' }), 50);
+  } else {
+    const { data, error } = await db.from('inventario_righe').insert({
+      sessione_id:     sessioneId,
+      codice_barre:    barcode || null,
+      codice_articolo: art     || null,
+      descrizione:     desc    || null,
+      quantita:        qty,
+    }).select().single();
+
+    btn.disabled = false;
+    if (error) { mostraErrore('Errore inserimento: ' + error.message); return; }
+    righe.push(data);
+    chiudiPanel();
+    renderRighe(data.id);
+    setTimeout(() => document.getElementById('ic-' + data.id)?.scrollIntoView({ behavior:'smooth', block:'nearest' }), 50);
+  }
 }
 
-function riscansiona() {
-  chiudiPanel();
-  avviaCamera();
-}
+function riscansiona() { chiudiPanel(); avviaCamera(); }
 
-/* ── Manuale / hardware scanner ── */
 function onManuale() {
   const v = document.getElementById('manual-bc').value.trim();
   if (!v) { document.getElementById('manual-bc').focus(); return; }
@@ -405,40 +416,38 @@ function onManuale() {
   mostraPanel(v);
 }
 
-/* Hardware barcode scanner: input rapido + Enter sull'input manuale gestito da onManuale */
-
 /* ── Edit ── */
 function apriEdit(id) {
   const r = righe.find(x => x.id === id);
   if (!r) return;
   editingId = id;
-  document.getElementById('e-barcode').value = r.codice_barre || '';
-  document.getElementById('e-desc').value    = r.descrizione  || '';
-  document.getElementById('e-qty').value     = r.quantita      || 1;
+  document.getElementById('e-bc').value   = r.codice_barre    || '';
+  document.getElementById('e-art').value  = r.codice_articolo || '';
+  document.getElementById('e-desc').value = r.descrizione     || '';
+  document.getElementById('e-qty').value  = r.quantita        || 1;
   document.getElementById('edit-ov').classList.add('visible');
   document.getElementById('e-desc').focus();
 }
 
-function chiudiEdit() {
-  editingId = null;
-  document.getElementById('edit-ov').classList.remove('visible');
-}
+function chiudiEdit() { editingId = null; document.getElementById('edit-ov').classList.remove('visible'); }
 
 async function salvaEdit() {
-  const barcode = document.getElementById('e-barcode').value.trim();
-  const desc    = document.getElementById('e-desc').value.trim();
-  const qty     = parseFloat(document.getElementById('e-qty').value);
+  const bc  = document.getElementById('e-bc').value.trim();
+  const art = document.getElementById('e-art').value.trim();
+  const des = document.getElementById('e-desc').value.trim();
+  const qty = parseFloat(document.getElementById('e-qty').value);
   if (!qty || qty <= 0) { document.getElementById('e-qty').focus(); return; }
 
   const { error } = await db.from('inventario_righe').update({
-    codice_barre: barcode || null,
-    descrizione:  desc    || null,
-    quantita:     qty,
+    codice_barre:    bc  || null,
+    codice_articolo: art || null,
+    descrizione:     des || null,
+    quantita:        qty,
   }).eq('id', editingId);
 
-  if (error) { alert('Errore: ' + error.message); return; }
+  if (error) { mostraErrore('Errore: ' + error.message); return; }
   const idx = righe.findIndex(x => x.id === editingId);
-  if (idx >= 0) righe[idx] = { ...righe[idx], codice_barre: barcode || null, descrizione: desc || null, quantita: qty };
+  if (idx >= 0) righe[idx] = { ...righe[idx], codice_barre: bc || null, codice_articolo: art || null, descrizione: des || null, quantita: qty };
   renderRighe();
   chiudiEdit();
 }
@@ -447,55 +456,64 @@ async function salvaEdit() {
 async function eliminaRiga(id) {
   if (!confirm('Rimuovere questo prodotto?')) return;
   const { error } = await db.from('inventario_righe').delete().eq('id', id);
-  if (error) { alert('Errore: ' + error.message); return; }
+  if (error) { mostraErrore('Errore: ' + error.message); return; }
   righe = righe.filter(r => r.id !== id);
   renderRighe();
 }
 
 /* ── Export ── */
-function buildExportRows() {
+function buildRows() {
   return righe.map(r => ({
-    'Codice barr': r.codice_barre || '',
-    'Descrizione': r.descrizione  || '',
-    'Quantità':    parseFloat(r.quantita) || 1,
+    'Codice barr':    r.codice_barre    || '',
+    'Cod. articolo':  r.codice_articolo || '',
+    'Descrizione':    r.descrizione     || '',
+    'Quantità':       parseFloat(r.quantita) || 1,
   }));
 }
 
 function exportCSV() {
-  const rows = buildExportRows();
+  const rows = buildRows();
   if (!rows.length) { alert('Nessun prodotto da esportare.'); return; }
   const hdr  = Object.keys(rows[0]);
-  const body = rows.map(r => hdr.map(k => '"' + String(r[k]).replace(/"/g,'""') + '"').join(','));
-  const csv  = [hdr.join(','), ...body].join('\n');
-  const blob = new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' });
+  const body = rows.map(r => hdr.map(k => '"' + String(r[k]).replace(/"/g, '""') + '"').join(','));
+  const blob = new Blob(['﻿' + [hdr.join(','), ...body].join('\n')], { type:'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `inventario_${(sessione?.emporio||'').replace(/\s/g,'_')}_${fmtDateFile(sessione?.created_at)}.csv`;
+  a.download = `inventario_${slug(sessione?.emporio)}_${fmtFile(sessione?.created_at)}.csv`;
   a.click();
 }
 
 function exportXLS() {
-  const rows = buildExportRows();
+  const rows = buildRows();
   if (!rows.length) { alert('Nessun prodotto da esportare.'); return; }
-  if (typeof XLSX === 'undefined') { alert('Libreria Excel non caricata. Riprova tra qualche secondo.'); return; }
+  if (typeof XLSX === 'undefined') { alert('Libreria Excel non ancora caricata. Riprova.'); return; }
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
-  XLSX.writeFile(wb, `inventario_${(sessione?.emporio||'').replace(/\s/g,'_')}_${fmtDateFile(sessione?.created_at)}.xlsx`);
+  XLSX.writeFile(wb, `inventario_${slug(sessione?.emporio)}_${fmtFile(sessione?.created_at)}.xlsx`);
 }
 
-/* ── Beep ── */
+/* ── Utils ── */
+function fmtQty(q) { const n = parseFloat(q)||0; return n%1===0 ? n.toString() : parseFloat(n.toFixed(3)).toString(); }
+function fmtDate(iso) { if(!iso) return ''; return new Date(iso).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtFile(iso) { return iso ? new Date(iso).toISOString().slice(0,10) : new Date().toISOString().slice(0,10); }
+function slug(s) { return (s||'').replace(/\s/g,'_').replace(/\./g,''); }
+
+function mostraErrore(msg) {
+  const b = document.getElementById('err-box');
+  b.textContent = msg; b.style.display = 'block';
+}
+
 function beep() {
   try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = 1800;
-    gain.gain.setValueAtTime(0.35, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.2);
-  } catch {}
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=1800;
+    gain.gain.setValueAtTime(0.35,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.18);
+    osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.2);
+  } catch{}
 }
 
 init();
