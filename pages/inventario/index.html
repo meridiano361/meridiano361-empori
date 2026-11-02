@@ -30,16 +30,16 @@
     .sess-card:hover { border-color:#94a3b8; box-shadow:0 2px 8px rgba(0,0,0,.07); }
     .btn-del { background:none; border:none; cursor:pointer; padding:4px; border-radius:8px; color:#cbd5e1; transition:color .15s,background .15s; flex-shrink:0; }
     .btn-del:hover { color:#ef4444; background:#fef2f2; }
-    .emp-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   </style>
 </head>
 <body>
 <script src="../../scripts/nav-script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="../../scripts/auth.js"></script>
 
 <div class="toolbar">
-  <span class="font-bold text-slate-700 text-sm mr-1" style="font-weight:800;color:#334155;font-size:14px">Inventario</span>
-  <select id="f-emporio" class="text-sm">
+  <span style="font-weight:800;color:#334155;font-size:14px">Inventario</span>
+  <select id="f-emporio">
     <option value="">Tutti gli empori</option>
     <option value="Casalmaggiore">Casalmaggiore</option>
     <option value="Cremona">Cremona</option>
@@ -89,7 +89,7 @@
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="chiudiModal()" style="flex:1;border:1.5px solid #e2e8f0;background:#fff;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;color:#64748b;font-family:inherit">Annulla</button>
-      <button id="btn-crea" onclick="creaSessione()" style="flex:1;background:#B5453A;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s">Crea</button>
+      <button id="btn-crea" onclick="creaSessione()" style="flex:1;background:#B5453A;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">Crea</button>
     </div>
   </div>
 </div>
@@ -97,71 +97,67 @@
 <script>
 const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
-const SUPA_CLIENT = (window._supabase && typeof window._supabase.from === 'function')
-  ? window._supabase
-  : supabase.createClient(SUPA_URL, SUPA_KEY);
-const db = SUPA_CLIENT;
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
-if (!user) { location.replace('/login.html'); }
-
-const em = (user?.email || '').toLowerCase();
+const user    = JSON.parse(localStorage.getItem('m361_user') || 'null');
+const em      = (user?.email || '').toLowerCase();
 const isAdmin = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
 
-async function init() {
-  /* Assicura che la sessione auth sia caricata prima di fare query */
-  try { await db.auth.getSession(); } catch {}
+/* ── Guard + setup filtro ─────────────────────────────── */
+(async function () {
+  if (!user) { location.replace('/login.html'); return; }
+  if (isAdmin) return;
 
-  const sel  = document.getElementById('f-emporio');
+  const sel = document.getElementById('f-emporio');
+  const emp = user?.emporio || '';
+  Array.from(sel.options).forEach(o => { if (o.value === emp) sel.value = o.value; });
+  sel.disabled = true;
+
   const mSel = document.getElementById('m-emporio');
-  if (!isAdmin) {
-    const emp = user?.emporio || '';
-    Array.from(sel.options).forEach(o => { if (o.value === emp) sel.value = o.value; });
-    sel.disabled = true;
-    if (mSel) { mSel.value = emp; mSel.disabled = true; }
-  }
-  await carica();
-}
-init();
+  if (mSel) { mSel.value = emp; mSel.disabled = true; }
+})();
 
+/* ── Helpers ───────────────────────────────────────────── */
 function fmtDate(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
+/* ── Lista sessioni ───────────────────────────────────── */
 async function carica() {
-  const lista = document.getElementById('lista');
-  try {
-    const empFilter = document.getElementById('f-emporio').value;
-    let q = db.from('inventario_sessioni')
-      .select('id,emporio,operatore,note,created_at')
-      .order('created_at', { ascending: false });
+  const lista      = document.getElementById('lista');
+  const empFilter  = document.getElementById('f-emporio').value;
 
-    if (!isAdmin) q = q.eq('emporio', user?.emporio || '');
-    else if (empFilter) q = q.eq('emporio', empFilter);
+  let q = db.from('inventario_sessioni')
+    .select('id,emporio,operatore,note,created_at')
+    .order('created_at', { ascending: false });
 
-    const { data, error } = await q;
+  if (!isAdmin) q = q.eq('emporio', user?.emporio || '');
+  else if (empFilter) q = q.eq('emporio', empFilter);
 
-    if (error) {
-      lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">Errore DB: ${error.message}<br><small style="color:#94a3b8;font-weight:400">${error.code||''}</small></div>`;
-      return;
-    }
+  const { data, error } = await q;
 
-    if (!data?.length) {
-      lista.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#94a3b8;font-size:14px"><div style="font-size:36px;margin-bottom:12px">📦</div>Nessuna sessione inventario.<br>Premi "Nuova sessione" per iniziare.</div>`;
-      return;
-    }
+  if (error) {
+    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">
+      Errore DB: ${error.message}<br><small style="color:#94a3b8;font-weight:400">cod. ${error.code||'?'}</small></div>`;
+    return;
+  }
 
-    // Recupera conteggio righe per ogni sessione
-    const ids = data.map(s => s.id);
-    const { data: counts } = await db.from('inventario_righe')
-      .select('sessione_id')
-      .in('sessione_id', ids);
-    const countMap = {};
-    (counts || []).forEach(r => { countMap[r.sessione_id] = (countMap[r.sessione_id] || 0) + 1; });
+  if (!data?.length) {
+    lista.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#94a3b8;font-size:14px">
+      <div style="font-size:36px;margin-bottom:12px">📦</div>
+      Nessuna sessione inventario.<br>Premi "Nuova sessione" per iniziare.</div>`;
+    return;
+  }
 
-    lista.innerHTML = data.map(s => {
-    const n = countMap[s.id] || 0;
+  const ids = data.map(s => s.id);
+  const { data: counts } = await db.from('inventario_righe')
+    .select('sessione_id').in('sessione_id', ids);
+  const cm = {};
+  (counts || []).forEach(r => { cm[r.sessione_id] = (cm[r.sessione_id] || 0) + 1; });
+
+  lista.innerHTML = data.map(s => {
+    const n = cm[s.id] || 0;
     return `
     <div class="sess-card" onclick="apri(${s.id})">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
@@ -172,12 +168,13 @@ async function carica() {
             ${s.operatore ? `<span style="font-size:11px;color:#94a3b8">· ${s.operatore}</span>` : ''}
           </div>
           ${s.note ? `<div style="font-size:12px;color:#64748b;margin-top:3px;font-style:italic">${s.note}</div>` : ''}
-          <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700">${n} ${n === 1 ? 'prodotto' : 'prodotti'}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700">${n} ${n===1?'prodotto':'prodotti'}</div>
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          ${isAdmin ? `<button class="btn-del" onclick="elimina(${s.id},event)" title="Elimina sessione">
+          ${isAdmin ? `<button class="btn-del" onclick="elimina(${s.id},event)" title="Elimina">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
           </button>` : ''}
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#cbd5e1">
@@ -186,33 +183,33 @@ async function carica() {
         </div>
       </div>
     </div>`;
-    }).join('');
-  } catch(e) {
-    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">Errore inatteso: ${e.message}</div>`;
-  }
+  }).join('');
 }
 
 function apri(id) { location.href = `sessione.html?id=${id}`; }
 
 async function elimina(id, event) {
   event.stopPropagation();
-  if (!confirm('Eliminare questa sessione e tutti i prodotti scansionati?\nOperazione non reversibile.')) return;
+  if (!confirm('Eliminare questa sessione e tutti i prodotti?\nOperazione non reversibile.')) return;
   await db.from('inventario_righe').delete().eq('sessione_id', id);
   const { error } = await db.from('inventario_sessioni').delete().eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
   carica();
 }
 
+/* ── Modal nuova sessione ─────────────────────────────── */
 document.getElementById('f-emporio').addEventListener('change', carica);
 
 document.getElementById('btn-nuova').addEventListener('click', () => {
   document.getElementById('m-note').value = '';
   document.getElementById('modal').style.display = 'flex';
-  setTimeout(() => document.getElementById('m-note').focus(), 100);
+  setTimeout(() => document.getElementById('m-note').focus(), 80);
 });
 
 function chiudiModal() { document.getElementById('modal').style.display = 'none'; }
-document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) chiudiModal(); });
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) chiudiModal();
+});
 
 async function creaSessione() {
   const emporio = document.getElementById('m-emporio').value;
@@ -224,7 +221,7 @@ async function creaSessione() {
 
   const { data, error } = await db.from('inventario_sessioni').insert({
     emporio,
-    note: note || null,
+    note:      note || null,
     operatore: user?.nome || user?.email || null,
   }).select('id').single();
 
@@ -233,6 +230,9 @@ async function creaSessione() {
   chiudiModal();
   location.href = `sessione.html?id=${data.id}`;
 }
+
+/* ── Avvia ────────────────────────────────────────────── */
+carica();
 </script>
 </body>
 </html>
