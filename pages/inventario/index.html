@@ -123,36 +123,55 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
+/* ── Helpers fetch ─────────────────────────────────────── */
+function authToken() {
+  try {
+    const k = `sb-hsalynvxazxqtmsvjrzc-auth-token`;
+    const v = JSON.parse(localStorage.getItem(k) || '{}');
+    return v.access_token || SUPA_KEY;
+  } catch { return SUPA_KEY; }
+}
+
+function apiFetch(path, params) {
+  const url = new URL(`${SUPA_URL}/rest/v1/${path}`);
+  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+  return fetch(url.toString(), {
+    headers: { apikey: SUPA_KEY, Authorization: `Bearer ${authToken()}`, Accept: 'application/json' }
+  });
+}
+
 /* ── Lista sessioni ───────────────────────────────────── */
 async function carica() {
-  const lista      = document.getElementById('lista');
-  const empFilter  = document.getElementById('f-emporio').value;
+  const lista     = document.getElementById('lista');
+  const empFilter = document.getElementById('f-emporio').value;
 
-  let q = db.from('inventario_sessioni')
-    .select('id,emporio,operatore,note,created_at')
-    .order('created_at', { ascending: false });
+  try {
+    const params = { select: 'id,emporio,operatore,note,created_at', order: 'created_at.desc' };
+    if (!isAdmin && user?.emporio) params['emporio'] = `eq.${user.emporio}`;
+    else if (empFilter) params['emporio'] = `eq.${empFilter}`;
 
-  if (!isAdmin) q = q.eq('emporio', user?.emporio || '');
-  else if (empFilter) q = q.eq('emporio', empFilter);
+    const res  = await apiFetch('inventario_sessioni', params);
+    const body = await res.json();
 
-  const { data, error } = await q;
+    if (!res.ok) {
+      lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">
+        HTTP ${res.status}: ${body?.message || JSON.stringify(body)}<br>
+        <small style="color:#94a3b8;font-weight:400">${body?.code || ''}</small></div>`;
+      return;
+    }
 
-  if (error) {
-    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">
-      Errore DB: ${error.message}<br><small style="color:#94a3b8;font-weight:400">cod. ${error.code||'?'}</small></div>`;
-    return;
-  }
+    const data = Array.isArray(body) ? body : [];
 
-  if (!data?.length) {
+  if (!data.length) {
     lista.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#94a3b8;font-size:14px">
       <div style="font-size:36px;margin-bottom:12px">📦</div>
       Nessuna sessione inventario.<br>Premi "Nuova sessione" per iniziare.</div>`;
     return;
   }
 
-  const ids = data.map(s => s.id);
-  const { data: counts } = await db.from('inventario_righe')
-    .select('sessione_id').in('sessione_id', ids);
+  const ids = data.map(s => s.id).join(',');
+  const cRes   = await apiFetch('inventario_righe', { select: 'sessione_id', [`sessione_id`]: `in.(${ids})` });
+  const counts = cRes.ok ? (await cRes.json()) : [];
   const cm = {};
   (counts || []).forEach(r => { cm[r.sessione_id] = (cm[r.sessione_id] || 0) + 1; });
 
@@ -184,6 +203,9 @@ async function carica() {
       </div>
     </div>`;
   }).join('');
+  } catch(e) {
+    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px;font-weight:600">Errore: ${e.message}</div>`;
+  }
 }
 
 function apri(id) { location.href = `sessione.html?id=${id}`; }
@@ -191,9 +213,10 @@ function apri(id) { location.href = `sessione.html?id=${id}`; }
 async function elimina(id, event) {
   event.stopPropagation();
   if (!confirm('Eliminare questa sessione e tutti i prodotti?\nOperazione non reversibile.')) return;
-  await db.from('inventario_righe').delete().eq('sessione_id', id);
-  const { error } = await db.from('inventario_sessioni').delete().eq('id', id);
-  if (error) { alert('Errore: ' + error.message); return; }
+  const hdrs = { apikey: SUPA_KEY, Authorization: `Bearer ${authToken()}` };
+  await fetch(`${SUPA_URL}/rest/v1/inventario_righe?sessione_id=eq.${id}`, { method:'DELETE', headers:hdrs });
+  const r = await fetch(`${SUPA_URL}/rest/v1/inventario_sessioni?id=eq.${id}`, { method:'DELETE', headers:hdrs });
+  if (!r.ok) { alert('Errore: ' + r.status); return; }
   carica();
 }
 
@@ -219,16 +242,22 @@ async function creaSessione() {
   const btn = document.getElementById('btn-crea');
   btn.disabled = true; btn.textContent = 'Creazione...';
 
-  const { data, error } = await db.from('inventario_sessioni').insert({
-    emporio,
-    note:      note || null,
-    operatore: user?.nome || user?.email || null,
-  }).select('id').single();
+  const res = await fetch(`${SUPA_URL}/rest/v1/inventario_sessioni`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPA_KEY, Authorization: `Bearer ${authToken()}`,
+      'Content-Type': 'application/json', Prefer: 'return=representation',
+    },
+    body: JSON.stringify({ emporio, note: note || null, operatore: user?.nome || user?.email || null }),
+  });
+  const body = await res.json();
 
   btn.disabled = false; btn.textContent = 'Crea';
-  if (error) { alert('Errore: ' + error.message); return; }
+  if (!res.ok) { alert('Errore: ' + (body?.message || res.status)); return; }
+  const id = Array.isArray(body) ? body[0]?.id : body?.id;
+  if (!id) { alert('Errore: ID non ricevuto'); return; }
   chiudiModal();
-  location.href = `sessione.html?id=${data.id}`;
+  location.href = `sessione.html?id=${id}`;
 }
 
 /* ── Avvia ────────────────────────────────────────────── */
