@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventario</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    body { font-family: 'CenturyGothic','Century Gothic',sans-serif; background:#f1f5f9; }
+    .toolbar {
+      position:sticky; top:56px; z-index:20;
+      background:#fff; border-bottom:1px solid #e2e8f0;
+      padding:8px 14px; display:flex; align-items:center;
+      gap:8px; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,.04);
+    }
+    select {
+      border:1px solid #e2e8f0; border-radius:8px;
+      padding:5px 10px; font-size:13px; background:#fff;
+      font-family:'CenturyGothic','Century Gothic',sans-serif;
+    }
+    select:focus { outline:none; border-color:#94a3b8; }
+    .sess-card {
+      background:#fff; border:1px solid #e2e8f0; border-radius:16px;
+      padding:16px 18px; cursor:pointer; transition:all .15s;
+    }
+    .sess-card:hover { border-color:#94a3b8; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+    .btn-del { background:none; border:none; cursor:pointer; padding:4px; border-radius:8px; color:#cbd5e1; transition:color .15s,background .15s; flex-shrink:0; }
+    .btn-del:hover { color:#ef4444; background:#fef2f2; }
+    .emp-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  </style>
+</head>
+<body>
+<script src="../../scripts/nav-script.js"></script>
+<script src="../../scripts/auth.js"></script>
+
+<div class="toolbar">
+  <span class="font-bold text-slate-700 text-sm mr-1" style="font-weight:800;color:#334155;font-size:14px">Inventario</span>
+  <select id="f-emporio" class="text-sm">
+    <option value="">Tutti gli empori</option>
+    <option value="Casalmaggiore">Casalmaggiore</option>
+    <option value="Cremona">Cremona</option>
+    <option value="Viadana">Viadana</option>
+    <option value="Reggio Emilia">Reggio Emilia</option>
+    <option value="Mantova U.">Mantova U.</option>
+    <option value="Mantova D.">Mantova D.</option>
+  </select>
+  <div style="flex:1"></div>
+  <button id="btn-nuova"
+    style="background:#B5453A;color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;transition:background .15s"
+    onmouseover="this.style.background='#8c362d'" onmouseout="this.style.background='#B5453A'">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/>
+    </svg>
+    Nuova sessione
+  </button>
+</div>
+
+<main style="max-width:720px;margin:0 auto;padding:16px">
+  <div id="lista" style="display:flex;flex-direction:column;gap:10px">
+    <div style="text-align:center;padding:40px;color:#94a3b8;font-size:14px">Caricamento...</div>
+  </div>
+</main>
+
+<!-- Modal nuova sessione -->
+<div id="modal" style="position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4)">
+  <div style="background:#fff;border-radius:20px;padding:24px;width:calc(100% - 32px);max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+    <h2 style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:18px">Nuova sessione inventario</h2>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Emporio</label>
+      <select id="m-emporio" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;color:#1e293b;background:#f8fafc;outline:none">
+        <option value="">Seleziona emporio...</option>
+        <option value="Casalmaggiore">Casalmaggiore</option>
+        <option value="Cremona">Cremona</option>
+        <option value="Viadana">Viadana</option>
+        <option value="Reggio Emilia">Reggio Emilia</option>
+        <option value="Mantova U.">Mantova U.</option>
+        <option value="Mantova D.">Mantova D.</option>
+      </select>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Note <span style="font-weight:400;text-transform:none;letter-spacing:0">(opzionale)</span></label>
+      <input type="text" id="m-note" placeholder="es. inventario novembre" autocomplete="off"
+        style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;font-family:inherit;color:#1e293b;background:#f8fafc;outline:none"
+        onkeydown="if(event.key==='Enter')creaSessione()">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="chiudiModal()" style="flex:1;border:1.5px solid #e2e8f0;background:#fff;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;color:#64748b;font-family:inherit">Annulla</button>
+      <button id="btn-crea" onclick="creaSessione()" style="flex:1;background:#B5453A;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s">Crea</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const user = JSON.parse(localStorage.getItem('m361_user') || 'null');
+if (!user) location.replace('/login.html');
+
+const em = (user?.email || '').toLowerCase();
+const isAdmin = em === 'emilio.mazzolari@gmail.com' || em === 'e.mazzolari@meridiano361.it';
+
+(function init() {
+  const sel = document.getElementById('f-emporio');
+  const mSel = document.getElementById('m-emporio');
+  if (!isAdmin) {
+    const emp = user?.emporio || '';
+    Array.from(sel.options).forEach(o => { if (o.value === emp) sel.value = o.value; });
+    sel.disabled = true;
+    if (mSel) { mSel.value = emp; mSel.disabled = true; }
+  }
+  carica();
+})();
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+async function carica() {
+  const empFilter = document.getElementById('f-emporio').value;
+  let q = db.from('inventario_sessioni')
+    .select('id,emporio,operatore,note,created_at')
+    .order('created_at', { ascending: false });
+
+  if (!isAdmin) q = q.eq('emporio', user?.emporio || '');
+  else if (empFilter) q = q.eq('emporio', empFilter);
+
+  const { data, error } = await q.limit(100);
+  const lista = document.getElementById('lista');
+
+  if (error) {
+    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#ef4444;font-size:13px">Errore: ${error.message}</div>`;
+    return;
+  }
+
+  if (!data?.length) {
+    lista.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#94a3b8;font-size:14px"><div style="font-size:36px;margin-bottom:12px">📦</div>Nessuna sessione inventario.<br>Premi "Nuova sessione" per iniziare.</div>`;
+    return;
+  }
+
+  // Recupera conteggio righe per ogni sessione
+  const ids = data.map(s => s.id);
+  const { data: counts } = await db.from('inventario_righe')
+    .select('sessione_id')
+    .in('sessione_id', ids);
+  const countMap = {};
+  (counts || []).forEach(r => { countMap[r.sessione_id] = (countMap[r.sessione_id] || 0) + 1; });
+
+  lista.innerHTML = data.map(s => {
+    const n = countMap[s.id] || 0;
+    return `
+    <div class="sess-card" onclick="apri(${s.id})">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-weight:800;color:#1e293b;font-size:14px">${s.emporio}</span>
+            <span style="font-size:11px;font-weight:700;color:#94a3b8">${fmtDate(s.created_at)}</span>
+            ${s.operatore ? `<span style="font-size:11px;color:#94a3b8">· ${s.operatore}</span>` : ''}
+          </div>
+          ${s.note ? `<div style="font-size:12px;color:#64748b;margin-top:3px;font-style:italic">${s.note}</div>` : ''}
+          <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700">${n} ${n === 1 ? 'prodotto' : 'prodotti'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          ${isAdmin ? `<button class="btn-del" onclick="elimina(${s.id},event)" title="Elimina sessione">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>` : ''}
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#cbd5e1">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function apri(id) { location.href = `sessione.html?id=${id}`; }
+
+async function elimina(id, event) {
+  event.stopPropagation();
+  if (!confirm('Eliminare questa sessione e tutti i prodotti scansionati?\nOperazione non reversibile.')) return;
+  await db.from('inventario_righe').delete().eq('sessione_id', id);
+  const { error } = await db.from('inventario_sessioni').delete().eq('id', id);
+  if (error) { alert('Errore: ' + error.message); return; }
+  carica();
+}
+
+document.getElementById('f-emporio').addEventListener('change', carica);
+
+document.getElementById('btn-nuova').addEventListener('click', () => {
+  document.getElementById('m-note').value = '';
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('m-note').focus(), 100);
+});
+
+function chiudiModal() { document.getElementById('modal').style.display = 'none'; }
+document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) chiudiModal(); });
+
+async function creaSessione() {
+  const emporio = document.getElementById('m-emporio').value;
+  const note    = document.getElementById('m-note').value.trim();
+  if (!emporio) { alert('Seleziona un emporio.'); return; }
+
+  const btn = document.getElementById('btn-crea');
+  btn.disabled = true; btn.textContent = 'Creazione...';
+
+  const { data, error } = await db.from('inventario_sessioni').insert({
+    emporio,
+    note: note || null,
+    operatore: user?.nome || user?.email || null,
+  }).select('id').single();
+
+  btn.disabled = false; btn.textContent = 'Crea';
+  if (error) { alert('Errore: ' + error.message); return; }
+  chiudiModal();
+  location.href = `sessione.html?id=${data.id}`;
+}
+</script>
+</body>
+</html>
