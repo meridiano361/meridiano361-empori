@@ -771,14 +771,25 @@
     document.getElementById('recovery-spinner').style.display = 'block';
     document.getElementById('recovery-label').textContent = 'Invio in corso...';
 
-    const { error } = await _supabase.auth.resetPasswordForEmail(email);
+    let sendError = null;
+    try {
+      const res  = await fetch('https://hsalynvxazxqtmsvjrzc.supabase.co/functions/v1/send-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8', Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok && data.error) sendError = data.error;
+    } catch (e) {
+      sendError = e.message;
+    }
 
     btn.disabled = false;
     document.getElementById('recovery-spinner').style.display = 'none';
     document.getElementById('recovery-label').textContent = 'Invia link di recupero';
 
-    if (error) {
-      document.getElementById('recovery-error-text').textContent = error.message || "Errore nell'invio.";
+    if (sendError) {
+      document.getElementById('recovery-error-text').textContent = sendError;
       errDiv.classList.add('on');
     } else {
       okDiv.classList.add('on');
