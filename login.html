@@ -405,6 +405,39 @@
 
       </div>
 
+      <!-- Vista reimposta password (arrivato dal link email) -->
+      <div id="reset-view" style="display:none">
+        <div class="lw-recovery-icon"><i class="fas fa-lock"></i></div>
+        <h2 class="lw-recovery-title">Nuova password.</h2>
+        <p class="lw-recovery-sub">Scegli la tua nuova password per accedere al portale.</p>
+
+        <div id="reset-error" class="lw-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <span id="reset-error-text"></span>
+        </div>
+
+        <div class="lw-field">
+          <label class="lw-label" for="reset-pwd">Nuova password</label>
+          <div class="lw-pw">
+            <input type="password" id="reset-pwd" class="lw-input" autocomplete="new-password" placeholder="Minimo 6 caratteri">
+            <button type="button" class="lw-pw-toggle" onclick="toggleResetPwd()" tabindex="-1">
+              <i id="reset-eye" class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="lw-field">
+          <label class="lw-label" for="reset-pwd2">Conferma password</label>
+          <input type="password" id="reset-pwd2" class="lw-input" autocomplete="new-password" placeholder="Ripeti la password"
+            onkeydown="if(event.key==='Enter')salvaPassword()">
+        </div>
+
+        <button onclick="salvaPassword()" id="reset-btn" data-tip="Salva la nuova password" class="lw-btn">
+          <div id="reset-spinner" class="lw-spinner"></div>
+          <span id="reset-label">Salva nuova password</span>
+        </button>
+      </div>
+
       <!-- Vista recupero password -->
       <div id="recovery-view" style="display:none">
         <div class="lw-recovery-icon"><i class="fas fa-envelope"></i></div>
@@ -649,6 +682,64 @@
   }
 
   window.addEventListener('DOMContentLoaded', checkAndShowBiometricButton);
+
+  /* ── Gestione PASSWORD_RECOVERY (link email "reimposta password") ── */
+  _supabase.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      document.getElementById('login-view').style.display    = 'none';
+      document.getElementById('recovery-view').style.display = 'none';
+      document.getElementById('reset-view').style.display    = '';
+      setTimeout(() => document.getElementById('reset-pwd').focus(), 80);
+    }
+  });
+
+  function toggleResetPwd() {
+    const input = document.getElementById('reset-pwd');
+    const icon  = document.getElementById('reset-eye');
+    const show  = input.type === 'password';
+    input.type     = show ? 'text' : 'password';
+    icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+  }
+
+  async function salvaPassword() {
+    const pwd  = document.getElementById('reset-pwd').value;
+    const pwd2 = document.getElementById('reset-pwd2').value;
+    const errDiv  = document.getElementById('reset-error');
+    const errText = document.getElementById('reset-error-text');
+    const btn     = document.getElementById('reset-btn');
+
+    errDiv.classList.remove('on');
+
+    if (pwd.length < 6) {
+      errText.textContent = 'La password deve essere di almeno 6 caratteri.';
+      errDiv.classList.add('on');
+      return;
+    }
+    if (pwd !== pwd2) {
+      errText.textContent = 'Le password non coincidono.';
+      errDiv.classList.add('on');
+      return;
+    }
+
+    btn.disabled = true;
+    document.getElementById('reset-spinner').style.display = 'block';
+    document.getElementById('reset-label').textContent = 'Salvataggio...';
+
+    const { error } = await _supabase.auth.updateUser({ password: pwd });
+
+    if (error) {
+      errText.textContent = 'Errore nel salvataggio. Richiedi un nuovo link.';
+      errDiv.classList.add('on');
+      btn.disabled = false;
+      document.getElementById('reset-spinner').style.display = 'none';
+      document.getElementById('reset-label').textContent = 'Salva nuova password';
+    } else {
+      btn.disabled = false;
+      document.getElementById('reset-spinner').style.display = 'none';
+      document.getElementById('reset-label').textContent = 'Password salvata!';
+      setTimeout(() => { window.location.href = '/login.html'; }, 1800);
+    }
+  }
 
   function showRecovery() {
     document.getElementById('login-view').style.display    = 'none';
