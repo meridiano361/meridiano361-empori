@@ -4728,13 +4728,16 @@
         if (!vedeCb) return;
         const vede  = vedeCb.checked;
         const opera = operaCb ? operaCb.checked : false;
+        // Recupera l'ID numerico dalla cache per evitare problemi di parseInt
+        const op = (utentiCache || []).find(o => String(o.id) === String(opId));
+        if (!op?.id) { showToast('Errore: operatore non trovato', 'err'); return; }
         const { error } = await db.from('utenti_permessi').upsert(
-            { utente_id: parseInt(opId), sezione: sezId, 'può_vedere': vede, 'può_operare': opera },
+            { utente_id: op.id, sezione: sezId, 'può_vedere': vede, 'può_operare': opera },
             { onConflict: 'utente_id,sezione' }
         );
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
-        if (!permessiCache[opId]) permessiCache[opId] = {};
-        permessiCache[opId][sezId] = { vede, opera };
+        if (!permessiCache[op.id]) permessiCache[op.id] = {};
+        permessiCache[op.id][sezId] = { vede, opera };
         showToast('Salvato', 'ok');
     }
 
