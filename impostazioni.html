@@ -4557,14 +4557,14 @@
                 const tot = ops.length;
                 const vedono  = ops.filter(op => {
                     const sist = _sistemaSezioniNascoste(op);
-                    if (sist.has(s.id) && !(SIST_SBLOCCABILE.has(s.id) && permessiCache[op.id]?.[s.id]?.vede === true)) return false;
-                    return permessiCache[op.id]?.[s.id]?.vede !== false;
+                    if (sist.has(s.id) && !(SIST_SBLOCCABILE.has(s.id) && permessiCache[op.auth_id]?.[s.id]?.vede === true)) return false;
+                    return permessiCache[op.auth_id]?.[s.id]?.vede !== false;
                 }).length;
                 const operano = ops.filter(op => {
                     const sist = _sistemaSezioniNascoste(op);
-                    if (sist.has(s.id) && !(SIST_SBLOCCABILE.has(s.id) && permessiCache[op.id]?.[s.id]?.vede === true)) return false;
-                    if (permessiCache[op.id]?.[s.id]?.vede === false) return false;
-                    return permessiCache[op.id]?.[s.id]?.opera !== false;
+                    if (sist.has(s.id) && !(SIST_SBLOCCABILE.has(s.id) && permessiCache[op.auth_id]?.[s.id]?.vede === true)) return false;
+                    if (permessiCache[op.auth_id]?.[s.id]?.vede === false) return false;
+                    return permessiCache[op.auth_id]?.[s.id]?.opera !== false;
                 }).length;
                 const pct = tot > 0 ? Math.round(vedono / tot * 100) : 0;
                 return `
@@ -4625,7 +4625,7 @@
                 const empLabel = EMPORI_LABEL[k] || k;
                 const colore   = coloreEmporio(k);
                 const righe = opsGruppo.map(op => {
-                    const perm     = permessiCache[op.id]?.[sezId];
+                    const perm     = permessiCache[op.auth_id]?.[sezId];
                     const sist     = _sistemaSezioniNascoste(op);
                     const sistRestr = sist.has(sezId);
                     const forzata   = sistRestr && SIST_SBLOCCABILE.has(sezId) && perm?.vede === true;
@@ -4645,7 +4645,7 @@
                         </td>
                         <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
                         <td style="text-align:center">
-                            ${isSist ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
+                            ${isSist || !op.auth_id ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
                             <label class="sez-toggle" style="margin:0 auto">
                                 <input type="checkbox" class="sez-detail-vede" data-op="${op.id}" data-sez="${sezId}"
                                     ${vede ? 'checked' : ''}
@@ -4654,7 +4654,7 @@
                             </label>`}
                         </td>
                         <td style="text-align:center">
-                            ${isSist ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
+                            ${isSist || !op.auth_id ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
                             <label class="sez-toggle" style="margin:0 auto">
                                 <input type="checkbox" class="sez-detail-opera" data-op="${op.id}" data-sez="${sezId}"
                                     ${opera ? 'checked' : ''} ${!vede ? 'disabled' : ''}
@@ -4728,16 +4728,16 @@
         if (!vedeCb) return;
         const vede  = vedeCb.checked;
         const opera = operaCb ? operaCb.checked : false;
-        // Recupera l'ID numerico dalla cache per evitare problemi di parseInt
         const op = (utentiCache || []).find(o => String(o.id) === String(opId));
-        if (!op?.id) { showToast('Errore: operatore non trovato', 'err'); return; }
+        if (!op) { showToast('Errore: operatore non trovato', 'err'); return; }
+        if (!op.auth_id) { showToast('Operatore senza account auth: impossibile salvare', 'err'); return; }
         const { error } = await db.from('utenti_permessi').upsert(
-            { utente_id: op.id, sezione: sezId, 'può_vedere': vede, 'può_operare': opera },
+            { utente_id: op.auth_id, sezione: sezId, 'può_vedere': vede, 'può_operare': opera },
             { onConflict: 'utente_id,sezione' }
         );
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
-        if (!permessiCache[op.id]) permessiCache[op.id] = {};
-        permessiCache[op.id][sezId] = { vede, opera };
+        if (!permessiCache[op.auth_id]) permessiCache[op.auth_id] = {};
+        permessiCache[op.auth_id][sezId] = { vede, opera };
         showToast('Salvato', 'ok');
     }
 
@@ -4745,8 +4745,8 @@
         const s   = SEZIONI_APP.find(x => x.id === sezId);
         const ops = (utentiCache || []).filter(op => {
             if (isAdminEmail(op.email)) return false;
+            if (!op.auth_id) return false;
             const sist = _sistemaSezioniNascoste(op);
-            // sistema non sbloccabile: skip
             return !sist.has(sezId) || SIST_SBLOCCABILE.has(sezId);
         });
         if (!ops.length) return;
@@ -4755,14 +4755,14 @@
                       'Nascondere questa sezione a tutti gli operatori?';
         if (!confirm(label)) return;
         const upserts = ops.map(op => ({
-            utente_id: op.id, sezione: sezId,
+            utente_id: op.auth_id, sezione: sezId,
             'può_vedere': vede, 'può_operare': vede ? opera : false,
         }));
         const { error } = await db.from('utenti_permessi').upsert(upserts, { onConflict: 'utente_id,sezione' });
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         ops.forEach(op => {
-            if (!permessiCache[op.id]) permessiCache[op.id] = {};
-            permessiCache[op.id][sezId] = { vede, opera: vede ? opera : false };
+            if (!permessiCache[op.auth_id]) permessiCache[op.auth_id] = {};
+            permessiCache[op.auth_id][sezId] = { vede, opera: vede ? opera : false };
         });
         showToast(vede && opera ? 'Abilitati tutti' : vede ? 'Solo lettura per tutti' : 'Nascosto a tutti', 'ok');
         apriSezioneDetail(sezId);
