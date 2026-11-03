@@ -1,0 +1,2 @@
+ALTER TABLE tessere
+  ADD COLUMN IF NOT EXISTS in_newsletter BOOLEAN NOT NULL DEFAULT false;

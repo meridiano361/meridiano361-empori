@@ -1198,6 +1198,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
         <div class="check-row"><input type="checkbox" id="f-news-wa"><label for="f-news-wa">Vuole news WA</label></div>
         <div class="check-row"><input type="checkbox" id="f-lista-wa"><label for="f-lista-wa">In broadcast WA</label></div>
         <div class="check-row"><input type="checkbox" id="f-benvenuto"><label for="f-benvenuto">Benvenuto inviato</label></div>
+        <div class="check-row"><input type="checkbox" id="f-newsletter"><label for="f-newsletter">Inserito in newsletter</label></div>
       </div>
     </div>
 
@@ -1966,14 +1967,16 @@ function openClienteModal(clienteId) {
     document.getElementById('f-news-wa').checked = false;
     document.getElementById('f-lista-wa').checked = false;
     document.getElementById('f-benvenuto').checked = false;
+    document.getElementById('f-newsletter').checked = false;
     if (t?.id) {
-      _sb.from('tessere').select('ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato')
+      _sb.from('tessere').select('ha_whatsapp,vuole_news_whatsapp,in_lista_broadcast_whatsapp,messaggio_benvenuto_inviato,in_newsletter')
         .eq('id', t.id).single().then(({data: wa}) => {
           if (!wa) return;
           document.getElementById('f-ha-wa').checked = wa.ha_whatsapp ?? (c.wa || false);
           document.getElementById('f-news-wa').checked = wa.vuole_news_whatsapp || false;
           document.getElementById('f-lista-wa').checked = wa.in_lista_broadcast_whatsapp || false;
           document.getElementById('f-benvenuto').checked = wa.messaggio_benvenuto_inviato || false;
+          document.getElementById('f-newsletter').checked = wa.in_newsletter || false;
           Object.assign(t, wa); // aggiorna in memoria per hasWa/hasNews in _buildWaButtons
         });
     }
@@ -2017,6 +2020,7 @@ function openClienteModal(clienteId) {
     document.getElementById('f-news-wa').checked = false;
     document.getElementById('f-lista-wa').checked = false;
     document.getElementById('f-benvenuto').checked = false;
+    document.getElementById('f-newsletter').checked = false;
     document.getElementById('wa-section').style.display = 'none';
     document.getElementById('privacy-section').style.display = '';
     document.getElementById('btn-elimina').style.display = 'none';
@@ -2791,6 +2795,7 @@ async function saveCliente(closeAfter = true) {
     vuole_news_whatsapp:         document.getElementById('f-news-wa').checked,
     in_lista_broadcast_whatsapp: document.getElementById('f-lista-wa').checked,
     messaggio_benvenuto_inviato: document.getElementById('f-benvenuto').checked,
+    in_newsletter:               document.getElementById('f-newsletter').checked,
     note:                        document.getElementById('f-note').value.trim() || null,
     updated_at:                  new Date().toISOString(),
   };
