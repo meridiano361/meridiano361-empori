@@ -226,6 +226,20 @@
         .sez-toggle input:disabled + .sez-toggle-slider { opacity: .35; cursor: not-allowed; }
 
         /* === RESPONSIVE === */
+        /* ── Sezioni view ── */
+        .sezioni-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+        .sez-mgmt-card { background:#fff; border:1.5px solid #e2e8f0; border-radius:14px; padding:14px 16px; cursor:pointer; transition:all .15s; }
+        .sez-mgmt-card:hover { border-color:#94a3b8; box-shadow:0 2px 10px rgba(0,0,0,.07); transform:translateY(-1px); }
+        .sez-mgmt-bar { height:4px; background:#f1f5f9; border-radius:2px; margin-top:10px; overflow:hidden; }
+        .sez-mgmt-bar-fill { height:100%; background:#22c55e; border-radius:2px; transition:width .3s; }
+        .sez-detail-table { width:100%; border-collapse:collapse; }
+        .sez-detail-table th { padding:8px 12px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+        .sez-detail-table td { padding:10px 12px; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+        .sez-detail-table tr:last-child td { border-bottom:none; }
+        .sez-detail-table tr:hover td { background:#f8fafc; }
+        .sez-detail-section { border:1.5px solid #e2e8f0; border-radius:12px; overflow:hidden; margin-bottom:16px; }
+        .sez-detail-section-header { padding:10px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:8px; }
+
         @media (max-width: 768px) {
             .impostazioni-container { padding: 16px; }
             .impostazioni-operatori { padding: 12px; }
@@ -271,6 +285,7 @@
             <button class="adm-nav-item"             id="nav-loghi"            data-tip="Gestione loghi empori" onclick="openSection('loghi')">           <i class="fas fa-image"></i><span>Loghi</span></button>
             <button class="adm-nav-item"             id="nav-notifiche"        data-tip="Impostazioni notifiche push" onclick="openSection('notifiche')">       <i class="fas fa-bell"></i><span>Notifiche</span></button>
             <button class="adm-nav-item"             id="nav-operatori"        data-tip="Gestione operatori e permessi" onclick="openSection('operatori')">       <i class="fas fa-users"></i><span>Operatori</span></button>
+            <button class="adm-nav-item"             id="nav-sezioni"          data-tip="Accessi per sezione" onclick="openSection('sezioni')">              <i class="fas fa-table-cells"></i><span>Sezioni</span></button>
             <button class="adm-nav-item"             id="nav-personalizzazione" data-tip="Personalizzazione dell'interfaccia" onclick="openSection('personalizzazione')"><i class="fas fa-palette"></i><span>Personalizzazione</span></button>
           </div>
           <div class="adm-nav-foot">
@@ -888,6 +903,29 @@
                     <div style="font-size:12px;color:#64748b;margin-bottom:18px">Abbinato alla categoria del listino. Appare in cima alla pagina stampata.</div>
                     <div id="loghi-categorie-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px"></div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ── SEZIONE: SEZIONI ──────────────────────────────────────────────── -->
+        <div id="section-sezioni" class="section-page">
+            <div class="section-page-head">
+                <button class="back-btn" onclick="closeSection()">
+                    <i class="fas fa-arrow-left"></i> Impostazioni
+                </button>
+                <span class="section-page-title">Accessi per Sezione</span>
+            </div>
+            <div class="impostazioni-container">
+                <div id="sezioni-grid-wrap">
+                    <div id="sezioni-grid-clienti" style="margin-bottom:24px">
+                        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">GESTIONE CLIENTI</div>
+                        <div class="sezioni-grid" id="sez-cards-clienti"></div>
+                    </div>
+                    <div id="sezioni-grid-emporio">
+                        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">GESTIONE EMPORIO</div>
+                        <div class="sezioni-grid" id="sez-cards-emporio"></div>
+                    </div>
+                </div>
+                <div id="sezioni-detail-wrap" style="display:none"></div>
             </div>
         </div>
 
@@ -1606,6 +1644,7 @@
         home:'Dashboard', operatori:'Operatori', notifiche:'Notifiche',
         empori:'Empori', backup:'Backup dati',
         accessi:'Accessi', loghi:'Loghi',
+        sezioni:'Sezioni',
         personalizzazione:'Personalizzazione',
     };
 
@@ -1647,6 +1686,7 @@
         if (!_sectionLoaded[id]) {
             _sectionLoaded[id] = true;
             if (id === 'operatori')         { loadUsers(); if (_isAdmin) loadRichiesteRuolo(); }
+            if (id === 'sezioni')           { _initSezioni(); }
             if (id === 'notifiche')         { caricaNotificheInviate(true); caricaRegoleNotifiche(); }
             if (id === 'categorie')         caricaCategorie();
             if (id === 'accessi')           caricaAccessi();
@@ -4489,6 +4529,240 @@
             msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Errore nel salvataggio.';
         }
         setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    }
+
+    // Aggiorna l'anteprima ad ogni modifica ai controlli della pagina di accesso
+    document.getElementById('section-personalizzazione')
+        ?.addEventListener('input',  updateLoginPreview);
+    document.getElementById('section-personalizzazione')
+        ?.addEventListener('change', updateLoginPreview);
+
+    // ── SEZIONI VIEW ─────────────────────────────────────────────────────────
+    let _sezDetailCurrent = null;
+
+    async function _initSezioni() {
+        if (!utentiCache?.length) await loadUsers();
+        renderSezioniGrid();
+    }
+
+    function renderSezioniGrid() {
+        const clientiSez = SEZIONI_APP.filter(s => s.gruppo === 'clienti');
+        const emporioSez = SEZIONI_APP.filter(s => s.gruppo === 'emporio');
+        ['clienti', 'emporio'].forEach(gruppo => {
+            const container = document.getElementById('sez-cards-' + gruppo);
+            if (!container) return;
+            const sezList = gruppo === 'clienti' ? clientiSez : emporioSez;
+            container.innerHTML = sezList.map(s => {
+                const ops = (utentiCache || []).filter(op => !isAdminEmail(op.email));
+                const tot = ops.length;
+                const vedono  = ops.filter(op => {
+                    const sist = _sistemaSezioniNascoste(op);
+                    if (sist.has(s.id) && !(SIST_SBLOCCABILE.has(s.id) && permessiCache[op.id]?.[s.id]?.vede === true)) return false;
+                    return permessiCache[op.id]?.[s.id]?.vede !== false;
+                }).length;
+                const operano = ops.filter(op => {
+                    const sist = _sistemaSezioniNascoste(op);
+                    if (sist.has(s.id) && !(SIST_SBLOCCABILE.has(s.id) && permessiCache[op.id]?.[s.id]?.vede === true)) return false;
+                    if (permessiCache[op.id]?.[s.id]?.vede === false) return false;
+                    return permessiCache[op.id]?.[s.id]?.opera !== false;
+                }).length;
+                const pct = tot > 0 ? Math.round(vedono / tot * 100) : 0;
+                return `
+                <div class="sez-mgmt-card" onclick="apriSezioneDetail('${s.id}')">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                        <div style="width:36px;height:36px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <i class="fas ${s.icon}" style="color:#475569;font-size:14px"></i>
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-weight:800;color:#1e293b;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.nome}</div>
+                            ${s.sistLabel ? `<div style="font-size:10px;color:#92400e;margin-top:1px">${s.sistLabel}</div>` : ''}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:14px;align-items:center">
+                        <div style="text-align:center">
+                            <div style="font-size:20px;font-weight:800;color:#334155;line-height:1">${vedono}</div>
+                            <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-top:1px">vedono</div>
+                        </div>
+                        <div style="text-align:center">
+                            <div style="font-size:20px;font-weight:800;color:#334155;line-height:1">${operano}</div>
+                            <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-top:1px">operano</div>
+                        </div>
+                        <div style="margin-left:auto;text-align:center">
+                            <div style="font-size:20px;font-weight:800;color:#cbd5e1;line-height:1">${tot}</div>
+                            <div style="font-size:10px;color:#cbd5e1;font-weight:600;margin-top:1px">tot.</div>
+                        </div>
+                    </div>
+                    <div class="sez-mgmt-bar"><div class="sez-mgmt-bar-fill" style="width:${pct}%"></div></div>
+                </div>`;
+            }).join('');
+        });
+    }
+
+    function apriSezioneDetail(sezId) {
+        _sezDetailCurrent = sezId;
+        const s = SEZIONI_APP.find(x => x.id === sezId);
+        if (!s) return;
+        document.getElementById('sezioni-grid-wrap').style.display = 'none';
+        const wrap = document.getElementById('sezioni-detail-wrap');
+        wrap.style.display = '';
+
+        const ops = (utentiCache || []).filter(op => !isAdminEmail(op.email));
+        // Raggruppa per emporio
+        const gruppi = {};
+        EMPORI_ORDER.forEach(k => { gruppi[k] = []; });
+        ops.forEach(op => {
+            const k = normalizzaEmporio(op.emporio);
+            if (!gruppi[k]) gruppi[k] = [];
+            gruppi[k].push(op);
+        });
+
+        const tabelle = EMPORI_ORDER
+            .filter(k => gruppi[k]?.length > 0)
+            .concat(Object.keys(gruppi).filter(k => !EMPORI_ORDER.includes(k) && gruppi[k]?.length > 0))
+            .map(k => {
+                const opsGruppo = gruppi[k] || [];
+                if (!opsGruppo.length) return '';
+                const empLabel = EMPORI_LABEL[k] || k;
+                const colore   = coloreEmporio(k);
+                const righe = opsGruppo.map(op => {
+                    const perm     = permessiCache[op.id]?.[sezId];
+                    const sist     = _sistemaSezioniNascoste(op);
+                    const sistRestr = sist.has(sezId);
+                    const forzata   = sistRestr && SIST_SBLOCCABILE.has(sezId) && perm?.vede === true;
+                    const isSist    = sistRestr && !forzata;
+                    const vede      = isSist ? false : (forzata ? true : perm?.vede !== false);
+                    const opera     = isSist ? false : (vede ? perm?.opera !== false : false);
+                    const ruoloNorm = (op.ruolo || '').toLowerCase().replace(/\s+/g, '');
+                    return `
+                    <tr>
+                        <td>
+                            <div class="op-nome-cella">
+                                <div class="op-avatar-small">${avatarIniziali(op.nome)}</div>
+                                <span>${op.nome || '—'}</span>
+                                ${isSist ? `<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;margin-left:4px">${s.sistLabel || 'Sistema'}</span>` : ''}
+                                ${forzata ? `<span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:3px;margin-left:4px">Abilitato</span>` : ''}
+                            </div>
+                        </td>
+                        <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
+                        <td style="text-align:center">
+                            ${isSist ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
+                            <label class="sez-toggle" style="margin:0 auto">
+                                <input type="checkbox" class="sez-detail-vede" data-op="${op.id}" data-sez="${sezId}"
+                                    ${vede ? 'checked' : ''}
+                                    onchange="onSezDetailVedeChange('${op.id}','${sezId}',this.checked)">
+                                <span class="sez-toggle-slider"></span>
+                            </label>`}
+                        </td>
+                        <td style="text-align:center">
+                            ${isSist ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
+                            <label class="sez-toggle" style="margin:0 auto">
+                                <input type="checkbox" class="sez-detail-opera" data-op="${op.id}" data-sez="${sezId}"
+                                    ${opera ? 'checked' : ''} ${!vede ? 'disabled' : ''}
+                                    onchange="salvaSezDetail('${op.id}','${sezId}')">
+                                <span class="sez-toggle-slider"></span>
+                            </label>`}
+                        </td>
+                    </tr>`;
+                }).join('');
+                return `
+                <div class="sez-detail-section">
+                    <div class="sez-detail-section-header">
+                        <span style="width:8px;height:8px;background:${colore};border-radius:50%;display:inline-block;flex-shrink:0"></span>
+                        <span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.06em">${empLabel}</span>
+                        <span style="font-size:11px;color:#94a3b8;margin-left:auto">${opsGruppo.length} operator${opsGruppo.length===1?'e':'i'}</span>
+                    </div>
+                    <table class="sez-detail-table">
+                        <thead><tr>
+                            <th>Operatore</th><th>Ruolo</th>
+                            <th style="text-align:center;width:90px">Visibile</th>
+                            <th style="text-align:center;width:90px">Operativo</th>
+                        </tr></thead>
+                        <tbody>${righe}</tbody>
+                    </table>
+                </div>`;
+            }).join('');
+
+        wrap.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+                <button onclick="tornaASezioniGrid()" style="background:#f1f5f9;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit">
+                    <i class="fas fa-arrow-left"></i> Tutte le sezioni
+                </button>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:36px;height:36px;background:#f1f5f9;border-radius:10px;display:flex;align-items:center;justify-content:center">
+                        <i class="fas ${s.icon}" style="color:#475569;font-size:15px"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:800;color:#1e293b;font-size:16px">${s.nome}</div>
+                        ${s.sistLabel ? `<div style="font-size:11px;color:#92400e">${s.sistLabel}</div>` : ''}
+                    </div>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+                    <button onclick="sezDetailBulk('${sezId}',true,true)" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #bbf7d0;background:#f0fdf4;cursor:pointer;color:#15803d;font-family:inherit">✓ Abilita tutti</button>
+                    <button onclick="sezDetailBulk('${sezId}',true,false)" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #fef08a;background:#fefce8;cursor:pointer;color:#713f12;font-family:inherit">👁 Solo lettura</button>
+                    <button onclick="sezDetailBulk('${sezId}',false,false)" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;cursor:pointer;color:#dc2626;font-family:inherit">✕ Nascondi tutti</button>
+                </div>
+            </div>
+            ${tabelle}`;
+    }
+
+    function tornaASezioniGrid() {
+        _sezDetailCurrent = null;
+        document.getElementById('sezioni-detail-wrap').style.display = 'none';
+        document.getElementById('sezioni-grid-wrap').style.display   = '';
+        // Ricarica la griglia per aggiornare i contatori
+        if (utentiCache?.length) renderSezioniGrid();
+    }
+
+    function onSezDetailVedeChange(opId, sezId, vede) {
+        const operaCb = document.querySelector(`.sez-detail-opera[data-op="${opId}"][data-sez="${sezId}"]`);
+        if (operaCb) {
+            operaCb.checked = vede ? operaCb.checked : false;
+            operaCb.disabled = !vede;
+        }
+        salvaSezDetail(opId, sezId);
+    }
+
+    async function salvaSezDetail(opId, sezId) {
+        const vedeCb  = document.querySelector(`.sez-detail-vede[data-op="${opId}"][data-sez="${sezId}"]`);
+        const operaCb = document.querySelector(`.sez-detail-opera[data-op="${opId}"][data-sez="${sezId}"]`);
+        if (!vedeCb) return;
+        const vede  = vedeCb.checked;
+        const opera = operaCb ? operaCb.checked : false;
+        const { error } = await db.from('utenti_permessi').upsert(
+            { utente_id: parseInt(opId), sezione: sezId, 'può_vedere': vede, 'può_operare': opera },
+            { onConflict: 'utente_id,sezione' }
+        );
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        if (!permessiCache[opId]) permessiCache[opId] = {};
+        permessiCache[opId][sezId] = { vede, opera };
+        showToast('Salvato', 'ok');
+    }
+
+    async function sezDetailBulk(sezId, vede, opera) {
+        const s   = SEZIONI_APP.find(x => x.id === sezId);
+        const ops = (utentiCache || []).filter(op => {
+            if (isAdminEmail(op.email)) return false;
+            const sist = _sistemaSezioniNascoste(op);
+            // sistema non sbloccabile: skip
+            return !sist.has(sezId) || SIST_SBLOCCABILE.has(sezId);
+        });
+        if (!ops.length) return;
+        const label = vede && opera ? 'Abilitare tutti gli operatori?' :
+                      vede ? 'Impostare solo lettura per tutti?' :
+                      'Nascondere questa sezione a tutti gli operatori?';
+        if (!confirm(label)) return;
+        const upserts = ops.map(op => ({
+            utente_id: op.id, sezione: sezId,
+            'può_vedere': vede, 'può_operare': vede ? opera : false,
+        }));
+        const { error } = await db.from('utenti_permessi').upsert(upserts, { onConflict: 'utente_id,sezione' });
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        ops.forEach(op => {
+            if (!permessiCache[op.id]) permessiCache[op.id] = {};
+            permessiCache[op.id][sezId] = { vede, opera: vede ? opera : false };
+        });
+        showToast(vede && opera ? 'Abilitati tutti' : vede ? 'Solo lettura per tutti' : 'Nascosto a tutti', 'ok');
+        apriSezioneDetail(sezId);
     }
 
     // Aggiorna l'anteprima ad ogni modifica ai controlli della pagina di accesso
