@@ -1485,7 +1485,17 @@ async function init() {
 
   const _em = (_user.email || '').toLowerCase();
   const isEmilio = _em === 'emilio.mazzolari@gmail.com' || _em === 'e.mazzolari@meridiano361.it';
-  const isAllowed = isEmilio || ALLOWED.includes(_user.nome);
+  let isAllowed = isEmilio || ALLOWED.includes(_user.nome);
+
+  if (!isAllowed && _user.id) {
+    const { data: perm } = await _sb
+      .from('utenti_permessi')
+      .select('può_vedere')
+      .eq('utente_id', _user.id)
+      .eq('sezione', 'tessere')
+      .maybeSingle();
+    isAllowed = perm?.['può_vedere'] === true;
+  }
 
   if (!isAllowed) {
     document.querySelector('.page-wrap').innerHTML =

@@ -2505,13 +2505,16 @@ async function loadData() {
         .eq('emporio', currentEmporio)
         .eq('anno', currentAnno)
         .eq('mese', currentMese + 1),
-      db.from('operatori').select('nome')
-        .or('attivo.eq.true,attivo.is.null')
-        .eq('emporio', currentEmporio),
+      db.from('operatori').select('nome,emporio,empori_aggiuntivi')
+        .or('attivo.eq.true,attivo.is.null'),
     ]);
     if (error) { showToast('Errore caricamento: ' + error.message,'err'); return; }
     if (!opErr) {
-      _nomiValidiEmporio = new Set((opValidi || []).map(o => o.nome));
+      _nomiValidiEmporio = new Set(
+        (opValidi || [])
+          .filter(o => o.emporio === currentEmporio || (o.empori_aggiuntivi || []).includes(currentEmporio))
+          .map(o => o.nome)
+      );
       _nomiValidiLoaded  = true;
     }
     const _cleanupNow = new Date();
