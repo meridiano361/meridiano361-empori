@@ -4645,7 +4645,7 @@
                         </td>
                         <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
                         <td style="text-align:center">
-                            ${isSist || !op.auth_id ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
+                            ${isSist || op.attivo === false ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
                             <label class="sez-toggle" style="margin:0 auto">
                                 <input type="checkbox" class="sez-detail-vede" data-op="${op.id}" data-sez="${sezId}"
                                     ${vede ? 'checked' : ''}
@@ -4654,7 +4654,7 @@
                             </label>`}
                         </td>
                         <td style="text-align:center">
-                            ${isSist || !op.auth_id ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
+                            ${isSist || op.attivo === false ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
                             <label class="sez-toggle" style="margin:0 auto">
                                 <input type="checkbox" class="sez-detail-opera" data-op="${op.id}" data-sez="${sezId}"
                                     ${opera ? 'checked' : ''} ${!vede ? 'disabled' : ''}
@@ -4745,7 +4745,8 @@
         const s   = SEZIONI_APP.find(x => x.id === sezId);
         const ops = (utentiCache || []).filter(op => {
             if (isAdminEmail(op.email)) return false;
-            if (!op.auth_id) return false;
+            if (op.attivo === false) return false;
+            if (!op.auth_id) return false; // attivi ma non ancora invitati: skip silenzioso
             const sist = _sistemaSezioniNascoste(op);
             return !sist.has(sezId) || SIST_SBLOCCABILE.has(sezId);
         });
