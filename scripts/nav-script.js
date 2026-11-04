@@ -806,21 +806,30 @@ function buildNav() {
       return;
     }
 
-    // Aggiorna is_resp_acquisti da DB (gestisce sessioni con localStorage stale)
-    if (!user.is_resp_acquisti) {
-      const { data: opDB } = await _supabase.from('operatori').select('is_resp_acquisti').eq('id', user.id).single();
-      if (opDB?.is_resp_acquisti) {
-        user.is_resp_acquisti = true;
-        if (!isImpersonating()) localStorage.setItem('m361_user', JSON.stringify({ ...user, is_resp_acquisti: true }));
-        const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
-        if (preordItem && !preordItem.active) {
-          preordItem.active = true;
-          const navEl = document.querySelector('.mn-item[href*="preordini"]');
-          if (navEl) {
-            navEl.classList.remove('mn-wip');
-            navEl.classList.add('mn-active');
-            const BASE = window.location.pathname.split('/pages/')[0].split('/scripts')[0].replace(/\/[^/]+$/, '') || '';
-            navEl.href = BASE + '/' + 'pages/gestione/preordini.html';
+    // Aggiorna is_resp_acquisti e campi referente da DB (gestisce sessioni con localStorage stale)
+    const _needsRefresh = !user.is_resp_acquisti ||
+      user.referente_alimentari === undefined || user.referente_cosmesi === undefined;
+    if (_needsRefresh) {
+      const { data: opDB } = await _supabase.from('operatori')
+        .select('is_resp_acquisti,referente_alimentari,referente_casa,referente_moda,referente_cosmesi,referente_ricorrenze,referente_contabilita')
+        .eq('id', user.id).single();
+      if (opDB) {
+        const changed = {};
+        if (opDB.is_resp_acquisti && !user.is_resp_acquisti) { user.is_resp_acquisti = true; changed.is_resp_acquisti = true; }
+        const refFields = ['referente_alimentari','referente_casa','referente_moda','referente_cosmesi','referente_ricorrenze','referente_contabilita'];
+        refFields.forEach(f => { if (opDB[f] !== undefined && user[f] !== opDB[f]) { user[f] = opDB[f]; changed[f] = opDB[f]; } });
+        if (Object.keys(changed).length && !isImpersonating()) localStorage.setItem('m361_user', JSON.stringify({ ...user }));
+        if (opDB.is_resp_acquisti) {
+          const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
+          if (preordItem && !preordItem.active) {
+            preordItem.active = true;
+            const navEl = document.querySelector('.mn-item[href*="preordini"]');
+            if (navEl) {
+              navEl.classList.remove('mn-wip');
+              navEl.classList.add('mn-active');
+              const BASE = window.location.pathname.split('/pages/')[0].split('/scripts')[0].replace(/\/[^/]+$/, '') || '';
+              navEl.href = BASE + '/' + 'pages/gestione/preordini.html';
+            }
           }
         }
       }
@@ -923,6 +932,11 @@ function buildNav() {
       // Utenti con accesso preventivi completo non ricevono il blocco sola-lettura su quella sezione.
       const _prevFullEmails = ['m.porrino@meridiano361.it'];
       if (currentId === 'preventivi' && _prevFullEmails.includes((_localUser?.email || '').toLowerCase().trim())) return;
+      // I referenti di settore hanno sempre accesso operativo alla Fornitura.
+      const _isReferente = _localUser?.referente_alimentari || _localUser?.referente_casa ||
+        _localUser?.referente_moda || _localUser?.referente_cosmesi ||
+        _localUser?.referente_ricorrenze || _localUser?.referente_contabilita;
+      if (currentId === 'rifornimento' && _isReferente) return;
 
       whenReady(() => {
         applyReadonlyMode();
