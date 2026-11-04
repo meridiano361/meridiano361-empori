@@ -3418,8 +3418,9 @@ function renderStoricoTessere(clienteId) {
   let htmlDB = '';
   if (tessereDB.length > 0) {
     htmlDB = tessereDB.map((t, idx) => {
-      const isAttiva   = t.attiva !== false;
-      const isEsaurita = (t.timbri_attuali || 0) >= TIMBRI_MAX;
+      // "Attiva" solo per la tessera più recente: le precedenti sono per definizione superate
+      const isAttiva   = t.attiva !== false && idx === 0;
+      const isEsaurita = !isAttiva && ((t.timbri_attuali || 0) >= TIMBRI_MAX || t.motivo_rinnovo === 'completata');
       let statoLabel, statoColor, statoIcon;
       if (isAttiva)        { statoLabel='Attiva';     statoColor='#16a34a'; statoIcon='fa-circle-check'; }
       else if (isEsaurita) { statoLabel='Esaurita';   statoColor='#94a3b8'; statoIcon='fa-circle-xmark'; }
