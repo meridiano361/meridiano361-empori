@@ -795,14 +795,14 @@ async function invia() {
 
 async function _notificaRespAcquisti() {
   const emporio = proposta.emporio || '';
-  const { data: resps } = await db
-    .from('operatori')
-    .select('id')
-    .eq('is_resp_acquisti', true);
+  const [{ data: resps }, { data: admins }] = await Promise.all([
+    db.from('operatori').select('id').eq('is_resp_acquisti', true),
+    db.from('operatori').select('id').eq('ruolo', 'admin'),
+  ]);
 
-  if (!resps?.length) return;
+  const ids = [...new Set([...(resps || []).map(r => r.id), ...(admins || []).map(a => a.id)])];
+  if (!ids.length) return;
 
-  const ids = resps.map(r => r.id);
   const mittente = user?.nome || 'Operatore';
 
   await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
@@ -820,16 +820,17 @@ async function _notificaRespAcquisti() {
 }
 
 async function _notificaRespAcquistiOrdine(emporio, mittente) {
-  const { data: resps } = await db
-    .from('operatori')
-    .select('id')
-    .eq('is_resp_acquisti', true);
-  if (!resps?.length) return;
+  const [{ data: resps }, { data: admins }] = await Promise.all([
+    db.from('operatori').select('id').eq('is_resp_acquisti', true),
+    db.from('operatori').select('id').eq('ruolo', 'admin'),
+  ]);
+  const ids = [...new Set([...(resps || []).map(r => r.id), ...(admins || []).map(a => a.id)])];
+  if (!ids.length) return;
   await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}`, 'apikey': SUPA_KEY },
     body: JSON.stringify({
-      operatore_ids: resps.map(r => r.id),
+      operatore_ids: ids,
       target:        'tutti',
       titolo:        'Meridiano 361',
       testo:         `Nuovo ordine rifornimento — ${emporio}, da ${mittente}`,
