@@ -335,13 +335,45 @@ function wxCode(c) {
 function exportTableCSV(tableId, filename) {
   const table = document.getElementById(tableId);
   if (!table) return;
-  const rows = [...table.querySelectorAll('tr')].map(row =>
-    [...row.querySelectorAll('th,td')].map(c => '"' + c.innerText.replace(/"/g, '""') + '"').join(',')
-  );
-  const blob = new Blob(['﻿' + rows.join('\n')], {type:'text/csv;charset=utf-8'});
+
+  // Build a 2D grid that respects colspan and rowspan
+  const grid = [];
+  let ri = 0;
+  for (const tr of table.querySelectorAll('tr')) {
+    // Skip decorative month-separator rows
+    if (tr.classList.contains('sett-month-hdr')) continue;
+    if (!grid[ri]) grid[ri] = [];
+    let ci = 0;
+    for (const cell of tr.querySelectorAll('th,td')) {
+      while (grid[ri][ci] !== undefined) ci++;
+      const colspan = parseInt(cell.colSpan) || 1;
+      const rowspan = parseInt(cell.rowSpan) || 1;
+      // textContent reads all cells including hidden ones; strip decorative chars
+      const text = (cell.textContent || '')
+        .replace(/[▾▸▴]/g, '').replace(/[\n\r\t]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+      for (let dr = 0; dr < rowspan; dr++) {
+        if (!grid[ri + dr]) grid[ri + dr] = [];
+        for (let dc = 0; dc < colspan; dc++) {
+          // For rowspan: repeat label in first col of each row; for colspan: empty after first
+          grid[ri + dr][ci + dc] = (dc === 0) ? text : '';
+        }
+      }
+      ci += colspan;
+    }
+    ri++;
+  }
+
+  const maxCols = Math.max(...grid.map(r => r.length));
+  const csv = grid.map(row =>
+    Array.from({length: maxCols}, (_, c) =>
+      '"' + (row[c] ?? '').replace(/"/g, '""') + '"'
+    ).join(',')
+  ).join('\n');
+
+  const blob = new Blob(['﻿' + csv], {type: 'text/csv;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = filename + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = filename + '_' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
 }
 
