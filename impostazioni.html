@@ -1273,6 +1273,16 @@
                 <input type="hidden" id="edit-op-id-orig">
                 <div id="modal-op-msg" class="modal-op-msg" role="alert"></div>
 
+                <div id="edit-op-inattivo-banner" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:none">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <div>
+                            <div style="font-size:13px;font-weight:800;color:#dc2626">⏸ Operatore non più attivo</div>
+                            <div style="font-size:12px;color:#ef4444;margin-top:2px">Non ha accesso a nessuna sezione del portale.</div>
+                        </div>
+                        <button onclick="_riattivaOperatore()" style="font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;border:1px solid #86efac;background:#f0fdf4;color:#15803d;cursor:pointer;font-family:inherit;white-space:nowrap">▶ Riattiva</button>
+                    </div>
+                </div>
+
                 <div class="campo-gruppo">
                     <label>Nome e Cognome *</label>
                     <input type="text" id="edit-op-nome" class="campo-input" placeholder="Es. Mario Rossi">
@@ -2239,6 +2249,16 @@
         loadUsers();
     }
 
+    async function _riattivaOperatore() {
+        const id = document.getElementById('edit-op-id-orig').value;
+        if (!id) return;
+        const { error } = await db.from('operatori').update({ attivo: true }).eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        showToast('Operatore riattivato', 'ok');
+        document.getElementById('edit-op-inattivo-banner').style.display = 'none';
+        loadUsers();
+    }
+
     async function vediComeOperatore(opId) {
         const op = utentiCache.find(o => String(o.id) === String(opId));
         if (!op) return;
@@ -2369,6 +2389,7 @@
 
         document.querySelector('#modal-modifica-operatore .modal-header h3').textContent =
             'Modifica Operatore';
+        document.getElementById('edit-op-inattivo-banner').style.display = op.attivo === false ? '' : 'none';
         document.getElementById('edit-op-id-orig').value      = op.id;
         document.getElementById('edit-op-nome').value         = op.nome || '';
         document.getElementById('edit-op-telefono').value     = op.telefono || '';
