@@ -42,12 +42,12 @@ select.btn-export{cursor:pointer;}
 .admin-table .total-row td{font-weight:800;background:#fdf1f0;color:#B5453A;}
 .admin-table .number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .sett-month-hdr td{background:#f1f5f9!important;font-size:10px;font-weight:800;letter-spacing:.1em;color:#475569;padding:5px 12px;border-top:2px solid #e2e8f0;}
-#com-sett-table{table-layout:auto;}
-#com-sett-table th{position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;padding:6px 10px;border-right:1px solid #e2e8f0;}
-#com-sett-table td{padding:5px 8px;border-right:1px solid #f0f4f8;white-space:nowrap;}
-#com-sett-table th:last-child,#com-sett-table td:last-child{border-right:none;}
-#com-sett-table .cat-cell:hover{background:#fffbeb!important;outline:1px dashed #f59e0b;}
-#com-sett-table .cat-cell input{width:100%;border:1.5px solid #B5453A;border-radius:4px;padding:2px 3px;font-size:10px;text-align:right;font-family:inherit;background:#fffbeb;box-sizing:border-box;}
+#com-sett-table,#com-mens-table{table-layout:auto;}
+#com-sett-table th,#com-mens-table th{position:sticky;top:0;z-index:10;white-space:nowrap;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;padding:6px 10px;border-right:1px solid #e2e8f0;}
+#com-sett-table td,#com-mens-table td{padding:5px 8px;border-right:1px solid #f0f4f8;white-space:nowrap;}
+#com-sett-table th:last-child,#com-sett-table td:last-child,#com-mens-table th:last-child,#com-mens-table td:last-child{border-right:none;}
+#com-sett-table .cat-cell:hover,#com-mens-table .cat-cell:hover{background:#fffbeb!important;outline:1px dashed #f59e0b;}
+#com-sett-table .cat-cell input,#com-mens-table .cat-cell input{width:100%;border:1.5px solid #B5453A;border-radius:4px;padding:2px 3px;font-size:10px;text-align:right;font-family:inherit;background:#fffbeb;box-sizing:border-box;}
 .cat-num-input::-webkit-inner-spin-button,.cat-num-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 .cat-num-input{-moz-appearance:textfield;}
 #com-table th{position:sticky;top:0;z-index:10;white-space:normal;text-align:center;line-height:1.3;box-shadow:0 1px 0 #e2e8f0;}
@@ -198,7 +198,7 @@ select.btn-export{cursor:pointer;}
         <button class="btn-export" onclick="exportTableCSV('com-mens-table','andamento_mensile')" data-tip="Esporta l'andamento mensile in CSV"><i class="fas fa-file-csv"></i> Esporta CSV</button>
       </div>
       <div id="com-mens-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
-        <table class="admin-table" id="com-mens-table" style="table-layout:fixed;width:100%">
+        <table class="admin-table" id="com-mens-table" style="table-layout:auto">
           <thead id="com-mens-thead"></thead>
           <tbody id="com-mens-body"><tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio per visualizzare i dati</td></tr></tbody>
         </table>
@@ -448,6 +448,7 @@ function allIsoWeeksOfYear(year) {
 /* ── CATEGORY CONSTANTS ── */
 const _CAT_KEYS = ['ali','ben','cas','mod','alt'];
 const _settCollapsed = new Set();
+const _mensCollapsed = new Set();
 const _CAT_HDR  = {
   ali:{ label:'Alimentari', bg:'', color:'inherit', br:'#cbd5e1' },
   ben:{ label:'Benessere',  bg:'', color:'inherit', br:'#cbd5e1' },
@@ -799,6 +800,24 @@ function _applySettCollapsed() {
   });
 }
 
+function toggleMensCat(k) {
+  if (_mensCollapsed.has(k)) _mensCollapsed.delete(k);
+  else _mensCollapsed.add(k);
+  _applyMensCollapsed();
+}
+function _applyMensCollapsed() {
+  const allKeys = [..._CAT_KEYS, 'tot'];
+  allKeys.forEach(k => {
+    const col = _mensCollapsed.has(k);
+    document.querySelectorAll(`[data-mcat-sub="${k}"]`).forEach(el => { el.style.display = col ? 'none' : ''; });
+    document.querySelectorAll(`#com-mens-thead [data-mcat-hdr="${k}"]`).forEach(hdr => {
+      hdr.setAttribute('colspan', col ? 1 : 6);
+      const btn = hdr.querySelector('.cat-toggle-btn');
+      if (btn) btn.textContent = col ? '▸' : '▾';
+    });
+  });
+}
+
 /* ── INLINE EDIT CELLE CATEGORIA ── */
 function _evalCalc(str) {
   const s = str.trim();
@@ -878,16 +897,28 @@ async function saveCatEdit(td, inp) {
     num = raw==='' ? null : (isNaN(+raw) ? null : +raw);
   }
   const wkey = td.dataset.wkey;
+  const tbl  = td.dataset.tbl || 'sett';
   td.dataset.val = num!=null ? String(num) : '';
   _restoreCatCell(td, td.dataset.val);
-  const [emp, iy, sw] = wkey.split('||');
+  const [emp, part2, part3] = wkey.split('||');
   try {
-    const {error} = await db.from('cassa_settimane_categorie').upsert(
-      {emporio:emp, iso_year:parseInt(iy), settimana_iso:parseInt(sw), [field]:num},
-      {onConflict:'emporio,iso_year,settimana_iso'}
-    );
-    if (!error) { updateCatRowTotals(wkey); updateCatRowDelta(wkey, field); }
-    else console.error('[cat]', error);
+    if (tbl === 'mens') {
+      const annoVal = parseInt(part2.slice(1));
+      const meseVal = parseInt(part3);
+      const {error} = await db.from('cassa_mesi_categorie').upsert(
+        {emporio:emp, anno:annoVal, mese:meseVal, [field]:num},
+        {onConflict:'emporio,anno,mese'}
+      );
+      if (!error) { updateMensCatRowTotals(meseVal, wkey); updateCatRowDelta(wkey, field); }
+      else console.error('[mcat]', error);
+    } else {
+      const {error} = await db.from('cassa_settimane_categorie').upsert(
+        {emporio:emp, iso_year:parseInt(part2), settimana_iso:parseInt(part3), [field]:num},
+        {onConflict:'emporio,iso_year,settimana_iso'}
+      );
+      if (!error) { updateCatRowTotals(wkey); updateCatRowDelta(wkey, field); }
+      else console.error('[cat]', error);
+    }
   } catch(e) { console.error('[cat]', e); }
 }
 function updateCatRowTotals(wkey) {
@@ -923,13 +954,27 @@ function updateCatRowDelta(wkey, changedField) {
   }
 }
 
+function updateMensCatRowTotals(m, wkey) {
+  let tPz=0, tPz25=0;
+  document.querySelectorAll('.cat-cell').forEach(c => {
+    if (c.dataset.wkey!==wkey) return;
+    const v = parseFloat(c.dataset.val)||0;
+    if (c.dataset.field.match(/^(ali|ben|cas|mod|alt)_pezzi$/))    tPz  += v;
+    if (c.dataset.field.match(/^(ali|ben|cas|mod|alt)_pezzi_25$/)) tPz25 += v;
+  });
+  const p   = document.getElementById(`mpzt-${m}`);
+  const p25 = document.getElementById(`mpz25t-${m}`);
+  if (p)   p.textContent   = tPz  > 0 ? tPz  : '–';
+  if (p25) p25.textContent = tPz25 > 0 ? tPz25 : '–';
+}
+
 /* ── MENSILE ── */
 async function loadMensileData() {
   const emporio = document.getElementById('com-mens-emporio').value;
   const anno    = document.getElementById('com-mens-anno').value;
   const tbody   = document.getElementById('com-mens-body');
   const thead   = document.getElementById('com-mens-thead');
-  const NCOL = 9;
+  const NCOL    = 50;
 
   if (!emporio) {
     tbody.innerHTML = `<tr><td colspan="${NCOL}" style="text-align:center;color:#94a3b8;padding:40px">Seleziona un emporio</td></tr>`;
@@ -939,16 +984,25 @@ async function loadMensileData() {
 
   try {
     const chiavi = chiaveYear(emporio, anno);
-    const [{ data: raw, error }, camRes] = await Promise.all([
+    const [{ data: raw, error }, camRes, cam25Res, catRes] = await Promise.all([
       db.from('cassa_giorni')
         .select('chiave,emporio,mat_corrispettivi,pom_corrispettivi,global_scontrini,corrispettivi_25,num_scontrini_25')
         .in('chiave', chiavi),
       db.from('campagne_commerciali')
         .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
-        .eq('anno', +anno)
+        .eq('anno', +anno),
+      db.from('campagne_commerciali')
+        .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
+        .eq('anno', +anno - 1),
+      db.from('cassa_mesi_categorie')
+        .select('*').eq('emporio', emporio).eq('anno', +anno)
     ]);
     if (error) throw error;
-    const campagne = camRes?.data || [];
+    const campagne   = camRes?.data   || [];
+    const campagne25 = cam25Res?.data || [];
+    const shiftY = d => d ? d.replace(/^\d{4}/, y => String(+y-1)) : null;
+    const catMap = new Map();
+    (catRes?.data || []).forEach(r => catMap.set(`${emporio}||m${r.anno}||${r.mese}`, r));
 
     const monthMap = new Map();
     normCassa(raw || []).forEach(r => {
@@ -963,19 +1017,58 @@ async function loadMensileData() {
 
     const MESI_N = ['','Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
+    const SEP = 'border-left:2px solid #94a3b8';
+    const _mCatToggleBtn = (k, label, extra='') =>
+      `<th colspan="6" data-mcat-hdr="${k}" onclick="toggleMensCat('${k}')" style="text-align:center;${SEP};border-bottom:2px solid ${k==='tot'?'#1e293b':_CAT_HDR[k]?.br||'#cbd5e1'};padding:5px 4px;font-size:11px;cursor:pointer;user-select:none${extra}">` +
+      `<span style="display:inline-flex;align-items:center;gap:4px">${label}<span class="cat-toggle-btn" style="font-size:9px;opacity:.5;margin-left:2px">▾</span></span></th>`;
+    const catHdr1 = _CAT_KEYS.map(k => _mCatToggleBtn(k, _CAT_HDR[k].label)).join('') +
+      _mCatToggleBtn('tot', 'Totale', ';font-weight:800;background:#f8fafc');
+    const a2 = String(anno).slice(-2);
+    const a1 = String(+anno-1).slice(-2);
+    const catHdr2 = _CAT_KEYS.map(k => `
+      <th class="number" data-mcat-sub="${k}" style="min-width:40px;font-size:9px;padding:4px 6px;${SEP}">Pz<br>${a2}</th>
+      <th class="number" data-mcat-sub="${k}" style="min-width:40px;font-size:9px;padding:4px 6px">Pz<br>${a1}</th>
+      <th class="number" data-mcat-sub="${k}" style="min-width:56px;font-size:9px;padding:4px 6px">Δ<br>Pz%</th>
+      <th class="number" style="min-width:70px;font-size:9px;padding:4px 6px;${SEP}">IE<br>${a2}</th>
+      <th class="number" data-mcat-sub="${k}" style="min-width:65px;font-size:9px;padding:4px 6px">IE<br>${a1}</th>
+      <th class="number" data-mcat-sub="${k}" style="min-width:56px;font-size:9px;padding:4px 6px">Δ<br>IE%</th>`
+    ).join('') + `
+      <th class="number" data-mcat-sub="tot" style="min-width:50px;font-size:9px;padding:4px 6px;${SEP};background:#f8fafc;font-weight:800">Pz<br>${a2}</th>
+      <th class="number" data-mcat-sub="tot" style="min-width:50px;font-size:9px;padding:4px 6px;background:#f8fafc;color:#94a3b8">Pz<br>${a1}</th>
+      <th class="number" data-mcat-sub="tot" style="min-width:56px;font-size:9px;padding:4px 6px;background:#f8fafc">Δ<br>Pz%</th>
+      <th class="number" style="min-width:80px;font-size:9px;padding:4px 6px;${SEP};background:#f8fafc;font-weight:800">IE<br>${a2}</th>
+      <th class="number" data-mcat-sub="tot" style="min-width:75px;font-size:9px;padding:4px 6px;background:#f8fafc;color:#94a3b8">IE<br>${a1}</th>
+      <th class="number" data-mcat-sub="tot" style="min-width:56px;font-size:9px;padding:4px 6px;background:#f8fafc">Δ<br>IE%</th>`;
+    const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
+    const thYears = (w1, w2, bg='', dw=0) => `<th class="number" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
     thead.innerHTML = `<tr>
-      <th style="text-align:left;width:90px">Mese</th>
-      <th style="text-align:left;width:100px">Campagne</th>
-      <th style="text-align:left;width:90px">Eventi</th>
-      <th class="number" style="width:55px">N.Sc.<br>${anno}</th>
-      <th class="number" style="width:55px">N.Sc.<br>${+anno-1}</th>
-      <th class="number" style="width:80px">Corr. I.I.<br>${+anno-1}</th>
-      <th class="number" style="width:80px">Corr. I.I.<br>${anno}</th>
-      <th class="number" style="width:52px">Δ%<br>${+anno-1}</th>
-      <th class="number" style="width:72px">Sc. Medio</th>
+      <th id="mens-mese-col-th" rowspan="2" style="position:sticky;left:0;z-index:20;background:#fff;text-align:left;vertical-align:middle;padding:6px 10px;white-space:nowrap">Mese</th>
+      ${thMacro('Campagne')}
+      ${thMacro('Eventi')}
+      ${thMacro('Corr IE', 3)}
+      ${thMacro('N SF', 3)}
+      ${thMacro('N Pz', 3)}
+      ${catHdr1}
+    </tr><tr>
+      ${thYears(44, 44)}
+      ${thYears(38, 38)}
+      ${thYears(82, 75, '', 68)}
+      ${thYears(46, 44, '', 68)}
+      ${thYears(46, 44, ';background:#f8fafc', 68)}
+      ${catHdr2}
     </tr>`;
+    requestAnimationFrame(() => {
+      const rows = thead.querySelectorAll('tr');
+      if (rows.length >= 2) {
+        const h1 = rows[0].offsetHeight;
+        rows[0].querySelectorAll('th').forEach(th => { th.style.top = '0px'; if (!th.style.background) th.style.background = '#fff'; });
+        rows[1].querySelectorAll('th').forEach(th => { th.style.top = h1 + 'px'; th.style.background = '#fff'; });
+      }
+    });
 
-    let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0;
+    let tCorr = 0, tSc = 0, tCorr25 = 0, tSc25 = 0, tPz = 0, tPz25 = 0;
+    const catTot = {};
+    _CAT_KEYS.forEach(k => { catTot[k] = {pz:0,pz25:0,vie:0,vie25:0}; });
     let html = '';
 
     for (let m = 1; m <= 12; m++) {
@@ -983,47 +1076,126 @@ async function loadMensileData() {
       const mEnd   = `${anno}-${String(m).padStart(2,'0')}-31`;
       const campBadge = _renderCalBadges(campagne, mStart, mEnd, 'campagna', emporio);
       const evBadge   = _renderCalBadges(campagne, mStart, mEnd, 'evento',   emporio);
-      const w = monthMap.get(m);
-      if (!w || w.corr === 0) {
-        html += `<tr style="color:#94a3b8">
-          <td>${MESI_N[m]}</td>
-          <td style="vertical-align:top">${campBadge}</td>
-          <td style="vertical-align:top">${evBadge}</td>
-          <td class="number">–</td><td class="number">–</td><td class="number">–</td><td class="number">–</td><td class="number">–</td><td class="number">–</td>
-        </tr>`;
-        continue;
-      }
-      const delta = w.corr25 > 0 ? (w.corr - w.corr25) / w.corr25 * 100 : null;
-      const medII = w.sc > 0 ? fmt(w.corr / w.sc) : '–';
-      tCorr += w.corr; tSc += w.sc; tCorr25 += w.corr25; tSc25 += w.sc25;
-      const cDA = delta != null ? (delta >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const md = monthMap.get(m);
+      if (md) { tCorr += md.corr; tSc += md.sc; tCorr25 += md.corr25; tSc25 += md.sc25; }
+      const ie26 = md && md.corr   > 0 ? md.corr   / 1.22 : null;
+      const ie25 = md && md.corr25 > 0 ? md.corr25 / 1.22 : null;
+      const ieD  = (ie26 != null && ie25 != null && ie25 > 0) ? (ie26 - ie25) / ie25 * 100 : null;
+      const scD  = (md && md.sc > 0 && md.sc25 > 0) ? (md.sc - md.sc25) / md.sc25 * 100 : null;
+      const wkey = `${emporio}||m${anno}||${m}`;
+      const cat  = catMap.get(wkey);
+
+      let rowPz = 0, rowPz25 = 0, rowVie = 0, rowVie25 = 0;
+      const catCells = _CAT_KEYS.map(k => {
+        const pz   = cat && cat[`${k}_pezzi`]         != null ? parseInt(cat[`${k}_pezzi`])          : null;
+        const pz25 = cat && cat[`${k}_pezzi_25`]      != null ? parseInt(cat[`${k}_pezzi_25`])       : null;
+        const vie  = cat && cat[`${k}_venduto_ie`]    != null ? parseFloat(cat[`${k}_venduto_ie`])   : null;
+        const vie25= cat && cat[`${k}_venduto_ie_25`] != null ? parseFloat(cat[`${k}_venduto_ie_25`]): null;
+        rowPz  += pz   ?? 0; rowPz25 += pz25  ?? 0;
+        rowVie += vie  ?? 0; rowVie25 += vie25 ?? 0;
+        catTot[k].pz += pz ?? 0; catTot[k].pz25 += pz25 ?? 0;
+        catTot[k].vie += vie ?? 0; catTot[k].vie25 += vie25 ?? 0;
+        const deltaPz = (pz != null && pz25 != null && pz25 > 0) ? (pz -pz25)/pz25*100 : null;
+        const deltaIE = (vie != null && vie25 != null && vie25 > 0) ? (vie-vie25)/vie25*100 : null;
+        const dPzCls  = deltaPz != null ? (deltaPz >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+        const dIECls  = deltaIE != null ? (deltaIE >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+        const ec = (f, v, isCurr, isFirst=false) => {
+          const dis = v != null ? (f.includes('venduto') ? fmtK(v) : v) : '<span style="color:#d1d5db">–</span>';
+          const isMain = f === 'venduto_ie';
+          const bl = (isFirst || isMain) ? ';border-left:2px solid #94a3b8' : '';
+          const sub = isMain ? '' : ` data-mcat-sub="${k}"`;
+          return `<td class="number cat-cell"${sub} data-tbl="mens" data-wkey="${wkey}" data-field="${k}_${f}" data-val="${v??''}" onclick="startCatEdit(this)" title="Clicca per modificare" style="cursor:pointer;font-size:11px${isCurr?'':';color:#94a3b8'}${bl}">${dis}</td>`;
+        };
+        return ec('pezzi',pz,true,true)+ec('pezzi_25',pz25,false)+
+          `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dPzCls};font-weight:600">${deltaPz!=null?(deltaPz>0?'+':'')+deltaPz.toFixed(1)+'%':'–'}</td>`+
+          ec('venduto_ie',vie,true)+ec('venduto_ie_25',vie25,false)+
+          `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dIECls};font-weight:600">${deltaIE!=null?(deltaIE>0?'+':'')+deltaIE.toFixed(1)+'%':'–'}</td>`;
+      }).join('');
+      tPz += rowPz; tPz25 += rowPz25;
+      const pzD = (rowPz > 0 && rowPz25 > 0) ? (rowPz - rowPz25) / rowPz25 * 100 : null;
+      const totDPz = pzD;
+      const totDIE = (rowVie > 0 && rowVie25 > 0) ? (rowVie - rowVie25) / rowVie25 * 100 : null;
+      const totDPzCls = totDPz != null ? (totDPz >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const totDIECls = totDIE != null ? (totDIE >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
+      const totaleCells =
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;border-left:2px solid #94a3b8;background:#f8fafc"><strong>${rowPz > 0 ? rowPz : '–'}</strong></td>` +
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#f8fafc">${rowPz25 > 0 ? rowPz25 : '–'}</td>` +
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${totDPzCls};font-weight:600;background:#f8fafc">${totDPz!=null?(totDPz>0?'+':'')+totDPz.toFixed(1)+'%':'–'}</td>` +
+        `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#f8fafc"><strong>${rowVie > 0 ? fmtK(rowVie) : '–'}</strong></td>` +
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#f8fafc">${rowVie25 > 0 ? fmtK(rowVie25) : '–'}</td>` +
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${totDIECls};font-weight:600;background:#f8fafc">${totDIE!=null?(totDIE>0?'+':'')+totDIE.toFixed(1)+'%':'–'}</td>`;
+
       html += `<tr>
-        <td><strong>${MESI_N[m]}</strong></td>
-        <td style="vertical-align:top">${campBadge}</td>
-        <td style="vertical-align:top">${evBadge}</td>
-        <td class="number">${w.sc > 0 ? w.sc : '–'}</td>
-        <td class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
-        <td class="number" style="color:#94a3b8">${w.corr25 > 0 ? fmt(w.corr25) : '–'}</td>
-        <td class="number"><strong>${fmt(w.corr)}</strong></td>
-        <td class="number" style="color:${cDA};font-weight:600">${fmtPct(delta, w.corr25)}</td>
-        <td class="number">${medII}</td>
+        <td style="position:sticky;left:0;z-index:3;background:#fff;font-weight:700;white-space:nowrap;padding:6px 10px"><strong>${MESI_N[m]}</strong></td>
+        <td style="text-align:center;vertical-align:middle;${SEP}">${campBadge}</td>
+        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'campagna',emporio)}</td>
+        <td style="text-align:center;vertical-align:middle;${SEP}">${evBadge}</td>
+        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'evento',emporio)}</td>
+        <td class="number" style="font-size:11px;${SEP}"><strong>${ie26!=null?fmtK(ie26):'–'}</strong></td>
+        <td class="number" style="font-size:11px;color:#94a3b8">${ie25!=null?fmtK(ie25):'–'}</td>
+        <td class="number" style="font-size:11px">${fD(ieD)}</td>
+        <td class="number" style="${SEP}">${md && md.sc > 0 ? md.sc : '–'}</td>
+        <td class="number" style="color:#94a3b8">${md && md.sc25 > 0 ? md.sc25 : '–'}</td>
+        <td class="number" style="font-size:11px">${fD(scD)}</td>
+        <td class="number" id="mpzt-${m}" style="background:#f8fafc;${SEP}">${rowPz > 0 ? rowPz : '–'}</td>
+        <td class="number" id="mpz25t-${m}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
+        <td class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
+        ${catCells}
+        ${totaleCells}
       </tr>`;
     }
 
-    const totDA  = tCorr25 > 0 ? (tCorr - tCorr25) / tCorr25 * 100 : null;
-    const cTDA   = totDA != null ? (totDA >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-    const tMedII = tSc > 0 ? fmt(tCorr / tSc) : '–';
+    const tIE26 = tCorr   > 0 ? tCorr   / 1.22 : null;
+    const tIE25 = tCorr25 > 0 ? tCorr25 / 1.22 : null;
+    const tIED  = (tIE26 != null && tIE25 != null && tIE25 > 0) ? (tIE26 - tIE25) / tIE25 * 100 : null;
+    const tScD  = (tSc > 0 && tSc25 > 0) ? (tSc - tSc25) / tSc25 * 100 : null;
+    const tPzD  = (tPz > 0 && tPz25 > 0) ? (tPz - tPz25) / tPz25 * 100 : null;
+    const catTotCells = _CAT_KEYS.map(k => {
+      const {pz,pz25,vie,vie25} = catTot[k];
+      const dPz = pz25 > 0 ? (pz -pz25 )/pz25 *100 : null;
+      const dIE = vie25 > 0 ? (vie-vie25)/vie25*100 : null;
+      const dcPz = dPz != null ? (dPz>=0?'#16a34a':'#dc2626') : '#94a3b8';
+      const dcIE = dIE != null ? (dIE>=0?'#16a34a':'#dc2626') : '#94a3b8';
+      return `<td class="number" data-mcat-sub="${k}" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${pz>0?pz:'–'}</strong></td>` +
+             `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:#94a3b8"><strong>${pz25>0?pz25:'–'}</strong></td>` +
+             `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dcPz};font-weight:700">${dPz!=null?(dPz>0?'+':'')+dPz.toFixed(1)+'%':'–'}</td>` +
+             `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${vie>0?fmtK(vie):'–'}</strong></td>` +
+             `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:#94a3b8"><strong>${vie25>0?fmtK(vie25):'–'}</strong></td>` +
+             `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dcIE};font-weight:700">${dIE!=null?(dIE>0?'+':'')+dIE.toFixed(1)+'%':'–'}</td>`;
+    }).join('');
+    const gTotPz    = _CAT_KEYS.reduce((s,k) => s + catTot[k].pz,   0);
+    const gTotPz25  = _CAT_KEYS.reduce((s,k) => s + catTot[k].pz25, 0);
+    const gTotVie   = _CAT_KEYS.reduce((s,k) => s + catTot[k].vie,  0);
+    const gTotVie25 = _CAT_KEYS.reduce((s,k) => s + catTot[k].vie25,0);
+    const gDPz = gTotPz25 > 0 ? (gTotPz  - gTotPz25)  / gTotPz25  * 100 : null;
+    const gDIE = gTotVie25> 0 ? (gTotVie - gTotVie25) / gTotVie25 * 100 : null;
+    const gcDPz = gDPz != null ? (gDPz>=0?'#16a34a':'#dc2626') : '#94a3b8';
+    const gcDIE = gDIE != null ? (gDIE>=0?'#16a34a':'#dc2626') : '#94a3b8';
+    const totTotaleCells =
+      `<td class="number" data-mcat-sub="tot" style="font-size:11px;border-left:2px solid #94a3b8;background:#eef2f7"><strong>${gTotPz>0?gTotPz:'–'}</strong></td>` +
+      `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotPz25>0?gTotPz25:'–'}</strong></td>` +
+      `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${gcDPz};font-weight:700;background:#eef2f7">${gDPz!=null?(gDPz>0?'+':'')+gDPz.toFixed(1)+'%':'–'}</td>` +
+      `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#eef2f7"><strong>${gTotVie>0?fmtK(gTotVie):'–'}</strong></td>` +
+      `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotVie25>0?fmtK(gTotVie25):'–'}</strong></td>` +
+      `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${gcDIE};font-weight:700;background:#eef2f7">${gDIE!=null?(gDIE>0?'+':'')+gDIE.toFixed(1)+'%':'–'}</td>`;
     html += `<tr class="total-row">
-      <td colspan="3"><strong>TOTALE ANNO</strong></td>
-      <td class="number"><strong>${tSc || '–'}</strong></td>
-      <td class="number"><strong>${tSc25 || '–'}</strong></td>
-      <td class="number"><strong>${tCorr25 > 0 ? fmt(tCorr25) : '–'}</strong></td>
-      <td class="number"><strong>${fmt(tCorr)}</strong></td>
-      <td class="number" style="color:${cTDA};font-weight:700">${totDA != null ? fmtPct(totDA, tCorr25) : '–'}</td>
-      <td class="number"><strong>${tMedII}</strong></td>
+      <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
+      <td style="border-left:2px solid #94a3b8" colspan="4"><strong>TOTALE ANNO</strong></td>
+      <td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmtK(tIE26):'–'}</strong></td>
+      <td class="number" style="font-size:11px"><strong>${tIE25!=null?fmtK(tIE25):'–'}</strong></td>
+      <td class="number" style="font-size:11px">${fD(tIED)}</td>
+      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
+      <td class="number"><strong>${tSc25||'–'}</strong></td>
+      <td class="number" style="font-size:11px">${fD(tScD)}</td>
+      <td class="number" style="background:#f8fafc;border-left:2px solid #94a3b8"><strong>${tPz>0?tPz:'–'}</strong></td>
+      <td class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
+      <td class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
+      ${catTotCells}
+      ${totTotaleCells}
     </tr>`;
 
     tbody.innerHTML = html;
+    _applyMensCollapsed();
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="${NCOL}" style="text-align:center;color:#dc2626;padding:30px">Errore: ${e.message}</td></tr>`;
   }
