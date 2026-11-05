@@ -781,22 +781,29 @@ function _sumOtherIE(wkey) {
     return s + (parseFloat(c?.dataset.val) || 0);
   }, 0);
 }
+function _sumOtherPz(wkey) {
+  return ['ali','ben','cas','mod'].reduce((s, k) => {
+    const c = document.querySelector(`.cat-cell[data-wkey="${wkey}"][data-field="${k}_pezzi"]`);
+    return s + (parseInt(c?.dataset.val) || 0);
+  }, 0);
+}
 function startCatEdit(td) {
   if (td.querySelector('input')) return;
   const val = td.dataset.val;
   const field = td.dataset.field || '';
-  const isVenduto = field.includes('venduto');
-  const isCalc    = field === 'alt_pezzi';
-  const isTotale  = field === 'alt_venduto_ie';
+  const isVenduto  = field.includes('venduto');
+  const isTotalePz = field === 'alt_pezzi';
+  const isTotaleIE = field === 'alt_venduto_ie';
   const inp = document.createElement('input');
-  if (isCalc) {
-    inp.type = 'text';
-    inp.placeholder = 'es. 10+5';
-    inp.value = val;
-    inp.title = 'Puoi inserire un\'espressione: es. 10+5, 4*7, 100/3';
-  } else if (isTotale) {
+  if (isTotalePz) {
+    inp.type = 'number'; inp.min = '0'; inp.step = '1';
+    const others = _sumOtherPz(td.dataset.wkey);
+    inp.value = val ? String(parseInt(val) + others) : '';
+    inp.placeholder = 'Totale tutte cat.';
+    inp.title = 'Inserisci il totale pezzi di tutte le categorie. ALTRO = totale − (Ali + Ben + Cas + Mod)';
+    inp.style.background = '#eff6ff';
+  } else if (isTotaleIE) {
     inp.type = 'number'; inp.min = '0'; inp.step = '0.01';
-    // pre-popola con il totale corrente (alt + altri)
     const others = _sumOtherIE(td.dataset.wkey);
     inp.value = val ? (parseFloat(val) + others).toFixed(2).replace(/\.00$/,'') : '';
     inp.placeholder = 'Totale tutte cat.';
@@ -821,9 +828,13 @@ async function saveCatEdit(td, inp) {
   const raw = inp.value.trim().replace(',','.');
   const field = td.dataset.field || '';
   let num;
-  if (field === 'alt_pezzi' && raw && isNaN(+raw)) {
-    const calc = _evalCalc(raw);
-    num = calc;
+  if (field === 'alt_pezzi') {
+    const totale = raw === '' ? null : (isNaN(+raw) ? null : Math.round(+raw));
+    if (totale === null) { num = null; }
+    else {
+      const others = _sumOtherPz(td.dataset.wkey);
+      num = Math.max(0, totale - others);
+    }
   } else if (field === 'alt_venduto_ie') {
     const totale = raw === '' ? null : (isNaN(+raw) ? null : +raw);
     if (totale === null) { num = null; }
