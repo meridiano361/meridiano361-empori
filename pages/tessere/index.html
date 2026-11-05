@@ -3419,12 +3419,12 @@ function renderStoricoTessere(clienteId) {
   if (tessereDB.length > 0) {
     htmlDB = tessereDB.map((t, idx) => {
       // "Attiva" solo per la tessera più recente: le precedenti sono per definizione superate
-      const isAttiva   = t.attiva !== false && idx === 0;
-      const isEsaurita = !isAttiva && ((t.timbri_attuali || 0) >= TIMBRI_MAX || t.motivo_rinnovo === 'completata');
+      const isAttiva     = t.attiva !== false && idx === 0;
+      const isCompletata = !isAttiva && ((t.timbri_attuali || 0) >= TIMBRI_MAX || t.motivo_rinnovo === 'completata');
       let statoLabel, statoColor, statoIcon;
-      if (isAttiva)        { statoLabel='Attiva';     statoColor='#16a34a'; statoIcon='fa-circle-check'; }
-      else if (isEsaurita) { statoLabel='Esaurita';   statoColor='#94a3b8'; statoIcon='fa-circle-xmark'; }
-      else                 { statoLabel='Archiviata'; statoColor='#cbd5e1'; statoIcon='fa-circle-dot'; }
+      if (isAttiva)          { statoLabel='Attiva';     statoColor='#16a34a'; statoIcon='fa-circle-check'; }
+      else if (isCompletata) { statoLabel='Completata'; statoColor='#94a3b8'; statoIcon='fa-circle-check'; }
+      else                   { statoLabel='Archiviata'; statoColor='#cbd5e1'; statoIcon='fa-circle-dot'; }
       const chronoIdx = tessereDB.length - 1 - idx; // 0 = più vecchia (iscrizione)
       const isFirst  = chronoIdx === 0;
       const nRinnovo = chronoIdx;
@@ -3435,7 +3435,8 @@ function renderStoricoTessere(clienteId) {
       const codice  = t.codice_tessera ? `N° <strong>${esc(t.codice_tessera)}</strong>` : '<span style="color:#cbd5e1">—</span>';
       const dataEm  = t.data_emissione ? fmtDate(t.data_emissione) : '—';
       const dataRin = t.data_rinnovo   ? ` → ${fmtDate(t.data_rinnovo)}` : '';
-      const timbri  = t.timbri_attuali != null ? ` <span style="color:#94a3b8;font-size:10px">${t.timbri_attuali}/${TIMBRI_MAX}</span>` : '';
+      const timbriVal = isCompletata ? TIMBRI_MAX : t.timbri_attuali;
+      const timbri  = timbriVal != null ? ` <span style="color:#94a3b8;font-size:10px">${timbriVal}/${TIMBRI_MAX}</span>` : '';
       const movimentiBlocco = t.ha_carta_digitale
         ? `<div id="mov-${t.id}" style="display:none;margin-top:6px;padding:8px 10px;background:#f8fafc;border-radius:8px;font-size:11px">
              <div style="color:#94a3b8;text-align:center">Caricamento…</div>
