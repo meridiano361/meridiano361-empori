@@ -994,15 +994,33 @@ async function loadMensileData() {
       db.from('campagne_commerciali')
         .select('titolo,tipologia,data_inizio,data_fine,settore,record_type,emporio_scope')
         .eq('anno', +anno - 1),
-      db.from('cassa_mesi_categorie')
-        .select('*').eq('emporio', emporio).eq('anno', +anno)
+      db.from('cassa_settimane_categorie')
+        .select('*').eq('emporio', emporio).eq('iso_year', +anno)
     ]);
     if (error) throw error;
     const campagne   = camRes?.data   || [];
     const campagne25 = cam25Res?.data || [];
     const shiftY = d => d ? d.replace(/^\d{4}/, y => String(+y-1)) : null;
-    const catMap = new Map();
-    (catRes?.data || []).forEach(r => catMap.set(`${emporio}||m${r.anno}||${r.mese}`, r));
+
+    // Aggregate weekly category data → months (ISO Thursday rule)
+    const catMonthMap = new Map();
+    (catRes?.data || []).forEach(r => {
+      const monStr = isoWeekStart(r.iso_year, r.settimana_iso);
+      const thu = new Date(monStr + 'T00:00:00');
+      thu.setDate(thu.getDate() + 3);
+      const month = thu.getMonth() + 1;
+      if (!catMonthMap.has(month)) catMonthMap.set(month, {});
+      const cm = catMonthMap.get(month);
+      for (const k of _CAT_KEYS) {
+        for (const f of ['pezzi','pezzi_25','venduto_ie','venduto_ie_25']) {
+          const val = r[`${k}_${f}`];
+          if (val != null) {
+            const isNum = f.includes('venduto');
+            cm[`${k}_${f}`] = (cm[`${k}_${f}`] || 0) + (isNum ? parseFloat(val) : parseInt(val));
+          }
+        }
+      }
+    });
 
     const monthMap = new Map();
     normCassa(raw || []).forEach(r => {
@@ -1082,15 +1100,14 @@ async function loadMensileData() {
       const ie25 = md && md.corr25 > 0 ? md.corr25 / 1.22 : null;
       const ieD  = (ie26 != null && ie25 != null && ie25 > 0) ? (ie26 - ie25) / ie25 * 100 : null;
       const scD  = (md && md.sc > 0 && md.sc25 > 0) ? (md.sc - md.sc25) / md.sc25 * 100 : null;
-      const wkey = `${emporio}||m${anno}||${m}`;
-      const cat  = catMap.get(wkey);
 
+      const cm = catMonthMap.get(m) || {};
       let rowPz = 0, rowPz25 = 0, rowVie = 0, rowVie25 = 0;
       const catCells = _CAT_KEYS.map(k => {
-        const pz   = cat && cat[`${k}_pezzi`]         != null ? parseInt(cat[`${k}_pezzi`])          : null;
-        const pz25 = cat && cat[`${k}_pezzi_25`]      != null ? parseInt(cat[`${k}_pezzi_25`])       : null;
-        const vie  = cat && cat[`${k}_venduto_ie`]    != null ? parseFloat(cat[`${k}_venduto_ie`])   : null;
-        const vie25= cat && cat[`${k}_venduto_ie_25`] != null ? parseFloat(cat[`${k}_venduto_ie_25`]): null;
+        const pz   = cm[`${k}_pezzi`]         != null ? cm[`${k}_pezzi`]         : null;
+        const pz25 = cm[`${k}_pezzi_25`]      != null ? cm[`${k}_pezzi_25`]      : null;
+        const vie  = cm[`${k}_venduto_ie`]    != null ? cm[`${k}_venduto_ie`]    : null;
+        const vie25= cm[`${k}_venduto_ie_25`] != null ? cm[`${k}_venduto_ie_25`] : null;
         rowPz  += pz   ?? 0; rowPz25 += pz25  ?? 0;
         rowVie += vie  ?? 0; rowVie25 += vie25 ?? 0;
         catTot[k].pz += pz ?? 0; catTot[k].pz25 += pz25 ?? 0;
@@ -1099,16 +1116,21 @@ async function loadMensileData() {
         const deltaIE = (vie != null && vie25 != null && vie25 > 0) ? (vie-vie25)/vie25*100 : null;
         const dPzCls  = deltaPz != null ? (deltaPz >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
         const dIECls  = deltaIE != null ? (deltaIE >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8';
-        const ec = (f, v, isCurr, isFirst=false) => {
-          const dis = v != null ? (f.includes('venduto') ? fmtK(v) : v) : '<span style="color:#d1d5db">–</span>';
-          const isMain = f === 'venduto_ie';
-          const bl = (isFirst || isMain) ? ';border-left:2px solid #94a3b8' : '';
-          const sub = isMain ? '' : ` data-mcat-sub="${k}"`;
-          return `<td class="number cat-cell"${sub} data-tbl="mens" data-wkey="${wkey}" data-field="${k}_${f}" data-val="${v??''}" onclick="startCatEdit(this)" title="Clicca per modificare" style="cursor:pointer;font-size:11px${isCurr?'':';color:#94a3b8'}${bl}">${dis}</td>`;
+        const c = (v, isCurr, bl='') => {
+          const dis = v != null ? v : '<span style="color:#d1d5db">–</span>';
+          return `<td class="number" data-mcat-sub="${k}" style="font-size:11px${isCurr?'':';color:#94a3b8'}${bl}">${dis}</td>`;
         };
-        return ec('pezzi',pz,true,true)+ec('pezzi_25',pz25,false)+
-          `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dPzCls};font-weight:600">${deltaPz!=null?(deltaPz>0?'+':'')+deltaPz.toFixed(1)+'%':'–'}</td>`+
-          ec('venduto_ie',vie,true)+ec('venduto_ie_25',vie25,false)+
+        const cm2 = (v, isCurr, bl='') => {
+          const dis = v != null ? fmtK(v) : '<span style="color:#d1d5db">–</span>';
+          return `<td class="number" style="font-size:11px${isCurr?'':';color:#94a3b8'};border-left:2px solid #94a3b8${bl}">${dis}</td>`;
+        };
+        const cm3 = (v, isCurr) => {
+          const dis = v != null ? fmtK(v) : '<span style="color:#d1d5db">–</span>';
+          return `<td class="number" data-mcat-sub="${k}" style="font-size:11px${isCurr?'':';color:#94a3b8'}">${dis}</td>`;
+        };
+        return c(pz, true, ';border-left:2px solid #94a3b8') + c(pz25, false) +
+          `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dPzCls};font-weight:600">${deltaPz!=null?(deltaPz>0?'+':'')+deltaPz.toFixed(1)+'%':'–'}</td>` +
+          cm2(vie, true) + cm3(vie25, false) +
           `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dIECls};font-weight:600">${deltaIE!=null?(deltaIE>0?'+':'')+deltaIE.toFixed(1)+'%':'–'}</td>`;
       }).join('');
       tPz += rowPz; tPz25 += rowPz25;
@@ -1137,8 +1159,8 @@ async function loadMensileData() {
         <td class="number" style="${SEP}">${md && md.sc > 0 ? md.sc : '–'}</td>
         <td class="number" style="color:#94a3b8">${md && md.sc25 > 0 ? md.sc25 : '–'}</td>
         <td class="number" style="font-size:11px">${fD(scD)}</td>
-        <td class="number" id="mpzt-${m}" style="background:#f8fafc;${SEP}">${rowPz > 0 ? rowPz : '–'}</td>
-        <td class="number" id="mpz25t-${m}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
+        <td class="number" style="background:#f8fafc;${SEP}">${rowPz > 0 ? rowPz : '–'}</td>
+        <td class="number" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
         <td class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
         ${catCells}
         ${totaleCells}
