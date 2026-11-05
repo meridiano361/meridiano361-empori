@@ -135,7 +135,8 @@ select.btn-export{cursor:pointer;}
           <option value="2025">Confronto vs 2025</option>
           <option value="2024">Confronto vs 2024</option>
         </select>
-        <button class="btn-export" onclick="exportTableCSV('com-table','andamento_commerciale')" data-tip="Esporta l'andamento commerciale in CSV"><i class="fas fa-file-csv"></i> Esporta CSV</button>
+        <button class="btn-export" onclick="exportTableCSV('com-table','andamento_commerciale')" data-tip="Esporta l'andamento commerciale in CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <button class="btn-export" onclick="exportTableXLSX('com-table','andamento_commerciale')" data-tip="Esporta l'andamento commerciale in Excel"><i class="fas fa-file-excel"></i> Excel</button>
         <button class="btn-export" onclick="window.print()" data-tip="Stampa l'analisi commerciale"><i class="fas fa-print"></i> Stampa</button>
       </div>
 
@@ -177,7 +178,9 @@ select.btn-export{cursor:pointer;}
           <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
         </select>
         <input type="number" id="com-sett-anno" value="2026" min="2023" max="2030" onchange="loadSettimanaleData()" class="btn-export" style="width:90px">
-        <button class="btn-export" onclick="exportTableCSV('com-sett-table','settimane_iso')" data-tip="Esporta le settimane ISO in CSV"><i class="fas fa-file-csv"></i> Esporta CSV</button>
+        <button class="btn-export" onclick="exportTableCSV('com-sett-table','settimane_iso')" data-tip="Esporta le settimane ISO in CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <button class="btn-export" onclick="exportTableXLSX('com-sett-table','settimane_iso')" data-tip="Esporta le settimane ISO in Excel"><i class="fas fa-file-excel"></i> Excel</button>
+        <button class="btn-export" onclick="printSett()" data-tip="Stampa o salva come PDF"><i class="fas fa-file-pdf"></i> PDF</button>
       </div>
       <div id="com-sett-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
         <table class="admin-table" id="com-sett-table">
@@ -195,7 +198,9 @@ select.btn-export{cursor:pointer;}
           <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
         </select>
         <input type="number" id="com-mens-anno" value="2026" min="2023" max="2030" onchange="loadMensileData()" class="btn-export" style="width:90px">
-        <button class="btn-export" onclick="exportTableCSV('com-mens-table','andamento_mensile')" data-tip="Esporta l'andamento mensile in CSV"><i class="fas fa-file-csv"></i> Esporta CSV</button>
+        <button class="btn-export" onclick="exportTableCSV('com-mens-table','andamento_mensile')" data-tip="Esporta l'andamento mensile in CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <button class="btn-export" onclick="exportTableXLSX('com-mens-table','andamento_mensile')" data-tip="Esporta l'andamento mensile in Excel"><i class="fas fa-file-excel"></i> Excel</button>
+        <button class="btn-export" onclick="printMens()" data-tip="Stampa o salva come PDF"><i class="fas fa-file-pdf"></i> PDF</button>
       </div>
       <div id="com-mens-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
         <table class="admin-table" id="com-mens-table" style="table-layout:auto">
@@ -253,6 +258,7 @@ select.btn-export{cursor:pointer;}
 <!-- ════════════════════════════ SCRIPT ════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* ── SUPABASE ── */
 const SB_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
@@ -345,6 +351,7 @@ function exportTableCSV(tableId, filename) {
     if (!grid[ri]) grid[ri] = [];
     let ci = 0;
     for (const cell of tr.querySelectorAll('th,td')) {
+      if (cell.style.display === 'none') continue;
       while (grid[ri][ci] !== undefined) ci++;
       const colspan = parseInt(cell.colSpan) || 1;
       const rowspan = parseInt(cell.rowSpan) || 1;
@@ -375,6 +382,91 @@ function exportTableCSV(tableId, filename) {
   a.href = URL.createObjectURL(blob);
   a.download = filename + '_' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
+}
+
+function exportTableXLSX(tableId, filename) {
+  if (typeof XLSX === 'undefined') { alert('Libreria Excel non caricata'); return; }
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const clone = table.cloneNode(true);
+  // Remove hidden cells (collapsed categories)
+  clone.querySelectorAll('th,td').forEach(el => { if (el.style.display === 'none') el.remove(); });
+  // Remove rows that became empty or are month separators (they have colspan issues after cell removal)
+  clone.querySelectorAll('tr').forEach(tr => {
+    if (!tr.querySelector('th,td')) { tr.remove(); return; }
+    if (tr.classList.contains('sett-month-hdr')) {
+      // Reset colspan so it doesn't overflow
+      tr.querySelectorAll('td').forEach(td => { td.colSpan = 1; });
+    }
+  });
+  // Strip interactive/decorative elements
+  clone.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
+  clone.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+  clone.querySelectorAll('.cat-toggle-btn').forEach(el => el.remove());
+  clone.querySelectorAll('input').forEach(inp => {
+    const td = inp.closest('td'); if (td) { td.textContent = inp.value || ''; }
+  });
+  // Strip innerHTML spans (–, colored deltas) → plain text
+  clone.querySelectorAll('td,th').forEach(el => {
+    if (el.children.length > 0 && !el.querySelector('table')) {
+      el.textContent = el.textContent.trim();
+    }
+  });
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none';
+  document.body.appendChild(wrap);
+  wrap.appendChild(clone);
+  try {
+    const wb = XLSX.utils.table_to_book(clone, {sheet:'Dati', raw:false});
+    XLSX.writeFile(wb, filename + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  } finally {
+    document.body.removeChild(wrap);
+  }
+}
+
+function _buildPrintHtml(tableId, title) {
+  const table = document.getElementById(tableId);
+  if (!table) return null;
+  const clone = table.cloneNode(true);
+  clone.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
+  clone.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+  clone.querySelectorAll('.cat-toggle-btn').forEach(el => el.remove());
+  clone.querySelectorAll('input').forEach(inp => {
+    const td = inp.closest('td'); if (td) td.textContent = inp.value || '';
+  });
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Century Gothic','Century Gothic',sans-serif;font-size:8px;padding:8px}
+h3{font-size:11px;font-weight:800;margin-bottom:8px;color:#1e293b}
+table{border-collapse:collapse;font-size:7.5px;width:max-content}
+th{background:#f8fafc!important;color:#475569;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:4px 5px;text-align:center;border:1px solid #d1d5db;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+td{padding:3px 5px;border:1px solid #e5e7eb;white-space:nowrap}
+.number{text-align:right;font-variant-numeric:tabular-nums}
+.total-row td{font-weight:800;background:#fdf1f0!important;color:#B5453A;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.sett-month-hdr td{background:#f1f5f9!important;font-weight:800;letter-spacing:.08em;color:#475569;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:landscape;margin:8mm}
+</style></head><body>
+<h3>${title}</h3>
+${clone.outerHTML}
+<script>window.onload=()=>{setTimeout(()=>{window.print();},400);}<\/script>
+</body></html>`;
+}
+function printSett() {
+  const emp = document.getElementById('com-sett-emporio').value || '';
+  const ann = document.getElementById('com-sett-anno').value || '';
+  const html = _buildPrintHtml('com-sett-table', `Settimanale — ${emp} ${ann}`);
+  if (!html) return;
+  const w = window.open('', '_blank'); if (!w) { alert('Abilita i popup per stampare'); return; }
+  w.document.write(html); w.document.close();
+}
+function printMens() {
+  const emp = document.getElementById('com-mens-emporio').value || '';
+  const ann = document.getElementById('com-mens-anno').value || '';
+  const html = _buildPrintHtml('com-mens-table', `Mensile — ${emp} ${ann}`);
+  if (!html) return;
+  const w = window.open('', '_blank'); if (!w) { alert('Abilita i popup per stampare'); return; }
+  w.document.write(html); w.document.close();
 }
 
 /* ── SUB-TAB ── */
