@@ -4609,10 +4609,12 @@
         wrap.style.display = '';
 
         const ops = (utentiCache || []).filter(op => !isAdminEmail(op.email));
-        // Raggruppa per emporio
+        // Raggruppa per emporio (escludi non attivi)
         const gruppi = {};
+        const nonAttiviOps = [];
         EMPORI_ORDER.forEach(k => { gruppi[k] = []; });
         ops.forEach(op => {
+            if (op.attivo === false) { nonAttiviOps.push(op); return; }
             const k = normalizzaEmporio(op.emporio);
             if (!gruppi[k]) gruppi[k] = [];
             gruppi[k].push(op);
@@ -4684,6 +4686,42 @@
                 </div>`;
             }).join('');
 
+        // Sezione NON ATTIVO
+        let tabellaNoAttivi = '';
+        if (nonAttiviOps.length > 0) {
+            const righeNA = nonAttiviOps.map(op => {
+                const ruoloNorm = (op.ruolo || '').toLowerCase().replace(/\s+/g, '');
+                return `
+                <tr>
+                    <td>
+                        <div class="op-nome-cella">
+                            <div class="op-avatar-small" style="opacity:.5">${avatarIniziali(op.nome)}</div>
+                            <span style="color:#94a3b8">${op.nome || '—'}</span>
+                        </div>
+                    </td>
+                    <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
+                    <td style="text-align:center"><span style="color:#e2e8f0;font-size:16px">—</span></td>
+                    <td style="text-align:center"><span style="color:#e2e8f0;font-size:16px">—</span></td>
+                </tr>`;
+            }).join('');
+            tabellaNoAttivi = `
+            <div class="sez-detail-section" style="opacity:.7">
+                <div class="sez-detail-section-header">
+                    <span style="width:8px;height:8px;background:#cbd5e1;border-radius:50%;display:inline-block;flex-shrink:0"></span>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">Non attivi</span>
+                    <span style="font-size:11px;color:#cbd5e1;margin-left:auto">${nonAttiviOps.length} operator${nonAttiviOps.length===1?'e':'i'}</span>
+                </div>
+                <table class="sez-detail-table">
+                    <thead><tr>
+                        <th>Operatore</th><th>Ruolo</th>
+                        <th style="text-align:center;width:90px">Visibile</th>
+                        <th style="text-align:center;width:90px">Operativo</th>
+                    </tr></thead>
+                    <tbody>${righeNA}</tbody>
+                </table>
+            </div>`;
+        }
+
         wrap.innerHTML = `
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
                 <button onclick="tornaASezioniGrid()" style="background:#f1f5f9;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#475569;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit">
@@ -4704,7 +4742,7 @@
                     <button onclick="sezDetailBulk('${sezId}',false,false)" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;cursor:pointer;color:#dc2626;font-family:inherit">✕ Nascondi tutti</button>
                 </div>
             </div>
-            ${tabelle}`;
+            ${tabelle}${tabellaNoAttivi}`;
     }
 
     function tornaASezioniGrid() {
