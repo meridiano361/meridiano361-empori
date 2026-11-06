@@ -5479,26 +5479,37 @@ async function caricaAnagraficaOperatori() {
     const emporio = currentEmporio;
     const { data: tuttiOp } = await db.from('operatori')
       .select('*')
-      .or('attivo.eq.true,attivo.is.null')
       .order('nome');
     const opEmporio = (tuttiOp || []).filter(o =>
-      o.emporio === emporio || (o.empori_aggiuntivi || []).includes(emporio)
+      (o.emporio === emporio || (o.empori_aggiuntivi || []).includes(emporio)) &&
+      (o.attivo === true || o.attivo == null)
     );
-    const ids = opEmporio.map(o => o.id);
+    const opDisattivati = (tuttiOp || []).filter(o =>
+      (o.emporio === emporio || (o.empori_aggiuntivi || []).includes(emporio)) &&
+      o.attivo === false
+    );
+    const ids = [...opEmporio, ...opDisattivati].map(o => o.id);
     let predefiniti = [];
     if (ids.length) {
       const { data: pred } = await db.from('turni_predefiniti').select('*').in('operatore_id', ids);
       predefiniti = pred || [];
     }
-    renderAnagraficaOperatori(opEmporio, tuttiOp || [], predefiniti);
+    renderAnagraficaOperatori(opEmporio, tuttiOp || [], predefiniti, opDisattivati);
   } catch(e) { if (container) container.innerHTML = `<p style="padding:20px;color:#B5453A">Errore: ${e.message}</p>`; }
 }
 
-function renderAnagraficaOperatori(opEmporio, tuttiOp, predefiniti = []) {
+function renderAnagraficaOperatori(opEmporio, tuttiOp, predefiniti = [], opDisattivati = []) {
   const container = document.getElementById('opsub-anagrafica');
   if (!container) return;
   const emporio = currentEmporio;
-  const opFuori = tuttiOp.filter(op => !opEmporio.find(e => e.id === op.id));
+  const opFuori = tuttiOp.filter(op =>
+    !opEmporio.find(e => e.id === op.id) &&
+    !opDisattivati.find(e => e.id === op.id) &&
+    (op.attivo === true || op.attivo == null)
+  );
+  const disattivatiBadge = opDisattivati.length
+    ? `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;background:#94a3b8;color:#fff;border-radius:9px;font-size:10px;font-weight:800;margin-left:6px">${opDisattivati.length}</span>`
+    : '';
   container.innerHTML = `
     <div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
       <div class="anagrafica-header">
@@ -5507,7 +5518,32 @@ function renderAnagraficaOperatori(opEmporio, tuttiOp, predefiniti = []) {
       </div>
       ${opEmporio.length
         ? opEmporio.map(op => rigaOperatoreTurni(op, predefiniti)).join('')
-        : '<p style="color:#94a3b8;font-size:13px;padding:12px 0">Nessun operatore in questo emporio.</p>'}
+        : '<p style="color:#94a3b8;font-size:13px;padding:12px 0">Nessun operatore attivo in questo emporio.</p>'}
+      ${opDisattivati.length ? `
+      <div style="margin-top:20px">
+        <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.freccia-dis').textContent=this.nextElementSibling.style.display==='none'?'›':'⌄'"
+          style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font-size:13px;font-weight:700;color:#94a3b8;padding:4px 0;font-family:inherit">
+          <span class="freccia-dis">›</span> Non più attivi${disattivatiBadge}
+        </button>
+        <div style="display:none">
+          ${opDisattivati.map(op => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;margin-top:8px;background:#f8fafc;gap:10px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:34px;height:34px;border-radius:50%;background:#cbd5e1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">
+                ${op.nome.split(' ').filter(Boolean).map(w=>w[0]).join('').substring(0,2).toUpperCase()}
+              </div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#94a3b8">${op.nome}</div>
+                <div style="font-size:11px;color:#cbd5e1">${labelRuolo(op.ruolo)}</div>
+              </div>
+            </div>
+            <button onclick="riAttivaOperatore('${op.id}','${op.nome.replace(/'/g,"\\'")}',this)"
+              style="font-size:11px;font-weight:800;background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;border-radius:8px;padding:6px 14px;cursor:pointer;font-family:inherit;white-space:nowrap">
+              ↺ Riattiva
+            </button>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}
       <div id="modal-aggiungi-op-emp" style="display:none;margin-top:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px">
         <h4 style="margin:0 0 12px;font-size:15px;font-weight:700">Aggiungi operatore all'emporio</h4>
         <select id="select-op-da-aggiungere" class="f-sel" style="margin-bottom:12px;display:block">
@@ -5691,11 +5727,16 @@ function rigaOperatoreTurni(op, predefiniti) {
           })()}`;
         })() : ''}
         <div class="turni-default-griglia">${grigliaHtml}</div>
-        <div class="pred-footer">
+        <div class="pred-footer" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
           <button class="btn-p" onclick="salvaTurniPredefiniti('${op.id}')">
             ✓ Salva turno predefinito
           </button>
           <span class="pred-feedback" id="feedback-pred-${op.id}" style="display:none">✓ Salvato!</span>
+          ${!op.in_prova ? `<button onclick="event.stopPropagation();disattivaOperatore('${op.id}','${op.nome.replace(/'/g,"\\'")}',this)"
+            style="font-size:11px;font-weight:700;background:none;border:1px solid #e2e8f0;color:#94a3b8;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;margin-left:auto"
+            title="Segna come non più attivo">
+            Disattiva
+          </button>` : ''}
         </div>
         ${op.in_prova ? `
         <div style="margin:12px 0 4px;padding:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
@@ -5866,6 +5907,28 @@ async function rimuoviOpEmporio(opId, nome) {
     showToast("Operatore rimosso dall'emporio ✓");
     caricaAnagraficaOperatori();
   } catch(e) { showToast('Errore: ' + e.message, 'err'); }
+}
+
+async function disattivaOperatore(opId, nome) {
+  if (!canEditOperatori()) { showToast('Non hai i permessi', 'err'); return; }
+  const ok = await m361Confirm(
+    `${nome} non sarà più inseribile nei turni futuri. Puoi riattivarlo in qualsiasi momento.`,
+    `Disattivare ${nome}?`,
+    'Disattiva', 'Annulla', 'warning'
+  );
+  if (!ok) return;
+  const { error } = await db.from('operatori').update({ attivo: false }).eq('id', opId);
+  if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+  showToast(`${nome} disattivato ✓`, 'ok');
+  caricaAnagraficaOperatori();
+}
+
+async function riAttivaOperatore(opId, nome) {
+  if (!canEditOperatori()) { showToast('Non hai i permessi', 'err'); return; }
+  const { error } = await db.from('operatori').update({ attivo: true }).eq('id', opId);
+  if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+  showToast(`${nome} riattivato ✓`, 'ok');
+  caricaAnagraficaOperatori();
 }
 
 // ── PERIODO DI LAVORO ─────────────────────────────────────────────────────
