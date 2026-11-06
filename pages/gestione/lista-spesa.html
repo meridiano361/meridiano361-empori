@@ -217,6 +217,40 @@
       font-family:inherit;transition:all .12s}
     .sheet-cancel:hover{border-color:#94a3b8;color:var(--S)}
 
+    /* ── Item extra info ── */
+    .meta-extra{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+    .meta-extra-chip{font-size:10px;font-weight:700;color:var(--S3);background:#f1f5f9;
+      border-radius:5px;padding:1px 7px;display:flex;align-items:center;gap:3px}
+    .meta-links{font-size:10px;font-weight:800;color:var(--R);background:var(--Rl);
+      border-radius:5px;padding:1px 7px;display:flex;align-items:center;gap:3px;cursor:pointer}
+    .item-body-click{cursor:pointer}
+    .item-body-click:hover .item-nome{color:var(--R)}
+
+    /* ── Edit sheet ── */
+    .edit-sheet{overflow-y:auto;max-height:88vh;padding-bottom:40px}
+    .ef-group{margin-bottom:14px}
+    .ef-label{font-size:10px;font-weight:900;color:var(--G);text-transform:uppercase;
+      letter-spacing:.07em;margin-bottom:5px;display:block}
+    .ef-inp{width:100%;border:1.5px solid var(--Gl);border-radius:10px;padding:9px 12px;
+      font-size:13px;font-weight:600;font-family:inherit;color:var(--S);outline:none;
+      transition:border-color .15s;background:#fff}
+    .ef-inp:focus{border-color:var(--R)}
+    .ef-inp::placeholder{color:var(--G);font-weight:400}
+    .link-row{display:flex;gap:7px;align-items:center;margin-bottom:7px}
+    .link-row .ef-inp{flex:1;font-size:12px;padding:7px 10px}
+    .btn-link-del{background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:14px;
+      padding:4px;flex-shrink:0;transition:color .12s;line-height:1}
+    .btn-link-del:hover{color:#ef4444}
+    .btn-add-link{background:none;border:1.5px dashed var(--Gl);border-radius:9px;
+      width:100%;padding:8px;font-size:12px;font-weight:700;color:var(--G);
+      cursor:pointer;font-family:inherit;transition:all .12s;display:flex;
+      align-items:center;justify-content:center;gap:5px;margin-top:2px}
+    .btn-add-link:hover{border-color:var(--R);color:var(--R)}
+    .btn-salva{width:100%;background:var(--R);color:#fff;border:none;border-radius:12px;
+      padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;
+      transition:background .12s;margin-bottom:8px}
+    .btn-salva:hover{background:var(--Rd)}
+
     @media(max-width:420px){.btn-aggiungi{padding:11px 12px}}
   </style>
 </head>
@@ -306,6 +340,44 @@
   </div>
 </div>
 
+<!-- Edit / detail sheet -->
+<div class="sheet-bg" id="edit-bg" onclick="if(event.target===this)chiudiEdit()">
+  <div class="sheet edit-sheet">
+    <div class="sheet-drag" onclick="chiudiEdit()"></div>
+    <div class="sheet-title">Dettagli articolo</div>
+    <div class="sheet-nome" id="edit-nome-disp" style="margin-bottom:16px"></div>
+
+    <div class="ef-group">
+      <label class="ef-label">Nome *</label>
+      <input id="edit-nome" class="ef-inp" type="text" maxlength="120" autocapitalize="sentences">
+    </div>
+    <div class="ef-group">
+      <label class="ef-label">Codice prodotto</label>
+      <input id="edit-codice" class="ef-inp" type="text" maxlength="80" placeholder="es. ABC-123">
+    </div>
+    <div class="ef-group">
+      <label class="ef-label">Fornitore</label>
+      <input id="edit-fornitore" class="ef-inp" type="text" maxlength="120" placeholder="es. Lidl, Amazon, Buffetti…">
+    </div>
+    <div class="ef-group">
+      <label class="ef-label">Lotto / riferimento</label>
+      <input id="edit-lotto" class="ef-inp" type="text" maxlength="80" placeholder="numero lotto o riferimento interno">
+    </div>
+    <div class="ef-group">
+      <label class="ef-label"><i class="fas fa-link" style="margin-right:4px"></i>Link di acquisto</label>
+      <div id="edit-links-wrap"></div>
+      <button class="btn-add-link" onclick="aggiungiLinkInput('')">
+        <i class="fas fa-plus"></i> Aggiungi link
+      </button>
+    </div>
+
+    <button class="btn-salva" onclick="salvaDettagli()">
+      <i class="fas fa-check" style="margin-right:6px"></i>Salva
+    </button>
+    <button class="sheet-cancel" onclick="chiudiEdit()">Annulla</button>
+  </div>
+</div>
+
 <!-- Confirm dialog -->
 <div class="dlg-bg" id="dlg" onclick="if(event.target===this)chiudiDlg()">
   <div class="dlg-box">
@@ -355,6 +427,7 @@ let acqCollapsed     = true;
 let realtimeCh       = null;
 let _newIds          = new Set();
 let _sheetItemId     = null; // null = modalità aggiungi, number = modalità sposta
+let _editId          = null;
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function mostraEmpori() {
@@ -587,14 +660,25 @@ function renderVoce(v) {
   const timeHtml = v.created_at  ? `<span class="meta-time">${fmtTime(v.created_at)}</span>` : '';
   const newHtml  = _newIds.has(v.id) ? `<span class="meta-new">nuovo</span>` : '';
 
+  // extra info row
+  const extraChips = [];
+  if (v.codice)    extraChips.push(`<span class="meta-extra-chip"><i class="fas fa-barcode" style="font-size:9px"></i> ${escHtml(v.codice)}</span>`);
+  if (v.fornitore) extraChips.push(`<span class="meta-extra-chip"><i class="fas fa-store" style="font-size:9px"></i> ${escHtml(v.fornitore)}</span>`);
+  if (v.lotto)     extraChips.push(`<span class="meta-extra-chip"><i class="fas fa-hashtag" style="font-size:9px"></i> ${escHtml(v.lotto)}</span>`);
+  const nLinks = Array.isArray(v.links) ? v.links.filter(Boolean).length : 0;
+  if (nLinks)      extraChips.push(`<span class="meta-links" onclick="event.stopPropagation();apriSheetEdit(${v.id})"><i class="fas fa-link" style="font-size:9px"></i> ${nLinks} link</span>`);
+  const extraHtml = extraChips.length
+    ? `<div class="meta-extra">${extraChips.join('')}</div>` : '';
+
   return `<div class="item-card${v.acquisito?' done':''}" data-cat="${escHtml(v.categoria||'')}">
     <div class="chk${v.acquisito?' on':''}" onclick="toggleAcquisito(${v.id})"
       title="${v.acquisito?'Annulla acquisizione':'Segna come acquisito'}">
       ${v.acquisito ? '<i class="fas fa-check"></i>' : ''}
     </div>
-    <div class="item-body">
+    <div class="item-body item-body-click" onclick="apriSheetEdit(${v.id})">
       <div class="item-nome">${escHtml(v.nome)}</div>
       <div class="item-meta">${qtyHtml}${catHtml}${chiHtml}${timeHtml}${newHtml}</div>
+      ${extraHtml}
     </div>
     <div class="item-actions">
       <button class="btn-act btn-move" onclick="apriSheetSposta(${v.id})" title="Sposta categoria">
@@ -664,6 +748,75 @@ async function spostaCategoria(id, nuovaCat) {
   v.categoria = nuovaCat;
   render();
   showToast('Categoria aggiornata ✓');
+}
+
+// ── Edit / detail sheet ───────────────────────────────────────────────────────
+function apriSheetEdit(id) {
+  const v = voci.find(x => x.id === id);
+  if (!v) return;
+  _editId = id;
+  document.getElementById('edit-nome-disp').textContent = v.nome;
+  document.getElementById('edit-nome').value     = v.nome;
+  document.getElementById('edit-codice').value   = v.codice    || '';
+  document.getElementById('edit-fornitore').value= v.fornitore || '';
+  document.getElementById('edit-lotto').value    = v.lotto     || '';
+  // links
+  const wrap = document.getElementById('edit-links-wrap');
+  wrap.innerHTML = '';
+  const links = Array.isArray(v.links) ? v.links : [];
+  if (links.length) links.forEach(l => aggiungiLinkInput(l));
+  document.getElementById('edit-bg').classList.add('open');
+}
+
+function chiudiEdit() {
+  document.getElementById('edit-bg').classList.remove('open');
+  _editId = null;
+}
+
+function aggiungiLinkInput(val = '') {
+  const wrap = document.getElementById('edit-links-wrap');
+  const row  = document.createElement('div');
+  row.className = 'link-row';
+  const inp = document.createElement('input');
+  inp.className   = 'ef-inp';
+  inp.type        = 'url';
+  inp.placeholder = 'https://…';
+  inp.value       = val;
+  inp.inputMode   = 'url';
+  const del = document.createElement('button');
+  del.className = 'btn-link-del';
+  del.innerHTML = '<i class="fas fa-times"></i>';
+  del.onclick   = () => row.remove();
+  row.appendChild(inp);
+  row.appendChild(del);
+  wrap.appendChild(row);
+  if (!val) setTimeout(() => inp.focus(), 50);
+}
+
+async function salvaDettagli() {
+  if (!_editId) return;
+  const nome = document.getElementById('edit-nome').value.trim();
+  if (!nome) { document.getElementById('edit-nome').focus(); return; }
+
+  const links = [...document.querySelectorAll('#edit-links-wrap .link-row input')]
+    .map(i => i.value.trim()).filter(Boolean);
+
+  const updates = {
+    nome:      nome.charAt(0).toUpperCase() + nome.slice(1),
+    codice:    document.getElementById('edit-codice').value.trim()    || null,
+    fornitore: document.getElementById('edit-fornitore').value.trim() || null,
+    lotto:     document.getElementById('edit-lotto').value.trim()     || null,
+    links:     links.length ? links : null,
+  };
+
+  const { error } = await db.from('lista_spesa_voci').update(updates).eq('id', _editId);
+  if (error) { showToast('Errore: ' + error.message); return; }
+
+  const v = voci.find(x => x.id === _editId);
+  if (v) Object.assign(v, updates);
+  chiudiEdit();
+  render();
+  showToast('Salvato ✓');
 }
 
 function inviaNotifica(articolo, mittente) {
