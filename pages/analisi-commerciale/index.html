@@ -696,23 +696,23 @@ async function loadSettimanaleData() {
       <th class="number" style="min-width:80px;font-size:9px;padding:4px 6px;${SEP};background:#f8fafc;font-weight:800">IE<br>${a2}</th>
       <th class="number" data-cat-sub="tot" style="min-width:75px;font-size:9px;padding:4px 6px;background:#f8fafc;color:#94a3b8">IE<br>${a1}</th>
       <th class="number" data-cat-sub="tot" style="min-width:56px;font-size:9px;padding:4px 6px;background:#f8fafc">Δ<br>IE%</th>`;
-    const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
-    const thYears = (w1, w2, bg='', dw=0) => `<th class="number" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
+    const thMacro = (label, grp, cols=2) => `<th colspan="${cols}" data-col-grp="${grp}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
+    const thYears = (w1, w2, grp, bg='', dw=0) => `<th class="number" data-col-grp="${grp}" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" data-col-grp="${grp}" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" data-col-grp="${grp}" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
     thead.innerHTML = `<tr>
       <th id="sett-iso-col-th" rowspan="2" style="position:sticky;left:0;z-index:20;background:#fff;text-align:center;vertical-align:middle;white-space:normal">Sett<br>ISO</th>
       <th rowspan="2" class="sticky-periodo" style="position:sticky;z-index:20;background:#fff;text-align:left;width:70px;vertical-align:middle;border-right:2px solid #94a3b8">Periodo</th>
-      ${thMacro('Campagne')}
-      ${thMacro('Eventi')}
-      ${thMacro('Corr IE', 3)}
-      ${thMacro('N SF', 3)}
-      ${thMacro('N Pz', 3)}
+      ${thMacro('Campagne','campagne')}
+      ${thMacro('Eventi','eventi')}
+      ${thMacro('Corr IE','corr-ie',3)}
+      ${thMacro('N SF','n-sf',3)}
+      ${thMacro('N Pz','n-pz',3)}
       ${catHdr1}
     </tr><tr>
-      ${thYears(44, 44)}
-      ${thYears(38, 38)}
-      ${thYears(82, 75, '', 68)}
-      ${thYears(46, 44, '', 68)}
-      ${thYears(46, 44, ';background:#f8fafc', 68)}
+      ${thYears(44, 44, 'campagne')}
+      ${thYears(38, 38, 'eventi')}
+      ${thYears(82, 75, 'corr-ie', '', 68)}
+      ${thYears(46, 44, 'n-sf', '', 68)}
+      ${thYears(46, 44, 'n-pz', ';background:#f8fafc', 68)}
       ${catHdr2}
     </tr>`;
     requestAnimationFrame(() => {
@@ -801,19 +801,19 @@ async function loadSettimanaleData() {
       html += `<tr data-period="${w.isoWeek}"${isChiuso ? ' style="opacity:.7"' : ''}>
         <td class="number" style="position:sticky;left:0;z-index:3;background:${rowBg};color:#64748b;font-weight:700">${w.isoWeek}</td>
         <td class="sticky-periodo" style="position:sticky;z-index:3;background:${rowBg};font-size:11px;white-space:nowrap;border-right:2px solid #94a3b8">${perShort}${chiusoBadge}</td>
-        <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
-        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
-        <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
-        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'evento',emporio)}</td>
-        <td class="number" style="font-size:11px;${S}"><strong>${ie26!=null?fmtK(ie26):'–'}</strong></td>
-        <td class="number" style="font-size:11px;color:#94a3b8">${ie25!=null?fmtK(ie25):'–'}</td>
-        <td class="number" style="font-size:11px">${fD(ieD)}</td>
-        <td class="number" style="${S}">${w.sc > 0 ? w.sc : '–'}</td>
-        <td class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
-        <td class="number" style="font-size:11px">${fD(scD)}</td>
-        <td class="number" id="pzt-${sKey}" style="background:#f8fafc;${S}">${rowPz > 0 ? rowPz : '–'}</td>
-        <td class="number" id="pz25t-${sKey}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
-        <td class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
+        <td data-col-grp="campagne" style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
+        <td data-col-grp="campagne" style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'campagna',emporio)}</td>
+        <td data-col-grp="eventi" style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'evento',emporio)}</td>
+        <td data-col-grp="eventi" style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(w.minDate),shiftY(w.maxDate),'evento',emporio)}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px;${S}"><strong>${ie26!=null?fmtK(ie26):'–'}</strong></td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px;color:#94a3b8">${ie25!=null?fmtK(ie25):'–'}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px">${fD(ieD)}</td>
+        <td data-col-grp="n-sf" class="number" style="${S}">${w.sc > 0 ? w.sc : '–'}</td>
+        <td data-col-grp="n-sf" class="number" style="color:#94a3b8">${w.sc25 > 0 ? w.sc25 : '–'}</td>
+        <td data-col-grp="n-sf" class="number" style="font-size:11px">${fD(scD)}</td>
+        <td data-col-grp="n-pz" class="number" id="pzt-${sKey}" style="background:#f8fafc;${S}">${rowPz > 0 ? rowPz : '–'}</td>
+        <td data-col-grp="n-pz" class="number" id="pz25t-${sKey}" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
+        <td data-col-grp="n-pz" class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
         ${catCells}
         ${totaleCells}
       </tr>`;
@@ -855,16 +855,20 @@ async function loadSettimanaleData() {
 
     html += `<tr class="total-row">
       <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
-      <td class="sticky-periodo" style="position:sticky;z-index:3;background:#f8fafc;border-right:2px solid #94a3b8" colspan="5"><strong>TOTALE ANNO</strong></td>
-      <td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmtK(tIE26):'–'}</strong></td>
-      <td class="number" style="font-size:11px"><strong>${tIE25!=null?fmtK(tIE25):'–'}</strong></td>
-      <td class="number" style="font-size:11px">${fD(tIED)}</td>
-      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
-      <td class="number"><strong>${tSc25||'–'}</strong></td>
-      <td class="number" style="font-size:11px">${fD(tScD)}</td>
-      <td class="number" style="background:#f8fafc;border-left:2px solid #94a3b8"><strong>${tPz>0?tPz:'–'}</strong></td>
-      <td class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
-      <td class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
+      <td class="sticky-periodo" style="position:sticky;z-index:3;background:#f8fafc;border-right:2px solid #94a3b8"><strong>TOTALE ANNO</strong></td>
+      <td data-col-grp="campagne" style="background:#f8fafc"></td>
+      <td data-col-grp="campagne" style="background:#f8fafc"></td>
+      <td data-col-grp="eventi" style="background:#f8fafc"></td>
+      <td data-col-grp="eventi" style="background:#f8fafc"></td>
+      <td data-col-grp="corr-ie" class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmtK(tIE26):'–'}</strong></td>
+      <td data-col-grp="corr-ie" class="number" style="font-size:11px"><strong>${tIE25!=null?fmtK(tIE25):'–'}</strong></td>
+      <td data-col-grp="corr-ie" class="number" style="font-size:11px">${fD(tIED)}</td>
+      <td data-col-grp="n-sf" class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
+      <td data-col-grp="n-sf" class="number"><strong>${tSc25||'–'}</strong></td>
+      <td data-col-grp="n-sf" class="number" style="font-size:11px">${fD(tScD)}</td>
+      <td data-col-grp="n-pz" class="number" style="background:#f8fafc;border-left:2px solid #94a3b8"><strong>${tPz>0?tPz:'–'}</strong></td>
+      <td data-col-grp="n-pz" class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
+      <td data-col-grp="n-pz" class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
       ${catTotCells}
       ${totTotaleCells}
     </tr>`;
@@ -1151,22 +1155,22 @@ async function loadMensileData() {
       <th class="number" style="min-width:80px;font-size:9px;padding:4px 6px;${SEP};background:#f8fafc;font-weight:800">IE<br>${a2}</th>
       <th class="number" data-mcat-sub="tot" style="min-width:75px;font-size:9px;padding:4px 6px;background:#f8fafc;color:#94a3b8">IE<br>${a1}</th>
       <th class="number" data-mcat-sub="tot" style="min-width:56px;font-size:9px;padding:4px 6px;background:#f8fafc">Δ<br>IE%</th>`;
-    const thMacro = (label, cols=2) => `<th colspan="${cols}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
-    const thYears = (w1, w2, bg='', dw=0) => `<th class="number" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
+    const thMacro = (label, grp, cols=2) => `<th colspan="${cols}" data-col-grp="${grp}" style="text-align:center;${SEP};border-bottom:2px solid #cbd5e1;padding:5px 4px;font-size:11px">${label}</th>`;
+    const thYears = (w1, w2, grp, bg='', dw=0) => `<th class="number" data-col-grp="${grp}" style="min-width:${w1}px;font-size:9px;padding:4px 6px;${SEP}${bg}">${a2}</th><th class="number" data-col-grp="${grp}" style="min-width:${w2}px;font-size:9px;padding:4px 6px;color:#94a3b8${bg}">${a1}</th>${dw?`<th class="number" data-col-grp="${grp}" style="min-width:${dw}px;font-size:9px;padding:4px 6px">Δ<br>%</th>`:''}`;
     thead.innerHTML = `<tr>
       <th id="mens-mese-col-th" rowspan="2" style="position:sticky;left:0;z-index:20;background:#fff;text-align:left;vertical-align:middle;padding:6px 10px;white-space:nowrap">Mese</th>
-      ${thMacro('Campagne')}
-      ${thMacro('Eventi')}
-      ${thMacro('Corr IE', 3)}
-      ${thMacro('N SF', 3)}
-      ${thMacro('N Pz', 3)}
+      ${thMacro('Campagne','campagne')}
+      ${thMacro('Eventi','eventi')}
+      ${thMacro('Corr IE','corr-ie',3)}
+      ${thMacro('N SF','n-sf',3)}
+      ${thMacro('N Pz','n-pz',3)}
       ${catHdr1}
     </tr><tr>
-      ${thYears(44, 44)}
-      ${thYears(38, 38)}
-      ${thYears(82, 75, '', 68)}
-      ${thYears(46, 44, '', 68)}
-      ${thYears(46, 44, ';background:#f8fafc', 68)}
+      ${thYears(44, 44, 'campagne')}
+      ${thYears(38, 38, 'eventi')}
+      ${thYears(82, 75, 'corr-ie', '', 68)}
+      ${thYears(46, 44, 'n-sf', '', 68)}
+      ${thYears(46, 44, 'n-pz', ';background:#f8fafc', 68)}
       ${catHdr2}
     </tr>`;
     requestAnimationFrame(() => {
@@ -1243,19 +1247,19 @@ async function loadMensileData() {
 
       html += `<tr data-period="${m}">
         <td style="position:sticky;left:0;z-index:3;background:#fff;font-weight:700;white-space:nowrap;padding:6px 10px"><strong>${MESI_N[m]}</strong></td>
-        <td style="text-align:center;vertical-align:middle;${SEP}">${campBadge}</td>
-        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'campagna',emporio)}</td>
-        <td style="text-align:center;vertical-align:middle;${SEP}">${evBadge}</td>
-        <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'evento',emporio)}</td>
-        <td class="number" style="font-size:11px;${SEP}"><strong>${ie26!=null?fmtK(ie26):'–'}</strong></td>
-        <td class="number" style="font-size:11px;color:#94a3b8">${ie25!=null?fmtK(ie25):'–'}</td>
-        <td class="number" style="font-size:11px">${fD(ieD)}</td>
-        <td class="number" style="${SEP}">${md && md.sc > 0 ? md.sc : '–'}</td>
-        <td class="number" style="color:#94a3b8">${md && md.sc25 > 0 ? md.sc25 : '–'}</td>
-        <td class="number" style="font-size:11px">${fD(scD)}</td>
-        <td class="number" style="background:#f8fafc;${SEP}">${rowPz > 0 ? rowPz : '–'}</td>
-        <td class="number" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
-        <td class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
+        <td data-col-grp="campagne" style="text-align:center;vertical-align:middle;${SEP}">${campBadge}</td>
+        <td data-col-grp="campagne" style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'campagna',emporio)}</td>
+        <td data-col-grp="eventi" style="text-align:center;vertical-align:middle;${SEP}">${evBadge}</td>
+        <td data-col-grp="eventi" style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'evento',emporio)}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px;${SEP}"><strong>${ie26!=null?fmtK(ie26):'–'}</strong></td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px;color:#94a3b8">${ie25!=null?fmtK(ie25):'–'}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px">${fD(ieD)}</td>
+        <td data-col-grp="n-sf" class="number" style="${SEP}">${md && md.sc > 0 ? md.sc : '–'}</td>
+        <td data-col-grp="n-sf" class="number" style="color:#94a3b8">${md && md.sc25 > 0 ? md.sc25 : '–'}</td>
+        <td data-col-grp="n-sf" class="number" style="font-size:11px">${fD(scD)}</td>
+        <td data-col-grp="n-pz" class="number" style="background:#f8fafc;${SEP}">${rowPz > 0 ? rowPz : '–'}</td>
+        <td data-col-grp="n-pz" class="number" style="background:#f8fafc;color:#94a3b8">${rowPz25 > 0 ? rowPz25 : '–'}</td>
+        <td data-col-grp="n-pz" class="number" style="background:#f8fafc;font-size:11px">${fD(pzD)}</td>
         ${catCells}
         ${totaleCells}
       </tr>`;
@@ -1295,17 +1299,20 @@ async function loadMensileData() {
       `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotVie25>0?fmtK(gTotVie25):'–'}</strong></td>` +
       `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${gcDIE};font-weight:700;background:#eef2f7">${gDIE!=null?(gDIE>0?'+':'')+gDIE.toFixed(1)+'%':'–'}</td>`;
     html += `<tr class="total-row">
-      <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
-      <td style="border-left:2px solid #94a3b8" colspan="4"><strong>TOTALE ANNO</strong></td>
-      <td class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmtK(tIE26):'–'}</strong></td>
-      <td class="number" style="font-size:11px"><strong>${tIE25!=null?fmtK(tIE25):'–'}</strong></td>
-      <td class="number" style="font-size:11px">${fD(tIED)}</td>
-      <td class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
-      <td class="number"><strong>${tSc25||'–'}</strong></td>
-      <td class="number" style="font-size:11px">${fD(tScD)}</td>
-      <td class="number" style="background:#f8fafc;border-left:2px solid #94a3b8"><strong>${tPz>0?tPz:'–'}</strong></td>
-      <td class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
-      <td class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
+      <td style="position:sticky;left:0;z-index:3;background:#f8fafc;white-space:nowrap;padding:6px 10px"><strong>${anno} — TOTALE ANNO</strong></td>
+      <td data-col-grp="campagne" style="background:#f8fafc"></td>
+      <td data-col-grp="campagne" style="background:#f8fafc"></td>
+      <td data-col-grp="eventi" style="background:#f8fafc"></td>
+      <td data-col-grp="eventi" style="background:#f8fafc"></td>
+      <td data-col-grp="corr-ie" class="number" style="font-size:11px;border-left:2px solid #94a3b8"><strong>${tIE26!=null?fmtK(tIE26):'–'}</strong></td>
+      <td data-col-grp="corr-ie" class="number" style="font-size:11px"><strong>${tIE25!=null?fmtK(tIE25):'–'}</strong></td>
+      <td data-col-grp="corr-ie" class="number" style="font-size:11px">${fD(tIED)}</td>
+      <td data-col-grp="n-sf" class="number" style="border-left:2px solid #94a3b8"><strong>${tSc||'–'}</strong></td>
+      <td data-col-grp="n-sf" class="number"><strong>${tSc25||'–'}</strong></td>
+      <td data-col-grp="n-sf" class="number" style="font-size:11px">${fD(tScD)}</td>
+      <td data-col-grp="n-pz" class="number" style="background:#f8fafc;border-left:2px solid #94a3b8"><strong>${tPz>0?tPz:'–'}</strong></td>
+      <td data-col-grp="n-pz" class="number" style="background:#f8fafc;color:#94a3b8"><strong>${tPz25>0?tPz25:'–'}</strong></td>
+      <td data-col-grp="n-pz" class="number" style="background:#f8fafc;font-size:11px">${fD(tPzD)}</td>
       ${catTotCells}
       ${totTotaleCells}
     </tr>`;
@@ -1688,6 +1695,9 @@ function showExportModal(tableId, format) {
     if (cb) cb.checked = !collapseSet.has(k);
   });
 
+  // Reset column group checkboxes (always all checked — groups are always visible)
+  document.querySelectorAll('.exp-cg-chk').forEach(cb => { cb.checked = true; });
+
   document.getElementById('exp-modal').style.display = 'flex';
 }
 
@@ -1728,17 +1738,31 @@ function _doExport() {
     });
   }
 
-  // Run export
-  const filename = isSett ? 'settimane_iso' : 'andamento_mensile';
+  // Hide unchecked column groups
+  const hiddenCells = [];
+  ['campagne','eventi','corr-ie','n-sf','n-pz'].forEach(grp => {
+    if (!document.getElementById(`exp-cg-${grp}`)?.checked) {
+      document.getElementById(tableId)?.querySelectorAll(`[data-col-grp="${grp}"]`).forEach(el => {
+        el.style.display = 'none';
+        hiddenCells.push(el);
+      });
+    }
+  });
+
+  // Build consistent filename: analisi_sett/mens_<emporio>_<anno>
+  const empId  = isSett ? 'com-sett-emporio' : 'com-mens-emporio';
+  const annId  = isSett ? 'com-sett-anno'    : 'com-mens-anno';
+  const empVal = (document.getElementById(empId)?.value || '').toLowerCase().replace(/\s+/g, '-');
+  const annVal = document.getElementById(annId)?.value || '';
+  const filename = `analisi_${isSett ? 'sett' : 'mens'}_${empVal}_${annVal}`;
+
   if (format === 'csv') {
     exportTableCSV(tableId, filename);
   } else if (format === 'xlsx') {
     exportTableXLSX(tableId, filename);
   } else if (format === 'pdf') {
-    const empId = isSett ? 'com-sett-emporio' : 'com-mens-emporio';
-    const annId = isSett ? 'com-sett-anno'    : 'com-mens-anno';
     const emp   = document.getElementById(empId)?.value || '';
-    const ann   = document.getElementById(annId)?.value || '';
+    const ann   = annVal;
     const title = `${isSett ? 'Settimanale' : 'Mensile'} — ${emp} ${ann}`;
     const html  = _buildPrintHtml(tableId, title);
     if (html) {
@@ -1751,6 +1775,7 @@ function _doExport() {
   // Restore state after a brief delay (download/print is already initiated)
   setTimeout(() => {
     hiddenRows.forEach(tr => { tr.style.display = ''; });
+    hiddenCells.forEach(el => { el.style.display = ''; });
     collapseSet.clear();
     origCollapsed.forEach(k => collapseSet.add(k));
     applyFn();
@@ -1837,6 +1862,16 @@ window.addEventListener('load', () => {
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-mod" checked style="accent-color:#B5453A;width:15px;height:15px"> Moda</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-alt" checked style="accent-color:#B5453A;width:15px;height:15px"> Altro</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-tot" checked style="accent-color:#B5453A;width:15px;height:15px"> Totale</label>
+    </div>
+
+    <!-- COLONNE -->
+    <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-top:22px;margin-bottom:10px">Colonne</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cg-chk" type="checkbox" id="exp-cg-campagne" checked style="accent-color:#B5453A;width:15px;height:15px"> Campagne</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cg-chk" type="checkbox" id="exp-cg-eventi" checked style="accent-color:#B5453A;width:15px;height:15px"> Eventi</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cg-chk" type="checkbox" id="exp-cg-corr-ie" checked style="accent-color:#B5453A;width:15px;height:15px"> Corr IE</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cg-chk" type="checkbox" id="exp-cg-n-sf" checked style="accent-color:#B5453A;width:15px;height:15px"> N SF</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cg-chk" type="checkbox" id="exp-cg-n-pz" checked style="accent-color:#B5453A;width:15px;height:15px"> N Pz</label>
     </div>
 
     <!-- FOOTER -->
