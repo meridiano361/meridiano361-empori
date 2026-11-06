@@ -4727,7 +4727,14 @@
                     <div class="sez-detail-section-header">
                         <span style="width:8px;height:8px;background:${colore};border-radius:50%;display:inline-block;flex-shrink:0"></span>
                         <span style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.06em">${empLabel}</span>
-                        <span style="font-size:11px;color:#94a3b8;margin-left:auto">${opsGruppo.length} operator${opsGruppo.length===1?'e':'i'}</span>
+                        <span style="font-size:11px;color:#94a3b8;margin-left:4px">${opsGruppo.length} operator${opsGruppo.length===1?'e':'i'}</span>
+                        <button onclick="attivaEmporioEntrambi('${k}','${sezId}')"
+                            style="margin-left:auto;border:1.5px solid #e2e8f0;border-radius:7px;padding:3px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;background:#f8fafc;color:#475569;transition:all .12s"
+                            onmouseover="this.style.background='#f0fdf4';this.style.borderColor='#86efac';this.style.color='#166534'"
+                            onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';this.style.color='#475569'"
+                            title="Abilita Visibile+Operativo per tutti gli operatori di ${empLabel}">
+                            ✓✓ Tutti
+                        </button>
                     </div>
                     <table class="sez-detail-table">
                         <thead><tr>
@@ -4853,6 +4860,42 @@
             btn.style.color      = nuovoStato ? '#166534' : '#64748b';
             btn.title = nuovoStato ? 'Disabilita entrambi' : 'Abilita visibile + operativo';
         }
+    }
+
+    async function attivaEmporioEntrambi(emporioKey, sezId) {
+        const ops = (utentiCache || []).filter(op => {
+            if (op.attivo === false || !op.auth_id) return false;
+            if (normalizzaEmporio(op.emporio) !== emporioKey) return false;
+            const sist = _sistemaSezioniNascoste(op);
+            return !sist.has(sezId) || SIST_SBLOCCABILE.has(sezId);
+        });
+        if (!ops.length) { showToast('Nessun operatore abilitabile', 'err'); return; }
+
+        // se tutti hanno già entrambi attivi → disabilita, altrimenti abilita
+        const tuttiOn = ops.every(op => {
+            const p = permessiCache[op.auth_id]?.[sezId];
+            const sist = _sistemaSezioniNascoste(op);
+            const forzata = sist.has(sezId) && SIST_SBLOCCABILE.has(sezId) && p?.vede === true;
+            const vede  = sist.has(sezId) ? (forzata ? true : false) : p?.vede !== false;
+            const opera = vede ? p?.opera !== false : false;
+            return vede && opera;
+        });
+        const nuovoStato = !tuttiOn;
+
+        const upserts = ops.map(op => ({
+            utente_id: op.auth_id, sezione: sezId,
+            'può_vedere': nuovoStato, 'può_operare': nuovoStato,
+        }));
+        const { error } = await db.from('utenti_permessi').upsert(upserts, { onConflict: 'utente_id,sezione' });
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+
+        ops.forEach(op => {
+            if (!permessiCache[op.auth_id]) permessiCache[op.auth_id] = {};
+            permessiCache[op.auth_id][sezId] = { vede: nuovoStato, opera: nuovoStato };
+        });
+        const empLabel = EMPORI_LABEL[emporioKey] || emporioKey;
+        showToast(nuovoStato ? `${empLabel}: tutti abilitati ✓` : `${empLabel}: tutti disabilitati`, 'ok');
+        apriSezioneDetail(sezId);
     }
 
     async function sezDetailBulk(sezId, vede, opera) {
