@@ -1574,7 +1574,7 @@
         { id: 'turni',               nome: 'Turni',               icon: 'fa-users',             gruppo: 'emporio' },
         { id: 'calendario',          nome: 'Calendario',          icon: 'fa-calendar-days',     gruppo: 'emporio' },
         { id: 'saldi',               nome: 'Saldi',               icon: 'fa-percent',           gruppo: 'emporio' },
-        { id: 'lista-spesa',         nome: 'Lista Spesa',         icon: 'fa-cart-shopping',     gruppo: 'emporio', sistLabel: 'Abilitabile' },
+        { id: 'lista-spesa',         nome: 'Lista Spesa',         icon: 'fa-cart-shopping',     gruppo: 'emporio' },
         { id: 'eventi',              nome: 'Eventi',              icon: 'fa-calendar-star',     gruppo: 'emporio', sistLabel: 'Solo Emilio' },
         { id: 'analisi-commerciale', nome: 'Analisi Commerciale', icon: 'fa-chart-pie',         gruppo: 'emporio', sistLabel: 'Richiede resp. acquisti' },
     ];
@@ -3081,7 +3081,7 @@
     }
 
     // Sezioni bloccate dal sistema MA sbloccabili dall'admin via utenti_permessi
-    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento', 'cassa', 'analisi-commerciale', 'tessere', 'eventi', 'lista-spesa']);
+    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento', 'cassa', 'analisi-commerciale', 'tessere', 'eventi']);
 
     // ── RESTRIZIONI DI SISTEMA ────────────────────────────────────────────
     function _sistemaSezioniNascoste(op) {
@@ -3093,8 +3093,6 @@
         const isAdminOp = ruolo === 'admin' || ruolo === 'dipendente';
         const isRespAcq = !!(op.is_resp_acquisti);
         const hidden = new Set();
-        // Lista Spesa: solo Emilio — non sbloccabile
-        if (!isEmilio) { hidden.add('lista-spesa'); }
         // Tessere: solo Emilio e Chiara Monteverdi — sbloccabile
         const isChiara = (op.nome || '').toLowerCase().includes('chiara monteverdi');
         if (!isEmilio && !isChiara) hidden.add('tessere');
@@ -4596,7 +4594,8 @@
         ['clienti', 'emporio'].forEach(gruppo => {
             const container = document.getElementById('sez-cards-' + gruppo);
             if (!container) return;
-            const sezList = gruppo === 'clienti' ? clientiSez : emporioSez;
+            const sezList = (gruppo === 'clienti' ? clientiSez : emporioSez)
+              .slice().sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
             container.innerHTML = sezList.map(s => {
                 const ops = (utentiCache || []);
                 const tot = ops.length;
