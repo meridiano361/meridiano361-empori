@@ -67,19 +67,23 @@ Deno.serve(async (req) => {
   // Se la riga in operatore_notif_prefs non esiste → default = abilitato.
   let filteredSubs = rawSubs ?? [];
   if (filteredSubs.length > 0) {
-    const { data: prefsDisab } = await db
-      .from("operatore_notif_prefs")
-      .select("operatore_id")
-      .eq("tipo", tipo)
-      .eq("abilitato", false);
+    const [{ data: prefsDisab }, { data: inattivi }] = await Promise.all([
+      db.from("operatore_notif_prefs")
+        .select("operatore_id")
+        .eq("tipo", tipo)
+        .eq("abilitato", false),
+      db.from("operatori")
+        .select("id")
+        .eq("attivo", false),
+    ]);
 
-    if (prefsDisab?.length) {
-      const disabledIds = new Set(prefsDisab.map(p => p.operatore_id as string));
-      // Escludi subscription legate a operatori che hanno disabilitato questa categoria
-      filteredSubs = filteredSubs.filter(s =>
-        !s.operatore_id || !disabledIds.has(s.operatore_id)
-      );
-    }
+    const disabledIds = new Set((prefsDisab || []).map(p => p.operatore_id as string));
+    const inativiIds  = new Set((inattivi  || []).map(o => String(o.id)));
+
+    filteredSubs = filteredSubs.filter(s =>
+      (!s.operatore_id || !disabledIds.has(s.operatore_id)) &&
+      (!s.operatore_id || !inativiIds.has(s.operatore_id))
+    );
   }
 
   results.subscribers_found = filteredSubs.length;
