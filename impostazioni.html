@@ -4692,6 +4692,17 @@
                         </td>
                         <td><span class="badge-ruolo ${ruoloNorm}">${labelRuolo(op.ruolo)}</span></td>
                         <td style="text-align:center">
+                            ${(isSist && !SIST_SBLOCCABILE.has(sezId)) || op.attivo === false || !op.auth_id ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : (() => {
+                                const entrambi = vede && opera;
+                                return `<button onclick="toggleEntrambi('${op.id}','${sezId}')"
+                                    style="border:none;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .12s;
+                                    background:${entrambi?'#dcfce7':'#f1f5f9'};color:${entrambi?'#166534':'#64748b'}"
+                                    title="${entrambi?'Disabilita entrambi':'Abilita visibile + operativo'}" data-entrambi="${op.id}-${sezId}">
+                                    ${entrambi ? '✓✓' : '＋'}
+                                </button>`;
+                            })()}
+                        </td>
+                        <td style="text-align:center">
                             ${(isSist && !SIST_SBLOCCABILE.has(sezId)) || op.attivo === false ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : `
                             <label class="sez-toggle" style="margin:0 auto;${!op.auth_id ? 'opacity:0.35;pointer-events:none' : ''}">
                                 <input type="checkbox" class="sez-detail-vede" data-op="${op.id}" data-sez="${sezId}"
@@ -4721,8 +4732,9 @@
                     <table class="sez-detail-table">
                         <thead><tr>
                             <th>Operatore</th><th>Ruolo</th>
-                            <th style="text-align:center;width:90px">Visibile</th>
-                            <th style="text-align:center;width:90px">Operativo</th>
+                            <th style="text-align:center;width:70px">V+O</th>
+                            <th style="text-align:center;width:80px">Visibile</th>
+                            <th style="text-align:center;width:80px">Operativo</th>
                         </tr></thead>
                         <tbody>${righe}</tbody>
                     </table>
@@ -4822,6 +4834,25 @@
         if (!permessiCache[op.auth_id]) permessiCache[op.auth_id] = {};
         permessiCache[op.auth_id][sezId] = { vede, opera };
         showToast('Salvato', 'ok');
+    }
+
+    async function toggleEntrambi(opId, sezId) {
+        const vedeCb  = document.querySelector(`.sez-detail-vede[data-op="${opId}"][data-sez="${sezId}"]`);
+        const operaCb = document.querySelector(`.sez-detail-opera[data-op="${opId}"][data-sez="${sezId}"]`);
+        const curVede  = vedeCb  ? vedeCb.checked  : false;
+        const curOpera = operaCb ? operaCb.checked : false;
+        const nuovoStato = !(curVede && curOpera); // se entrambi on → off; altrimenti → on
+        if (vedeCb)  { vedeCb.checked  = nuovoStato; vedeCb.disabled  = false; }
+        if (operaCb) { operaCb.checked = nuovoStato; operaCb.disabled = !nuovoStato; }
+        await salvaSezDetail(opId, sezId);
+        // aggiorna visuale bottone V+O
+        const btn = document.querySelector(`[data-entrambi="${opId}-${sezId}"]`);
+        if (btn) {
+            btn.textContent = nuovoStato ? '✓✓' : '＋';
+            btn.style.background = nuovoStato ? '#dcfce7' : '#f1f5f9';
+            btn.style.color      = nuovoStato ? '#166534' : '#64748b';
+            btn.title = nuovoStato ? 'Disabilita entrambi' : 'Abilita visibile + operativo';
+        }
     }
 
     async function sezDetailBulk(sezId, vede, opera) {

@@ -242,10 +242,14 @@ const EMPORI_LABEL = {
 async function init() {
   const user = JSON.parse(localStorage.getItem('m361_user') || '{}');
   currentNome    = user.nome || 'Operatore';
-  currentEmporio = (user.emporio || '').toLowerCase().replace(/\s+/g,'-');
+  currentEmporio = user.emporio || '';
   isAdmin        = ADMIN_EMAILS.includes((user.email || '').toLowerCase().trim());
 
-  if (isAdmin) buildEmporioPills();
+  if (isAdmin) await buildEmporioPills();
+  if (!currentEmporio) {
+    document.getElementById('list-wrap').innerHTML = '<div class="empty">Emporio non impostato — ricarica la pagina o torna alla home.</div>';
+    return;
+  }
   buildCatChips();
   await carica();
   subscribeRealtime();
