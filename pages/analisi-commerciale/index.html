@@ -178,9 +178,9 @@ select.btn-export{cursor:pointer;}
           <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
         </select>
         <input type="number" id="com-sett-anno" value="2026" min="2023" max="2030" onchange="loadSettimanaleData()" class="btn-export" style="width:90px">
-        <button class="btn-export" onclick="exportTableCSV('com-sett-table','settimane_iso')" data-tip="Esporta le settimane ISO in CSV"><i class="fas fa-file-csv"></i> CSV</button>
-        <button class="btn-export" onclick="exportTableXLSX('com-sett-table','settimane_iso')" data-tip="Esporta le settimane ISO in Excel"><i class="fas fa-file-excel"></i> Excel</button>
-        <button class="btn-export" onclick="printSett()" data-tip="Stampa o salva come PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+        <button class="btn-export" onclick="showExportModal('com-sett-table','csv')" data-tip="Esporta le settimane ISO in CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <button class="btn-export" onclick="showExportModal('com-sett-table','xlsx')" data-tip="Esporta le settimane ISO in Excel"><i class="fas fa-file-excel"></i> Excel</button>
+        <button class="btn-export" onclick="showExportModal('com-sett-table','pdf')" data-tip="Stampa o salva come PDF"><i class="fas fa-file-pdf"></i> PDF</button>
       </div>
       <div id="com-sett-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
         <table class="admin-table" id="com-sett-table">
@@ -198,9 +198,9 @@ select.btn-export{cursor:pointer;}
           <option>Casalmaggiore</option><option>Cremona</option><option>Reggio Emilia</option><option>Mantova</option><option>Viadana</option>
         </select>
         <input type="number" id="com-mens-anno" value="2026" min="2023" max="2030" onchange="loadMensileData()" class="btn-export" style="width:90px">
-        <button class="btn-export" onclick="exportTableCSV('com-mens-table','andamento_mensile')" data-tip="Esporta l'andamento mensile in CSV"><i class="fas fa-file-csv"></i> CSV</button>
-        <button class="btn-export" onclick="exportTableXLSX('com-mens-table','andamento_mensile')" data-tip="Esporta l'andamento mensile in Excel"><i class="fas fa-file-excel"></i> Excel</button>
-        <button class="btn-export" onclick="printMens()" data-tip="Stampa o salva come PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+        <button class="btn-export" onclick="showExportModal('com-mens-table','csv')" data-tip="Esporta l'andamento mensile in CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        <button class="btn-export" onclick="showExportModal('com-mens-table','xlsx')" data-tip="Esporta l'andamento mensile in Excel"><i class="fas fa-file-excel"></i> Excel</button>
+        <button class="btn-export" onclick="showExportModal('com-mens-table','pdf')" data-tip="Stampa o salva come PDF"><i class="fas fa-file-pdf"></i> PDF</button>
       </div>
       <div id="com-mens-wrap" style="overflow:auto;max-height:75vh;border-radius:12px;border:1px solid #e2e8f0">
         <table class="admin-table" id="com-mens-table" style="table-layout:auto">
@@ -348,6 +348,7 @@ function exportTableCSV(tableId, filename) {
   for (const tr of table.querySelectorAll('tr')) {
     // Skip decorative month-separator rows
     if (tr.classList.contains('sett-month-hdr')) continue;
+    if (tr.style.display === 'none') continue;
     if (!grid[ri]) grid[ri] = [];
     let ci = 0;
     for (const cell of tr.querySelectorAll('th,td')) {
@@ -394,6 +395,7 @@ function exportTableXLSX(tableId, filename) {
   // Remove rows that became empty or are month separators (they have colspan issues after cell removal)
   clone.querySelectorAll('tr').forEach(tr => {
     if (!tr.querySelector('th,td')) { tr.remove(); return; }
+    if (tr.style.display === 'none') { tr.remove(); return; }
     if (tr.classList.contains('sett-month-hdr')) {
       // Reset colspan so it doesn't overflow
       tr.querySelectorAll('td').forEach(td => { td.colSpan = 1; });
@@ -796,7 +798,7 @@ async function loadSettimanaleData() {
       const isChiuso = w.chiuso === true;
       const rowBg = isChiuso ? '#f1f5f9' : '#fff';
       const chiusoBadge = isChiuso ? '<span style="margin-left:4px;font-size:9px;font-weight:700;background:#e2e8f0;color:#64748b;border-radius:4px;padding:1px 5px;letter-spacing:.03em">CHIUSO</span>' : '';
-      html += `<tr${isChiuso ? ' style="opacity:.7"' : ''}>
+      html += `<tr data-period="${w.isoWeek}"${isChiuso ? ' style="opacity:.7"' : ''}>
         <td class="number" style="position:sticky;left:0;z-index:3;background:${rowBg};color:#64748b;font-weight:700">${w.isoWeek}</td>
         <td class="sticky-periodo" style="position:sticky;z-index:3;background:${rowBg};font-size:11px;white-space:nowrap;border-right:2px solid #94a3b8">${perShort}${chiusoBadge}</td>
         <td style="text-align:center;vertical-align:middle;${S}">${_renderCalBadges(campagne,w.minDate,w.maxDate,'campagna',emporio)}</td>
@@ -1239,7 +1241,7 @@ async function loadMensileData() {
         `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#f8fafc">${rowVie25 > 0 ? fmtK(rowVie25) : '–'}</td>` +
         `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${totDIECls};font-weight:600;background:#f8fafc">${totDIE!=null?(totDIE>0?'+':'')+totDIE.toFixed(1)+'%':'–'}</td>`;
 
-      html += `<tr>
+      html += `<tr data-period="${m}">
         <td style="position:sticky;left:0;z-index:3;background:#fff;font-weight:700;white-space:nowrap;padding:6px 10px"><strong>${MESI_N[m]}</strong></td>
         <td style="text-align:center;vertical-align:middle;${SEP}">${campBadge}</td>
         <td style="text-align:center;vertical-align:middle;color:#94a3b8">${_renderCalBadges(campagne25,shiftY(mStart),shiftY(mEnd),'campagna',emporio)}</td>
@@ -1642,6 +1644,121 @@ async function loadGraficiData() {
   }
 }
 
+/* ── EXPORT MODAL ── */
+let _exportModal = {};
+
+function showExportModal(tableId, format) {
+  _exportModal = { tableId, format };
+  const isSett = tableId === 'com-sett-table';
+  const tbody  = document.getElementById(tableId)?.querySelector('tbody');
+
+  // Gather unique period values from data rows
+  const periods = [];
+  if (tbody) {
+    tbody.querySelectorAll('tr[data-period]').forEach(tr => {
+      const p = tr.getAttribute('data-period');
+      if (!periods.includes(p)) periods.push(p);
+    });
+  }
+
+  const MESI = ['','Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const fromSel = document.getElementById('exp-period-from');
+  const toSel   = document.getElementById('exp-period-to');
+  fromSel.innerHTML = toSel.innerHTML = '';
+
+  const rangeRadio = document.getElementById('exp-period-range');
+  if (!periods.length) {
+    rangeRadio.disabled = true;
+    document.getElementById('exp-period-all').checked = true;
+  } else {
+    rangeRadio.disabled = false;
+    periods.forEach(p => {
+      const label = isSett ? `Sett. ${p}` : MESI[+p];
+      fromSel.add(new Option(label, p));
+      toSel.add(new Option(label, p));
+    });
+    toSel.selectedIndex = toSel.options.length - 1;
+    document.getElementById('exp-period-all').checked = true;
+  }
+
+  // Reset category checkboxes to reflect current visible state
+  const collapseSet = isSett ? _settCollapsed : _mensCollapsed;
+  [..._CAT_KEYS, 'tot'].forEach(k => {
+    const cb = document.getElementById(`exp-cat-${k}`);
+    if (cb) cb.checked = !collapseSet.has(k);
+  });
+
+  document.getElementById('exp-modal').style.display = 'flex';
+}
+
+function _doExport() {
+  const { tableId, format } = _exportModal;
+  if (!tableId || !format) return;
+
+  const isSett      = tableId === 'com-sett-table';
+  const collapseSet = isSett ? _settCollapsed : _mensCollapsed;
+  const applyFn     = isSett ? _applySettCollapsed : _applyMensCollapsed;
+
+  // Save current collapsed state
+  const origCollapsed = new Set(collapseSet);
+
+  // Apply category filter: unchecked = collapse
+  collapseSet.clear();
+  [..._CAT_KEYS, 'tot'].forEach(k => {
+    const checked = document.getElementById(`exp-cat-${k}`)?.checked;
+    if (!checked) collapseSet.add(k);
+    else if (origCollapsed.has(k)) collapseSet.add(k);
+  });
+  applyFn();
+
+  // Apply period filter
+  const periodAll = document.getElementById('exp-period-all').checked;
+  const hiddenRows = [];
+  const tbody = document.getElementById(tableId)?.querySelector('tbody');
+  if (!periodAll && tbody) {
+    const fromVal = +document.getElementById('exp-period-from').value;
+    const toVal   = +document.getElementById('exp-period-to').value;
+    const lo = Math.min(fromVal, toVal), hi = Math.max(fromVal, toVal);
+    tbody.querySelectorAll('tr[data-period]').forEach(tr => {
+      const p = +tr.getAttribute('data-period');
+      if (p < lo || p > hi) {
+        tr.style.display = 'none';
+        hiddenRows.push(tr);
+      }
+    });
+  }
+
+  // Run export
+  const filename = isSett ? 'settimane_iso' : 'andamento_mensile';
+  if (format === 'csv') {
+    exportTableCSV(tableId, filename);
+  } else if (format === 'xlsx') {
+    exportTableXLSX(tableId, filename);
+  } else if (format === 'pdf') {
+    const empId = isSett ? 'com-sett-emporio' : 'com-mens-emporio';
+    const annId = isSett ? 'com-sett-anno'    : 'com-mens-anno';
+    const emp   = document.getElementById(empId)?.value || '';
+    const ann   = document.getElementById(annId)?.value || '';
+    const title = `${isSett ? 'Settimanale' : 'Mensile'} — ${emp} ${ann}`;
+    const html  = _buildPrintHtml(tableId, title);
+    if (html) {
+      const w = window.open('', '_blank');
+      if (!w) alert('Abilita i popup per stampare');
+      else { w.document.write(html); w.document.close(); }
+    }
+  }
+
+  // Restore state after a brief delay (download/print is already initiated)
+  setTimeout(() => {
+    hiddenRows.forEach(tr => { tr.style.display = ''; });
+    collapseSet.clear();
+    origCollapsed.forEach(k => collapseSet.add(k));
+    applyFn();
+  }, 400);
+
+  document.getElementById('exp-modal').style.display = 'none';
+}
+
 /* ── INIT ── */
 window.addEventListener('load', () => {
   const oggi = new Date();
@@ -1686,5 +1803,49 @@ window.addEventListener('load', () => {
 </script>
 <script src="../../scripts/ui-helpers.js"></script>
 <script src="../../scripts/auth.js"></script>
+
+<!-- ── EXPORT MODAL ── -->
+<div id="exp-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;border-radius:20px;padding:28px 28px 24px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.2);font-family:'CenturyGothic','Century Gothic',sans-serif">
+
+    <div style="font-size:14px;font-weight:900;color:#1e293b;margin-bottom:22px;display:flex;align-items:center;gap:10px">
+      <i class="fas fa-sliders" style="color:#B5453A"></i> Opzioni esportazione
+    </div>
+
+    <!-- PERIODO -->
+    <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:10px">Periodo</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;color:#1e293b">
+      <input type="radio" name="exp-period" id="exp-period-all" value="all" checked style="accent-color:#B5453A"> Tutto
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;flex-wrap:wrap;color:#1e293b">
+      <input type="radio" name="exp-period" id="exp-period-range" value="range" style="accent-color:#B5453A"> Da
+      <select id="exp-period-from" onchange="document.getElementById('exp-period-range').checked=true" style="border:1.5px solid #e2e8f0;border-radius:7px;padding:4px 8px;font-size:12px;font-family:inherit;color:#1e293b;cursor:pointer"></select>
+      <span style="color:#64748b">a</span>
+      <select id="exp-period-to" onchange="document.getElementById('exp-period-range').checked=true" style="border:1.5px solid #e2e8f0;border-radius:7px;padding:4px 8px;font-size:12px;font-family:inherit;color:#1e293b;cursor:pointer"></select>
+    </label>
+
+    <!-- CATEGORIE -->
+    <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-top:22px;margin-bottom:10px">Categorie</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button onclick="document.querySelectorAll('.exp-cat-chk').forEach(c=>c.checked=true)" style="font-size:11px;font-weight:700;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 12px;cursor:pointer;font-family:inherit;color:#64748b">Tutte</button>
+      <button onclick="document.querySelectorAll('.exp-cat-chk').forEach(c=>c.checked=false)" style="font-size:11px;font-weight:700;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 12px;cursor:pointer;font-family:inherit;color:#64748b">Nessuna</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-ali" checked style="accent-color:#B5453A;width:15px;height:15px"> Alimentari</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-ben" checked style="accent-color:#B5453A;width:15px;height:15px"> Benessere</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-cas" checked style="accent-color:#B5453A;width:15px;height:15px"> Casa</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-mod" checked style="accent-color:#B5453A;width:15px;height:15px"> Moda</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-alt" checked style="accent-color:#B5453A;width:15px;height:15px"> Altro</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:#1e293b"><input class="exp-cat-chk" type="checkbox" id="exp-cat-tot" checked style="accent-color:#B5453A;width:15px;height:15px"> Totale</label>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:26px">
+      <button onclick="document.getElementById('exp-modal').style.display='none'" style="font-size:12px;font-weight:700;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 22px;cursor:pointer;font-family:inherit;color:#64748b">Annulla</button>
+      <button onclick="_doExport()" style="font-size:12px;font-weight:700;background:#B5453A;border:none;border-radius:10px;padding:10px 22px;cursor:pointer;font-family:inherit;color:#fff"><i class="fas fa-download" style="margin-right:5px"></i>Esporta</button>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>
