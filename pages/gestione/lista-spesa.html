@@ -18,6 +18,7 @@
       --c-pulizie:#059669;   --c-pulizie-bg:#ecfdf5;
       --c-cancel:#2563eb;    --c-cancel-bg:#eff6ff;
       --c-attr:#d97706;      --c-attr-bg:#fffbeb;
+      --c-matcons:#0891b2;   --c-matcons-bg:#ecfeff;
       --c-altro:#7c3aed;     --c-altro-bg:#f5f3ff;
     }
     *{box-sizing:border-box;margin:0;padding:0}
@@ -98,6 +99,7 @@
     .fp[data-f="Pulizie"].on{background:var(--c-pulizie)}
     .fp[data-f="Cancelleria"].on{background:var(--c-cancel)}
     .fp[data-f="Attrezzature"].on{background:var(--c-attr)}
+    .fp[data-f="Materiale di consumo"].on{background:var(--c-matcons)}
     .fp[data-f="Altro"].on{background:var(--c-altro)}
     .fp-cnt{background:rgba(0,0,0,.12);border-radius:10px;padding:0 6px;font-size:10px}
 
@@ -121,6 +123,7 @@
     .item-card[data-cat="Pulizie"]{border-left-color:var(--c-pulizie)}
     .item-card[data-cat="Cancelleria"]{border-left-color:var(--c-cancel)}
     .item-card[data-cat="Attrezzature"]{border-left-color:var(--c-attr)}
+    .item-card[data-cat="Materiale di consumo"]{border-left-color:var(--c-matcons)}
     .item-card[data-cat="Altro"]{border-left-color:var(--c-altro)}
 
     .chk{width:24px;height:24px;border-radius:7px;border:2px solid var(--Gl);
@@ -143,9 +146,12 @@
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
     .item-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}
-    .btn-del{background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:14px;
+    .btn-act{background:none;border:none;cursor:pointer;font-size:14px;
       padding:5px 4px;flex-shrink:0;transition:color .12s;line-height:1}
+    .btn-del{color:#cbd5e1}
     .btn-del:hover{color:#ef4444}
+    .btn-move{color:#cbd5e1}
+    .btn-move:hover{color:var(--R)}
 
     .empty{text-align:center;padding:50px 20px}
     .empty i{font-size:36px;opacity:.2;margin-bottom:12px;display:block}
@@ -200,7 +206,9 @@
     .sheet-cat-btn[data-cat="Cancelleria"]:hover,.sheet-cat-btn[data-cat="Cancelleria"].sel{background:var(--c-cancel);color:#fff}
     .sheet-cat-btn[data-cat="Attrezzature"]{color:var(--c-attr);border-color:var(--c-attr)}
     .sheet-cat-btn[data-cat="Attrezzature"]:hover,.sheet-cat-btn[data-cat="Attrezzature"].sel{background:var(--c-attr);color:#fff}
-    .sheet-cat-btn[data-cat="Altro"]{color:var(--c-altro);border-color:var(--c-altro)}
+    .sheet-cat-btn[data-cat="Materiale di consumo"]{color:var(--c-matcons);border-color:var(--c-matcons)}
+    .sheet-cat-btn[data-cat="Materiale di consumo"]:hover,.sheet-cat-btn[data-cat="Materiale di consumo"].sel{background:var(--c-matcons);color:#fff}
+    .sheet-cat-btn[data-cat="Altro"]{color:var(--c-altro);border-color:var(--c-altro);grid-column:1/-1}
     .sheet-cat-btn[data-cat="Altro"]:hover,.sheet-cat-btn[data-cat="Altro"].sel{background:var(--c-altro);color:#fff}
     .sheet-qty-row{display:flex;gap:8px;align-items:center;margin-bottom:14px}
     .sheet-qty-lbl{font-size:12px;font-weight:700;color:var(--G)}
@@ -251,6 +259,7 @@
     <div class="add-row">
       <input id="inp-nome" class="add-inp" type="text"
         placeholder="Cosa serve acquistare?" maxlength="120"
+        autocapitalize="sentences"
         onkeydown="if(event.key==='Enter')apriSheet()"
         oninput="aggiornaBtnAdd()">
       <button class="btn-aggiungi" id="btn-add-submit" onclick="apriSheet()" disabled>
@@ -273,10 +282,10 @@
 <div class="sheet-bg" id="sheet-bg" onclick="if(event.target===this)chiudiSheet()">
   <div class="sheet">
     <div class="sheet-drag" onclick="chiudiSheet()"></div>
-    <div class="sheet-title">Aggiungi articolo</div>
+    <div class="sheet-title" id="sheet-title">Seleziona categoria</div>
     <div class="sheet-nome" id="sheet-nome"></div>
     <div class="sheet-cat-grid" id="sheet-cat-grid"></div>
-    <div class="sheet-qty-row">
+    <div class="sheet-qty-row" id="sheet-qty-row">
       <span class="sheet-qty-lbl"><i class="fas fa-ruler-horizontal" style="font-size:10px;margin-right:4px"></i>Quantità (opzionale):</span>
       <input id="sheet-qty" class="qty-inp" type="number" min="0" step="any" placeholder="—" style="width:70px">
       <select id="sheet-unit" class="unit-sel">
@@ -317,10 +326,11 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 const CAT_DEFS = [
-  { nome:'Pulizie',      icon:'fa-broom',               color:'var(--c-pulizie)', bg:'var(--c-pulizie-bg)' },
-  { nome:'Cancelleria',  icon:'fa-pen',                 color:'var(--c-cancel)',  bg:'var(--c-cancel-bg)'  },
-  { nome:'Attrezzature', icon:'fa-screwdriver-wrench',  color:'var(--c-attr)',    bg:'var(--c-attr-bg)'    },
-  { nome:'Altro',        icon:'fa-box',                 color:'var(--c-altro)',   bg:'var(--c-altro-bg)'   },
+  { nome:'Pulizie',               icon:'fa-broom',              color:'var(--c-pulizie)', bg:'var(--c-pulizie-bg)' },
+  { nome:'Cancelleria',           icon:'fa-pen',                color:'var(--c-cancel)',  bg:'var(--c-cancel-bg)'  },
+  { nome:'Attrezzature',          icon:'fa-screwdriver-wrench', color:'var(--c-attr)',    bg:'var(--c-attr-bg)'    },
+  { nome:'Materiale di consumo',  icon:'fa-box-open',           color:'var(--c-matcons)', bg:'var(--c-matcons-bg)' },
+  { nome:'Altro',                 icon:'fa-box',                color:'var(--c-altro)',   bg:'var(--c-altro-bg)'   },
 ];
 function catDef(nome) { return CAT_DEFS.find(c => c.nome === nome) || { nome, icon:'fa-tag', color:'#64748b', bg:'#f1f5f9' }; }
 
@@ -343,7 +353,8 @@ let voci             = [];
 let filtroAttivo     = 'tutti';
 let acqCollapsed     = true;
 let realtimeCh       = null;
-let _newIds          = new Set(); // IDs arrivati via realtime (mostra badge "nuovo")
+let _newIds          = new Set();
+let _sheetItemId     = null; // null = modalità aggiungi, number = modalità sposta
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function mostraEmpori() {
@@ -399,26 +410,50 @@ function buildEmpiGrid(filtro = null) {
 }
 
 // ── Category bottom sheet ─────────────────────────────────────────────────────
-function buildSheetCatGrid() {
+function _buildSheetCatGrid(catCorrente) {
   const grid = document.getElementById('sheet-cat-grid');
-  if (grid.children.length) return;
+  grid.innerHTML = '';
   CAT_DEFS.forEach(c => {
     const btn = document.createElement('button');
-    btn.className   = 'sheet-cat-btn';
+    btn.className   = 'sheet-cat-btn' + (c.nome === catCorrente ? ' sel' : '');
     btn.dataset.cat = c.nome;
     btn.innerHTML   = `<i class="fas ${c.icon}"></i><span>${c.nome}</span>`;
-    btn.onclick     = () => confirmAdd(c.nome);
+    btn.onclick     = () => handleSheetCat(c.nome);
     grid.appendChild(btn);
   });
 }
 
+function handleSheetCat(cat) {
+  if (_sheetItemId === null) {
+    confirmAdd(cat);
+  } else {
+    spostaCategoria(_sheetItemId, cat);
+  }
+}
+
 function apriSheet() {
-  const nome = document.getElementById('inp-nome').value.trim();
-  if (!nome) return;
-  document.getElementById('sheet-nome').textContent = nome;
-  document.getElementById('sheet-qty').value  = '';
-  document.getElementById('sheet-unit').value = '';
-  buildSheetCatGrid();
+  const raw  = document.getElementById('inp-nome').value.trim();
+  if (!raw) return;
+  const nome = raw.charAt(0).toUpperCase() + raw.slice(1);
+  document.getElementById('inp-nome').value = nome;
+  _sheetItemId = null;
+  document.getElementById('sheet-title').textContent  = 'Seleziona categoria';
+  document.getElementById('sheet-nome').textContent   = nome;
+  document.getElementById('sheet-qty').value          = '';
+  document.getElementById('sheet-unit').value         = '';
+  document.getElementById('sheet-qty-row').style.display = '';
+  _buildSheetCatGrid(null);
+  document.getElementById('sheet-bg').classList.add('open');
+}
+
+function apriSheetSposta(id) {
+  const v = voci.find(x => x.id === id);
+  if (!v) return;
+  _sheetItemId = id;
+  document.getElementById('sheet-title').textContent  = 'Sposta in categoria';
+  document.getElementById('sheet-nome').textContent   = v.nome;
+  document.getElementById('sheet-qty-row').style.display = 'none';
+  _buildSheetCatGrid(v.categoria || null);
   document.getElementById('sheet-bg').classList.add('open');
 }
 
@@ -562,7 +597,10 @@ function renderVoce(v) {
       <div class="item-meta">${qtyHtml}${catHtml}${chiHtml}${timeHtml}${newHtml}</div>
     </div>
     <div class="item-actions">
-      <button class="btn-del" onclick="eliminaVoce(${v.id})" title="Elimina">
+      <button class="btn-act btn-move" onclick="apriSheetSposta(${v.id})" title="Sposta categoria">
+        <i class="fas fa-right-left"></i>
+      </button>
+      <button class="btn-act btn-del" onclick="eliminaVoce(${v.id})" title="Elimina">
         <i class="fas fa-trash-can"></i>
       </button>
     </div>
@@ -591,8 +629,9 @@ function aggiornaBtnAdd() {
 
 async function confirmAdd(categoria) {
   chiudiSheet();
-  const nome   = document.getElementById('inp-nome').value.trim();
-  if (!nome) return;
+  const raw  = document.getElementById('inp-nome').value.trim();
+  if (!raw) return;
+  const nome = raw.charAt(0).toUpperCase() + raw.slice(1);
   const qtyRaw = document.getElementById('sheet-qty').value;
 
   const payload = {
@@ -607,7 +646,6 @@ async function confirmAdd(categoria) {
   const { data, error } = await db.from('lista_spesa_voci').insert(payload).select().single();
   if (error) { showToast('Errore: ' + error.message); return; }
 
-  // Aggiornamento immediato della lista (non aspetta il realtime)
   if (data) { voci.unshift(data); render(); }
 
   document.getElementById('inp-nome').value = '';
@@ -615,6 +653,17 @@ async function confirmAdd(categoria) {
   document.getElementById('inp-nome').focus();
 
   inviaNotifica(nome, currentNome);
+}
+
+async function spostaCategoria(id, nuovaCat) {
+  chiudiSheet();
+  const v = voci.find(x => x.id === id);
+  if (!v || v.categoria === nuovaCat) return;
+  const { error } = await db.from('lista_spesa_voci').update({ categoria: nuovaCat }).eq('id', id);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  v.categoria = nuovaCat;
+  render();
+  showToast('Categoria aggiornata ✓');
 }
 
 function inviaNotifica(articolo, mittente) {
