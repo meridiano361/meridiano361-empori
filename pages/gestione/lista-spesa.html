@@ -86,8 +86,7 @@
 
     /* ── Category grid (Listando style) ── */
     .cat-grid{background:#fff;border-bottom:1px solid var(--Gl);padding:12px 12px 10px;
-      display:grid;grid-template-columns:1fr 1fr;gap:8px;
-      position:sticky;top:calc(56px + 50px);z-index:100}
+      display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .cat-btn{border:2px solid var(--Gl);background:#fff;border-radius:14px;padding:12px 10px;
       font-family:inherit;font-size:12px;font-weight:800;color:var(--S2);cursor:pointer;
       display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s;
@@ -258,6 +257,31 @@
     .search-inp:focus{border-color:var(--R)}
     .search-inp::placeholder{color:var(--G)}
 
+    /* ── Tabs ── */
+    .tabs{background:#fff;border-bottom:1px solid var(--Gl);display:flex;gap:6px;padding:8px 12px;
+      position:sticky;top:calc(56px + 50px);z-index:100}
+    .tab{flex:1;padding:10px;border:2px solid var(--Gl);border-radius:12px;background:#fff;
+      font-family:inherit;font-size:13px;font-weight:800;color:var(--G);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:7px;transition:all .15s}
+    .tab.on{background:var(--R);border-color:var(--R);color:#fff}
+    .tab:hover:not(.on){border-color:#94a3b8;color:var(--S)}
+    .tab-cnt{background:rgba(0,0,0,.13);border-radius:9px;padding:1px 7px;font-size:10px;font-weight:800}
+
+    /* ── Bottoni Cose view ── */
+    .btn-in-lista{width:38px;height:38px;border-radius:12px;border:2px solid var(--Gl);
+      background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      font-size:16px;color:var(--G);transition:all .15s;flex-shrink:0}
+    .btn-in-lista.on{background:var(--R);border-color:var(--R);color:#fff}
+    .btn-in-lista:hover:not(.on){border-color:var(--R);color:var(--R)}
+    .cose-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+    .btn-act-sq{width:34px;height:34px;border-radius:10px;border:1.5px solid;background:#fff;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;
+      transition:all .12s;flex-shrink:0}
+    .btn-act-edit{border-color:#f59e0b;color:#f59e0b}
+    .btn-act-edit:hover{background:#f59e0b;color:#fff}
+    .btn-act-del{border-color:#ef4444;color:#ef4444}
+    .btn-act-del:hover{background:#ef4444;color:#fff}
+
     @media(max-width:420px){.btn-aggiungi{padding:11px 12px}}
   </style>
 </head>
@@ -295,14 +319,26 @@
 <!-- Screen 2: Main -->
 <div id="screen-main" style="display:none">
 
-  <!-- Category grid -->
-  <div class="cat-grid" id="cat-grid"></div>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on" id="tab-lista" onclick="switchTab('lista')">
+      <i class="fas fa-list-check"></i> Lista
+      <span class="tab-cnt" id="tab-lista-cnt">0</span>
+    </button>
+    <button class="tab" id="tab-cose" onclick="switchTab('cose')">
+      <i class="fas fa-box-open"></i> Cose
+      <span class="tab-cnt" id="tab-cose-cnt">0</span>
+    </button>
+  </div>
 
-  <!-- Add panel + search -->
+  <!-- Category grid (solo tab Cose) -->
+  <div class="cat-grid" id="cat-grid" style="display:none"></div>
+
+  <!-- Add panel -->
   <div class="add-panel">
     <div class="add-row">
       <input id="inp-nome" class="add-inp" type="text"
-        placeholder="Cosa serve acquistare?" maxlength="120"
+        placeholder="Aggiungi alla lista..." maxlength="120"
         autocapitalize="sentences"
         onkeydown="if(event.key==='Enter')apriSheet()"
         oninput="aggiornaBtnAdd()">
@@ -310,8 +346,8 @@
         <i class="fas fa-plus"></i> Aggiungi
       </button>
     </div>
-    <input id="inp-cerca" class="search-inp" type="search"
-      placeholder="Cerca nella lista..." oninput="cercaInput()">
+    <input id="inp-cerca" class="search-inp" type="search" style="display:none"
+      placeholder="Cerca nei prodotti..." oninput="cercaInput()">
   </div>
 
   <!-- List -->
@@ -441,6 +477,7 @@ let _newIds          = new Set();
 let _sheetItemId     = null; // null = modalità aggiungi, number = modalità sposta
 let _editId          = null;
 let searchQuery      = '';
+let currentTab       = 'lista'; // 'lista' | 'cose'
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function mostraEmpori() {
@@ -468,6 +505,7 @@ function mostraMain() {
 function tornaEmpori() {
   currentEmporio = '';
   searchQuery    = '';
+  currentTab     = 'lista';
   if (realtimeCh) { db.removeChannel(realtimeCh); realtimeCh = null; }
   filtroAttivo = 'tutti';
   mostraEmpori();
@@ -477,11 +515,39 @@ function selezionaEmporio(emp) {
   currentEmporio = emp;
   filtroAttivo   = 'tutti';
   searchQuery    = '';
+  currentTab     = 'lista';
   const inpCerca = document.getElementById('inp-cerca');
   if (inpCerca) inpCerca.value = '';
   mostraMain();
   carica();
   subscribeRealtime();
+}
+
+// ── Tab management ────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-lista').classList.toggle('on', tab === 'lista');
+  document.getElementById('tab-cose').classList.toggle('on', tab === 'cose');
+
+  const catGrid  = document.getElementById('cat-grid');
+  const inpCerca = document.getElementById('inp-cerca');
+  const inpNome  = document.getElementById('inp-nome');
+  const svuota   = document.getElementById('btn-svuota');
+
+  if (tab === 'cose') {
+    catGrid.style.display  = '';
+    inpCerca.style.display = '';
+    inpNome.placeholder    = 'Nuovo prodotto...';
+    if (svuota) svuota.style.display = 'none';
+  } else {
+    catGrid.style.display  = 'none';
+    inpCerca.style.display = 'none';
+    inpNome.placeholder    = 'Aggiungi alla lista...';
+    searchQuery = '';
+    if (inpCerca) inpCerca.value = '';
+    filtroAttivo = 'tutti';
+  }
+  render();
 }
 
 function buildEmpiGrid(filtro = null) {
@@ -551,18 +617,17 @@ function chiudiSheet() {
   document.getElementById('sheet-bg').classList.remove('open');
 }
 
-// ── Category grid ─────────────────────────────────────────────────────────────
+// ── Category grid (solo tab Cose) ─────────────────────────────────────────────
 function buildCatGrid() {
   const grid = document.getElementById('cat-grid');
   if (!grid) return;
-  const daAcq = voci.filter(v => !v.acquisito);
   const counts = {};
-  CAT_DEFS.forEach(c => { counts[c.nome] = daAcq.filter(v => v.categoria === c.nome).length; });
-  const totalDa = daAcq.length;
+  CAT_DEFS.forEach(c => { counts[c.nome] = voci.filter(v => v.categoria === c.nome).length; });
+  const totalAll = voci.length;
 
   const tuttiOn = filtroAttivo === 'tutti' ? ' on' : '';
   let html = `<button class="cat-btn full${tuttiOn}" onclick="setFiltro('tutti')">
-    <i class="fas fa-list"></i> Tutti <span class="cat-cnt">${totalDa}</span>
+    <i class="fas fa-list"></i> Tutti <span class="cat-cnt">${totalAll}</span>
   </button>`;
 
   CAT_DEFS.forEach((c, i) => {
@@ -606,68 +671,60 @@ async function carica() {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
-  buildCatGrid();
+  // Conteggi tab
+  const nLista = voci.filter(v => v.in_lista && !v.acquisito).length;
+  const nCose  = voci.length;
+  document.getElementById('tab-lista-cnt').textContent = nLista;
+  document.getElementById('tab-cose-cnt').textContent  = nCose;
 
-  const q = searchQuery.trim().toLowerCase();
-  const matchQ = v => !q ||
-    (v.nome||'').toLowerCase().includes(q) ||
-    (v.fornitore||'').toLowerCase().includes(q) ||
-    (v.codice||'').toLowerCase().includes(q);
-
-  let daAcq = voci.filter(v => !v.acquisito).filter(matchQ);
-  let acqSi = voci.filter(v => v.acquisito).filter(matchQ);
-
-  // apply category filter
-  if (filtroAttivo !== 'tutti') {
-    daAcq = daAcq.filter(v => v.categoria === filtroAttivo);
-    acqSi = acqSi.filter(v => v.categoria === filtroAttivo);
+  if (currentTab === 'lista') {
+    renderLista();
+  } else {
+    buildCatGrid();
+    renderCose();
   }
+}
 
-  // header count (always total not-acquired, unfiltered)
+function renderLista() {
+  const listaItems = voci.filter(v => v.in_lista);
+  const daAcq      = listaItems.filter(v => !v.acquisito);
+  const acqSi      = listaItems.filter(v => v.acquisito);
+
+  // Header count
   const cntEl = document.getElementById('hd-cnt');
-  const totDa = voci.filter(v => !v.acquisito).length;
-  cntEl.textContent   = totDa;
-  cntEl.style.display = totDa > 0 ? '' : 'none';
+  cntEl.textContent   = daAcq.length;
+  cntEl.style.display = daAcq.length > 0 ? '' : 'none';
 
   const svuota = document.getElementById('btn-svuota');
-  if (svuota) svuota.style.display = voci.filter(v => v.acquisito).length ? '' : 'none';
+  if (svuota) svuota.style.display = acqSi.length ? '' : 'none';
 
   let html = '';
 
-  // Barra progresso (solo vista "Tutti" senza ricerca attiva)
-  const totaleVoci = voci.length;
-  if (totaleVoci > 0 && filtroAttivo === 'tutti' && !q) {
-    const acquisiti = voci.filter(v => v.acquisito).length;
-    const pct = Math.round(acquisiti / totaleVoci * 100);
+  if (!listaItems.length) {
+    html = `<div class="empty">
+      <i class="fas fa-list-check"></i>
+      <div class="empty-title">Lista vuota</div>
+      <div class="empty-sub">Aggiungi articoli qui sopra, oppure vai in <strong>Cose</strong> per aggiungere prodotti dal catalogo.</div>
+    </div>`;
+  } else {
+    // Barra progresso
+    const tot = listaItems.length;
+    const acq = acqSi.length;
+    const pct = Math.round(acq / tot * 100);
     const pctColor = pct === 100 ? '#059669' : 'var(--R)';
     html += `<div class="progress-box">
       <div class="progress-info">
-        <span class="progress-label">${totaleVoci} articol${totaleVoci===1?'o':'i'}</span>
-        <span class="progress-pct" style="color:${pctColor}">${acquisiti} di ${totaleVoci} acquisiti · ${pct}%</span>
+        <span class="progress-label">${tot} articol${tot===1?'o':'i'}</span>
+        <span class="progress-pct" style="color:${pctColor}">${acq} di ${tot} acquisiti · ${pct}%</span>
       </div>
       <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
     </div>`;
-  }
 
-  if (!totaleVoci && filtroAttivo === 'tutti' && !q) {
-    html = `<div class="empty">
-      <i class="fas fa-cart-shopping"></i>
-      <div class="empty-title">Lista vuota</div>
-      <div class="empty-sub">Aggiungi il primo articolo qui sopra.<br>La lista è condivisa con tutti gli operatori dell'emporio.</div>
-    </div>`;
-  } else if (!daAcq.length && !acqSi.length) {
-    html = `<div class="empty" style="padding:36px 20px">
-      <i class="fas fa-magnifying-glass"></i>
-      <div class="empty-title">Nessun risultato</div>
-      <div class="empty-sub">Prova a cambiare la ricerca o selezionare un'altra categoria.</div>
-    </div>`;
-  } else {
     if (daAcq.length) {
       html += `<div class="sec-hd">Da acquistare <span class="cnt">${daAcq.length}</span></div>`;
       html += `<div class="items-box">${daAcq.map(v => renderVoce(v)).join('')}</div>`;
     }
-
-    if (acqSi.length && filtroAttivo === 'tutti' && !q) {
+    if (acqSi.length) {
       html += `<div class="sec-hd" style="cursor:pointer;margin-top:8px" onclick="toggleAcq()">
         Già acquisiti <span class="cnt">${acqSi.length}</span>
         <button class="btn-coll"><i class="fas fa-chevron-${acqCollapsed?'down':'up'}"></i></button>
@@ -676,6 +733,41 @@ function render() {
         html += `<div class="items-box">${acqSi.map(v => renderVoce(v)).join('')}</div>`;
       }
     }
+  }
+
+  document.getElementById('list-wrap').innerHTML = html;
+}
+
+function renderCose() {
+  const q = searchQuery.trim().toLowerCase();
+  const matchQ = v => !q ||
+    (v.nome||'').toLowerCase().includes(q) ||
+    (v.fornitore||'').toLowerCase().includes(q) ||
+    (v.codice||'').toLowerCase().includes(q);
+
+  let items = voci.filter(matchQ);
+  if (filtroAttivo !== 'tutti') items = items.filter(v => v.categoria === filtroAttivo);
+
+  // Header count (hide in Cose tab)
+  document.getElementById('hd-cnt').style.display = 'none';
+  const svuota = document.getElementById('btn-svuota');
+  if (svuota) svuota.style.display = 'none';
+
+  let html = '';
+  if (!voci.length) {
+    html = `<div class="empty">
+      <i class="fas fa-box-open"></i>
+      <div class="empty-title">Catalogo vuoto</div>
+      <div class="empty-sub">Aggiungi il primo prodotto usando il campo qui sopra.</div>
+    </div>`;
+  } else if (!items.length) {
+    html = `<div class="empty" style="padding:36px 20px">
+      <i class="fas fa-magnifying-glass"></i>
+      <div class="empty-title">Nessun risultato</div>
+      <div class="empty-sub">Prova a cambiare la ricerca o la categoria.</div>
+    </div>`;
+  } else {
+    html += `<div class="items-box">${items.map(v => renderVoceCose(v)).join('')}</div>`;
   }
 
   document.getElementById('list-wrap').innerHTML = html;
@@ -716,9 +808,50 @@ function renderVoce(v) {
       ${subHtml}
       ${extraHtml}
     </div>
-    <button class="btn-rm" onclick="eliminaVoce(${v.id})" title="Rimuovi">
+    <button class="btn-rm" onclick="removeFromLista(${v.id})" title="Rimuovi dalla lista">
       <i class="fas fa-times"></i>
     </button>
+  </div>`;
+}
+
+// ── Render voce: Cose view ────────────────────────────────────────────────────
+function renderVoceCose(v) {
+  const def    = catDef(v.categoria || '');
+  const qtyStr = v.quantita ? `${v.quantita}${v.unita ? ' ' + v.unita : ''}` : '';
+
+  const subItems = [];
+  if (v.categoria) subItems.push(`<span class="item-cat-pill" style="color:${def.color}"><i class="fas ${def.icon}" style="font-size:9px"></i> ${escHtml(v.categoria)}</span>`);
+  if (qtyStr)      subItems.push(`<span class="item-qty-sub">${escHtml(qtyStr)}</span>`);
+  if (v.fornitore) subItems.push(`<span class="item-chi">${escHtml(v.fornitore)}</span>`);
+  const subHtml = subItems.length ? `<div class="item-sub">${subItems.join('')}</div>` : '';
+
+  const nLinks = Array.isArray(v.links) ? v.links.filter(Boolean).length : 0;
+  const extraHtml = (v.codice || v.lotto || nLinks)
+    ? `<div class="meta-extra">
+        ${v.codice ? `<span class="meta-extra-chip"><i class="fas fa-barcode" style="font-size:9px"></i> ${escHtml(v.codice)}</span>` : ''}
+        ${v.lotto  ? `<span class="meta-extra-chip"><i class="fas fa-hashtag" style="font-size:9px"></i> ${escHtml(v.lotto)}</span>` : ''}
+        ${nLinks   ? `<span class="meta-links" onclick="event.stopPropagation();apriSheetEdit(${v.id})"><i class="fas fa-link" style="font-size:9px"></i> ${nLinks} link</span>` : ''}
+       </div>` : '';
+
+  const inLista = v.in_lista;
+  return `<div class="item-row">
+    <button class="btn-in-lista${inLista?' on':''}" onclick="toggleInLista(${v.id})"
+      title="${inLista?'Rimuovi dalla lista':'Aggiungi alla lista'}">
+      <i class="fas ${inLista?'fa-check':'fa-plus'}"></i>
+    </button>
+    <div class="item-body item-body-click" onclick="apriSheetEdit(${v.id})">
+      <div class="item-nome">${escHtml(v.nome)}</div>
+      ${subHtml}
+      ${extraHtml}
+    </div>
+    <div class="cose-actions">
+      <button class="btn-act-sq btn-act-edit" onclick="event.stopPropagation();apriSheetEdit(${v.id})" title="Modifica">
+        <i class="fas fa-pen"></i>
+      </button>
+      <button class="btn-act-sq btn-act-del" onclick="eliminaVoce(${v.id})" title="Elimina dal catalogo">
+        <i class="fas fa-trash-can"></i>
+      </button>
+    </div>
   </div>`;
 }
 
@@ -756,6 +889,7 @@ async function confirmAdd(categoria) {
     quantita:    qtyRaw ? parseFloat(qtyRaw) : null,
     unita:       document.getElementById('sheet-unit').value || null,
     aggiunto_da: currentNome,
+    in_lista:    currentTab === 'lista',
   };
 
   const { data, error } = await db.from('lista_spesa_voci').insert(payload).select().single();
@@ -887,12 +1021,38 @@ async function eliminaVoce(id) {
   render();
 }
 
+// ── Toggle in lista (Cose view) ───────────────────────────────────────────────
+async function toggleInLista(id) {
+  const v = voci.find(x => x.id === id);
+  if (!v) return;
+  const newVal  = !v.in_lista;
+  const updates = newVal ? { in_lista: true } : { in_lista: false, acquisito: false };
+  const { error } = await db.from('lista_spesa_voci').update(updates).eq('id', id);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  Object.assign(v, updates);
+  render();
+  showToast(newVal ? 'Aggiunto alla lista ✓' : 'Rimosso dalla lista');
+}
+
+// ── Rimuovi dalla lista (Lista view, mantiene nel catalogo) ───────────────────
+async function removeFromLista(id) {
+  const v = voci.find(x => x.id === id);
+  if (!v) return;
+  const { error } = await db.from('lista_spesa_voci')
+    .update({ in_lista: false, acquisito: false }).eq('id', id);
+  if (error) { showToast('Errore: ' + error.message); return; }
+  v.in_lista  = false;
+  v.acquisito = false;
+  _newIds.delete(id);
+  render();
+}
+
 // ── Svuota acquisiti ──────────────────────────────────────────────────────────
 function confermaSvuota() {
-  const cnt = voci.filter(v => v.acquisito).length;
-  document.getElementById('dlg-title').textContent = 'Svuota acquisiti';
+  const cnt = voci.filter(v => v.in_lista && v.acquisito).length;
+  document.getElementById('dlg-title').textContent = 'Svuota lista acquisiti';
   document.getElementById('dlg-msg').textContent   =
-    `Eliminare ${cnt} articol${cnt===1?'o':'i'} già acquisit${cnt===1?'o':'i'}? L'operazione non è reversibile.`;
+    `Rimuovere ${cnt} articol${cnt===1?'o':'i'} acquisit${cnt===1?'o':'i'} dalla lista? Resteranno nel catalogo (Cose).`;
   document.getElementById('dlg-ok').onclick = svuotaAcquisiti;
   document.getElementById('dlg').style.display = 'flex';
 }
@@ -901,11 +1061,14 @@ function chiudiDlg() { document.getElementById('dlg').style.display = 'none'; }
 async function svuotaAcquisiti() {
   chiudiDlg();
   const { error } = await db.from('lista_spesa_voci')
-    .delete().eq('emporio', currentEmporio).eq('acquisito', true);
+    .update({ in_lista: false, acquisito: false })
+    .eq('emporio', currentEmporio)
+    .eq('in_lista', true)
+    .eq('acquisito', true);
   if (error) { showToast('Errore: ' + error.message); return; }
-  voci = voci.filter(v => !v.acquisito);
+  voci.forEach(v => { if (v.in_lista && v.acquisito) { v.in_lista = false; v.acquisito = false; } });
   render();
-  showToast('Acquisiti eliminati ✓');
+  showToast('Lista aggiornata ✓');
 }
 
 // ── Realtime ──────────────────────────────────────────────────────────────────
