@@ -45,20 +45,6 @@
       transition:all .12s;white-space:nowrap;flex-shrink:0}
     .btn-svuota:hover{border-color:var(--R);color:var(--R)}
 
-    /* ── Empori selector ── */
-    .sel-wrap{padding:24px 16px 32px;max-width:900px;margin:0 auto}
-    .sel-title{font-size:13px;font-weight:900;color:var(--S3);text-transform:uppercase;
-      letter-spacing:.08em;margin-bottom:14px}
-    .sel-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-    @media(max-width:600px){.sel-grid{grid-template-columns:repeat(3,1fr)}}
-    .emp-btn{padding:20px 12px;border-radius:16px;border:2px solid var(--Gl);background:#fff;
-      cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;
-      align-items:center;gap:8px;font-family:inherit}
-    .emp-btn:hover{border-color:var(--R);transform:translateY(-2px);
-      box-shadow:0 4px 12px rgba(181,69,58,.12)}
-    .emp-btn img{width:48px;height:48px;object-fit:contain;border-radius:12px}
-    .emp-btn span{font-size:12px;font-weight:800;color:var(--S2)}
-
     /* ── Add form ── */
     .add-panel{background:#fff;border-bottom:1px solid var(--Gl);padding:14px 14px 10px}
     .add-row{display:flex;gap:8px;align-items:stretch;margin-bottom:10px}
@@ -283,17 +269,20 @@
     .btn-act-del:hover{background:#ef4444;color:#fff}
 
     @media(max-width:420px){.btn-aggiungi{padding:11px 12px}}
+
+    /* ── Emporio switcher (admin only) ── */
+    .emp-switch-sel{border:1.5px solid var(--Gl);border-radius:8px;padding:5px 8px;
+      font-size:12px;font-weight:700;font-family:inherit;color:var(--S);background:#fff;
+      cursor:pointer;outline:none;transition:border-color .12s;flex-shrink:0}
+    .emp-switch-sel:focus{border-color:var(--R)}
   </style>
 </head>
 <body>
 
 <!-- Header -->
 <div class="hd">
-  <button class="btn-ico" id="btn-back-home" onclick="history.back()">
+  <button class="btn-ico" onclick="history.back()">
     <i class="fas fa-chevron-left"></i>
-  </button>
-  <button class="btn-ico" id="btn-back-emp" onclick="tornaEmpori()" style="display:none">
-    <i class="fas fa-arrow-left"></i>
   </button>
   <div class="hd-inner">
     <div class="hd-title">
@@ -303,20 +292,13 @@
     </div>
     <div class="hd-sub" id="hd-sub"></div>
   </div>
+  <select id="emp-switch" class="emp-switch-sel" style="display:none" onchange="selezionaEmporio(this.value)"></select>
   <button class="btn-svuota" onclick="confermaSvuota()" id="btn-svuota" style="display:none">
     <i class="fas fa-check-double"></i> Svuota acquisiti
   </button>
 </div>
 
-<!-- Screen 1: Empori selector -->
-<div id="screen-empori" style="display:none">
-  <div class="sel-wrap">
-    <div class="sel-title">Seleziona emporio</div>
-    <div class="sel-grid" id="sel-grid"></div>
-  </div>
-</div>
-
-<!-- Screen 2: Main -->
+<!-- Main -->
 <div id="screen-main" style="display:none">
 
   <!-- Tabs -->
@@ -468,7 +450,6 @@ const ADMIN_EMAILS = ['e.mazzolari@meridiano361.it','emilio.mazzolari@gmail.com'
 let currentEmporio   = '';
 let currentNome      = '';
 let isAdmin          = false;
-let _selettoreEmpori = false;
 let voci             = [];
 let filtroAttivo     = 'tutti';
 let acqCollapsed     = true;
@@ -480,35 +461,11 @@ let searchQuery      = '';
 let currentTab       = 'lista'; // 'lista' | 'cose'
 
 // ── Screen management ─────────────────────────────────────────────────────────
-function mostraEmpori() {
-  document.getElementById('screen-empori').style.display = 'block';
-  document.getElementById('screen-main').style.display   = 'none';
-  document.getElementById('btn-back-emp').style.display  = 'none';
-  document.getElementById('btn-back-home').style.display = '';
-  document.getElementById('hd-sub').style.display        = 'none';
-  document.getElementById('hd-cnt').style.display        = 'none';
-  document.getElementById('btn-svuota').style.display    = 'none';
-}
-
 function mostraMain() {
-  document.getElementById('screen-empori').style.display = 'none';
-  document.getElementById('screen-main').style.display   = 'block';
-  if (_selettoreEmpori) {
-    document.getElementById('btn-back-emp').style.display  = '';
-    document.getElementById('btn-back-home').style.display = 'none';
-  }
+  document.getElementById('screen-main').style.display = 'block';
   const sub = document.getElementById('hd-sub');
   sub.textContent   = currentEmporio;
   sub.style.display = currentEmporio ? '' : 'none';
-}
-
-function tornaEmpori() {
-  currentEmporio = '';
-  searchQuery    = '';
-  currentTab     = 'lista';
-  if (realtimeCh) { db.removeChannel(realtimeCh); realtimeCh = null; }
-  filtroAttivo = 'tutti';
-  mostraEmpori();
 }
 
 function selezionaEmporio(emp) {
@@ -518,7 +475,10 @@ function selezionaEmporio(emp) {
   currentTab     = 'lista';
   const inpCerca = document.getElementById('inp-cerca');
   if (inpCerca) inpCerca.value = '';
-  mostraMain();
+  if (realtimeCh) { db.removeChannel(realtimeCh); realtimeCh = null; }
+  const sub = document.getElementById('hd-sub');
+  sub.textContent   = emp;
+  sub.style.display = emp ? '' : 'none';
   carica();
   subscribeRealtime();
 }
@@ -548,21 +508,6 @@ function switchTab(tab) {
     filtroAttivo = 'tutti';
   }
   render();
-}
-
-function buildEmpiGrid(filtro = null) {
-  const g = document.getElementById('sel-grid');
-  g.innerHTML = '';
-  const lista = filtro
-    ? EMPORI.filter(e => filtro.some(f => f.toLowerCase() === e.nome.toLowerCase()))
-    : EMPORI;
-  lista.forEach(e => {
-    const c = document.createElement('div');
-    c.className = 'emp-btn';
-    c.innerHTML = `<img src="${e.img}" alt="${e.nome}"><span>${e.nome}</span>`;
-    c.onclick = () => selezionaEmporio(e.nome);
-    g.appendChild(c);
-  });
 }
 
 // ── Category bottom sheet ─────────────────────────────────────────────────────
@@ -1115,25 +1060,28 @@ async function init() {
   currentNome = user.nome || 'Operatore';
   isAdmin     = ADMIN_EMAILS.includes((user.email || '').toLowerCase().trim());
 
-  const allEmpori  = [user.emporio, ...(Array.isArray(user.empori_aggiuntivi) ? user.empori_aggiuntivi : [])].filter(Boolean);
-  const uniqEmpori = [...new Set(allEmpori)];
   const isVeroAdmin = user.ruolo === 'admin';
 
   if (isVeroAdmin) {
-    _selettoreEmpori = true;
-    buildEmpiGrid(null);
-    mostraEmpori();
-  } else if (uniqEmpori.length === 1) {
-    _selettoreEmpori = false;
-    currentEmporio   = uniqEmpori[0];
-    mostraMain();
-    await carica();
-    subscribeRealtime();
+    // Admin: mostra dropdown con tutti gli empori
+    const sel = document.getElementById('emp-switch');
+    EMPORI.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value       = e.nome;
+      opt.textContent = e.nome;
+      sel.appendChild(opt);
+    });
+    sel.style.display = '';
+    // Default all'emporio dell'admin, o al primo disponibile
+    currentEmporio = user.emporio || EMPORI[0].nome;
+    sel.value = currentEmporio;
   } else {
-    _selettoreEmpori = true;
-    buildEmpiGrid(uniqEmpori.length > 0 ? uniqEmpori : null);
-    mostraEmpori();
+    currentEmporio = user.emporio || '';
   }
+
+  mostraMain();
+  await carica();
+  subscribeRealtime();
 }
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(init, 100));
