@@ -725,9 +725,12 @@ input[type=month].btn-export{min-width:160px;}
     <div class="card card-pad">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div class="sec-title" style="margin-bottom:0">Foglio di giornata</div>
-        <button id="btn-save-draft" class="btn-save-draft" onclick="saveDraft()" data-tip="Salva la bozza della giornata senza chiuderla definitivamente">
-          <i class="fas fa-floppy-disk"></i> Salva in corso
-        </button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button id="btn-save-draft" class="btn-save-draft" onclick="saveDraft()" data-tip="Salva la bozza della giornata senza chiuderla definitivamente">
+            <i class="fas fa-floppy-disk"></i> Salva in corso
+          </button>
+          <span id="autosave-status" style="font-size:11px;font-weight:700;color:#64748b;opacity:0;transition:opacity .3s;white-space:nowrap"></span>
+        </div>
       </div>
       <div class="turno-grid">
 
@@ -1642,11 +1645,24 @@ const photosMap = { mat_rf: [], mat_pos: [], pom_rf: [], pom_pos: [], mat_spese:
 const speseExempt = { mat: false, pom: false };
 const FOTO_BUCKET = 'cassa-foto';
 let _dirty = false;
-const markDirty  = () => { if (!document.getElementById('screen-day').classList.contains('hidden')) { _dirty = true; scheduleBackup(); } };
+const markDirty  = () => { if (!document.getElementById('screen-day').classList.contains('hidden')) { _dirty = true; scheduleBackup(); scheduleAutoSave(); } };
 const clearDirty = () => { _dirty = false; };
 
 /* ── AUTOSAVE localStorage ── */
 let _backupTimer = null;
+
+/* ── AUTOSAVE Supabase (silenzioso, ogni 6s dopo ultima modifica) ── */
+let _autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    if (_dirty) saveDraft(true);
+  }, 6000);
+}
+function _setAutoSaveStatus(msg) {
+  const el = document.getElementById('autosave-status');
+  if (el) { el.textContent = msg; el.style.opacity = msg ? '1' : '0'; }
+}
 
 function backupFormState() {
   if (!currentKey) return;
@@ -1807,19 +1823,8 @@ function showInputDialog(msg, placeholder) {
 }
 
 async function withLeaveCheck(navigate) {
-  if (!_dirty) { navigate(); return; }
-  const ans = await showConfirmDialog(
-    'Ci sono modifiche non salvate. Vuoi salvarle prima di uscire?',
-    [
-      { label:'Annulla', value:'cancel' },
-      { label:'No',      value:'no' },
-      { label:'Sì',      value:'yes', primary:true },
-    ]
-  );
-  if (ans === 'cancel') return;
-  if (ans === 'no') { clearDirty(); navigate(); return; }
-  await saveDay();
-  if (!_dirty) navigate();
+  if (_dirty) await saveDraft(true);
+  navigate();
 }
 
 /* ── FORMATTERS ── */
@@ -3968,11 +3973,12 @@ function checkNoteObbligatorie(turni, errors) {
 
 /* ── SALVA CHIUSURA MATTINO (solo modalità "entrambi") ── */
 /* ── SALVA IN CORSO (bozza intraday, nessuna validazione) ── */
-async function saveDraft() {
-  if (!currentKey) { alert('Apri prima un foglio di giornata'); return; }
+async function saveDraft(silent = false) {
+  if (!currentKey) { if (!silent) alert('Apri prima un foglio di giornata'); return; }
   const tipo = document.querySelector('input[name="turno_type"]:checked').value;
   const btn = document.getElementById('btn-save-draft');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio…'; }
+  if (!silent && btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvataggio…'; }
+  if (silent) _setAutoSaveStatus('Salvataggio…');
 
   calcIva();
 
@@ -4044,18 +4050,27 @@ async function saveDraft() {
   if (speseExempt.pom) payload.pom_spese_foto_exempt = true;
 
   const error = await dbUpsert(payload);
-  if (btn) { btn.disabled = false; }
+  if (!silent && btn) { btn.disabled = false; }
 
   if (error) {
-    if (btn) btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Salva in corso';
-    alert('Errore salvataggio: ' + error.message);
+    if (!silent) {
+      if (btn) btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Salva in corso';
+      alert('Errore salvataggio: ' + error.message);
+    } else {
+      _setAutoSaveStatus('⚠ Errore salvataggio');
+      setTimeout(() => _setAutoSaveStatus(''), 4000);
+    }
   } else {
     clearDirty();
     clearBackup();
-    if (btn) {
+    if (!silent && btn) {
       btn.innerHTML = '<i class="fas fa-check"></i> Salvato';
       btn.style.background = '#16a34a';
       setTimeout(() => { btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Salva in corso'; btn.style.background = ''; }, 2500);
+    }
+    if (silent) {
+      _setAutoSaveStatus('✓ Salvato');
+      setTimeout(() => _setAutoSaveStatus(''), 3000);
     }
   }
 }
@@ -4415,9 +4430,9 @@ function init() {
   document.getElementById('screen-day').addEventListener('input',  _markDirtyIfCorr);
   document.getElementById('screen-day').addEventListener('change', _markDirtyIfCorr);
 
-  // Alert su chiusura/navigazione esterna con modifiche non salvate
-  window.addEventListener('beforeunload', e => {
-    if (_dirty) { e.preventDefault(); e.returnValue = ''; }
+  // Auto-save su chiusura/navigazione esterna con modifiche non salvate
+  window.addEventListener('beforeunload', () => {
+    if (_dirty) saveDraft(true);
   });
 
   // Salva il mese selezionato in sessionStorage quando cambia
