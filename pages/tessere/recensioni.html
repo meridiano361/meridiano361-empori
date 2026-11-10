@@ -17,12 +17,12 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
 .page-wrap{position:fixed;top:64px;left:0;right:0;bottom:calc(60px + env(safe-area-inset-bottom,0px));overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:16px;max-width:100%}
-.inner{max-width:700px;margin:0 auto}
+.inner{max-width:800px;margin:0 auto}
 /* Toolbar */
 .toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.toolbar select,.toolbar input[type=date]{padding:8px 12px;border:1.5px solid var(--s200);border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;color:var(--s800);background:#fff;cursor:pointer}
+.toolbar select,.toolbar input{padding:8px 12px;border:1.5px solid var(--s200);border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;color:var(--s800);background:#fff}
+.toolbar input[type=text]{min-width:140px}
 .toolbar button{padding:8px 16px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.toolbar-sep{flex:1}
 /* Summary */
 .summary-card{background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
 .sum-avg-block{display:flex;align-items:center;gap:12px}
@@ -43,15 +43,16 @@ body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
 .rec-table th{text-align:left;padding:10px 14px;background:var(--s50);font-size:11px;font-weight:800;color:var(--s500);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--s200);cursor:pointer;white-space:nowrap;user-select:none}
 .rec-table th.sort-asc::after{content:' ↑'}
 .rec-table th.sort-desc::after{content:' ↓'}
-.rec-table td{padding:10px 14px;border-bottom:1px solid var(--s100);font-size:13px;color:var(--s800);vertical-align:middle}
+.rec-table th.no-sort{cursor:default}
+.rec-table td{padding:10px 14px;border-bottom:1px solid var(--s100);font-size:13px;color:var(--s800);vertical-align:top}
 .rec-table tr:last-child td{border-bottom:none}
 .rec-table tr:hover td{background:var(--s50)}
 .td-stars{font-size:15px;white-space:nowrap}
 .td-name{font-weight:700}
 .td-emp{font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.04em}
+.td-comment{font-size:12px;color:var(--s500);font-style:italic;max-width:200px}
 .td-del{background:none;border:none;color:var(--s300);font-size:14px;cursor:pointer;padding:2px 4px}
 .td-del:active{color:#ef4444}
-/* Empty / loading */
 .center-msg{text-align:center;color:var(--s400);font-size:14px;font-weight:600;padding:40px 0}
 </style>
 </head>
@@ -60,15 +61,24 @@ body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
   <div class="inner">
 
     <div class="toolbar">
-      <select id="sel-emporio">
+      <select id="sel-emporio" onchange="carica()">
         <option value="">Tutti gli empori</option>
         <option value="cremona">Cremona</option>
         <option value="casalmaggiore">Casalmaggiore</option>
         <option value="viadana">Viadana</option>
         <option value="reggio emilia">Reggio Emilia</option>
       </select>
-      <input type="date" id="f-dal" title="Dal">
-      <input type="date" id="f-al"  title="Al">
+      <select id="sel-stelle" onchange="carica()">
+        <option value="">Tutte le stelle</option>
+        <option value="5">★★★★★ 5</option>
+        <option value="4">★★★★☆ 4</option>
+        <option value="3">★★★☆☆ 3</option>
+        <option value="2">★★☆☆☆ 2</option>
+        <option value="1">★☆☆☆☆ 1</option>
+      </select>
+      <input type="text" id="f-nome" placeholder="Cerca cliente..." oninput="filtraLocale()">
+      <input type="date" id="f-dal" title="Dal" onchange="carica()">
+      <input type="date" id="f-al"  title="Al"  onchange="carica()">
       <button onclick="carica()">Aggiorna</button>
     </div>
 
@@ -91,10 +101,11 @@ body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
           <tr>
             <th id="th-data"    onclick="sortBy('data_acquisto')">Data spesa</th>
             <th id="th-cliente" onclick="sortBy('nome_cliente')">Cliente</th>
-            <th>Stelle</th>
-            <th id="th-emp"     class="col-emp">Emporio</th>
+            <th id="th-rating"  onclick="sortBy('rating')">Stelle</th>
+            <th class="no-sort">Commento</th>
+            <th id="th-emp"     class="col-emp no-sort">Emporio</th>
             <th id="th-ins"     onclick="sortBy('created_at')">Inserita il</th>
-            <th></th>
+            <th class="no-sort"></th>
           </tr>
         </thead>
         <tbody id="rec-tbody"></tbody>
@@ -102,7 +113,7 @@ body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
     </div>
 
     <div class="center-msg" id="loading-msg">Caricamento...</div>
-    <div class="center-msg" id="empty-msg"   style="display:none">Nessuna recensione trovata.</div>
+    <div class="center-msg" id="empty-msg" style="display:none">Nessuna recensione trovata.</div>
 
   </div>
 </div>
@@ -113,7 +124,7 @@ const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 
 let _sb, _user, _isAdmin, _emporio;
-let _rows = [];
+let _rows = [], _rowsFiltered = [];
 let _sortCol = 'data_acquisto', _sortDir = 'desc';
 
 function _getUser() {
@@ -148,14 +159,13 @@ function init() {
   _sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 
   if (!_isAdmin) {
-    document.getElementById('sel-emporio').value = _emporio || '';
+    document.getElementById('sel-emporio').value    = _emporio || '';
     document.getElementById('sel-emporio').disabled = true;
     document.getElementById('th-emp').style.display = 'none';
     document.querySelectorAll('.col-emp').forEach(el => el.style.display = 'none');
   }
 
-  // Default date range: ultimo mese
-  const today = new Date().toISOString().split('T')[0];
+  const today    = new Date().toISOString().split('T')[0];
   const monthAgo = new Date(Date.now() - 30*24*3600*1000).toISOString().split('T')[0];
   document.getElementById('f-dal').value = monthAgo;
   document.getElementById('f-al').value  = today;
@@ -171,19 +181,21 @@ async function carica() {
   document.getElementById('table-wrap').style.display   = 'none';
   document.getElementById('empty-msg').style.display    = 'none';
 
-  const selEmp = document.getElementById('sel-emporio').value;
-  const dal    = document.getElementById('f-dal').value;
-  const al     = document.getElementById('f-al').value;
-  const emp    = _isAdmin ? selEmp : (_emporio || '');
+  const selEmp   = document.getElementById('sel-emporio').value;
+  const selStars = document.getElementById('sel-stelle').value;
+  const dal      = document.getElementById('f-dal').value;
+  const al       = document.getElementById('f-al').value;
+  const emp      = _isAdmin ? selEmp : (_emporio || '');
 
   let q = _sb.from('tessera_recensioni')
-    .select('id,tessera_token,emporio,nome_cliente,rating,data_acquisto,created_at')
+    .select('id,tessera_token,emporio,nome_cliente,rating,data_acquisto,commento,created_at')
     .order('data_acquisto', { ascending: false })
     .order('created_at',    { ascending: false });
 
-  if (emp)  q = q.eq('emporio', emp);
-  if (dal)  q = q.gte('data_acquisto', dal);
-  if (al)   q = q.lte('data_acquisto', al);
+  if (emp)      q = q.eq('emporio', emp);
+  if (selStars) q = q.eq('rating', parseInt(selStars));
+  if (dal)      q = q.gte('data_acquisto', dal);
+  if (al)       q = q.lte('data_acquisto', al);
 
   const { data, error } = await q;
 
@@ -195,14 +207,29 @@ async function carica() {
     return;
   }
 
-  if (!data || data.length === 0) {
+  _rows = data || [];
+  document.getElementById('f-nome').value = '';
+  _rowsFiltered = _rows;
+  _renderAll();
+}
+
+function filtraLocale() {
+  const q = (document.getElementById('f-nome').value || '').toLowerCase().trim();
+  _rowsFiltered = q
+    ? _rows.filter(r => (r.nome_cliente || '').toLowerCase().includes(q))
+    : _rows;
+  _renderAll();
+}
+
+function _renderAll() {
+  if (_rowsFiltered.length === 0) {
+    document.getElementById('summary-card').style.display = 'none';
+    document.getElementById('table-wrap').style.display   = 'none';
     document.getElementById('empty-msg').textContent = 'Nessuna recensione trovata.';
     document.getElementById('empty-msg').style.display = '';
     return;
   }
-
-  _rows = data;
-  renderSummary(data);
+  renderSummary(_rowsFiltered);
   renderTable();
 }
 
@@ -241,16 +268,16 @@ function sortBy(col) {
 }
 
 function renderTable() {
-  // Update sort indicators
-  ['data_acquisto','nome_cliente','created_at'].forEach(c => {
-    const el = document.getElementById('th-' + (c === 'data_acquisto' ? 'data' : c === 'nome_cliente' ? 'cliente' : 'ins'));
+  ['data_acquisto','nome_cliente','rating','created_at'].forEach(c => {
+    const idMap = { data_acquisto:'th-data', nome_cliente:'th-cliente', rating:'th-rating', created_at:'th-ins' };
+    const el = document.getElementById(idMap[c]);
     if (!el) return;
     el.className = c === _sortCol ? ('sort-' + _sortDir) : '';
   });
 
-  const sorted = [..._rows].sort((a, b) => {
-    const va = a[_sortCol] || '';
-    const vb = b[_sortCol] || '';
+  const sorted = [..._rowsFiltered].sort((a, b) => {
+    const va = a[_sortCol] ?? '';
+    const vb = b[_sortCol] ?? '';
     const cmp = va < vb ? -1 : va > vb ? 1 : 0;
     return _sortDir === 'asc' ? cmp : -cmp;
   });
@@ -259,14 +286,16 @@ function renderTable() {
   tbody.innerHTML = '';
   sorted.forEach(r => {
     const empLabel = r.emporio ? r.emporio.charAt(0).toUpperCase()+r.emporio.slice(1) : '—';
+    const commento = r.commento ? `<span class="td-comment">"${r.commento}"</span>` : '<span style="color:var(--s300)">—</span>';
     tbody.innerHTML += `
       <tr id="ri-${r.id}">
         <td>${fmtDate(r.data_acquisto)}</td>
         <td class="td-name">${r.nome_cliente || 'Anonimo'}</td>
         <td class="td-stars">${starsHtml(r.rating)}</td>
-        <td class="td-emp col-emp"${_isAdmin ? '' : ' style="display:none"'}>${empLabel}</td>
+        <td>${commento}</td>
+        <td class="td-emp col-emp"${_isAdmin?'':' style="display:none"'}>${empLabel}</td>
         <td style="color:var(--s400);font-size:12px">${fmtDate(r.created_at)}</td>
-        <td>${_isAdmin ? `<button class="td-del" onclick="elimina('${r.id}')" title="Elimina">✕</button>` : ''}</td>
+        <td>${_isAdmin?`<button class="td-del" onclick="elimina('${r.id}')" title="Elimina">✕</button>`:''}</td>
       </tr>`;
   });
 
@@ -277,14 +306,9 @@ async function elimina(id) {
   if (!confirm('Eliminare questa recensione?')) return;
   const { error } = await _sb.from('tessera_recensioni').delete().eq('id', id);
   if (!error) {
-    _rows = _rows.filter(r => r.id !== id);
-    renderSummary(_rows);
-    renderTable();
-    if (_rows.length === 0) {
-      document.getElementById('summary-card').style.display = 'none';
-      document.getElementById('table-wrap').style.display   = 'none';
-      document.getElementById('empty-msg').style.display    = '';
-    }
+    _rows         = _rows.filter(r => r.id !== id);
+    _rowsFiltered = _rowsFiltered.filter(r => r.id !== id);
+    _renderAll();
   }
 }
 

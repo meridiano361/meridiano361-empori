@@ -250,7 +250,15 @@ body.amb{background:#e8e8e4}
       <div style="font-size:12px;font-weight:700;color:#555;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:8px">In che giorno hai fatto questa spesa?</div>
       <div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">
         <input type="date" id="rec-date-input" style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:600;color:#111;outline:none;background:#f8fafc">
-        <button onclick="confermValutazione()" style="padding:9px 18px;background:#111;color:#fff;border:none;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:800;cursor:pointer">Conferma</button>
+        <button onclick="confermValutazione()" style="padding:9px 18px;background:#111;color:#fff;border:none;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:800;cursor:pointer">Avanti</button>
+      </div>
+    </div>
+    <div id="rec-comment-panel" style="display:none;margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:#555;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:8px">Vuoi aggiungere un commento?</div>
+      <textarea id="rec-comment-input" rows="3" placeholder="Scrivi qui la tua esperienza..." style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;color:#111;outline:none;background:#f8fafc;resize:none"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;justify-content:center">
+        <button onclick="inviaConCommento()" style="padding:9px 18px;background:#111;color:#fff;border:none;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:800;cursor:pointer">Invia</button>
+        <button onclick="saltaCommento()" style="padding:9px 18px;background:none;color:#94a3b8;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Salta</button>
       </div>
     </div>
   </div>
@@ -1065,7 +1073,9 @@ function salvaValutazione(n) {
   document.getElementById('rec-date-panel').style.display = '';
 }
 
-async function confermValutazione() {
+let _pendingData = '';
+
+function confermValutazione() {
   const dateInput = document.getElementById('rec-date-input');
   const dataAcquisto = dateInput?.value;
   if (!dataAcquisto || !_pendingRating) return;
@@ -1077,28 +1087,50 @@ async function confermValutazione() {
     return;
   }
 
+  _pendingData = dataAcquisto;
   document.getElementById('rec-date-panel').style.display = 'none';
+  document.getElementById('rec-comment-input').value = '';
+  document.getElementById('rec-comment-panel').style.display = '';
+}
+
+async function inviaConCommento() {
+  const commento = (document.getElementById('rec-comment-input').value || '').trim();
+  await _salvaRecensione(commento || null);
+}
+
+async function saltaCommento() {
+  await _salvaRecensione(null);
+}
+
+async function _salvaRecensione(commento) {
+  document.getElementById('rec-comment-panel').style.display = 'none';
+  const localKey = _recKey + '_' + _pendingData;
   localStorage.setItem(localKey, _pendingRating);
 
+  const lbl = document.getElementById('rec-label');
   const labels = ['','Scarso','Nella media','Buono','Molto buono','Eccellente'];
   if (lbl) { lbl.style.color = '#16a34a'; lbl.textContent = '✓ Grazie! ' + (labels[_pendingRating] || ''); }
 
   if (_recToken && _recSb) {
     try {
-      await _recSb.from('tessera_recensioni').insert({
+      const row = {
         tessera_token: _recToken,
         emporio:       _recEmporio,
         nome_cliente:  _recNome,
         rating:        _pendingRating,
-        data_acquisto: dataAcquisto,
-      });
+        data_acquisto: _pendingData,
+      };
+      if (commento) row.commento = commento;
+      await _recSb.from('tessera_recensioni').insert(row);
     } catch(e) {}
   }
 
   setTimeout(() => {
     _pendingRating = 0;
+    _pendingData   = '';
     _aggiornaStelle(0);
     if (lbl) { lbl.style.color = ''; lbl.textContent = ''; }
+    const dateInput = document.getElementById('rec-date-input');
     if (dateInput) dateInput.value = '';
   }, 2500);
 }
