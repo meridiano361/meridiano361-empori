@@ -22,8 +22,8 @@ BEGIN
 
     CREATE POLICY "anon_insert_reviews" ON public.tessera_recensioni
       FOR INSERT TO anon WITH CHECK (true);
-    CREATE POLICY "auth_select_reviews" ON public.tessera_recensioni
-      FOR SELECT TO authenticated USING (true);
+    CREATE POLICY "anon_select_reviews" ON public.tessera_recensioni
+      FOR SELECT TO anon USING (true);
     CREATE POLICY "auth_delete_reviews" ON public.tessera_recensioni
       FOR DELETE TO authenticated USING (true);
 
