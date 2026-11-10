@@ -236,8 +236,8 @@ body.amb{background:#e8e8e4}
 
   <!-- 1. Rating interno -->
   <div class="rec-box" id="rec-box">
-    <div style="font-size:13px;font-weight:800;color:#111;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:2px">Com'è stata la tua ultima visita?</div>
-    <div style="font-size:11px;color:#94a3b8;font-weight:600;font-family:'CenturyGothic','Century Gothic',sans-serif">Lascia una valutazione</div>
+    <div style="font-size:13px;font-weight:800;color:#111;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:2px">Com'è stata la tua visita?</div>
+    <div style="font-size:11px;color:#94a3b8;font-weight:600;font-family:'CenturyGothic','Century Gothic',sans-serif">Lascia una valutazione per ogni acquisto</div>
     <div class="rec-stars-row" id="rec-stars-row">
       <span class="rec-star" onmouseenter="hoverStar(1)" onmouseleave="resetHover()" onclick="salvaValutazione(1)">★</span>
       <span class="rec-star" onmouseenter="hoverStar(2)" onmouseleave="resetHover()" onclick="salvaValutazione(2)">★</span>
@@ -245,7 +245,14 @@ body.amb{background:#e8e8e4}
       <span class="rec-star" onmouseenter="hoverStar(4)" onmouseleave="resetHover()" onclick="salvaValutazione(4)">★</span>
       <span class="rec-star" onmouseenter="hoverStar(5)" onmouseleave="resetHover()" onclick="salvaValutazione(5)">★</span>
     </div>
-    <div id="rec-label" style="font-size:11px;color:#94a3b8;font-weight:600;font-family:'CenturyGothic','Century Gothic',sans-serif;min-height:16px"></div>
+    <div id="rec-label" style="font-size:11px;color:#94a3b8;font-weight:600;font-family:'CenturyGothic','Century Gothic',sans-serif;min-height:16px;transition:color .2s"></div>
+    <div id="rec-date-panel" style="display:none;margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:#555;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:8px">In che giorno hai fatto questa spesa?</div>
+      <div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">
+        <input type="date" id="rec-date-input" style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:600;color:#111;outline:none;background:#f8fafc">
+        <button onclick="confermValutazione()" style="padding:9px 18px;background:#111;color:#fff;border:none;border-radius:10px;font-family:'CenturyGothic','Century Gothic',sans-serif;font-size:13px;font-weight:800;cursor:pointer">Conferma</button>
+      </div>
+    </div>
   </div>
 
   <!-- 2. Google Reviews -->
@@ -997,6 +1004,7 @@ async function attivaPromemoriaCompleanno() {
 
 // ── Recensioni tessera ────────────────────────────────────────────────────────
 let _recKey = '', _recToken = '', _recEmporio = '', _recNome = '', _recSb = null;
+let _pendingRating = 0;
 
 function toggleGoogleSel() {
   const sel = document.getElementById('google-sel');
@@ -1014,26 +1022,25 @@ function _mostraRecensioni(t) {
   if (!box) return;
   document.getElementById('btn-trustpilot-rec').href = TRUSTPILOT_URL;
   const params = new URLSearchParams(location.search);
-  _recToken = params.get('t') || (location.pathname.match(/\/tessera\/([^/?#]+)/) || [])[1] || (t?.token || '');
-  _recKey   = 'rec_' + (_recToken || (t?.id || ''));
+  _recToken   = params.get('t') || (location.pathname.match(/\/tessera\/([^/?#]+)/) || [])[1] || (t?.token || '');
+  _recKey     = 'rec_' + (_recToken || (t?.id || ''));
   _recEmporio = t?.emporio || '';
-  _recNome  = [t?.nome, t?.cognome].filter(Boolean).join(' ');
-  _recSb    = supabase.createClient(SUPA_URL, SUPA_KEY);
-  const saved = parseInt(localStorage.getItem(_recKey)) || 0;
-  if (saved) _mostraGrazie(saved); else _aggiornaStelle(0);
+  _recNome    = [t?.nome, t?.cognome].filter(Boolean).join(' ');
+  _recSb      = supabase.createClient(SUPA_URL, SUPA_KEY);
+  _aggiornaStelle(0);
   box.style.display = '';
 }
 
 function hoverStar(n) {
-  if (parseInt(localStorage.getItem(_recKey))) return;
+  if (_pendingRating) return;
   _aggiornaStelle(n);
   const labels = ['','Scarso','Nella media','Buono','Molto buono','Eccellente'];
   const lbl = document.getElementById('rec-label');
-  if (lbl) lbl.textContent = labels[n] || '';
+  if (lbl) { lbl.style.color = '#94a3b8'; lbl.textContent = labels[n] || ''; }
 }
 
 function resetHover() {
-  if (parseInt(localStorage.getItem(_recKey))) return;
+  if (_pendingRating) return;
   _aggiornaStelle(0);
   const lbl = document.getElementById('rec-label');
   if (lbl) lbl.textContent = '';
@@ -1043,28 +1050,57 @@ function _aggiornaStelle(n) {
   document.querySelectorAll('.rec-star').forEach((s, i) => s.classList.toggle('on', i < n));
 }
 
-async function salvaValutazione(n) {
-  if (parseInt(localStorage.getItem(_recKey))) return;
-  localStorage.setItem(_recKey, n);
-  _mostraGrazie(n);
-  if (_recToken && _recSb) {
-    try {
-      await _recSb.from('tessera_recensioni').upsert({
-        tessera_token: _recToken,
-        emporio: _recEmporio,
-        nome_cliente: _recNome,
-        rating: n,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'tessera_token' });
-    } catch(e) {}
+function salvaValutazione(n) {
+  _pendingRating = n;
+  _aggiornaStelle(n);
+  const labels = ['','Scarso','Nella media','Buono','Molto buono','Eccellente'];
+  const lbl = document.getElementById('rec-label');
+  if (lbl) { lbl.style.color = '#94a3b8'; lbl.textContent = labels[n] || ''; }
+  const dateInput = document.getElementById('rec-date-input');
+  if (dateInput) {
+    const today = new Date().toISOString().split('T')[0];
+    if (!dateInput.value) dateInput.value = today;
+    dateInput.max = today;
   }
+  document.getElementById('rec-date-panel').style.display = '';
 }
 
-function _mostraGrazie(n) {
-  const box = document.getElementById('rec-box');
-  if (!box) return;
+async function confermValutazione() {
+  const dateInput = document.getElementById('rec-date-input');
+  const dataAcquisto = dateInput?.value;
+  if (!dataAcquisto || !_pendingRating) return;
+
+  const localKey = _recKey + '_' + dataAcquisto;
+  const lbl = document.getElementById('rec-label');
+  if (localStorage.getItem(localKey)) {
+    if (lbl) { lbl.style.color = '#f59e0b'; lbl.textContent = 'Hai già valutato questa data.'; }
+    return;
+  }
+
+  document.getElementById('rec-date-panel').style.display = 'none';
+  localStorage.setItem(localKey, _pendingRating);
+
   const labels = ['','Scarso','Nella media','Buono','Molto buono','Eccellente'];
-  box.innerHTML = `<div style="font-size:32px;letter-spacing:1px;margin-bottom:8px">${Array.from({length:5},(_,i)=>`<span style="color:${i<n?'#f59e0b':'#e2e8f0'}">★</span>`).join('')}</div><div style="font-size:14px;font-weight:800;color:#111;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:3px">Grazie per la valutazione!</div><div style="font-size:11px;color:#94a3b8;font-weight:600;font-family:'CenturyGothic','Century Gothic',sans-serif">${labels[n]}</div>`;
+  if (lbl) { lbl.style.color = '#16a34a'; lbl.textContent = '✓ Grazie! ' + (labels[_pendingRating] || ''); }
+
+  if (_recToken && _recSb) {
+    try {
+      await _recSb.from('tessera_recensioni').insert({
+        tessera_token: _recToken,
+        emporio:       _recEmporio,
+        nome_cliente:  _recNome,
+        rating:        _pendingRating,
+        data_acquisto: dataAcquisto,
+      });
+    } catch(e) {}
+  }
+
+  setTimeout(() => {
+    _pendingRating = 0;
+    _aggiornaStelle(0);
+    if (lbl) { lbl.style.color = ''; lbl.textContent = ''; }
+    if (dateInput) dateInput.value = '';
+  }, 2500);
 }
 </script>
 </body>
