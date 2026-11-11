@@ -377,6 +377,8 @@ async function loadCard() {
       .select('*').eq('tipo', t.tipo === 'ambassador' ? 'ambassador' : 'standard').maybeSingle();
     if (cfgRow) _cfg = cfgRow;
   } catch(e) {}
+  const _t  = (k, d) => _cfg.testi?.[k] || d;
+  const _tf = (k, d, vars) => Object.entries(vars).reduce((s, [n, v]) => s.replace(new RegExp(`\\{${n}\\}`, 'g'), v), _t(k, d));
   const TIMBRI_MAX       = _cfg.timbri_max      ?? 12;  // shadowa la costante globale
   const EURO_PER_TIMBRO  = _cfg.euro_per_timbro ?? (t.tipo === 'ambassador' ? 30 : 25);
   const SCONTO_CICLO     = _cfg.sconto_ciclo    ?? (t.tipo === 'ambassador' ? 25 : 20);
@@ -423,9 +425,6 @@ async function loadCard() {
     document.head.appendChild(_st);
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', _c);
   }
-
-  const _t  = (k, d) => _cfg.testi?.[k] || d;
-  const _tf = (k, d, vars) => Object.entries(vars).reduce((s, [n, v]) => s.replace(new RegExp(`\\{${n}\\}`, 'g'), v), _t(k, d));
 
   const stampImg = _cfg.stamp_image_url || (isAmb ? '/assets/images/simbolo_m361.png' : '/assets/images/simbolo_m361_std.png');
   const stampsHtml = Array.from({ length: TIMBRI_MAX }, (_, i) =>
