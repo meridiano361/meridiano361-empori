@@ -392,18 +392,19 @@ async function loadCard() {
 
   const scontoBanner = saldo > 0 ? `
     <div class="sconto-banner">
-      <div class="sconto-intro">Hai uno sconto di</div>
+      <div class="sconto-intro">${_t('sconto_intro', 'Hai uno sconto di')}</div>
       <div class="sconto-amount">€ ${saldo.toFixed(0)}</div>
       <div class="sconto-sub">${_cfg.testo_sconto_sub || 'su una prossima spesa a tua scelta.'}</div>
-      <span class="sconto-info-link" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">Come usarlo ⓘ</span>
-      <div style="display:none;font-size:11px;color:#666;margin-top:6px;line-height:1.5;background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px">Quando vuoi utilizzare lo sconto, comunicalo all'operatore in cassa prima del pagamento.</div>
+      <span class="sconto-info-link" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">${_t('sconto_come_usarlo', 'Come usarlo ⓘ')}</span>
+      <div style="display:none;font-size:11px;color:#666;margin-top:6px;line-height:1.5;background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px">${_t('sconto_dettaglio', "Quando vuoi utilizzare lo sconto, comunicalo all'operatore in cassa prima del pagamento.")}</div>
     </div>` : '';
 
+  const _vars = { timbri, max: TIMBRI_MAX, sconto: SCONTO_CICLO, euro_timbro: EURO_PER_TIMBRO, rimanenti: euroRimanenti };
   const progressText = timbri >= TIMBRI_MAX
-    ? `<strong>Tessera completa!</strong> Hai guadagnato €${SCONTO_CICLO} di sconto 🎉`
+    ? _tf('progresso_completa', 'Tessera completa! Hai guadagnato €{sconto} di sconto 🎉', _vars)
     : timbri === 0
-      ? `Inizia a collezionare timbri — ogni <strong>€${EURO_PER_TIMBRO}</strong> di acquisto = 1 timbro`
-      : `<strong>${timbri}</strong> di ${TIMBRI_MAX} timbri · ancora <strong>€${euroRimanenti}</strong> per completare`;
+      ? _tf('progresso_zero', 'Inizia a collezionare timbri — ogni €{euro_timbro} di acquisto = 1 timbro', _vars)
+      : _tf('progresso_testo', '{timbri} di {max} timbri · ancora €{rimanenti} per completare', _vars);
 
   const aggiornatoEl = t.updated_at || t.created_at;
 
@@ -422,6 +423,9 @@ async function loadCard() {
     document.head.appendChild(_st);
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', _c);
   }
+
+  const _t  = (k, d) => _cfg.testi?.[k] || d;
+  const _tf = (k, d, vars) => Object.entries(vars).reduce((s, [n, v]) => s.replace(new RegExp(`\\{${n}\\}`, 'g'), v), _t(k, d));
 
   const stampImg = _cfg.stamp_image_url || (isAmb ? '/assets/images/simbolo_m361.png' : '/assets/images/simbolo_m361_std.png');
   const stampsHtml = Array.from({ length: TIMBRI_MAX }, (_, i) =>
@@ -450,8 +454,8 @@ async function loadCard() {
       </div>
 
       <div class="save-actions" style="margin-top:0;margin-bottom:12px">
-        <button class="btn-copy" data-tip="Visualizza e modifica i tuoi dati" onclick="apriDatiPersonali()">I tuoi dati</button>
-        ${t.emporio ? `<button class="btn-copy" data-tip="Vedi le promo attive nel tuo emporio" onclick="apriPromo()">Promo</button>` : ''}
+        <button class="btn-copy" data-tip="${_t('btn_tuoi_dati_tip','Visualizza e modifica i tuoi dati')}" onclick="apriDatiPersonali()">${_t('btn_tuoi_dati','I tuoi dati')}</button>
+        ${t.emporio ? `<button class="btn-copy" data-tip="${_t('btn_promo_tip','Vedi le promo attive nel tuo emporio')}" onclick="apriPromo()">${_t('btn_promo','Promo')}</button>` : ''}
       </div>
 
       <div class="progress-wrap">
@@ -460,23 +464,23 @@ async function loadCard() {
         </div>
       </div>
 
-      <div class="info-row"><span>Tessere completate</span><strong>${tessereCompletate===0?'0':tessereCompletate>=5?'🏆 '+tessereCompletate:'⭐ '+tessereCompletate}</strong></div>
-      ${(t.timbri_cartacea || 0) > 0 ? `<div class="info-row"><span>Timbri da cartacea</span><strong>${t.timbri_cartacea}</strong></div>` : ''}
-      ${(t.timbri_omaggio || 0) > 0 ? `<div class="info-row"><span>Timbri omaggio ricevuti</span><strong>${t.timbri_omaggio}</strong></div>` : ''}
-      ${isAmb && t.data_nascita ? `<div class="info-row info-row-click" onclick="mostraInfoCompleanno()"><span>Mese compleanno <span style="font-size:11px;font-weight:600">(10% sconto)</span> <span style="font-size:10px;color:#bbb">ⓘ</span></span><strong>${new Date(t.data_nascita).toLocaleDateString('it-IT',{month:'long'})}</strong></div>` : ''}
-      ${isAmb ? `<div class="info-row"><span>Sconto compleanno ${new Date().getFullYear()}</span><strong style="color:${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? '#059669' : '#aaa'}">${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? 'Utilizzato' : 'Non ancora usato'}</strong></div>` : ''}
-      ${isAmb ? `<div class="info-row"><span>Sconti compleanno usati</span><strong>${t.sconti_compleanno_totali || 0}</strong></div>` : ''}
-      <div class="info-row"><span>Sconti tessera utilizzati</span><strong>${t.sconti_tessera_usati || 0}</strong></div>
+      <div class="info-row"><span>${_t('label_tessere_completate','Tessere completate')}</span><strong>${tessereCompletate===0?'0':tessereCompletate>=5?'🏆 '+tessereCompletate:'⭐ '+tessereCompletate}</strong></div>
+      ${(t.timbri_cartacea || 0) > 0 ? `<div class="info-row"><span>${_t('label_timbri_cartacea','Timbri da cartacea')}</span><strong>${t.timbri_cartacea}</strong></div>` : ''}
+      ${(t.timbri_omaggio || 0) > 0 ? `<div class="info-row"><span>${_t('label_timbri_omaggio','Timbri omaggio ricevuti')}</span><strong>${t.timbri_omaggio}</strong></div>` : ''}
+      ${isAmb && t.data_nascita ? `<div class="info-row info-row-click" onclick="mostraInfoCompleanno()"><span>${_t('label_mese_compleanno','Mese compleanno')} <span style="font-size:11px;font-weight:600">(10% sconto)</span> <span style="font-size:10px;color:#bbb">ⓘ</span></span><strong>${new Date(t.data_nascita).toLocaleDateString('it-IT',{month:'long'})}</strong></div>` : ''}
+      ${isAmb ? `<div class="info-row"><span>${_t('label_sconto_compleanno','Sconto compleanno')} ${new Date().getFullYear()}</span><strong style="color:${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? '#059669' : '#aaa'}">${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? 'Utilizzato' : 'Non ancora usato'}</strong></div>` : ''}
+      ${isAmb ? `<div class="info-row"><span>${_t('label_sconti_compleanno_usati','Sconti compleanno usati')}</span><strong>${t.sconti_compleanno_totali || 0}</strong></div>` : ''}
+      <div class="info-row"><span>${_t('label_sconti_tessera','Sconti tessera utilizzati')}</span><strong>${t.sconti_tessera_usati || 0}</strong></div>
 
       <div class="save-actions">
-        <button class="btn-copy" data-tip="Salva il link della tessera sul telefono" onclick="copyLink()">Salva tessera</button>
-        <button class="btn-copy" data-tip="Scrivici su WhatsApp o segnala un problema" onclick="apriContattaci()">Contattaci</button>
+        <button class="btn-copy" data-tip="${_t('btn_salva_tip','Salva il link della tessera sul telefono')}" onclick="copyLink()">${_t('btn_salva','Salva tessera')}</button>
+        <button class="btn-copy" data-tip="${_t('btn_contattaci_tip','Scrivici su WhatsApp o segnala un problema')}" onclick="apriContattaci()">${_t('btn_contattaci','Contattaci')}</button>
       </div>
       <div class="copy-toast" id="copy-toast"></div>
     </div>
     <div class="card-divider"></div>
     <div class="card-footer">
-      ${aggiornatoEl ? `Ultimo aggiornamento ${fmtDate(aggiornatoEl)}` : ''}
+      ${aggiornatoEl ? `${_t('footer_aggiornamento','Ultimo aggiornamento')} ${fmtDate(aggiornatoEl)}` : ''}
     </div>
     <div class="card-website"><a href="${_cfg.website_url || 'https://www.meridiano361.it'}" target="_blank" rel="noopener" style="color:#fff;text-decoration:none">${_cfg.website_label || 'www.meridiano361.it'}</a></div>`;
 
