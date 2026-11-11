@@ -1585,13 +1585,26 @@ let db = null;
 let _dbReady = Promise.resolve();
 try {
   db = supabase.createClient(SB_URL, SB_KEY); window._supabase = db;
-  _dbReady = db.auth.getSession().catch(() => {});
+  _dbReady = db.auth.getSession().then(({ data: { session } }) => {
+    if (!session) {
+      // Sessione Supabase scaduta — redirect a login per riautenticarsi
+      sessionStorage.setItem('m361_return_url', location.href);
+      location.href = location.origin + '/login.html';
+    }
+  }).catch(() => {});
 } catch(e) {}
 
 async function dbGet(key) {
   if (!db) return null;
   await _dbReady;
-  try { const {data} = await db.from('cassa_giorni').select('*').eq('chiave', key).maybeSingle(); return data || null; } catch(e) { return null; }
+  try {
+    const {data, error} = await db.from('cassa_giorni').select('*').eq('chiave', key).maybeSingle();
+    if (error) console.warn('[cassa] dbGet error:', error.message, '| key:', key);
+    return data || null;
+  } catch(e) {
+    console.warn('[cassa] dbGet exception:', e.message, '| key:', key);
+    return null;
+  }
 }
 async function dbGetFondo(key) {
   if (!db) return null;
