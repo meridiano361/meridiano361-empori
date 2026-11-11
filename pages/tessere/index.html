@@ -321,6 +321,15 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 .small-modal-panel{background:#fff;border-radius:14px;width:100%;max-width:400px;padding:20px}
 .small-modal-panel h3{font-size:16px;font-weight:800;color:#1e293b;margin-bottom:14px}
 
+/* ── Emoji picker ── */
+.emoji-picker-wrap{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:8px}
+.emoji-cats{display:flex;border-bottom:1px solid #e2e8f0;overflow-x:auto;scrollbar-width:none}
+.emoji-cats::-webkit-scrollbar{display:none}
+.emoji-cat-btn{padding:6px 11px;border:none;background:none;font-size:17px;cursor:pointer;border-bottom:2px solid transparent;flex-shrink:0;line-height:1}
+.emoji-cat-btn.active{border-bottom-color:#B5453A;background:#fef2f2}
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,34px);gap:1px;padding:6px;max-height:170px;overflow-y:auto}
+.emoji-btn{font-size:21px;line-height:1;width:34px;height:34px;border:none;background:none;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .08s}
+.emoji-btn:hover{background:#f1f5f9}
 /* ── Rinnovo motivo options ── */
 .rinnovo-opt{display:flex;align-items:center;gap:12px;padding:11px 14px;border:2px solid #e2e8f0;border-radius:11px;cursor:pointer;transition:border-color .12s,background .12s;margin-bottom:8px}
 .rinnovo-opt:hover{border-color:#cbd5e1;background:#f8fafc}
@@ -1335,17 +1344,37 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 </div>
 
 <div class="small-modal" id="reg-spesa-msg-modal">
-  <div class="small-modal-panel">
+  <div class="small-modal-panel" style="max-width:660px">
     <h3>Registrazione spesa — tessera digitale</h3>
-    <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5">
-      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> nome cliente &nbsp;·&nbsp;
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.6">
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> nome &nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{importo}</code> importo €&nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_msg}</code> es. "3 timbri"<br>
-      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{sconto_msg}</code> riga sconto (vuota se assente) &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{sconto_msg}</code> riga sconto &nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{tessera_url}</code> link tessera &nbsp;·&nbsp;
-      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{salva_url}</code> link salva app
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{salva_url}</code> link salva app<br>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{recensione_url}</code> link diretto alle recensioni (deeplink)
     </div>
-    <textarea class="field-textarea" id="reg-spesa-msg-testo" style="min-height:200px;margin-bottom:14px"></textarea>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+      <div style="font-size:12px;color:#94a3b8">Usa emoji WA ↓</div>
+      <button type="button" onclick="toggleRsEmojiPicker()" style="background:none;border:1px solid #e2e8f0;border-radius:8px;padding:3px 8px;font-size:13px;cursor:pointer;color:#475569">😊 Emoji</button>
+    </div>
+    <div style="position:relative">
+      <textarea class="field-textarea" id="reg-spesa-msg-testo" style="min-height:300px;margin-bottom:6px;font-family:inherit"></textarea>
+      <div id="rs-emoji-picker" style="display:none;position:absolute;bottom:calc(100% - 4px);left:0;right:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;z-index:900;box-shadow:0 8px 32px rgba(0,0,0,.15);overflow:hidden">
+        <div style="display:flex;gap:0;border-bottom:1px solid #e2e8f0;overflow-x:auto;scrollbar-width:none">
+          <button id="rs-ec-tab-0" class="ec-tab active" onclick="showRsEcTab(0)">😀</button>
+          <button id="rs-ec-tab-1" class="ec-tab" onclick="showRsEcTab(1)">👋</button>
+          <button id="rs-ec-tab-2" class="ec-tab" onclick="showRsEcTab(2)">🐶</button>
+          <button id="rs-ec-tab-3" class="ec-tab" onclick="showRsEcTab(3)">🍎</button>
+          <button id="rs-ec-tab-4" class="ec-tab" onclick="showRsEcTab(4)">⚽</button>
+          <button id="rs-ec-tab-5" class="ec-tab" onclick="showRsEcTab(5)">✈️</button>
+          <button id="rs-ec-tab-6" class="ec-tab" onclick="showRsEcTab(6)">💡</button>
+          <button id="rs-ec-tab-7" class="ec-tab" onclick="showRsEcTab(7)">❤️</button>
+        </div>
+        <div id="rs-ec-grid" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px;max-height:180px;overflow-y:auto"></div>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="closeRegSpesaMsgModal()">Annulla</button>
       <button class="btn btn-red" onclick="saveRegSpesaMsg()">Salva</button>
@@ -2248,23 +2277,25 @@ function _refreshConsentMsgPreview() {
 }
 
 // ── Messaggio registrazione spesa ─────────────────────────────────────────────
-const _REG_SPESA_MSG_DEFAULT = `Ciao {nome}! 👋\nGrazie per il tuo acquisto di €{importo}. Hai ottenuto {timbri_msg}.{sconto_msg}\n\nGuarda qui la tua tessera aggiornata:\n{tessera_url}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n{salva_url}\n\n⭐ Se vuoi dirci com'è andata la visita, apri la tessera e lascia una valutazione — la trovi in fondo alla pagina!`;
+const _REG_SPESA_MSG_DEFAULT = `Ciao {nome}! 👋\nGrazie per il tuo acquisto di €{importo}. Hai ottenuto {timbri_msg}.{sconto_msg}\n\nGuarda qui la tua tessera aggiornata:\n{tessera_url}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n{salva_url}\n\n⭐ Se vuoi lasciarci una recensione sulla tua esperienza, clicca qui:\n{recensione_url}`;
 
 function _getRegSpesaMsgTesto() {
   const tmpl = allMsgTemplates.find(t => t.tipo === 'registrazione_spesa');
   return tmpl?.testo || _REG_SPESA_MSG_DEFAULT;
 }
 function _buildRegSpesaMsg({ nome, importo, timbriNuovi, scontoGenerato, cartaUrl, salvaUrl }) {
-  const timbri_msg  = timbriNuovi + (timbriNuovi > 1 ? ' timbri' : ' timbro');
-  const sconto_msg  = scontoGenerato > 0
+  const timbri_msg      = timbriNuovi + (timbriNuovi > 1 ? ' timbri' : ' timbro');
+  const sconto_msg      = scontoGenerato > 0
     ? `\n🎉 Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : '';
+  const recensione_url  = cartaUrl + '#recensioni';
   return _getRegSpesaMsgTesto()
-    .replace(/{nome}/g,        nome || '')
-    .replace(/{importo}/g,     importo)
-    .replace(/{timbri_msg}/g,  timbri_msg)
-    .replace(/{sconto_msg}/g,  sconto_msg)
-    .replace(/{tessera_url}/g, cartaUrl)
-    .replace(/{salva_url}/g,   salvaUrl);
+    .replace(/{nome}/g,            nome || '')
+    .replace(/{importo}/g,         importo)
+    .replace(/{timbri_msg}/g,      timbri_msg)
+    .replace(/{sconto_msg}/g,      sconto_msg)
+    .replace(/{tessera_url}/g,     cartaUrl)
+    .replace(/{salva_url}/g,       salvaUrl)
+    .replace(/{recensione_url}/g,  recensione_url);
 }
 function _refreshRegSpesaMsgPreview() {
   const el = document.getElementById('reg-spesa-msg-preview');
@@ -2555,13 +2586,54 @@ function insertBcEmoji(emoji) {
   ta.focus();
 }
 
-// chiudi picker cliccando fuori
+// chiudi bc picker cliccando fuori
 document.addEventListener('click', e => {
   if (!_ecOpen) return;
   const picker = document.getElementById('bc-emoji-picker');
   if (!picker) return;
   if (!picker.contains(e.target) && !e.target.closest('[onclick*="toggleBcEmojiPicker"]')) {
     _ecOpen = false;
+    picker.style.display = 'none';
+  }
+});
+
+// ── Emoji picker per reg-spesa modal ─────────────────────────────────────────
+let _rsEcTab = 0, _rsEcOpen = false;
+
+function toggleRsEmojiPicker() {
+  const panel = document.getElementById('rs-emoji-picker');
+  _rsEcOpen = !_rsEcOpen;
+  panel.style.display = _rsEcOpen ? 'block' : 'none';
+  if (_rsEcOpen) _renderRsEcGrid(_rsEcTab);
+}
+
+function showRsEcTab(n) {
+  _rsEcTab = n;
+  document.querySelectorAll('#rs-emoji-picker .ec-tab').forEach((b, i) => b.classList.toggle('active', i === n));
+  _renderRsEcGrid(n);
+}
+
+function _renderRsEcGrid(n) {
+  const grid = document.getElementById('rs-ec-grid');
+  grid.innerHTML = _EC[n].map(e =>
+    `<button class="ec-emoji" onclick="insertRsEmoji('${e}')" title="${e}">${e}</button>`
+  ).join('');
+}
+
+function insertRsEmoji(emoji) {
+  const ta = document.getElementById('reg-spesa-msg-testo');
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  ta.value = ta.value.slice(0, s) + emoji + ta.value.slice(e);
+  ta.selectionStart = ta.selectionEnd = s + [...emoji].length;
+  ta.focus();
+}
+
+document.addEventListener('click', e => {
+  if (!_rsEcOpen) return;
+  const picker = document.getElementById('rs-emoji-picker');
+  if (!picker) return;
+  if (!picker.contains(e.target) && !e.target.closest('[onclick*="toggleRsEmojiPicker"]')) {
+    _rsEcOpen = false;
     picker.style.display = 'none';
   }
 });
