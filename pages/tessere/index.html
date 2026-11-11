@@ -286,6 +286,14 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 .stat-num.amb{color:var(--amb)}
 .stat-label{font-size:12px;font-weight:700;color:#64748b;margin-top:2px}
 .section-title{font-size:14px;font-weight:800;color:#334155;margin-bottom:10px}
+.analisi-sec{background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:12px;overflow:hidden}
+.analisi-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;font-size:14px;font-weight:800;color:#334155;user-select:none}
+.analisi-sec-hdr:active{background:#f8fafc}
+.analisi-sec-body{padding:0 14px 14px}
+.analisi-sec-body .stat-grid{margin-bottom:0}
+.analisi-chevron{font-size:11px;color:#94a3b8;transition:transform .2s}
+.analisi-sec.collapsed .analisi-chevron{transform:rotate(-90deg)}
+.analisi-sec.collapsed .analisi-sec-body{display:none}
 .analisi-table{width:100%;border-collapse:collapse;font-size:13px}
 .analisi-table th{text-align:left;padding:7px 10px;background:#f1f5f9;font-weight:800;color:#475569;font-size:11px;text-transform:uppercase}
 .analisi-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#334155}
@@ -510,27 +518,32 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 
   <!-- TAB ANALISI -->
   <div id="tab-analisi" style="display:none">
-    <div class="stat-grid" id="stat-grid">
-      <div class="stat-card"><div class="stat-num" id="stat-tot">–</div><div class="stat-label">Clienti totali</div></div>
-      <div class="stat-card"><div class="stat-num" id="stat-std">–</div><div class="stat-label">Standard</div></div>
-      <div class="stat-card"><div class="stat-num amb" id="stat-amb">–</div><div class="stat-label">Ambassador</div></div>
-      <div class="stat-card"><div class="stat-num" id="stat-completi">–</div><div class="stat-label">Tessere complete</div></div>
+    <div class="analisi-sec" id="asec-riepilogo">
+      <div class="analisi-sec-hdr" onclick="_aToggle('riepilogo')">Riepilogo <i class="fas fa-chevron-down analisi-chevron"></i></div>
+      <div class="analisi-sec-body" style="padding-top:10px">
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card"><div class="stat-num" id="stat-tot">–</div><div class="stat-label">Clienti totali</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-std">–</div><div class="stat-label">Standard</div></div>
+          <div class="stat-card"><div class="stat-num amb" id="stat-amb">–</div><div class="stat-label">Ambassador</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-completi">–</div><div class="stat-label">Tessere complete</div></div>
+        </div>
+      </div>
     </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
-      <div class="section-title">Digitale / Fisica</div>
-      <div id="stat-dig-fis"></div>
+    <div class="analisi-sec" id="asec-dig-fis">
+      <div class="analisi-sec-hdr" onclick="_aToggle('dig-fis')">Digitale / Fisica <i class="fas fa-chevron-down analisi-chevron"></i></div>
+      <div class="analisi-sec-body"><div id="stat-dig-fis"></div></div>
     </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
-      <div class="section-title">Per emporio</div>
-      <table class="analisi-table" id="emp-table"><tbody></tbody></table>
+    <div class="analisi-sec" id="asec-empori">
+      <div class="analisi-sec-hdr" onclick="_aToggle('empori')">Per emporio <i class="fas fa-chevron-down analisi-chevron"></i></div>
+      <div class="analisi-sec-body"><table class="analisi-table" id="emp-table"><tbody></tbody></table></div>
     </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
-      <div class="section-title">Fasce di età</div>
-      <div id="analisi-eta"><div style="font-size:13px;color:#94a3b8">Caricamento…</div></div>
+    <div class="analisi-sec" id="asec-eta">
+      <div class="analisi-sec-hdr" onclick="_aToggle('eta')">Fasce di età <i class="fas fa-chevron-down analisi-chevron"></i></div>
+      <div class="analisi-sec-body"><div id="analisi-eta"><div style="font-size:13px;color:#94a3b8">Caricamento…</div></div></div>
     </div>
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px">
-      <div class="section-title">Ultimi sconti utilizzati</div>
-      <div id="recent-sconti"></div>
+    <div class="analisi-sec" id="asec-sconti">
+      <div class="analisi-sec-hdr" onclick="_aToggle('sconti')">Ultimi sconti utilizzati <i class="fas fa-chevron-down analisi-chevron"></i></div>
+      <div class="analisi-sec-body"><div id="recent-sconti"></div></div>
     </div>
   </div>
 
@@ -1932,6 +1945,10 @@ function showTab(tab) {
 
 function apriDigPanel() { showSection('digitale'); }
 function chiudiDigPanel() { goHome(); }
+
+function _aToggle(id) {
+  document.getElementById('asec-' + id).classList.toggle('collapsed');
+}
 
 function _fisicaKeep() {
   document.getElementById('f-fisica-prompt').style.display = 'none';
@@ -3658,25 +3675,42 @@ function renderAnalisi() {
   document.getElementById('stat-amb').textContent = ambassador;
   document.getElementById('stat-completi').textContent = completi;
 
-  const digitali   = allTessere.filter(t => t.ha_carta_digitale).length;
-  const soloFisica = allTessere.filter(t => t.ha_carta_fisica && !t.ha_carta_digitale).length;
-  const entrambe   = allTessere.filter(t => t.ha_carta_digitale && t.ha_carta_fisica).length;
-  const pctDig = totale > 0 ? Math.round(digitali   / totale * 100) : 0;
-  const pctFis = totale > 0 ? Math.round(soloFisica / totale * 100) : 0;
-  const _bRow = (lbl, cnt, pct, col) =>
-    `<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;margin-bottom:4px">
-        <span style="color:#334155">${lbl}</span>
-        <span style="font-size:16px;font-weight:900;color:${col}">${pct}% <span style="font-size:11px;font-weight:600;color:#94a3b8">(${cnt})</span></span>
-      </div>
-      <div style="height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${col};border-radius:4px"></div>
-      </div>
+  const soloDig  = allTessere.filter(t => t.ha_carta_digitale && !t.ha_carta_fisica).length;
+  const entrambe = allTessere.filter(t => t.ha_carta_digitale &&  t.ha_carta_fisica).length;
+  const soloFis  = allTessere.filter(t => t.ha_carta_fisica   && !t.ha_carta_digitale).length;
+  const nessuna  = Math.max(0, totale - soloDig - entrambe - soloFis);
+  const digitali = soloDig + entrambe;
+  const pctDig   = totale > 0 ? Math.round(digitali / totale * 100) : 0;
+  const _PIE_SEGS = [
+    { n: soloDig,  color: '#B45050', label: 'Solo digitale' },
+    { n: entrambe, color: '#f59e0b', label: 'Entrambe'      },
+    { n: soloFis,  color: '#64748b', label: 'Solo fisica'   },
+    { n: nessuna,  color: '#e2e8f0', label: ''               },
+  ].filter(s => s.n > 0);
+  const _C = 2 * Math.PI * 35;
+  let _cum = 0;
+  const _circles = _PIE_SEGS.map(s => {
+    const len = s.n / totale * _C;
+    const off = _C * 0.25 - _cum;
+    _cum += len;
+    return `<circle cx="50" cy="50" r="35" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${len.toFixed(2)} ${_C.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"/>`;
+  }).join('');
+  const _legend = _PIE_SEGS.filter(s => s.label).map(s =>
+    `<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0;display:inline-block"></span>
+      <span style="font-size:12px;font-weight:700;color:#334155;flex:1">${s.label}</span>
+      <span style="font-size:12px;color:#64748b;white-space:nowrap">${s.n} <span style="color:#94a3b8">(${totale>0?Math.round(s.n/totale*100):0}%)</span></span>
+    </div>`
+  ).join('');
+  document.getElementById('stat-dig-fis').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;padding:4px 0">
+      <svg viewBox="0 0 100 100" width="88" height="88" style="flex-shrink:0">
+        ${totale > 0 ? _circles : `<circle cx="50" cy="50" r="35" fill="none" stroke="#e2e8f0" stroke-width="18"/>`}
+        <text x="50" y="46" text-anchor="middle" font-size="14" font-weight="900" fill="#334155">${pctDig}%</text>
+        <text x="50" y="58" text-anchor="middle" font-size="8" font-weight="600" fill="#94a3b8">digitale</text>
+      </svg>
+      <div style="flex:1">${_legend}</div>
     </div>`;
-  document.getElementById('stat-dig-fis').innerHTML =
-    _bRow('Digitale', digitali, pctDig, 'var(--red)') +
-    _bRow('Solo fisica (non ancora convertita)', soloFisica, pctFis, '#64748b') +
-    (entrambe > 0 ? `<div style="font-size:11px;color:#94a3b8;margin-top:-4px">${entrambe} tessere con entrambi i formati</div>` : '');
 
   const empori = ['cremona','casalmaggiore','viadana','reggio emilia'];
   const empLab = {cremona:'Cremona',casalmaggiore:'Casalmaggiore',viadana:'Viadana','reggio emilia':'Reggio E.'};
