@@ -605,6 +605,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
           <div class="msg-actions">
             <button class="btn btn-outline btn-sm" onclick="openConsentMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('consenso_privacy',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
           </div>
         </div>
       </div>
@@ -624,6 +625,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
           <div class="msg-actions">
             <button class="btn btn-outline btn-sm" onclick="openDigLinkMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('link_digitale',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
           </div>
         </div>
       </div>
@@ -643,6 +645,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
           <div class="msg-actions">
             <button class="btn btn-outline btn-sm" onclick="openInstallAppMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('installazione_app',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
           </div>
         </div>
       </div>
@@ -666,6 +669,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
           <div class="msg-actions">
             <button class="btn btn-outline btn-sm" onclick="openRegSpesaMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('registrazione_spesa',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
           </div>
         </div>
       </div>
@@ -686,6 +690,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
           <div class="msg-actions">
             <button class="btn btn-outline btn-sm" onclick="openOrdineRitiroMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('ordine_pronto_ritiro',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
           </div>
         </div>
       </div>
@@ -705,7 +710,18 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
           <div class="msg-actions">
             <button class="btn btn-outline btn-sm" onclick="openOrdineSpedMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('ordine_pronto_spedizione',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
           </div>
+        </div>
+      </div>
+      <!-- Pannello prova WA (condiviso tra tutti i messaggi di sistema) -->
+      <div id="prova-wa-panel" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:12px 14px;margin-top:4px">
+        <div style="font-size:12px;font-weight:800;color:#166534;margin-bottom:2px">📱 Prova WA — <span id="prova-wa-label"></span></div>
+        <div style="font-size:11px;color:#4ade80;margin-bottom:8px">Il messaggio sarà inviato con dati di esempio</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="tel" id="prova-tel" class="field-input" placeholder="es. 3401234567" style="flex:1;max-width:220px" inputmode="numeric">
+          <button class="btn btn-sm" style="background:#25d366;color:#fff;white-space:nowrap;border:none" onclick="eseguiProvaWa()"><i class="fab fa-whatsapp"></i> Invia prova</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('prova-wa-panel').style.display='none'">✕</button>
         </div>
       </div>
     </div>
@@ -2315,6 +2331,80 @@ function _refreshConsentMsgPreview() {
   _refreshRegSpesaMsgPreview();
   _refreshOrdineRitiroMsgPreview();
   _refreshOrdineSpedMsgPreview();
+}
+
+// ── Prova WA messaggi di sistema ─────────────────────────────────────────────
+let _provaWaTipo = '';
+
+const _PROVA_LABELS = {
+  consenso_privacy:        'Consenso privacy WA',
+  link_digitale:           'Link tessera digitale',
+  installazione_app:       'Istruzioni installazione app',
+  registrazione_spesa:     'Registrazione spesa',
+  ordine_pronto_ritiro:    'Ordine pronto (ritiro)',
+  ordine_pronto_spedizione:'Ordine pronto (spedizione)',
+};
+
+function apriProvaWa(tipo, btn) {
+  _provaWaTipo = tipo;
+  const panel = document.getElementById('prova-wa-panel');
+  const lbl   = document.getElementById('prova-wa-label');
+  if (lbl) lbl.textContent = _PROVA_LABELS[tipo] || tipo;
+  // Pre-fill phone from localStorage
+  const telInput = document.getElementById('prova-tel');
+  if (telInput && !telInput.value) telInput.value = localStorage.getItem('m361_prova_tel') || '';
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function _buildProvaMsgTesto(tipo) {
+  const nome    = _user?.nome || 'Mario';
+  const emporio = _user?.emporio || 'Cremona';
+  const baseUrl = location.origin;
+  const esUrl   = `${baseUrl}/tessera/esempio`;
+  const salvaUrl = `${baseUrl}/salva-tessera`;
+
+  if (tipo === 'registrazione_spesa') {
+    return _buildRegSpesaMsg({
+      nome, importo: '52.00', timbriNuovi: 2, timbriAttuali: 7,
+      scontoGenerato: 0, cartaUrl: esUrl, salvaUrl,
+    });
+  }
+  if (tipo === 'consenso_privacy') {
+    return (_getConsentMsgTesto()||'')
+      .replace(/{nome}/g, nome).replace(/{url}/g, `${baseUrl}/pages/consenso/?t=esempio`);
+  }
+  if (tipo === 'link_digitale') {
+    return (_getDigLinkMsgTesto()||'')
+      .replace(/{nome}/g, nome).replace(/{url}/g, esUrl);
+  }
+  if (tipo === 'installazione_app') {
+    return (_getInstallAppMsgTesto()||'')
+      .replace(/{nome}/g, nome).replace(/{url}/g, salvaUrl);
+  }
+  if (tipo === 'ordine_pronto_ritiro') {
+    return (_getOrdineRitiroMsgTesto()||'')
+      .replace(/{nome}/g, nome)
+      .replace(/{prodotto}/g, ' (es. 2 kg di caffè)')
+      .replace(/{emporio}/g, emporio);
+  }
+  if (tipo === 'ordine_pronto_spedizione') {
+    return (_getOrdineSpedMsgTesto()||'')
+      .replace(/{nome}/g, nome)
+      .replace(/{prodotto}/g, ' (es. 2 kg di caffè)');
+  }
+  return '';
+}
+
+function eseguiProvaWa() {
+  const telInput = document.getElementById('prova-tel');
+  const tel = (telInput?.value || '').replace(/\D/g,'');
+  if (!tel || tel.length < 9) { showToast('Inserisci un numero di telefono valido', 'error'); return; }
+  localStorage.setItem('m361_prova_tel', telInput.value.trim());
+  const testo = _buildProvaMsgTesto(_provaWaTipo);
+  if (!testo) { showToast('Messaggio non disponibile', 'error'); return; }
+  window.open(_waUrl(tel, testo), '_blank');
+  document.getElementById('prova-wa-panel').style.display = 'none';
 }
 
 // ── Tessera Config (admin) ────────────────────────────────────────────────────
