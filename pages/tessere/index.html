@@ -1374,10 +1374,12 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> nome &nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{importo}</code> importo €&nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_msg}</code> es. "3 timbri"<br>
-      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{sconto_msg}</code> riga sconto &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_totali}</code> timbri attuali es. 3 &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_max}</code> timbri max es. 12<br>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{sconto_msg}</code> riga sconto (vuota se assente) &nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{tessera_url}</code> link tessera &nbsp;·&nbsp;
       <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{salva_url}</code> link salva app<br>
-      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{recensione_url}</code> link diretto alle recensioni (deeplink)
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{recensione_url}</code> link diretto alle recensioni
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
       <div style="font-size:12px;color:#94a3b8">Usa emoji WA ↓</div>
@@ -2388,25 +2390,31 @@ async function saveTesseraConfig(tipo) {
 }
 
 // ── Messaggio registrazione spesa ─────────────────────────────────────────────
-const _REG_SPESA_MSG_DEFAULT = `Ciao {nome}! 👋\nGrazie per il tuo acquisto di €{importo}. Hai ottenuto {timbri_msg}.{sconto_msg}\n\nGuarda qui la tua tessera aggiornata:\n{tessera_url}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n{salva_url}\n\n⭐ Se vuoi lasciarci una recensione sulla tua esperienza, clicca qui:\n{recensione_url}`;
+const _REG_SPESA_MSG_DEFAULT = `Ciao {nome}! 👋\n\nGrazie per il tuo acquisto di €{importo}. 🙏🏻\n\nHai ottenuto {timbri_msg}.\nOra hai {timbri_totali}/{timbri_max} timbri. 🤩\n{sconto_msg}\n👉🏼 Guarda qui la tua tessera aggiornata:\n{tessera_url}\n\n🌟 Dicci come è andata oggi. Lascia una recensione: {recensione_url}\n\n🔹 Per salvare la tessera sul tuo dispositivo guarda qui:\n{salva_url}\n\nA presto! 💚`;
 
 function _getRegSpesaMsgTesto() {
   const tmpl = allMsgTemplates.find(t => t.tipo === 'registrazione_spesa');
   return tmpl?.testo || _REG_SPESA_MSG_DEFAULT;
 }
-function _buildRegSpesaMsg({ nome, importo, timbriNuovi, scontoGenerato, cartaUrl, salvaUrl }) {
-  const timbri_msg      = timbriNuovi + (timbriNuovi > 1 ? ' timbri' : ' timbro');
-  const sconto_msg      = scontoGenerato > 0
-    ? `\n🎉 Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : '';
-  const recensione_url  = cartaUrl + '#recensioni';
+function _buildRegSpesaMsg({ nome, importo, timbriNuovi, timbriAttuali, scontoGenerato, cartaUrl, salvaUrl }) {
+  const timbri_msg     = timbriNuovi + (timbriNuovi > 1 ? ' timbri' : ' timbro');
+  const timbri_totali  = Math.min(timbriAttuali ?? timbriNuovi, DIG_TIMBRI_MAX);
+  const timbri_max     = DIG_TIMBRI_MAX;
+  // Quando non c'è sconto, stringa vuota — il template collassa la riga senza lasciare spazi extra
+  const sconto_msg     = scontoGenerato > 0
+    ? `🎉 Hai €${scontoGenerato} di sconto da usare sulla prossima spesa!\n` : '';
+  const recensione_url = cartaUrl + '#recensioni';
   return _getRegSpesaMsgTesto()
-    .replace(/{nome}/g,            nome || '')
-    .replace(/{importo}/g,         importo)
-    .replace(/{timbri_msg}/g,      timbri_msg)
-    .replace(/{sconto_msg}/g,      sconto_msg)
-    .replace(/{tessera_url}/g,     cartaUrl)
-    .replace(/{salva_url}/g,       salvaUrl)
-    .replace(/{recensione_url}/g,  recensione_url);
+    .replace(/{nome}/g,           nome || '')
+    .replace(/{importo}/g,        importo)
+    .replace(/{timbri_msg}/g,     timbri_msg)
+    .replace(/{timbri_totali}/g,  timbri_totali)
+    .replace(/{timbri_max}/g,     timbri_max)
+    .replace(/{sconto_msg}/g,     sconto_msg)
+    .replace(/{tessera_url}/g,    cartaUrl)
+    .replace(/{salva_url}/g,      salvaUrl)
+    .replace(/{recensione_url}/g, recensione_url)
+    .replace(/\n\n\n+/g,         '\n\n');  // collassa righe vuote multiple
 }
 function _refreshRegSpesaMsgPreview() {
   const el = document.getElementById('reg-spesa-msg-preview');
@@ -6506,6 +6514,7 @@ async function salvaSpesa() {
     nome: c?.nome || '',
     importo: importo.toFixed(2),
     timbriNuovi,
+    timbriAttuali,
     scontoGenerato,
     cartaUrl,
     salvaUrl: _salvaUrl,
