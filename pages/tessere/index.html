@@ -632,6 +632,29 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
         </div>
       </div>
+      <div class="msg-card collapsed" id="reg-spesa-msg-card">
+        <div class="msg-card-hdr" onclick="this.closest('.msg-card').classList.toggle('collapsed')">
+          <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
+            <div class="msg-tipo" style="margin-bottom:0">registrazione_spesa</div>
+            <span style="font-size:13px;font-weight:800;color:#1e293b">Registrazione spesa (tessera digitale)</span>
+          </div>
+          <i class="fas fa-chevron-down msg-chevron"></i>
+        </div>
+        <div class="msg-body" style="margin-top:10px">
+          <div class="msg-testo" id="reg-spesa-msg-preview" style="white-space:pre-wrap;margin-bottom:8px"></div>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">
+            Variabili: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">{nome}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{importo}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{timbri_msg}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{sconto_msg}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{tessera_url}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{salva_url}</code>
+          </div>
+          <div class="msg-actions">
+            <button class="btn btn-outline btn-sm" onclick="openRegSpesaMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+          </div>
+        </div>
+      </div>
       <div class="msg-card collapsed" id="ordine-ritiro-msg-card">
         <div class="msg-card-hdr" onclick="this.closest('.msg-card').classList.toggle('collapsed')">
           <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
@@ -1307,6 +1330,25 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="closeOrdineRitiroMsgModal()">Annulla</button>
       <button class="btn btn-red" onclick="saveOrdineRitiroMsg()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="small-modal" id="reg-spesa-msg-modal">
+  <div class="small-modal-panel">
+    <h3>Registrazione spesa — tessera digitale</h3>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.5">
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> nome cliente &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{importo}</code> importo €&nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_msg}</code> es. "3 timbri"<br>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{sconto_msg}</code> riga sconto (vuota se assente) &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{tessera_url}</code> link tessera &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{salva_url}</code> link salva app
+    </div>
+    <textarea class="field-textarea" id="reg-spesa-msg-testo" style="min-height:200px;margin-bottom:14px"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeRegSpesaMsgModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveRegSpesaMsg()">Salva</button>
     </div>
   </div>
 </div>
@@ -2200,8 +2242,60 @@ function _refreshConsentMsgPreview() {
   if (el) el.textContent = _getConsentMsgTesto();
   _refreshDigLinkMsgPreview();
   _refreshInstallAppMsgPreview();
+  _refreshRegSpesaMsgPreview();
   _refreshOrdineRitiroMsgPreview();
   _refreshOrdineSpedMsgPreview();
+}
+
+// ── Messaggio registrazione spesa ─────────────────────────────────────────────
+const _REG_SPESA_MSG_DEFAULT = `Ciao {nome}! 👋\nGrazie per il tuo acquisto di €{importo}. Hai ottenuto {timbri_msg}.{sconto_msg}\n\nGuarda qui la tua tessera aggiornata:\n{tessera_url}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n{salva_url}\n\n⭐ Se vuoi dirci com'è andata la visita, apri la tessera e lascia una valutazione — la trovi in fondo alla pagina!`;
+
+function _getRegSpesaMsgTesto() {
+  const tmpl = allMsgTemplates.find(t => t.tipo === 'registrazione_spesa');
+  return tmpl?.testo || _REG_SPESA_MSG_DEFAULT;
+}
+function _buildRegSpesaMsg({ nome, importo, timbriNuovi, scontoGenerato, cartaUrl, salvaUrl }) {
+  const timbri_msg  = timbriNuovi + (timbriNuovi > 1 ? ' timbri' : ' timbro');
+  const sconto_msg  = scontoGenerato > 0
+    ? `\n🎉 Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : '';
+  return _getRegSpesaMsgTesto()
+    .replace(/{nome}/g,        nome || '')
+    .replace(/{importo}/g,     importo)
+    .replace(/{timbri_msg}/g,  timbri_msg)
+    .replace(/{sconto_msg}/g,  sconto_msg)
+    .replace(/{tessera_url}/g, cartaUrl)
+    .replace(/{salva_url}/g,   salvaUrl);
+}
+function _refreshRegSpesaMsgPreview() {
+  const el = document.getElementById('reg-spesa-msg-preview');
+  if (el) el.textContent = _getRegSpesaMsgTesto();
+}
+function openRegSpesaMsgModal() {
+  document.getElementById('reg-spesa-msg-testo').value = _getRegSpesaMsgTesto();
+  document.getElementById('reg-spesa-msg-modal').classList.add('open');
+}
+function closeRegSpesaMsgModal() {
+  document.getElementById('reg-spesa-msg-modal').classList.remove('open');
+}
+async function saveRegSpesaMsg() {
+  const testo = document.getElementById('reg-spesa-msg-testo').value.trim();
+  if (!testo) { showToast('Inserisci il testo'); return; }
+  const existing = allMsgTemplates.find(t => t.tipo === 'registrazione_spesa');
+  if (existing) {
+    await _sb.from('tessere_messaggi').update({ testo, updated_at: new Date().toISOString() }).eq('id', existing.id);
+    existing.testo = testo;
+  } else {
+    const { data } = await _sb.from('tessere_messaggi').insert({
+      tipo: 'registrazione_spesa',
+      titolo: 'Registrazione spesa (tessera digitale)',
+      testo,
+      destinatari: 'tutti',
+    }).select().single();
+    if (data) allMsgTemplates.push(data);
+  }
+  closeRegSpesaMsgModal();
+  _refreshRegSpesaMsgPreview();
+  showToast('Messaggio aggiornato ✓');
 }
 function openConsentMsgModal() {
   document.getElementById('consent-msg-testo').value = _getConsentMsgTesto();
@@ -6225,7 +6319,14 @@ async function salvaSpesa() {
     ? `${location.origin}/tessera/${t.slug}`
     : `${location.origin}/pages/tessere/carta.html?t=${t.token || ''}`;
   const _salvaUrl = `${location.origin}/salva-tessera`;
-  const _waMsg = `Ciao ${c?.nome||''}! 👋\nGrazie per il tuo acquisto di €${importo.toFixed(2)}. Hai ottenuto ${timbriNuovi} timbr${timbriNuovi>1?'i':'o'}.${scontoGenerato > 0 ? `\n🎉 Hai €${scontoGenerato} di sconto che puoi utilizzare sulla prossima spesa. A presto!` : ''}\n\nGuarda qui la tua tessera aggiornata:\n${cartaUrl}\n\nPuoi salvare la tua tessera sul dispositivo, scopri qui come:\n${_salvaUrl}\n\n⭐ Se vuoi dirci com'è andata la visita, apri la tessera e lascia una valutazione — la trovi in fondo alla pagina!`;
+  const _waMsg = _buildRegSpesaMsg({
+    nome: c?.nome || '',
+    importo: importo.toFixed(2),
+    timbriNuovi,
+    scontoGenerato,
+    cartaUrl,
+    salvaUrl: _salvaUrl,
+  });
   const waWin = (tel && t?.token) ? window.open(_waUrl(tel, _waMsg), '_blank') : null;
 
   try {
