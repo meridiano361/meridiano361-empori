@@ -369,13 +369,23 @@ async function loadCard() {
       cartaceeCompletate = ex.filter(x => x.eu).length;
     }
   } catch(e) {}
+
+  // Carica configurazione tessera dal DB (tipo standard/ambassador)
+  let _cfg = {};
+  try {
+    const { data: cfgRow } = await sb.from('tessera_config')
+      .select('*').eq('tipo', t.tipo === 'ambassador' ? 'ambassador' : 'standard').maybeSingle();
+    if (cfgRow) _cfg = cfgRow;
+  } catch(e) {}
+  const TIMBRI_MAX       = _cfg.timbri_max      ?? 12;  // shadowa la costante globale
+  const EURO_PER_TIMBRO  = _cfg.euro_per_timbro ?? (t.tipo === 'ambassador' ? 30 : 25);
+  const SCONTO_CICLO     = _cfg.sconto_ciclo    ?? (t.tipo === 'ambassador' ? 25 : 20);
+
   const nome = t.nome || 'Cliente';
   const timbri = t.timbri_attuali || 0;
   const tessereCompletate = (t.cicli_completati || 0) + (timbri >= TIMBRI_MAX ? 1 : 0) + cartaceeCompletate;
   const saldo = t.saldo_sconto || 0;
   const totale = t.totale_spesa || 0;
-  const EURO_PER_TIMBRO = euroPerTimbro(t.tipo);
-  const SCONTO_CICLO    = scontoCiclo(t.tipo);
   const timbriRimanenti = TIMBRI_MAX - timbri;
   const euroRimanenti = timbriRimanenti * EURO_PER_TIMBRO;
   const pct = Math.min((timbri / TIMBRI_MAX) * 100, 100);
@@ -400,7 +410,20 @@ async function loadCard() {
   const isAmb = t.tipo === 'ambassador';
   if (isAmb) { document.body.classList.add('amb'); card.classList.add('amb'); }
 
-  const stampImg = isAmb ? '/assets/images/simbolo_m361.png' : '/assets/images/simbolo_m361_std.png';
+  // Applica colore configurato via CSS dinamico
+  if (_cfg.colore) {
+    const _c = _cfg.colore;
+    const _st = document.createElement('style');
+    if (!isAmb) {
+      _st.textContent = `.stamps-grid{background:${_c}!important}.btn-copy{background:${_c}!important}.progress-bar-fill{background:${_c}!important}.progress-text strong,.copy-toast,.card-subtitle,.greeting strong{color:${_c}!important}.card-website{background:${_c}!important}`;
+    } else {
+      _st.textContent = `.card.amb .stamps-grid{background:${_c}!important}.card.amb .btn-copy{background:${_c}!important}.card.amb .progress-bar-fill{background:${_c}!important}.card.amb .progress-text strong{color:${_c}!important}.card.amb .card-website{background:${_c}!important}`;
+    }
+    document.head.appendChild(_st);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', _c);
+  }
+
+  const stampImg = _cfg.stamp_image_url || (isAmb ? '/assets/images/simbolo_m361.png' : '/assets/images/simbolo_m361_std.png');
   const stampsHtml = Array.from({ length: TIMBRI_MAX }, (_, i) =>
     i < timbri
       ? `<div class="stamp filled"><img src="${stampImg}" alt=""></div>`
