@@ -24,8 +24,8 @@ BEGIN
       FOR INSERT TO anon WITH CHECK (true);
     CREATE POLICY "anon_select_reviews" ON public.tessera_recensioni
       FOR SELECT TO anon USING (true);
-    CREATE POLICY "auth_delete_reviews" ON public.tessera_recensioni
-      FOR DELETE TO authenticated USING (true);
+    CREATE POLICY "anon_delete_reviews" ON public.tessera_recensioni
+      FOR DELETE TO anon USING (true);
 
   ELSE
     -- Aggiornamento schema esistente (v1 → v2)
