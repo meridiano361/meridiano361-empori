@@ -517,6 +517,10 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <div class="stat-card"><div class="stat-num" id="stat-completi">–</div><div class="stat-label">Tessere complete</div></div>
     </div>
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
+      <div class="section-title">Digitale / Fisica</div>
+      <div id="stat-dig-fis"></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px">
       <div class="section-title">Per emporio</div>
       <table class="analisi-table" id="emp-table"><tbody></tbody></table>
     </div>
@@ -3636,6 +3640,26 @@ function renderAnalisi() {
   document.getElementById('stat-std').textContent = standard;
   document.getElementById('stat-amb').textContent = ambassador;
   document.getElementById('stat-completi').textContent = completi;
+
+  const digitali   = allTessere.filter(t => t.ha_carta_digitale).length;
+  const soloFisica = allTessere.filter(t => t.ha_carta_fisica && !t.ha_carta_digitale).length;
+  const entrambe   = allTessere.filter(t => t.ha_carta_digitale && t.ha_carta_fisica).length;
+  const pctDig = totale > 0 ? Math.round(digitali   / totale * 100) : 0;
+  const pctFis = totale > 0 ? Math.round(soloFisica / totale * 100) : 0;
+  const _bRow = (lbl, cnt, pct, col) =>
+    `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;margin-bottom:4px">
+        <span style="color:#334155">${lbl}</span>
+        <span style="font-size:16px;font-weight:900;color:${col}">${pct}% <span style="font-size:11px;font-weight:600;color:#94a3b8">(${cnt})</span></span>
+      </div>
+      <div style="height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${col};border-radius:4px"></div>
+      </div>
+    </div>`;
+  document.getElementById('stat-dig-fis').innerHTML =
+    _bRow('Digitale', digitali, pctDig, 'var(--red)') +
+    _bRow('Solo fisica (non ancora convertita)', soloFisica, pctFis, '#64748b') +
+    (entrambe > 0 ? `<div style="font-size:11px;color:#94a3b8;margin-top:-4px">${entrambe} tessere con entrambi i formati</div>` : '');
 
   const empori = ['cremona','casalmaggiore','viadana','reggio emilia'];
   const empLab = {cremona:'Cremona',casalmaggiore:'Casalmaggiore',viadana:'Viadana','reggio emilia':'Reggio E.'};
