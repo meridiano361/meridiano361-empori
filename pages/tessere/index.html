@@ -380,6 +380,13 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 .tcfg-field{margin-bottom:10px}
 .tcfg-color-row{display:flex;gap:8px;align-items:center}
 .tcfg-color-row input[type="color"]{width:44px;height:36px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;padding:2px;flex-shrink:0}
+.tcfg-sec{margin-bottom:6px}
+.tcfg-sec-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;padding:7px 10px;background:#f1f5f9;border-radius:7px;user-select:none}
+.tcfg-sec-hdr:active{background:#e2e8f0}
+.tcfg-sec-chevron{font-size:10px;color:#94a3b8;transition:transform .2s;flex-shrink:0}
+.tcfg-sec.collapsed .tcfg-sec-chevron{transform:rotate(-90deg)}
+.tcfg-sec.collapsed .tcfg-sec-body{display:none}
+.tcfg-sec-body{padding:8px 2px 2px}
 
 /* ── Consensi ── */
 .cons-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -518,7 +525,7 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
 
   <!-- TAB ANALISI -->
   <div id="tab-analisi" style="display:none">
-    <div class="analisi-sec" id="asec-riepilogo">
+    <div class="analisi-sec collapsed" id="asec-riepilogo">
       <div class="analisi-sec-hdr" onclick="_aToggle('riepilogo')">Riepilogo <i class="fas fa-chevron-down analisi-chevron"></i></div>
       <div class="analisi-sec-body" style="padding-top:10px">
         <div class="stat-grid" id="stat-grid">
@@ -529,19 +536,23 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
         </div>
       </div>
     </div>
-    <div class="analisi-sec" id="asec-dig-fis">
+    <div class="analisi-sec collapsed" id="asec-std-amb">
+      <div class="analisi-sec-hdr" onclick="_aToggle('std-amb')">Standard / Ambassador <i class="fas fa-chevron-down analisi-chevron"></i></div>
+      <div class="analisi-sec-body"><div id="stat-std-amb"></div></div>
+    </div>
+    <div class="analisi-sec collapsed" id="asec-dig-fis">
       <div class="analisi-sec-hdr" onclick="_aToggle('dig-fis')">Digitale / Fisica <i class="fas fa-chevron-down analisi-chevron"></i></div>
       <div class="analisi-sec-body"><div id="stat-dig-fis"></div></div>
     </div>
-    <div class="analisi-sec" id="asec-empori">
+    <div class="analisi-sec collapsed" id="asec-empori">
       <div class="analisi-sec-hdr" onclick="_aToggle('empori')">Per emporio <i class="fas fa-chevron-down analisi-chevron"></i></div>
       <div class="analisi-sec-body"><table class="analisi-table" id="emp-table"><tbody></tbody></table></div>
     </div>
-    <div class="analisi-sec" id="asec-eta">
+    <div class="analisi-sec collapsed" id="asec-eta">
       <div class="analisi-sec-hdr" onclick="_aToggle('eta')">Fasce di età <i class="fas fa-chevron-down analisi-chevron"></i></div>
       <div class="analisi-sec-body"><div id="analisi-eta"><div style="font-size:13px;color:#94a3b8">Caricamento…</div></div></div>
     </div>
-    <div class="analisi-sec" id="asec-sconti">
+    <div class="analisi-sec collapsed" id="asec-sconti">
       <div class="analisi-sec-hdr" onclick="_aToggle('sconti')">Ultimi sconti utilizzati <i class="fas fa-chevron-down analisi-chevron"></i></div>
       <div class="analisi-sec-body"><div id="recent-sconti"></div></div>
     </div>
@@ -2460,128 +2471,98 @@ async function _ensureTesseraConfig() {
 
 function _tcfgFieldHtml(tipo) {
   const c = _tesseraConfig[tipo] || {};
-  const defColore  = tipo === 'ambassador' ? '#111111' : '#B45050';
-  const defEuro    = tipo === 'ambassador' ? 30 : 25;
-  const defSconto  = tipo === 'ambassador' ? 25 : 20;
-  const defImg     = tipo === 'ambassador' ? '/assets/images/simbolo_m361.png' : '/assets/images/simbolo_m361_std.png';
-  const defTitolo  = tipo === 'ambassador' ? 'TESSERA AMBASSADOR' : 'Tessera di';
-  return `
-    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Grafica e numeri</div>
+  const defColore = tipo === 'ambassador' ? '#111111' : '#B45050';
+  const defEuro   = tipo === 'ambassador' ? 30 : 25;
+  const defSconto = tipo === 'ambassador' ? 25 : 20;
+  const defImg    = tipo === 'ambassador' ? '/assets/images/simbolo_m361.png' : '/assets/images/simbolo_m361_std.png';
+  const defTitolo = tipo === 'ambassador' ? 'TESSERA AMBASSADOR' : 'Tessera di';
+  const _sec = (title, body, note='') =>
+    `<div class="tcfg-sec collapsed">
+      <div class="tcfg-sec-hdr" onclick="this.closest('.tcfg-sec').classList.toggle('collapsed')">
+        <span>${title}${note ? ` <span style="font-weight:400;text-transform:none;font-size:10px;color:#b0bec5">${note}</span>` : ''}</span>
+        <i class="fas fa-chevron-down tcfg-sec-chevron"></i>
+      </div>
+      <div class="tcfg-sec-body">${body}</div>
+    </div>`;
+  return _sec('Grafica e numeri', `
     <div class="tcfg-field">
       <div class="field-label">Colore principale</div>
       <div class="tcfg-color-row">
-        <input type="color" id="tcfg-${tipo}-colore" value="${c.colore || defColore}"
-          oninput="document.getElementById('tcfg-${tipo}-colore-hex').value=this.value">
-        <input type="text" id="tcfg-${tipo}-colore-hex" class="field-input" value="${c.colore || defColore}"
-          style="font-family:monospace;max-width:100px"
-          oninput="document.getElementById('tcfg-${tipo}-colore').value=this.value">
+        <input type="color" id="tcfg-${tipo}-colore" value="${c.colore || defColore}" oninput="document.getElementById('tcfg-${tipo}-colore-hex').value=this.value">
+        <input type="text" id="tcfg-${tipo}-colore-hex" class="field-input" value="${c.colore || defColore}" style="font-family:monospace;max-width:100px" oninput="document.getElementById('tcfg-${tipo}-colore').value=this.value">
       </div>
     </div>
-    <div class="tcfg-field">
-      <div class="field-label">Timbri per ciclo</div>
-      <input type="number" id="tcfg-${tipo}-timbri" class="field-input" value="${c.timbri_max ?? 12}" min="1" max="30">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">€ per timbro</div>
-      <input type="number" id="tcfg-${tipo}-euro" class="field-input" value="${c.euro_per_timbro ?? defEuro}" min="1" step="0.5">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Sconto ciclo completo (€)</div>
-      <input type="number" id="tcfg-${tipo}-sconto" class="field-input" value="${c.sconto_ciclo ?? defSconto}" min="1" step="0.5">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">URL immagine timbro <span style="color:#94a3b8;font-weight:400">(vuoto = default)</span></div>
-      <input type="text" id="tcfg-${tipo}-img" class="field-input" value="${c.stamp_image_url || ''}" placeholder="${defImg}">
-    </div>
-    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Testi — Intestazione e footer</div>
-    <div class="tcfg-field">
-      <div class="field-label">Titolo sopra il nome cliente</div>
-      <input type="text" id="tcfg-${tipo}-titolo" class="field-input" value="${c.titolo || defTitolo}" placeholder="${defTitolo}">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">URL sito web (footer tessera)</div>
-      <input type="text" id="tcfg-${tipo}-website-url" class="field-input" value="${c.website_url || 'https://www.meridiano361.it'}" placeholder="https://www.meridiano361.it">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Testo link sito web</div>
-      <input type="text" id="tcfg-${tipo}-website-label" class="field-input" value="${c.website_label || 'www.meridiano361.it'}" placeholder="www.meridiano361.it">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Footer — testo data aggiornamento</div>
-      <input type="text" id="tcfg-${tipo}-t-footer_aggiornamento" class="field-input" value="${c.testi?.footer_aggiornamento || ''}" placeholder="Ultimo aggiornamento">
-    </div>
-    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Testi — Banner sconto</div>
-    <div class="tcfg-field">
-      <div class="field-label">Testo sotto l'importo sconto</div>
-      <input type="text" id="tcfg-${tipo}-sconto-sub" class="field-input" value="${c.testo_sconto_sub || 'su una prossima spesa a tua scelta.'}" placeholder="su una prossima spesa a tua scelta.">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Intro sconto ("Hai uno sconto di")</div>
-      <input type="text" id="tcfg-${tipo}-t-sconto_intro" class="field-input" value="${c.testi?.sconto_intro || ''}" placeholder="Hai uno sconto di">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Link "Come usarlo"</div>
-      <input type="text" id="tcfg-${tipo}-t-sconto_come_usarlo" class="field-input" value="${c.testi?.sconto_come_usarlo || ''}" placeholder="Come usarlo ⓘ">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Dettaglio come usarlo lo sconto</div>
-      <input type="text" id="tcfg-${tipo}-t-sconto_dettaglio" class="field-input" value="${c.testi?.sconto_dettaglio || ''}" placeholder="Quando vuoi utilizzare lo sconto, comunicalo all'operatore in cassa prima del pagamento.">
-    </div>
-    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Testi — Progressi <span style="font-weight:400;text-transform:none;font-size:10px">Variabili: {timbri} {max} {sconto} {euro_timbro} {rimanenti}</span></div>
-    <div class="tcfg-field">
-      <div class="field-label">Tessera completa</div>
-      <input type="text" id="tcfg-${tipo}-t-progresso_completa" class="field-input" value="${c.testi?.progresso_completa || ''}" placeholder="Tessera completa! Hai guadagnato €{sconto} di sconto 🎉">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Zero timbri (primo accesso)</div>
-      <input type="text" id="tcfg-${tipo}-t-progresso_zero" class="field-input" value="${c.testi?.progresso_zero || ''}" placeholder="Inizia a collezionare timbri — ogni €{euro_timbro} di acquisto = 1 timbro">
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Testo progresso intermedio</div>
-      <input type="text" id="tcfg-${tipo}-t-progresso_testo" class="field-input" value="${c.testi?.progresso_testo || ''}" placeholder="{timbri} di {max} timbri · ancora €{rimanenti} per completare">
-    </div>
-    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Testi — Pulsanti</div>
-    <div class="tcfg-field">
-      <div class="field-label">Pulsante "I tuoi dati"</div>
+    <div class="tcfg-field"><div class="field-label">Timbri per ciclo</div>
+      <input type="number" id="tcfg-${tipo}-timbri" class="field-input" value="${c.timbri_max ?? 12}" min="1" max="30"></div>
+    <div class="tcfg-field"><div class="field-label">€ per timbro</div>
+      <input type="number" id="tcfg-${tipo}-euro" class="field-input" value="${c.euro_per_timbro ?? defEuro}" min="1" step="0.5"></div>
+    <div class="tcfg-field"><div class="field-label">Sconto ciclo completo (€)</div>
+      <input type="number" id="tcfg-${tipo}-sconto" class="field-input" value="${c.sconto_ciclo ?? defSconto}" min="1" step="0.5"></div>
+    <div class="tcfg-field"><div class="field-label">URL immagine timbro <span style="color:#94a3b8;font-weight:400">(vuoto = default)</span></div>
+      <input type="text" id="tcfg-${tipo}-img" class="field-input" value="${c.stamp_image_url || ''}" placeholder="${defImg}"></div>
+  `) +
+  _sec('Testi — Intestazione e footer', `
+    <div class="tcfg-field"><div class="field-label">Titolo sopra il nome cliente</div>
+      <input type="text" id="tcfg-${tipo}-titolo" class="field-input" value="${c.titolo || defTitolo}" placeholder="${defTitolo}"></div>
+    <div class="tcfg-field"><div class="field-label">URL sito web (footer tessera)</div>
+      <input type="text" id="tcfg-${tipo}-website-url" class="field-input" value="${c.website_url || 'https://www.meridiano361.it'}" placeholder="https://www.meridiano361.it"></div>
+    <div class="tcfg-field"><div class="field-label">Testo link sito web</div>
+      <input type="text" id="tcfg-${tipo}-website-label" class="field-input" value="${c.website_label || 'www.meridiano361.it'}" placeholder="www.meridiano361.it"></div>
+    <div class="tcfg-field"><div class="field-label">Footer — testo data aggiornamento</div>
+      <input type="text" id="tcfg-${tipo}-t-footer_aggiornamento" class="field-input" value="${c.testi?.footer_aggiornamento || ''}" placeholder="Ultimo aggiornamento"></div>
+  `) +
+  _sec('Testi — Banner sconto', `
+    <div class="tcfg-field"><div class="field-label">Testo sotto l'importo sconto</div>
+      <input type="text" id="tcfg-${tipo}-sconto-sub" class="field-input" value="${c.testo_sconto_sub || 'su una prossima spesa a tua scelta.'}" placeholder="su una prossima spesa a tua scelta."></div>
+    <div class="tcfg-field"><div class="field-label">Intro ("Hai uno sconto di")</div>
+      <input type="text" id="tcfg-${tipo}-t-sconto_intro" class="field-input" value="${c.testi?.sconto_intro || ''}" placeholder="Hai uno sconto di"></div>
+    <div class="tcfg-field"><div class="field-label">Link "Come usarlo"</div>
+      <input type="text" id="tcfg-${tipo}-t-sconto_come_usarlo" class="field-input" value="${c.testi?.sconto_come_usarlo || ''}" placeholder="Come usarlo ⓘ"></div>
+    <div class="tcfg-field"><div class="field-label">Dettaglio come usarlo</div>
+      <input type="text" id="tcfg-${tipo}-t-sconto_dettaglio" class="field-input" value="${c.testi?.sconto_dettaglio || ''}" placeholder="Quando vuoi utilizzare lo sconto, comunicalo all'operatore in cassa prima del pagamento."></div>
+  `) +
+  _sec('Testi — Progressi', `
+    <div class="tcfg-field"><div class="field-label">Tessera completa</div>
+      <input type="text" id="tcfg-${tipo}-t-progresso_completa" class="field-input" value="${c.testi?.progresso_completa || ''}" placeholder="Tessera completa! Hai guadagnato €{sconto} di sconto 🎉"></div>
+    <div class="tcfg-field"><div class="field-label">Zero timbri (primo accesso)</div>
+      <input type="text" id="tcfg-${tipo}-t-progresso_zero" class="field-input" value="${c.testi?.progresso_zero || ''}" placeholder="Inizia a collezionare timbri — ogni €{euro_timbro} di acquisto = 1 timbro"></div>
+    <div class="tcfg-field"><div class="field-label">Testo progresso intermedio</div>
+      <input type="text" id="tcfg-${tipo}-t-progresso_testo" class="field-input" value="${c.testi?.progresso_testo || ''}" placeholder="{timbri} di {max} timbri · ancora €{rimanenti} per completare"></div>
+  `, 'Variabili: {timbri} {max} {sconto} {euro_timbro} {rimanenti}') +
+  _sec('Testi — Pulsanti', `
+    <div class="tcfg-field"><div class="field-label">Pulsante "I tuoi dati"</div>
       <div style="display:flex;gap:6px">
         <input type="text" id="tcfg-${tipo}-t-btn_tuoi_dati" class="field-input" value="${c.testi?.btn_tuoi_dati || ''}" placeholder="I tuoi dati" style="flex:1">
         <input type="text" id="tcfg-${tipo}-t-btn_tuoi_dati_tip" class="field-input" value="${c.testi?.btn_tuoi_dati_tip || ''}" placeholder="Tooltip…" style="flex:1.5;font-size:11px">
-      </div>
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Pulsante "Promo"</div>
+      </div></div>
+    <div class="tcfg-field"><div class="field-label">Pulsante "Promo"</div>
       <div style="display:flex;gap:6px">
         <input type="text" id="tcfg-${tipo}-t-btn_promo" class="field-input" value="${c.testi?.btn_promo || ''}" placeholder="Promo" style="flex:1">
         <input type="text" id="tcfg-${tipo}-t-btn_promo_tip" class="field-input" value="${c.testi?.btn_promo_tip || ''}" placeholder="Tooltip…" style="flex:1.5;font-size:11px">
-      </div>
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Pulsante "Salva tessera"</div>
+      </div></div>
+    <div class="tcfg-field"><div class="field-label">Pulsante "Salva tessera"</div>
       <div style="display:flex;gap:6px">
         <input type="text" id="tcfg-${tipo}-t-btn_salva" class="field-input" value="${c.testi?.btn_salva || ''}" placeholder="Salva tessera" style="flex:1">
         <input type="text" id="tcfg-${tipo}-t-btn_salva_tip" class="field-input" value="${c.testi?.btn_salva_tip || ''}" placeholder="Tooltip…" style="flex:1.5;font-size:11px">
-      </div>
-    </div>
-    <div class="tcfg-field">
-      <div class="field-label">Pulsante "Contattaci"</div>
+      </div></div>
+    <div class="tcfg-field"><div class="field-label">Pulsante "Contattaci"</div>
       <div style="display:flex;gap:6px">
         <input type="text" id="tcfg-${tipo}-t-btn_contattaci" class="field-input" value="${c.testi?.btn_contattaci || ''}" placeholder="Contattaci" style="flex:1">
         <input type="text" id="tcfg-${tipo}-t-btn_contattaci_tip" class="field-input" value="${c.testi?.btn_contattaci_tip || ''}" placeholder="Tooltip…" style="flex:1.5;font-size:11px">
-      </div>
-    </div>
-    <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">Testi — Etichette riepilogo</div>
-    ${[
-      ['label_tessere_completate','Tessere completate'],
-      ['label_timbri_cartacea','Timbri da cartacea'],
-      ['label_timbri_omaggio','Timbri omaggio ricevuti'],
-      ['label_mese_compleanno','Mese compleanno'],
-      ['label_sconto_compleanno','Sconto compleanno'],
-      ['label_sconti_compleanno_usati','Sconti compleanno usati'],
-      ['label_sconti_tessera','Sconti tessera utilizzati'],
-    ].map(([k,def]) => `<div class="tcfg-field">
-      <div class="field-label">${def}</div>
-      <input type="text" id="tcfg-${tipo}-t-${k}" class="field-input" value="${c.testi?.[k] || ''}" placeholder="${def}">
-    </div>`).join('')}`;
+      </div></div>
+  `) +
+  _sec('Testi — Etichette riepilogo', [
+    ['label_tessere_completate','Tessere completate'],
+    ['label_timbri_cartacea','Timbri da cartacea'],
+    ['label_timbri_omaggio','Timbri omaggio ricevuti'],
+    ['label_mese_compleanno','Mese compleanno'],
+    ['label_sconto_compleanno','Sconto compleanno'],
+    ['label_sconti_compleanno_usati','Sconti compleanno usati'],
+    ['label_sconti_tessera','Sconti tessera utilizzati'],
+  ].map(([k,def]) =>
+    `<div class="tcfg-field"><div class="field-label">${def}</div>
+      <input type="text" id="tcfg-${tipo}-t-${k}" class="field-input" value="${c.testi?.[k] || ''}" placeholder="${def}"></div>`
+  ).join(''));
 }
 
 async function loadTesseraConfigTab() {
@@ -3750,6 +3731,37 @@ function renderAnalisi() {
   document.getElementById('stat-std').textContent = standard;
   document.getElementById('stat-amb').textContent = ambassador;
   document.getElementById('stat-completi').textContent = completi;
+
+  // Standard / Ambassador pie
+  const _SA_SEGS = [
+    { n: standard,   color: '#B45050', label: 'Standard'    },
+    { n: ambassador, color: '#7c3aed', label: 'Ambassador'  },
+  ].filter(s => s.n > 0);
+  const _SA_C = 2 * Math.PI * 35;
+  let _saCum = 0;
+  const _saCircles = _SA_SEGS.map(s => {
+    const len = s.n / totale * _SA_C;
+    const off = _SA_C * 0.25 - _saCum;
+    _saCum += len;
+    return `<circle cx="50" cy="50" r="35" fill="none" stroke="${s.color}" stroke-width="18" stroke-dasharray="${len.toFixed(2)} ${_SA_C.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"/>`;
+  }).join('');
+  const _saLegend = _SA_SEGS.map(s =>
+    `<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0;display:inline-block"></span>
+      <span style="font-size:12px;font-weight:700;color:#334155;flex:1">${s.label}</span>
+      <span style="font-size:12px;color:#64748b;white-space:nowrap">${s.n} <span style="color:#94a3b8">(${totale>0?Math.round(s.n/totale*100):0}%)</span></span>
+    </div>`
+  ).join('');
+  const pctStd = totale > 0 ? Math.round(standard / totale * 100) : 0;
+  document.getElementById('stat-std-amb').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;padding:4px 0">
+      <svg viewBox="0 0 100 100" width="88" height="88" style="flex-shrink:0">
+        ${totale > 0 ? _saCircles : `<circle cx="50" cy="50" r="35" fill="none" stroke="#e2e8f0" stroke-width="18"/>`}
+        <text x="50" y="46" text-anchor="middle" font-size="14" font-weight="900" fill="#334155">${pctStd}%</text>
+        <text x="50" y="58" text-anchor="middle" font-size="8" font-weight="600" fill="#94a3b8">standard</text>
+      </svg>
+      <div style="flex:1">${_saLegend}</div>
+    </div>`;
 
   const soloDig  = allTessere.filter(t => t.ha_carta_digitale && !t.ha_carta_fisica).length;
   const entrambe = allTessere.filter(t => t.ha_carta_digitale &&  t.ha_carta_fisica).length;
