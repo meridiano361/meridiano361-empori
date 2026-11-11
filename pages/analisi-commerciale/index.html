@@ -818,6 +818,32 @@ async function loadSettimanaleData() {
       </tr>`;
     });
 
+    // ── Parziale settimanale ──────────────────────────────────────────────────
+    const _lastDataIdx = weeks.reduce((last, w, i) => {
+      const hasCassa = w.corr > 0 || w.sc > 0;
+      const _wcat = catMap.get(`${emporio}||${w.isoYear}||${w.isoWeek}`);
+      return (hasCassa || _CAT_KEYS.some(k => _wcat && (_wcat[`${k}_pezzi`] ?? 0) > 0)) ? i : last;
+    }, -1);
+    let pCorr=0, pSc=0, pCorr25=0, pSc25=0, pPz=0, pPz25=0;
+    const catParz = {};
+    _CAT_KEYS.forEach(k => { catParz[k] = {pz:0,pz25:0,vie:0,vie25:0}; });
+    let _parzMaxDate = '';
+    if (_lastDataIdx >= 0) {
+      _parzMaxDate = weeks[_lastDataIdx].maxDate;
+      weeks.slice(0, _lastDataIdx + 1).forEach(w => {
+        pCorr += w.corr; pSc += w.sc; pCorr25 += w.corr25; pSc25 += w.sc25;
+        const _c = catMap.get(`${emporio}||${w.isoYear}||${w.isoWeek}`);
+        _CAT_KEYS.forEach(k => {
+          catParz[k].pz   += _c && _c[`${k}_pezzi`]         != null ? parseInt(_c[`${k}_pezzi`])          : 0;
+          catParz[k].pz25 += _c && _c[`${k}_pezzi_25`]      != null ? parseInt(_c[`${k}_pezzi_25`])       : 0;
+          catParz[k].vie  += _c && _c[`${k}_venduto_ie`]    != null ? parseFloat(_c[`${k}_venduto_ie`])   : 0;
+          catParz[k].vie25+= _c && _c[`${k}_venduto_ie_25`] != null ? parseFloat(_c[`${k}_venduto_ie_25`]): 0;
+        });
+      });
+      pPz   = _CAT_KEYS.reduce((s,k) => s + catParz[k].pz,   0);
+      pPz25 = _CAT_KEYS.reduce((s,k) => s + catParz[k].pz25, 0);
+    }
+
     const tIE26 = tCorr   > 0 ? tCorr   / 1.22 : null;
     const tIE25 = tCorr25 > 0 ? tCorr25 / 1.22 : null;
     const tIED  = (tIE26 != null && tIE25 != null && tIE25 > 0) ? (tIE26 - tIE25) / tIE25 * 100 : null;
@@ -851,6 +877,52 @@ async function loadSettimanaleData() {
       `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#eef2f7"><strong>${gTotVie>0?fmtK(gTotVie):'–'}</strong></td>` +
       `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotVie25>0?fmtK(gTotVie25):'–'}</strong></td>` +
       `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${gcDIE};font-weight:700;background:#eef2f7">${gDIE!=null?(gDIE>0?'+':'')+gDIE.toFixed(1)+'%':'–'}</td>`;
+
+    if (_lastDataIdx >= 0) {
+      const pIE26 = pCorr   > 0 ? pCorr   / 1.22 : null;
+      const pIE25 = pCorr25 > 0 ? pCorr25 / 1.22 : null;
+      const pIED  = (pIE26 != null && pIE25 != null && pIE25 > 0) ? (pIE26 - pIE25) / pIE25 * 100 : null;
+      const pScD  = (pSc > 0 && pSc25 > 0) ? (pSc - pSc25) / pSc25 * 100 : null;
+      const pPzD  = (pPz > 0 && pPz25 > 0) ? (pPz - pPz25) / pPz25 * 100 : null;
+      const _cpCells = _CAT_KEYS.map(k => {
+        const {pz,pz25,vie,vie25} = catParz[k];
+        const dPz = pz25>0?(pz-pz25)/pz25*100:null; const dIE = vie25>0?(vie-vie25)/vie25*100:null;
+        const dcPz = dPz!=null?(dPz>=0?'#16a34a':'#dc2626'):'#94a3b8'; const dcIE = dIE!=null?(dIE>=0?'#16a34a':'#dc2626'):'#94a3b8';
+        return `<td class="number" data-cat-sub="${k}" style="font-size:11px;border-left:2px solid #94a3b8">${pz>0?pz:'–'}</td>` +
+               `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:#94a3b8">${pz25>0?pz25:'–'}</td>` +
+               `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:${dcPz};font-weight:700">${dPz!=null?(dPz>0?'+':'')+dPz.toFixed(1)+'%':'–'}</td>` +
+               `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8">${vie>0?fmtK(vie):'–'}</td>` +
+               `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:#94a3b8">${vie25>0?fmtK(vie25):'–'}</td>` +
+               `<td class="number" data-cat-sub="${k}" style="font-size:11px;color:${dcIE};font-weight:700">${dIE!=null?(dIE>0?'+':'')+dIE.toFixed(1)+'%':'–'}</td>`;
+      }).join('');
+      const gpPz=_CAT_KEYS.reduce((s,k)=>s+catParz[k].pz,0), gpPz25=_CAT_KEYS.reduce((s,k)=>s+catParz[k].pz25,0);
+      const gpVie=_CAT_KEYS.reduce((s,k)=>s+catParz[k].vie,0), gpVie25=_CAT_KEYS.reduce((s,k)=>s+catParz[k].vie25,0);
+      const gpDPz=gpPz25>0?(gpPz-gpPz25)/gpPz25*100:null, gpDIE=gpVie25>0?(gpVie-gpVie25)/gpVie25*100:null;
+      const gpcDPz=gpDPz!=null?(gpDPz>=0?'#16a34a':'#dc2626'):'#94a3b8', gpcDIE=gpDIE!=null?(gpDIE>=0?'#16a34a':'#dc2626'):'#94a3b8';
+      const _ptc=`<td class="number" data-cat-sub="tot" style="font-size:11px;border-left:2px solid #94a3b8;background:#fef9c3"><strong>${gpPz>0?gpPz:'–'}</strong></td>`+
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#fef9c3"><strong>${gpPz25>0?gpPz25:'–'}</strong></td>`+
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${gpcDPz};font-weight:700;background:#fef9c3">${gpDPz!=null?(gpDPz>0?'+':'')+gpDPz.toFixed(1)+'%':'–'}</td>`+
+        `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#fef9c3"><strong>${gpVie>0?fmtK(gpVie):'–'}</strong></td>`+
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:#94a3b8;background:#fef9c3"><strong>${gpVie25>0?fmtK(gpVie25):'–'}</strong></td>`+
+        `<td class="number" data-cat-sub="tot" style="font-size:11px;color:${gpcDIE};font-weight:700;background:#fef9c3">${gpDIE!=null?(gpDIE>0?'+':'')+gpDIE.toFixed(1)+'%':'–'}</td>`;
+      const [,_pm,_pg] = _parzMaxDate.split('-');
+      html += `<tr style="background:#fffbeb">
+        <td style="position:sticky;left:0;z-index:3;background:#fffbeb;color:#92400e;font-weight:700">${anno}</td>
+        <td class="sticky-periodo" style="position:sticky;z-index:3;background:#fffbeb;border-right:2px solid #94a3b8;color:#92400e"><strong>PARZIALE</strong> <span style="font-size:9px;font-weight:400">fino al ${_pg}/${_pm}</span></td>
+        <td data-col-grp="campagne" style="background:#fffbeb"></td><td data-col-grp="campagne" style="background:#fffbeb"></td>
+        <td data-col-grp="eventi" style="background:#fffbeb"></td><td data-col-grp="eventi" style="background:#fffbeb"></td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px;border-left:2px solid #94a3b8">${pIE26!=null?fmtK(pIE26):'–'}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px">${pIE25!=null?fmtK(pIE25):'–'}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px">${fD(pIED)}</td>
+        <td data-col-grp="n-sf" class="number" style="border-left:2px solid #94a3b8">${pSc||'–'}</td>
+        <td data-col-grp="n-sf" class="number">${pSc25||'–'}</td>
+        <td data-col-grp="n-sf" class="number" style="font-size:11px">${fD(pScD)}</td>
+        <td data-col-grp="n-pz" class="number" style="background:#fef9c3;border-left:2px solid #94a3b8"><strong>${pPz>0?pPz:'–'}</strong></td>
+        <td data-col-grp="n-pz" class="number" style="background:#fef9c3;color:#94a3b8"><strong>${pPz25>0?pPz25:'–'}</strong></td>
+        <td data-col-grp="n-pz" class="number" style="background:#fef9c3;font-size:11px">${fD(pPzD)}</td>
+        ${_cpCells}${_ptc}
+      </tr>`;
+    }
 
     html += `<tr class="total-row">
       <td style="position:sticky;left:0;z-index:3;background:#f8fafc"><strong>${anno}</strong></td>
@@ -1264,6 +1336,30 @@ async function loadMensileData() {
       </tr>`;
     }
 
+    // ── Parziale mensile ──────────────────────────────────────────────────────
+    let _lastDataMonth = 0;
+    for (let m = 1; m <= 12; m++) {
+      const md = monthMap.get(m); const cm = catMonthMap.get(m) || {};
+      if ((md && md.corr > 0) || _CAT_KEYS.some(k => (cm[`${k}_pezzi`] ?? 0) > 0)) _lastDataMonth = m;
+    }
+    let pCorr=0, pSc=0, pCorr25=0, pSc25=0, pPz=0, pPz25=0;
+    const catParz = {};
+    _CAT_KEYS.forEach(k => { catParz[k] = {pz:0,pz25:0,vie:0,vie25:0}; });
+    if (_lastDataMonth > 0) {
+      for (let m = 1; m <= _lastDataMonth; m++) {
+        const md = monthMap.get(m); const cm = catMonthMap.get(m) || {};
+        if (md) { pCorr += md.corr; pSc += md.sc; pCorr25 += md.corr25; pSc25 += md.sc25; }
+        _CAT_KEYS.forEach(k => {
+          catParz[k].pz   += cm[`${k}_pezzi`]         != null ? cm[`${k}_pezzi`]         : 0;
+          catParz[k].pz25 += cm[`${k}_pezzi_25`]      != null ? cm[`${k}_pezzi_25`]      : 0;
+          catParz[k].vie  += cm[`${k}_venduto_ie`]    != null ? cm[`${k}_venduto_ie`]    : 0;
+          catParz[k].vie25+= cm[`${k}_venduto_ie_25`] != null ? cm[`${k}_venduto_ie_25`] : 0;
+        });
+      }
+      pPz   = _CAT_KEYS.reduce((s,k) => s + catParz[k].pz,   0);
+      pPz25 = _CAT_KEYS.reduce((s,k) => s + catParz[k].pz25, 0);
+    }
+
     const tIE26 = tCorr   > 0 ? tCorr   / 1.22 : null;
     const tIE25 = tCorr25 > 0 ? tCorr25 / 1.22 : null;
     const tIED  = (tIE26 != null && tIE25 != null && tIE25 > 0) ? (tIE26 - tIE25) / tIE25 * 100 : null;
@@ -1297,6 +1393,51 @@ async function loadMensileData() {
       `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#eef2f7"><strong>${gTotVie>0?fmtK(gTotVie):'–'}</strong></td>` +
       `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#eef2f7"><strong>${gTotVie25>0?fmtK(gTotVie25):'–'}</strong></td>` +
       `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${gcDIE};font-weight:700;background:#eef2f7">${gDIE!=null?(gDIE>0?'+':'')+gDIE.toFixed(1)+'%':'–'}</td>`;
+    if (_lastDataMonth > 0) {
+      const pIE26 = pCorr   > 0 ? pCorr   / 1.22 : null;
+      const pIE25 = pCorr25 > 0 ? pCorr25 / 1.22 : null;
+      const pIED  = (pIE26 != null && pIE25 != null && pIE25 > 0) ? (pIE26 - pIE25) / pIE25 * 100 : null;
+      const pScD  = (pSc > 0 && pSc25 > 0) ? (pSc - pSc25) / pSc25 * 100 : null;
+      const pPzD  = (pPz > 0 && pPz25 > 0) ? (pPz - pPz25) / pPz25 * 100 : null;
+      const _mcpCells = _CAT_KEYS.map(k => {
+        const {pz,pz25,vie,vie25} = catParz[k];
+        const dPz = pz25>0?(pz-pz25)/pz25*100:null; const dIE = vie25>0?(vie-vie25)/vie25*100:null;
+        const dcPz = dPz!=null?(dPz>=0?'#16a34a':'#dc2626'):'#94a3b8'; const dcIE = dIE!=null?(dIE>=0?'#16a34a':'#dc2626'):'#94a3b8';
+        return `<td class="number" data-mcat-sub="${k}" style="font-size:11px;border-left:2px solid #94a3b8">${pz>0?pz:'–'}</td>` +
+               `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:#94a3b8">${pz25>0?pz25:'–'}</td>` +
+               `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dcPz};font-weight:700">${dPz!=null?(dPz>0?'+':'')+dPz.toFixed(1)+'%':'–'}</td>` +
+               `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8">${vie>0?fmtK(vie):'–'}</td>` +
+               `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:#94a3b8">${vie25>0?fmtK(vie25):'–'}</td>` +
+               `<td class="number" data-mcat-sub="${k}" style="font-size:11px;color:${dcIE};font-weight:700">${dIE!=null?(dIE>0?'+':'')+dIE.toFixed(1)+'%':'–'}</td>`;
+      }).join('');
+      const gpPz=_CAT_KEYS.reduce((s,k)=>s+catParz[k].pz,0), gpPz25=_CAT_KEYS.reduce((s,k)=>s+catParz[k].pz25,0);
+      const gpVie=_CAT_KEYS.reduce((s,k)=>s+catParz[k].vie,0), gpVie25=_CAT_KEYS.reduce((s,k)=>s+catParz[k].vie25,0);
+      const gpDPz=gpPz25>0?(gpPz-gpPz25)/gpPz25*100:null, gpDIE=gpVie25>0?(gpVie-gpVie25)/gpVie25*100:null;
+      const gpcDPz=gpDPz!=null?(gpDPz>=0?'#16a34a':'#dc2626'):'#94a3b8', gpcDIE=gpDIE!=null?(gpDIE>=0?'#16a34a':'#dc2626'):'#94a3b8';
+      const _mptc=`<td class="number" data-mcat-sub="tot" style="font-size:11px;border-left:2px solid #94a3b8;background:#fef9c3"><strong>${gpPz>0?gpPz:'–'}</strong></td>`+
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#fef9c3"><strong>${gpPz25>0?gpPz25:'–'}</strong></td>`+
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${gpcDPz};font-weight:700;background:#fef9c3">${gpDPz!=null?(gpDPz>0?'+':'')+gpDPz.toFixed(1)+'%':'–'}</td>`+
+        `<td class="number" style="font-size:11px;border-left:2px solid #94a3b8;background:#fef9c3"><strong>${gpVie>0?fmtK(gpVie):'–'}</strong></td>`+
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:#94a3b8;background:#fef9c3"><strong>${gpVie25>0?fmtK(gpVie25):'–'}</strong></td>`+
+        `<td class="number" data-mcat-sub="tot" style="font-size:11px;color:${gpcDIE};font-weight:700;background:#fef9c3">${gpDIE!=null?(gpDIE>0?'+':'')+gpDIE.toFixed(1)+'%':'–'}</td>`;
+      const MESI_N2 = ['','Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+      html += `<tr style="background:#fffbeb">
+        <td style="position:sticky;left:0;z-index:3;background:#fffbeb;white-space:nowrap;padding:6px 10px;color:#92400e"><strong>PARZIALE</strong> <span style="font-size:9px;font-weight:400">fino a ${MESI_N2[_lastDataMonth]}</span></td>
+        <td data-col-grp="campagne" style="background:#fffbeb"></td><td data-col-grp="campagne" style="background:#fffbeb"></td>
+        <td data-col-grp="eventi" style="background:#fffbeb"></td><td data-col-grp="eventi" style="background:#fffbeb"></td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px;${SEP}">${pIE26!=null?fmtK(pIE26):'–'}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px">${pIE25!=null?fmtK(pIE25):'–'}</td>
+        <td data-col-grp="corr-ie" class="number" style="font-size:11px">${fD(pIED)}</td>
+        <td data-col-grp="n-sf" class="number" style="${SEP}">${pSc||'–'}</td>
+        <td data-col-grp="n-sf" class="number">${pSc25||'–'}</td>
+        <td data-col-grp="n-sf" class="number" style="font-size:11px">${fD(pScD)}</td>
+        <td data-col-grp="n-pz" class="number" style="background:#fef9c3;${SEP}"><strong>${pPz>0?pPz:'–'}</strong></td>
+        <td data-col-grp="n-pz" class="number" style="background:#fef9c3;color:#94a3b8"><strong>${pPz25>0?pPz25:'–'}</strong></td>
+        <td data-col-grp="n-pz" class="number" style="background:#fef9c3;font-size:11px">${fD(pPzD)}</td>
+        ${_mcpCells}${_mptc}
+      </tr>`;
+    }
+
     html += `<tr class="total-row">
       <td style="position:sticky;left:0;z-index:3;background:#f8fafc;white-space:nowrap;padding:6px 10px"><strong>${anno} — TOTALE ANNO</strong></td>
       <td data-col-grp="campagne" style="background:#f8fafc"></td>
