@@ -166,7 +166,14 @@ body.amb{background:#e8e8e4}
 .btn-install-native:active{opacity:.85}
 /* ── Box recensioni esterni ── */
 .review-outer{max-width:390px;width:100%;margin-top:10px}
-.rec-box{background:#fff;border-radius:20px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08);text-align:center}
+.rec-toggle-hdr{background:#fff;border-radius:20px;padding:14px 18px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.rec-toggle-icon{font-size:18px;line-height:1;flex-shrink:0}
+.rec-toggle-label{flex:1;font-size:13px;font-weight:800;color:#111;font-family:'CenturyGothic','Century Gothic',sans-serif}
+.rec-toggle-chevron{font-size:18px;color:#94a3b8;transition:transform .22s;line-height:1;flex-shrink:0}
+.rec-toggle-chevron.open{transform:rotate(180deg)}
+.rec-collapsible{overflow:hidden;transition:max-height .3s ease,opacity .3s ease;max-height:2000px;opacity:1}
+.rec-collapsible.closed{max-height:0;opacity:0}
+.rec-box{background:#fff;border-radius:20px;padding:20px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.08);text-align:center;margin-top:8px}
 .rec-stars-row{display:flex;justify-content:center;gap:2px;margin:10px 0 4px}
 .rec-star{font-size:38px;cursor:pointer;transition:transform .1s;line-height:1;color:#e2e8f0;user-select:none;-webkit-user-select:none}
 .rec-star.on{color:#f59e0b}
@@ -234,6 +241,15 @@ body.amb{background:#e8e8e4}
 <!-- Box recensioni — mostrati dopo caricamento tessera -->
 <div id="box-recensioni" class="review-outer" style="display:none">
 
+  <!-- Header collassabile -->
+  <div class="rec-toggle-hdr" onclick="toggleRecSection()">
+    <span class="rec-toggle-icon">★</span>
+    <span class="rec-toggle-label">Valutazione e recensioni</span>
+    <span class="rec-toggle-chevron open" id="rec-chevron">▾</span>
+  </div>
+
+  <div class="rec-collapsible" id="rec-collapsible">
+
   <!-- 1. Rating interno -->
   <div class="rec-box" id="rec-box">
     <div id="rec-titolo" style="font-size:13px;font-weight:800;color:#111;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:2px">Com'è stata la tua visita?</div>
@@ -264,7 +280,7 @@ body.amb{background:#e8e8e4}
   </div>
 
   <!-- 2. Google Reviews -->
-  <div id="btn-google-rec" class="ext-review-box" onclick="toggleGoogleSel()">
+  <div id="btn-google-rec" class="ext-review-box" style="margin-top:8px" onclick="toggleGoogleSel()">
     <div class="ext-review-logo" style="border:1.5px solid #e8e8e8;background:#fff">
       <svg viewBox="0 0 24 24" width="22" height="22"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
     </div>
@@ -285,7 +301,7 @@ body.amb{background:#e8e8e4}
   </div>
 
   <!-- 3. Trustpilot -->
-  <a id="btn-trustpilot-rec" href="#" target="_blank" rel="noopener" class="ext-review-box" style="margin-bottom:16px">
+  <a id="btn-trustpilot-rec" href="#" target="_blank" rel="noopener" class="ext-review-box" style="margin-top:8px;margin-bottom:16px">
     <div class="ext-review-logo" style="background:#00b67a">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17 5.8 21.3l2.4-7.4L2 9.4h7.6z" fill="#fff"/></svg>
     </div>
@@ -296,6 +312,7 @@ body.amb{background:#e8e8e4}
     <div class="ext-review-btn" style="background:#00b67a;color:#fff">Scrivi ›</div>
   </a>
 
+  </div><!-- /rec-collapsible -->
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -1071,6 +1088,14 @@ async function attivaPromemoriaCompleanno() {
 // ── Recensioni tessera ────────────────────────────────────────────────────────
 let _recKey = '', _recToken = '', _recEmporio = '', _recNome = '', _recSb = null;
 let _pendingRating = 0;
+
+function toggleRecSection() {
+  const body = document.getElementById('rec-collapsible');
+  const chev = document.getElementById('rec-chevron');
+  const open = !body.classList.contains('closed');
+  body.classList.toggle('closed', open);
+  chev.classList.toggle('open', !open);
+}
 
 function toggleGoogleSel() {
   const sel = document.getElementById('google-sel');
