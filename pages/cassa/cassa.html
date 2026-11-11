@@ -1582,10 +1582,15 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 const SB_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 let db = null;
-try { db = supabase.createClient(SB_URL, SB_KEY); window._supabase = db; } catch(e) {}
+let _dbReady = Promise.resolve();
+try {
+  db = supabase.createClient(SB_URL, SB_KEY); window._supabase = db;
+  _dbReady = db.auth.getSession().catch(() => {});
+} catch(e) {}
 
 async function dbGet(key) {
   if (!db) return null;
+  await _dbReady;
   try { const {data} = await db.from('cassa_giorni').select('*').eq('chiave', key).maybeSingle(); return data || null; } catch(e) { return null; }
 }
 async function dbGetFondo(key) {
