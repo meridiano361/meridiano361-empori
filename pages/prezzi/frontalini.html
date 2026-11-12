@@ -78,7 +78,6 @@
     .ap-bio{background:#dcfce7;color:#166534}
     .ap-sg{background:#fef3c7;color:#92400e}
     .ap-veg{background:#ede9fe;color:#6d28d9}
-    .ap-ita{background:#dbeafe;color:#1d4ed8}
     .ap-warn{background:#fee2e2;color:#991b1b}
 
     /* BOZZA LIST */
@@ -121,7 +120,6 @@
     .fr-at-bio{background:#99cc00;color:#333;border-color:#99cc00}
     .fr-at-sg{background:#ffff00;color:#333;border-color:#ccc}
     .fr-at-veg{background:#008000;color:#fff;border-color:#008000}
-    .fr-at-ita{background:#cc0000;color:#fff;border-color:#cc0000}
     .fr-sec{display:flex;gap:5px;align-items:center;color:#333;overflow:hidden;white-space:nowrap}
     .fr-empty{background:#fff;border:0.5pt solid #ccc}
     .fr-warn-miss{border-color:#f59e0b}
@@ -231,7 +229,6 @@
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-bio" style="accent-color:var(--green);width:16px;height:16px"> BIO</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-sg" style="accent-color:var(--amber);width:16px;height:16px"> Senza Glutine</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-veg" style="accent-color:#7c3aed;width:16px;height:16px"> Vegano</label>
-      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-ita" style="accent-color:var(--blue);width:16px;height:16px"> Solidale Italiano</label>
     </div>
     <div id="man-save-cat-wrap" style="display:none;margin-bottom:14px">
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;padding:8px 10px;background:var(--s50);border-radius:9px;border:1px solid var(--s200)">
@@ -290,7 +287,7 @@
     <div id="import-step1">
       <input type="file" id="import-file" accept=".xlsx,.xls,.ods" style="display:none" onchange="handleImportFile(this)">
       <button class="btn btn-blue" onclick="document.getElementById('import-file').click()"><i class="fas fa-file-excel"></i> Scegli file…</button>
-      <p style="font-size:11px;color:var(--s400);margin-top:8px">Verranno letti i fogli con colonne: CODICE, DESCRIZIONE, PESO, PREZZO, BIO, SENZA GLUTINE / GLUT FREE, VEG / VEGANO, ITA / SIA, MARCHIO / fornitore</p>
+      <p style="font-size:11px;color:var(--s400);margin-top:8px">Verranno letti i fogli con colonne: CODICE, DESCRIZIONE, PESO, PREZZO, BIO, SENZA GLUTINE / GLUT FREE, VEG / VEGANO, MARCHIO / fornitore</p>
     </div>
     <div id="import-step2" style="display:none">
       <div id="import-summary" style="margin-bottom:12px"></div>
@@ -340,7 +337,6 @@
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-bio" style="accent-color:var(--green);width:16px;height:16px"> BIO</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-sg" style="accent-color:var(--amber);width:16px;height:16px"> Senza Glutine</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-veg" style="accent-color:#7c3aed;width:16px;height:16px"> Vegano</label>
-      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-ita" style="accent-color:var(--blue);width:16px;height:16px"> Solidale Italiano</label>
     </div>
     <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;align-items:center">
       <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="deleteCatItem()"><i class="fas fa-trash"></i> Elimina</button>
@@ -392,10 +388,6 @@
     <div class="be-field-row">
       <label class="be-toggle"><input type="checkbox" id="be-chk-veg" onchange="beToggleField('be-veg-grp',this)"> Vegano</label>
       <span id="be-veg-grp" class="be-radio-grp" style="opacity:.35;pointer-events:none"><label><input type="radio" name="be-veg" value="1"> Sì</label><label><input type="radio" name="be-veg" value="0" checked> No</label></span>
-    </div>
-    <div class="be-field-row">
-      <label class="be-toggle"><input type="checkbox" id="be-chk-ita" onchange="beToggleField('be-ita-grp',this)"> Solidale Italiano</label>
-      <span id="be-ita-grp" class="be-radio-grp" style="opacity:.35;pointer-events:none"><label><input type="radio" name="be-ita" value="1"> Sì</label><label><input type="radio" name="be-ita" value="0" checked> No</label></span>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
       <button class="btn btn-out" onclick="closeBulkEditModal()">Annulla</button>
@@ -453,7 +445,8 @@ let _addCopie = 1;
 let _search   = '';
 let _fFor     = '';            // filtro fornitore
 let _fMar     = '';            // filtro marchio
-let _fBio = false, _fSg = false, _fVeg = false, _fIta = false, _fWarn = false;
+let _fBio = false, _fSg = false, _fVeg = false, _fWarn = false;
+let _fUnita = '';  // '' = tutti, 'g'|'kg'|'ml'|'L'|'pz' = solo quella, 'none' = senza unità
 let _editId   = null;          // draft item in editing
 let _loading  = true;
 let _importRows = [];          // righe Excel in attesa di conferma
@@ -513,7 +506,7 @@ function addCatalogToDraft(cat, copie) {
     peso: cat.peso, unita: cat.unita,
     prezzo: cat.prezzo, fornitore: cat.fornitore||'', marchio: cat.marchio||'',
     bio: !!cat.bio, senza_glutine: !!cat.senza_glutine,
-    vegano: !!cat.vegano, solidale_italiano: !!cat.solidale_italiano, copie });
+    vegano: !!cat.vegano, copie });
   saveDraft(); R();
 }
 
@@ -569,7 +562,8 @@ function filteredCatalogo() {
     if (_fBio  && !p.bio) return false;
     if (_fSg   && !p.senza_glutine) return false;
     if (_fVeg  && !p.vegano) return false;
-    if (_fIta  && !p.solidale_italiano) return false;
+    if (_fUnita === 'none' && p.unita) return false;
+    if (_fUnita && _fUnita !== 'none' && p.unita !== _fUnita) return false;
     if (_fWarn && !(p.peso && !p.unita)) return false;
     return true;
   });
@@ -594,7 +588,6 @@ function openCatEditModal(id) {
   g('ce-bio').checked     = !!p.bio;
   g('ce-sg').checked      = !!p.senza_glutine;
   g('ce-veg').checked     = !!p.vegano;
-  g('ce-ita').checked     = !!p.solidale_italiano;
   g('modal-cat-edit').classList.add('open');
   setTimeout(() => g('ce-desc')?.focus(), 100);
 }
@@ -621,7 +614,6 @@ async function saveCatEditModal() {
     bio:               g('ce-bio').checked,
     senza_glutine:     g('ce-sg').checked,
     vegano:            g('ce-veg').checked,
-    solidale_italiano: g('ce-ita').checked,
   }).eq('id', _catEditId);
   if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salva'; }
   if (error) { alert('Errore salvataggio: ' + error.message); return; }
@@ -659,7 +651,6 @@ function frontalino(item, forPrint = false, scale = 1) {
   if (item.bio)               attrs.push(['BIO',              'fr-at-bio']);
   if (item.senza_glutine)     attrs.push(['SENZA GLUTINE',    'fr-at-sg' ]);
   if (item.vegano)            attrs.push(['VEGAN',            'fr-at-veg']);
-  if (item.solidale_italiano) attrs.push(['SOLIDALE ITALIANO','fr-at-ita']);
 
   const prezzo = item.prezzo != null ? fmtN(item.prezzo) : '';
   const puStr  = pu ? fmtN(pu.val) + ' ' + pu.label : '';
@@ -739,7 +730,6 @@ function rSelezione() {
         if (p.bio)               attrs.push(['BIO','ap-bio']);
         if (p.senza_glutine)     attrs.push(['SG','ap-sg']);
         if (p.vegano)            attrs.push(['VEG','ap-veg']);
-        if (p.solidale_italiano) attrs.push(['ITA','ap-ita']);
         if (p.peso && !p.unita)  attrs.push(['⚠️ unità?','ap-warn']);
         return `<div class="cat-item${isSel?' selected':''}" onclick="toggleSel(${p.id})">
           <input type="checkbox" class="cat-check" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSel(${p.id})">
@@ -783,9 +773,10 @@ function rSelezione() {
         <button class="fpill ${_fBio?'on-red':''}" onclick="_fBio=!_fBio;R()">🌿 BIO</button>
         <button class="fpill ${_fSg?'on-red':''}" onclick="_fSg=!_fSg;R()">🌾 Senza Glutine</button>
         <button class="fpill ${_fVeg?'on-red':''}" onclick="_fVeg=!_fVeg;R()">🌱 Vegano</button>
-        <button class="fpill ${_fIta?'on-red':''}" onclick="_fIta=!_fIta;R()">🤝 Solidale IT</button>
-        <button class="fpill ${_fWarn?'on-red':''}" onclick="_fWarn=!_fWarn;R()">⚠️ Unità mancante</button>
-        ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fIta||_fWarn) ? `<button class="fpill" style="color:#991b1b;border-color:#fca5a5" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fIta=_fWarn=false;R()">✕ Reset filtri</button>` : ''}
+        ${['g','kg','ml','L','pz'].map(u=>`<button class="fpill ${_fUnita===u?'on-red':''}" onclick="_fUnita=_fUnita==='${u}'?'':'${u}';R()">${u}</button>`).join('')}
+        <button class="fpill ${_fUnita==='none'?'on-red':''}" onclick="_fUnita=_fUnita==='none'?'':'none';R()">senza unità</button>
+        <button class="fpill ${_fWarn?'on-red':''}" onclick="_fWarn=!_fWarn;R()">⚠️ peso senza unità</button>
+        ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="fpill" style="color:#991b1b;border-color:#fca5a5" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">✕ Reset filtri</button>` : ''}
       </div>
       <div>${catalogHTML}</div>
     </div>
@@ -812,7 +803,7 @@ function rBozza() {
     const pu = prezzoUnitario(it.peso, it.unita, it.prezzo);
     const pd = pesoDisplay(it.peso, it.unita);
     const warn = it.peso && !it.unita;
-    const attrs = [it.bio&&'BIO',it.senza_glutine&&'SG',it.vegano&&'VEG',it.solidale_italiano&&'ITA'].filter(Boolean);
+    const attrs = [it.bio&&'BIO',it.senza_glutine&&'SG',it.vegano&&'VEG'].filter(Boolean);
     return `<div class="bz-row">
       <div>
         <div class="bz-desc">${escH(it.descrizione)}</div>
@@ -991,13 +982,12 @@ function openManModal(draftId) {
     g('man-bio').checked    = !!it.bio;
     g('man-sg').checked     = !!it.senza_glutine;
     g('man-veg').checked    = !!it.vegano;
-    g('man-ita').checked    = !!it.solidale_italiano;
   } else {
     g('modal-man-title').textContent = 'Frontalino manuale';
     ['man-desc','man-codice','man-prezzo','man-peso','man-fornitore','man-marchio'].forEach(id=>g(id).value='');
     g('man-unita').value = '';
     g('man-copie').value = '1';
-    g('man-bio').checked = g('man-sg').checked = g('man-veg').checked = g('man-ita').checked = false;
+    g('man-bio').checked = g('man-sg').checked = g('man-veg').checked = false;
     // Dati da prezzi da fare (passati via localStorage)
     try {
       const pre = JSON.parse(localStorage.getItem('m361_fl_add') || 'null');
@@ -1041,7 +1031,6 @@ function readManFields() {
     bio:             g('man-bio').checked,
     senza_glutine:   g('man-sg').checked,
     vegano:          g('man-veg').checked,
-    solidale_italiano: g('man-ita').checked,
     copie:           Math.max(1, parseInt(g('man-copie').value)||1),
   };
 }
@@ -1071,7 +1060,7 @@ async function saveManModal() {
       peso: f.peso, unita: f.unita, prezzo: f.prezzo,
       fornitore: f.fornitore || null, marchio: f.marchio || null,
       bio: f.bio, senza_glutine: f.senza_glutine,
-      vegano: f.vegano, solidale_italiano: f.solidale_italiano,
+      vegano: f.vegano,
     }]);
     if (!error) { await loadCatalogo(); }
   }
@@ -1189,7 +1178,6 @@ function doPrint() {
     .fr-at-bio { background: #99cc00 !important; color: #333 !important; border-color: #99cc00 !important; }
     .fr-at-sg  { background: #ffff00 !important; color: #333 !important; border-color: #ccc !important; }
     .fr-at-veg { background: #008000 !important; color: #fff !important; border-color: #008000 !important; }
-    .fr-at-ita { background: #cc0000 !important; color: #fff !important; border-color: #cc0000 !important; }
     .fr-sec { display: flex; flex-wrap: wrap; gap: 2px; color: #333; align-self: center; }
     .fr-empty { background: #f8f8f8; }
   `;
@@ -1219,7 +1207,6 @@ const SHEET_COLS = {
   bio:               ['BIO'],
   senza_glutine:     ['GLUT FREE','SENZA GLUTINE'],
   vegano:            ['VEG','VEGANO'],
-  solidale_italiano: ['ITA','SIA','SOLIDALE ITALIANO'],
   marchio_fornitore: ['MARCHIO','fornitore'],
 };
 
@@ -1252,7 +1239,6 @@ function readExcelSheet(ws) {
     const rawBio  = idxMap.bio >= 0 ? row[idxMap.bio] : null;
     const rawSG   = idxMap.senza_glutine >= 0 ? row[idxMap.senza_glutine] : null;
     const rawVeg  = idxMap.vegano >= 0 ? row[idxMap.vegano] : null;
-    const rawIta  = idxMap.solidale_italiano >= 0 ? row[idxMap.solidale_italiano] : null;
     const rawMF   = idxMap.marchio_fornitore >= 0 ? row[idxMap.marchio_fornitore] : null;
     const rawPeso = idxMap.peso >= 0 ? row[idxMap.peso] : null;
     const rawPrezzo = idxMap.prezzo >= 0 ? row[idxMap.prezzo] : null;
@@ -1275,7 +1261,6 @@ function readExcelSheet(ws) {
       bio,
       senza_glutine:     isSi(rawSG),
       vegano:            isSi(rawVeg),
-      solidale_italiano: isSi(rawIta),
     });
   }
   return result;
@@ -1331,7 +1316,7 @@ async function handleImportFile(input) {
 
     const tbody = g('import-preview-body');
     tbody.innerHTML = _importRows.slice(0, 100).map(r => {
-      const attrs = [r.bio&&'BIO',r.senza_glutine&&'SG',r.vegano&&'VEG',r.solidale_italiano&&'ITA'].filter(Boolean).join(' ');
+      const attrs = [r.bio&&'BIO',r.senza_glutine&&'SG',r.vegano&&'VEG'].filter(Boolean).join(' ');
       const warn  = r.peso && !r.unita;
       return `<tr style="${r._dup?'opacity:.4':''}">
         <td><strong>${escH(r.descrizione)}</strong>${r._dup?' <span style="color:#991b1b;font-size:9px">già presente</span>':''}</td>
@@ -1368,7 +1353,6 @@ async function confirmImport() {
     bio:               r.bio,
     senza_glutine:     r.senza_glutine,
     vegano:            r.vegano,
-    solidale_italiano: r.solidale_italiano,
   }));
 
   if (toInsert.length === 0) { closeImportModal(); return; }
@@ -1392,14 +1376,14 @@ function openBulkEditModal() {
   if (!n) return;
   g('be-subtitle').textContent = `Verranno modificati ${n} prodott${n===1?'o':'i'} selezionat${n===1?'o':'i'}.`;
   // Reset all checkboxes and inputs
-  ['be-chk-unita','be-chk-peso','be-chk-fornitore','be-chk-marchio','be-chk-bio','be-chk-sg','be-chk-veg','be-chk-ita'].forEach(id=>{
+  ['be-chk-unita','be-chk-peso','be-chk-fornitore','be-chk-marchio','be-chk-bio','be-chk-sg','be-chk-veg'].forEach(id=>{
     const el = g(id); if(el) el.checked = false;
   });
   ['be-unita','be-peso','be-fornitore','be-marchio'].forEach(id=>{
     const el = g(id); if(!el) return; el.disabled = true;
     if(el.tagName==='INPUT') el.value=''; else el.value='';
   });
-  ['be-bio-grp','be-sg-grp','be-veg-grp','be-ita-grp'].forEach(id=>{
+  ['be-bio-grp','be-sg-grp','be-veg-grp'].forEach(id=>{
     const el = g(id); if(!el) return; el.style.opacity='.35'; el.style.pointerEvents='none';
     const noRadio = el.querySelector('input[value="0"]'); if(noRadio) noRadio.checked=true;
   });
@@ -1435,7 +1419,7 @@ async function saveBulkEditModal() {
   if (g('be-chk-bio').checked)  update.bio               = g('be-bio-grp').querySelector('input[value="1"]').checked;
   if (g('be-chk-sg').checked)   update.senza_glutine      = g('be-sg-grp').querySelector('input[value="1"]').checked;
   if (g('be-chk-veg').checked)  update.vegano             = g('be-veg-grp').querySelector('input[value="1"]').checked;
-  if (g('be-chk-ita').checked)  update.solidale_italiano  = g('be-ita-grp').querySelector('input[value="1"]').checked;
+
 
   if (Object.keys(update).length === 0) { closeBulkEditModal(); return; }
 
