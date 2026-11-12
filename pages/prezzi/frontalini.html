@@ -736,10 +736,11 @@ async function quickDeleteCat(id) {
 function frontalino(item, forPrint = false, scale = 1) {
   const pu = prezzoUnitario(item.peso, item.unita, item.prezzo);
   const pd = pesoDisplay(item.peso, item.unita);
-  const attrs = [];
-  if (item.bio)               attrs.push(['BIO',              'fr-at-bio']);
-  if (item.senza_glutine)     attrs.push(['SENZA<br>GLUTINE', 'fr-at-sg' ]);
-  if (item.vegano)            attrs.push(['VEGAN',            'fr-at-veg']);
+  const attrs = [
+    { lbl:'BIO',              cls:'fr-at-bio', on:!!item.bio           },
+    { lbl:'SENZA<br>GLUTINE', cls:'fr-at-sg',  on:!!item.senza_glutine },
+    { lbl:'VEGAN',            cls:'fr-at-veg', on:!!item.vegano        },
+  ];
 
   const prezzo = item.prezzo != null ? fmtN(item.prezzo) : '';
   const puStr  = pu ? fmtN(pu.val) + ' ' + pu.label : '';
@@ -779,7 +780,7 @@ function frontalino(item, forPrint = false, scale = 1) {
             ? `<span class="fr-prezzo" style="font-size:${preSz}pt;font-weight:${st.prezzo.bold?'900':'400'};font-style:${st.prezzo.italic?'italic':'normal'};color:${st.prezzo.color}">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt;font-weight:${st.euro.bold?'700':'400'};font-style:${st.euro.italic?'italic':'normal'};color:${st.euro.color}">€</span>`
             : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
         </div>
-        ${attrs.length ? `<div class="fr-attrs-sq">${attrs.map(([lbl,cls])=>`<span class="fr-attr-sq ${cls||''}" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}</div>` : ''}
+        <div class="fr-attrs-sq">${attrs.map(a=>`<span class="fr-attr-sq ${a.on?a.cls:''}" style="font-size:${attrSz}pt;${a.on?'':'visibility:hidden'}">${a.lbl}</span>`).join('')}</div>
       </div>
       <div class="fr-sec" style="font-size:${secSz}pt;font-weight:${st.sec.bold?'700':'400'};font-style:${st.sec.italic?'italic':'normal'};color:${st.sec.color}">
         ${pu  ? `<span>${escH(puStr)}</span>` : ''}
