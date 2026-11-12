@@ -477,6 +477,21 @@ let _cfg = {
   margin: 7,
 };
 
+const STYLE_KEY = 'm361_frontalini_style';
+const DEFAULT_STYLE = {
+  fontFamily:    'Arial,Helvetica,sans-serif',
+  bandWidthRatio: 0.07,  // banda / larghezza frontalino
+  descRatio:     0.65,   // desc font / altezza frontalino
+  prezzoRatio:   0.80,
+  euroRatio:     0.50,
+  attrRatio:     0.28,
+  secRatio:      0.20,
+  brandRatio:    0.67,   // brand font / larghezza banda
+};
+let _style = { ...DEFAULT_STYLE };
+function loadStyle() { try { const s=localStorage.getItem(STYLE_KEY); if(s) Object.assign(_style, JSON.parse(s)); } catch {} }
+function saveStyle() { localStorage.setItem(STYLE_KEY, JSON.stringify(_style)); }
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 const g    = id => document.getElementById(id);
 const escH = s  => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -674,21 +689,23 @@ function frontalino(item, forPrint = false, scale = 1) {
   const missingUnit = item.peso && !item.unita;
 
   const cw = _cfg.cw, ch = _cfg.ch;
-  const sideW  = Math.round(cw * 0.07 * scale);
-  const descSz = Math.max(5, Math.round(ch * 0.65 * scale));
-  const preSz  = Math.max(8, Math.round(ch * 0.80 * scale));
-  const eurSz  = Math.max(5, Math.round(ch * 0.50 * scale));
-  const attrSz = Math.max(4, Math.round(ch * 0.28 * scale));
-  const secSz  = Math.max(4, Math.round(ch * 0.20 * scale));
-  const brandSz= Math.max(5, Math.round(sideW * 0.67 * scale));
+  const st = _style;
+  const sideW  = Math.round(cw * st.bandWidthRatio * scale);
+  const descSz = Math.max(5, Math.round(ch * st.descRatio    * scale));
+  const preSz  = Math.max(8, Math.round(ch * st.prezzoRatio  * scale));
+  const eurSz  = Math.max(5, Math.round(ch * st.euroRatio    * scale));
+  const attrSz = Math.max(4, Math.round(ch * st.attrRatio    * scale));
+  const secSz  = Math.max(4, Math.round(ch * st.secRatio     * scale));
+  const brandSz= Math.max(5, Math.round(sideW * st.brandRatio * scale));
   const lines  = ch > 30 ? 3 : 2;
 
   const bandBg = getBandColor(item.marchio, item.fornitore);
   const bandTx = bandTextColor(bandBg);
   const warnClass = missingUnit ? ' fr-warn-miss' : '';
 
+  const ff = st.fontFamily || 'Arial,Helvetica,sans-serif';
   return `<div class="frontalino${forPrint?'':' fr-screen'}${warnClass}"
-    style="width:${cw*scale}mm;height:${ch*scale}mm;"
+    style="width:${cw*scale}mm;height:${ch*scale}mm;font-family:${ff}"
     ${forPrint?'':'data-id="'+escH(item._id)+'"'}>
     <div class="fr-side" style="width:${sideW*scale}mm;background:${bandBg}">
       <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bandTx}">${escH(brand)}</span>
@@ -931,11 +948,9 @@ function rStampa() {
       <button class="btn btn-out btn-xs" onclick="openCfgModal()"><i class="fas fa-cog"></i> Modifica</button>
     </div>
     ${warnFit}
-    ${(() => { const wu = _draft.filter(it=>it.peso&&!it.unita); return wu.length ? `<div class="warn-box mb-3"><i class="fas fa-exclamation-triangle"></i><div><strong>${wu.length} prodott${wu.length===1?'o':'i'} con unità mancante</strong> — la stampa è bloccata:<br>${wu.map(it=>`<span style="font-size:11px">• ${escH(it.descrizione)}</span>`).join('<br>')}<br><span style="font-size:11px;margin-top:4px;display:block">Modifica nel catalogo (✏️) oppure rimuovili dalla bozza.</span></div></div>` : ''; })()}
+    ${(() => { const wu = _draft.filter(it=>it.peso&&!it.unita); return wu.length ? `<div class="warn-box mb-3"><i class="fas fa-exclamation-triangle"></i><div><strong>${wu.length} prodott${wu.length===1?'o':'i'} con peso senza unità</strong> — il prezzo al kg/L non sarà calcolato:<br>${wu.map(it=>`<span style="font-size:11px">• ${escH(it.descrizione)}</span>`).join('<br>')}<br><span style="font-size:11px;margin-top:4px;display:block">Modifica nel catalogo (✏️) oppure rimuovili dalla bozza.</span></div></div>` : ''; })()}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      ${_draft.some(it=>it.peso&&!it.unita)
-        ? `<button class="btn" style="background:#e2e8f0;color:var(--s400);cursor:not-allowed" disabled><i class="fas fa-ban"></i> Stampa bloccata</button>`
-        : `<button class="btn btn-red" onclick="doPrint()"><i class="fas fa-print"></i> Stampa / Salva PDF</button>`}
+      <button class="btn btn-red" onclick="doPrint()"><i class="fas fa-print"></i> Stampa / Salva PDF</button>
       <button class="btn btn-out" onclick="openCfgModal()"><i class="fas fa-cog"></i> Impostazioni</button>
       <span style="font-size:11px;color:var(--s400);align-self:center">${slots.length} frontalini · ${pages.length} pagine</span>
     </div>
@@ -1155,11 +1170,6 @@ function saveCfgModal() {
 
 // ── STAMPA ─────────────────────────────────────────────────────────────────
 function doPrint() {
-  const missingUnits = _draft.filter(it => it.peso && !it.unita);
-  if (missingUnits.length > 0) {
-    alert(`Impossibile stampare: ${missingUnits.length} prodott${missingUnits.length===1?'o':'i'} ${missingUnits.length===1?'ha':'hanno'} un peso senza unità di misura:\n\n${missingUnits.map(it=>'• '+it.descrizione).join('\n')}\n\nCorreggi prima nel catalogo (✏️) o rimuovili dalla bozza.`);
-    return;
-  }
   const ppp  = _cfg.cols * _cfg.rows;
   const slots = [];
   for (const it of _draft) for (let i=0; i<(it.copie||1); i++) slots.push(it);
@@ -1180,7 +1190,7 @@ function doPrint() {
 
   const printCSS = `
     @page { size: ${paper.w}mm ${paper.h}mm; margin: 0; }
-    body { margin: 0; padding: 0; background: white; font-family: Arial, Helvetica, sans-serif; }
+    body { margin: 0; padding: 0; background: white; font-family: ${_style.fontFamily||'Arial,Helvetica,sans-serif'}; }
     .print-page { page-break-after: always; break-after: page; box-sizing: border-box; }
     .print-page:last-child { page-break-after: avoid; break-after: avoid; }
     .frontalino { display: flex; border: 0.5px solid #333; overflow: hidden; background: #fff; box-sizing: border-box; }
@@ -1277,6 +1287,57 @@ function rImpostazioni() {
       <button class="btn btn-red btn-sm" onclick="saveImpStampa()"><i class="fas fa-save"></i> Salva impostazioni stampa</button>
     </div>
 
+    <!-- STILE FRONTALINO -->
+    <div class="card card-p mb-3">
+      <div class="sec-t" style="margin-bottom:14px">Stile frontalino</div>
+      <div style="margin-bottom:10px">
+        <div class="imp-grid">
+          <div class="f-g" style="grid-column:1/-1">
+            <label class="lbl">Font</label>
+            <select class="inp inp-sm" id="st-font" onchange="previewStyle()">
+              ${['Arial,Helvetica,sans-serif','Georgia,serif','Times New Roman,serif','Courier New,monospace','Verdana,sans-serif','Trebuchet MS,sans-serif','Impact,sans-serif'].map(f=>`<option value="${f}"${_style.fontFamily===f?' selected':''}>${f.split(',')[0]}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin:10px 0 6px">Dimensioni testo (% altezza frontalino)</div>
+      <div class="imp-grid" style="margin-bottom:12px">
+        <div class="f-g">
+          <label class="lbl">Descrizione %</label>
+          <input class="inp inp-sm" id="st-desc" type="number" min="10" max="120" step="1" value="${Math.round(_style.descRatio*100)}" oninput="previewStyle()">
+        </div>
+        <div class="f-g">
+          <label class="lbl">Prezzo %</label>
+          <input class="inp inp-sm" id="st-prezzo" type="number" min="10" max="150" step="1" value="${Math.round(_style.prezzoRatio*100)}" oninput="previewStyle()">
+        </div>
+        <div class="f-g">
+          <label class="lbl">€ simbolo %</label>
+          <input class="inp inp-sm" id="st-euro" type="number" min="10" max="120" step="1" value="${Math.round(_style.euroRatio*100)}" oninput="previewStyle()">
+        </div>
+        <div class="f-g">
+          <label class="lbl">Attributi (BIO…) %</label>
+          <input class="inp inp-sm" id="st-attr" type="number" min="5" max="80" step="1" value="${Math.round(_style.attrRatio*100)}" oninput="previewStyle()">
+        </div>
+        <div class="f-g">
+          <label class="lbl">Secondario (codice…) %</label>
+          <input class="inp inp-sm" id="st-sec" type="number" min="5" max="60" step="1" value="${Math.round(_style.secRatio*100)}" oninput="previewStyle()">
+        </div>
+        <div class="f-g">
+          <label class="lbl">Banda marchio % largh.</label>
+          <input class="inp inp-sm" id="st-band" type="number" min="3" max="25" step="1" value="${Math.round(_style.bandWidthRatio*100)}" oninput="previewStyle()">
+        </div>
+        <div class="f-g">
+          <label class="lbl">Font marchio % banda</label>
+          <input class="inp inp-sm" id="st-brand" type="number" min="20" max="120" step="1" value="${Math.round(_style.brandRatio*100)}" oninput="previewStyle()">
+        </div>
+      </div>
+      <div id="st-preview" style="margin-bottom:12px;overflow:auto"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-red btn-sm" onclick="saveStyleSettings()"><i class="fas fa-save"></i> Salva stile</button>
+        <button class="btn btn-out btn-sm" onclick="resetStyle()"><i class="fas fa-undo"></i> Default</button>
+      </div>
+    </div>
+
     <!-- COLORI MARCHI -->
     <div class="card card-p mb-3">
       <div class="sec-t" style="margin-bottom:12px">Colori banda marchi</div>
@@ -1314,6 +1375,43 @@ function rImpostazioni() {
       </div>
     </div>
   `;
+}
+
+function readStyleFields() {
+  return {
+    fontFamily:     g('st-font')?.value    || DEFAULT_STYLE.fontFamily,
+    descRatio:      (parseInt(g('st-desc')?.value)   || Math.round(DEFAULT_STYLE.descRatio*100))   / 100,
+    prezzoRatio:    (parseInt(g('st-prezzo')?.value) || Math.round(DEFAULT_STYLE.prezzoRatio*100)) / 100,
+    euroRatio:      (parseInt(g('st-euro')?.value)   || Math.round(DEFAULT_STYLE.euroRatio*100))   / 100,
+    attrRatio:      (parseInt(g('st-attr')?.value)   || Math.round(DEFAULT_STYLE.attrRatio*100))   / 100,
+    secRatio:       (parseInt(g('st-sec')?.value)    || Math.round(DEFAULT_STYLE.secRatio*100))    / 100,
+    bandWidthRatio: (parseInt(g('st-band')?.value)   || Math.round(DEFAULT_STYLE.bandWidthRatio*100)) / 100,
+    brandRatio:     (parseInt(g('st-brand')?.value)  || Math.round(DEFAULT_STYLE.brandRatio*100))  / 100,
+  };
+}
+
+function previewStyle() {
+  const tmp = _style;
+  _style = readStyleFields();
+  const el = g('st-preview');
+  if (el) {
+    const sample = _catalogo[0] || { _id:'prev', descrizione:'Esempio prodotto biologico', prezzo:9.90, peso:200, unita:'ml', fornitore:'NATYR', marchio:'NATYR', bio:true, senza_glutine:false, vegano:true };
+    el.innerHTML = `<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:6px">Anteprima</div><div style="overflow:auto">${frontalino(sample,false,1.5)}</div>`;
+  }
+  _style = tmp;
+}
+
+function saveStyleSettings() {
+  _style = readStyleFields();
+  saveStyle();
+  R();
+}
+
+function resetStyle() {
+  if (!confirm('Ripristinare le impostazioni di stile ai valori di default?')) return;
+  _style = { ...DEFAULT_STYLE };
+  saveStyle();
+  R();
 }
 
 function impToggleCustom() {
@@ -1688,6 +1786,7 @@ async function saveBulkEditModal() {
 loadDraft();
 loadCfg();
 loadBrandColors();
+loadStyle();
 
 async function init() {
   _loading = true; R();
