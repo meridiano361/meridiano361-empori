@@ -237,8 +237,8 @@
           <option value="pz">pz (pezzi)</option>
         </select>
       </div>
-      <div class="f-g"><label class="lbl">Fornitore</label><input class="inp" id="man-fornitore" placeholder="Es: Libera Terra"></div>
-      <div class="f-g"><label class="lbl">Marchio (da stampare)</label><input class="inp" id="man-marchio" placeholder="Es: Libera Terra"></div>
+      <div class="f-g"><label class="lbl">Fornitore</label><input class="inp" id="man-fornitore" list="man-fornitore-list" placeholder="Es: Libera Terra" autocomplete="off"><datalist id="man-fornitore-list"></datalist></div>
+      <div class="f-g"><label class="lbl">Marchio (da stampare)</label><input class="inp" id="man-marchio" list="man-marchio-list" placeholder="Es: Libera Terra" autocomplete="off"><datalist id="man-marchio-list"></datalist></div>
       <div class="f-g"><label class="lbl">Copie</label><input class="inp" id="man-copie" type="number" min="1" value="1"></div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
@@ -1225,6 +1225,13 @@ function openManModal(draftId) {
     } catch {}
   }
   g('man-preview-wrap').innerHTML = '';
+  // Popola datalist con fornitori/marchi esistenti
+  const allFors = [...new Set([...fornitori(), ...marchi()])].sort();
+  const allMars = [...new Set([...marchi(), ...fornitori()])].sort();
+  const dl_f = g('man-fornitore-list');
+  const dl_m = g('man-marchio-list');
+  if (dl_f) dl_f.innerHTML = allFors.map(v=>`<option value="${escH(v)}">`).join('');
+  if (dl_m) dl_m.innerHTML = allMars.map(v=>`<option value="${escH(v)}">`).join('');
   g('modal-man').classList.add('open');
   setTimeout(() => g('man-desc')?.focus(), 100);
 }
