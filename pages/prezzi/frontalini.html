@@ -174,6 +174,16 @@
     /* WARN BOX */
     .warn-box{background:var(--amber-light);border:1.5px solid #fcd34d;border-radius:12px;padding:12px 14px;font-size:12px;color:var(--amber-tx);display:flex;gap:8px;align-items:flex-start}
 
+    /* IMPOSTAZIONI */
+    .imp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+    .bc-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--s100)}
+    .bc-row:last-child{border-bottom:none}
+    .bc-swatch{width:22px;height:22px;border-radius:5px;border:1px solid #ccc;flex-shrink:0}
+    .bc-name{flex:1;font-size:13px;font-weight:700;color:var(--s700)}
+    .bc-color-inp{width:38px;height:28px;border:none;padding:0;cursor:pointer;border-radius:5px;background:transparent}
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+    .danger-zone{border-top:1.5px solid #fca5a5;padding-top:14px;margin-top:14px}
+
     /* BULK EDIT */
     .be-field-row{display:grid;grid-template-columns:160px 1fr;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--s100)}
     .be-field-row:last-of-type{border-bottom:none}
@@ -410,7 +420,7 @@ const CFG_KEY      = 'm361_frontalini_cfg';
 const PAPER_SIZES  = { A4P:{w:210,h:297}, A4L:{w:297,h:210}, A3P:{w:297,h:420}, A3L:{w:420,h:297} };
 
 // Colori banda sinistra per fornitore/marchio — estratti dalle CF rules del file Excel
-const BRAND_COLORS = {
+const DEFAULT_BRAND_COLORS = {
   'ALTROMERCATO':     '#B60000',
   'LIBERO MONDO':     '#FFE599',
   'ALTRAQUALITÀ':     '#FF9900',
@@ -427,9 +437,15 @@ const BRAND_COLORS = {
   'I FRESCHI':        '#3a7a2a',
   'LIBERA TERRA':     '#c03020',
 };
+const BRAND_COLORS_KEY = 'm361_frontalini_colors';
+let _brandColors = { ...DEFAULT_BRAND_COLORS };
+function loadBrandColors() {
+  try { const s=localStorage.getItem(BRAND_COLORS_KEY); if(s) _brandColors=JSON.parse(s); } catch {}
+}
+function saveBrandColors() { localStorage.setItem(BRAND_COLORS_KEY, JSON.stringify(_brandColors)); }
 function getBandColor(marchio, fornitore) {
   const k = ((marchio || fornitore) || '').toUpperCase().trim();
-  return BRAND_COLORS[k] || '#1e293b';
+  return _brandColors[k] || '#1e293b';
 }
 function bandTextColor(hex) {
   const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
@@ -437,7 +453,7 @@ function bandTextColor(hex) {
 }
 
 // ── STATE ──────────────────────────────────────────────────────────────────
-let _view     = 'selezione';   // 'selezione' | 'bozza' | 'stampa'
+let _view     = 'selezione';   // 'selezione' | 'bozza' | 'stampa' | 'impostazioni'
 let _catalogo = [];
 let _draft    = [];
 let _sel      = new Set();     // IDs prodotti selezionati nel catalogo
@@ -704,10 +720,12 @@ function frontalino_empty(scale=1) {
 
 function rTabs() {
   const nc = draftTotalCopies();
+  const admin = typeof isAdmin==='function' && isAdmin();
   const tabs = [
-    { k:'selezione', icon:'fas fa-search',   lbl:'Selezione'  },
-    { k:'bozza',     icon:'fas fa-list',      lbl:'Bozza',     badge: nc || '' },
-    { k:'stampa',    icon:'fas fa-print',     lbl:'Stampa'     },
+    { k:'selezione',    icon:'fas fa-search',   lbl:'Selezione'  },
+    { k:'bozza',        icon:'fas fa-list',      lbl:'Bozza',     badge: nc || '' },
+    { k:'stampa',       icon:'fas fa-print',     lbl:'Stampa'     },
+    ...(admin ? [{ k:'impostazioni', icon:'fas fa-cog', lbl:'Impostazioni' }] : []),
   ];
   g('fl-tabs').innerHTML = tabs.map(t=>`
     <button class="fl-tab ${_view===t.k?'active':''}" onclick="setView('${t.k}')">
@@ -934,9 +952,10 @@ function R() {
     g('fl-main').innerHTML = `<div style="padding:48px;text-align:center;color:var(--s400)"><i class="fas fa-spinner fa-spin fa-2x"></i><div style="margin-top:12px;font-size:13px">Caricamento...</div></div>`;
     return;
   }
-  if (_view === 'selezione') g('fl-main').innerHTML = rSelezione();
-  else if (_view === 'bozza') g('fl-main').innerHTML = rBozza();
-  else g('fl-main').innerHTML = rStampa();
+  if (_view === 'selezione')       g('fl-main').innerHTML = rSelezione();
+  else if (_view === 'bozza')      g('fl-main').innerHTML = rBozza();
+  else if (_view === 'stampa')     g('fl-main').innerHTML = rStampa();
+  else if (_view === 'impostazioni') g('fl-main').innerHTML = rImpostazioni();
 }
 
 function setView(v) { _view = v; R(); }
@@ -1187,6 +1206,223 @@ function doPrint() {
   win.document.close();
   win.focus();
   setTimeout(() => { win.print(); }, 400);
+}
+
+// ── IMPOSTAZIONI ───────────────────────────────────────────────────────────
+function rImpostazioni() {
+  const paper = PAPER_SIZES[_cfg.paper] || { w: _cfg.pw, h: _cfg.ph };
+  const uw = paper.w - 2*_cfg.margin, uh = paper.h - 2*_cfg.margin;
+  const fitsW = _cfg.cw * _cfg.cols <= uw + 0.5, fitsH = _cfg.ch * _cfg.rows <= uh + 0.5;
+
+  const coloriHTML = Object.entries(_brandColors)
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([nome, colore]) => {
+      const safe = nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<div class="bc-row">
+        <div class="bc-swatch" style="background:${escH(colore)}"></div>
+        <span class="bc-name">${escH(nome)}</span>
+        <input type="color" class="bc-color-inp" value="${escH(colore)}" title="${escH(colore)}"
+          onchange="updateBrandColor('${safe}',this.value)">
+        <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="deleteBrandColor('${safe}')">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>`;
+    }).join('');
+
+  const nTot = _catalogo.length;
+  const nNoP = _catalogo.filter(p => p.prezzo == null).length;
+  const nNoU = _catalogo.filter(p => p.peso && !p.unita).length;
+  const nNoPeso = _catalogo.filter(p => !p.peso).length;
+  const fornList = [...new Set(_catalogo.map(p=>p.fornitore||p.marchio).filter(Boolean))].sort();
+
+  return `
+    <div class="sec-t">Impostazioni frontalini</div>
+
+    <!-- CONFIGURAZIONE STAMPA -->
+    <div class="card card-p mb-3">
+      <div class="sec-t" style="margin-bottom:14px">Configurazione stampa</div>
+      <div class="imp-grid" style="margin-bottom:12px">
+        <div class="f-g"><label class="lbl">Colonne</label>
+          <input class="inp inp-sm" id="imp-cols" type="number" min="1" max="10" value="${_cfg.cols}" oninput="impFitCheck()"></div>
+        <div class="f-g"><label class="lbl">Righe per pagina</label>
+          <input class="inp inp-sm" id="imp-rows" type="number" min="1" max="30" value="${_cfg.rows}" oninput="impFitCheck()"></div>
+        <div class="f-g"><label class="lbl">Larghezza frontalino (mm)</label>
+          <input class="inp inp-sm" id="imp-cw" type="number" min="20" max="300" value="${_cfg.cw}" oninput="impFitCheck()"></div>
+        <div class="f-g"><label class="lbl">Altezza frontalino (mm)</label>
+          <input class="inp inp-sm" id="imp-ch" type="number" min="10" max="200" value="${_cfg.ch}" oninput="impFitCheck()"></div>
+        <div class="f-g"><label class="lbl">Formato carta</label>
+          <select class="inp inp-sm" id="imp-paper" onchange="impToggleCustom();impFitCheck()">
+            <option value="A4P"${_cfg.paper==='A4P'?' selected':''}>A4 Portrait (210×297mm)</option>
+            <option value="A4L"${_cfg.paper==='A4L'?' selected':''}>A4 Landscape (297×210mm)</option>
+            <option value="A3P"${_cfg.paper==='A3P'?' selected':''}>A3 Portrait (297×420mm)</option>
+            <option value="A3L"${_cfg.paper==='A3L'?' selected':''}>A3 Landscape (420×297mm)</option>
+            <option value="custom"${_cfg.paper==='custom'?' selected':''}>Personalizzato</option>
+          </select></div>
+        <div class="f-g"><label class="lbl">Margine pagina (mm)</label>
+          <input class="inp inp-sm" id="imp-margin" type="number" min="0" max="50" value="${_cfg.margin}" oninput="impFitCheck()"></div>
+      </div>
+      <div id="imp-custom-paper" style="display:${_cfg.paper==='custom'?'':'none'};margin-bottom:12px">
+        <div class="imp-grid">
+          <div class="f-g"><label class="lbl">Larghezza carta (mm)</label>
+            <input class="inp inp-sm" id="imp-pw" type="number" min="50" value="${_cfg.pw}" oninput="impFitCheck()"></div>
+          <div class="f-g"><label class="lbl">Altezza carta (mm)</label>
+            <input class="inp inp-sm" id="imp-ph" type="number" min="50" value="${_cfg.ph}" oninput="impFitCheck()"></div>
+        </div>
+      </div>
+      <div id="imp-fit-check" style="font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:12px;background:${fitsW&&fitsH?'#dcfce7':'#fee2e2'};color:${fitsW&&fitsH?'#166534':'#991b1b'}">
+        ${fitsW&&fitsH
+          ? `<i class="fas fa-check-circle"></i> Griglia ${_cfg.cols}×${_cfg.rows} entra nel formato (${(_cfg.cw*_cfg.cols).toFixed(0)}×${(_cfg.ch*_cfg.rows).toFixed(0)}mm su ${uw.toFixed(0)}×${uh.toFixed(0)}mm disponibili)`
+          : `<i class="fas fa-times-circle"></i> La griglia non entra — ${!fitsW?`largh. ${(_cfg.cw*_cfg.cols).toFixed(0)}mm > ${uw.toFixed(0)}mm`:''}${!fitsW&&!fitsH?' · ':''}${!fitsH?`alt. ${(_cfg.ch*_cfg.rows).toFixed(0)}mm > ${uh.toFixed(0)}mm`:''}`}
+      </div>
+      <button class="btn btn-red btn-sm" onclick="saveImpStampa()"><i class="fas fa-save"></i> Salva impostazioni stampa</button>
+    </div>
+
+    <!-- COLORI MARCHI -->
+    <div class="card card-p mb-3">
+      <div class="sec-t" style="margin-bottom:12px">Colori banda marchi</div>
+      <div style="margin-bottom:4px">${coloriHTML || '<div style="color:var(--s400);font-size:13px;padding:8px 0">Nessun colore configurato.</div>'}</div>
+      <div style="display:flex;gap:8px;align-items:center;padding:12px 0;border-top:1.5px solid var(--s200);flex-wrap:wrap">
+        <input class="inp inp-sm" id="bc-new-name" placeholder="NOME MARCHIO" style="flex:1;min-width:140px" oninput="this.value=this.value.toUpperCase()">
+        <input type="color" id="bc-new-color" value="#1e293b" class="bc-color-inp" style="width:38px;height:34px">
+        <button class="btn btn-green btn-sm" onclick="addBrandColor()"><i class="fas fa-plus"></i> Aggiungi</button>
+        <button class="btn btn-out btn-sm" onclick="resetBrandColors()"><i class="fas fa-undo"></i> Ripristina default</button>
+      </div>
+      <div style="font-size:11px;color:var(--s400);margin-top:4px">
+        Marchi senza colore assegnato usano il colore di default (blu scuro).
+        ${fornList.filter(f=>!_brandColors[f.toUpperCase()]).length
+          ? `<strong>Marchi non configurati: ${fornList.filter(f=>!_brandColors[f.toUpperCase()]).map(escH).join(', ')}</strong>`
+          : ''}
+      </div>
+    </div>
+
+    <!-- GESTIONE CATALOGO -->
+    <div class="card card-p mb-3">
+      <div class="sec-t" style="margin-bottom:12px">Gestione catalogo</div>
+      <div class="stat-grid" style="margin-bottom:16px">
+        <div class="stat-box"><div class="stat-n">${nTot}</div><div class="stat-l">Prodotti totali</div></div>
+        <div class="stat-box"><div class="stat-n" style="color:${nNoP?'var(--amber-tx)':'var(--green)'}">${nNoP}</div><div class="stat-l">Senza prezzo</div></div>
+        <div class="stat-box"><div class="stat-n" style="color:${nNoU?'var(--amber-tx)':'var(--green)'}">${nNoU}</div><div class="stat-l">Peso senza unità</div></div>
+        <div class="stat-box"><div class="stat-n" style="color:${nNoPeso?'var(--s400)':'var(--green)'}">${nNoPeso}</div><div class="stat-l">Senza quantità</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <button class="btn btn-blue btn-sm" onclick="openImportModal()"><i class="fas fa-file-excel"></i> Importa da Excel</button>
+        <button class="btn btn-out btn-sm" onclick="exportCatalogCSV()"><i class="fas fa-download"></i> Esporta CSV</button>
+      </div>
+      <div class="danger-zone">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#991b1b;margin-bottom:8px">Zona pericolo</div>
+        <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="svuotaCatalogo()"><i class="fas fa-trash"></i> Svuota intero catalogo (${nTot} prodotti)</button>
+      </div>
+    </div>
+  `;
+}
+
+function impToggleCustom() {
+  const el = g('imp-custom-paper');
+  if (el) el.style.display = g('imp-paper')?.value === 'custom' ? '' : 'none';
+}
+
+function impFitCheck() {
+  const cols   = parseInt(g('imp-cols')?.value) || _cfg.cols;
+  const rows   = parseInt(g('imp-rows')?.value) || _cfg.rows;
+  const cw     = parseFloat(g('imp-cw')?.value) || _cfg.cw;
+  const ch     = parseFloat(g('imp-ch')?.value) || _cfg.ch;
+  const pKey   = g('imp-paper')?.value || _cfg.paper;
+  const margin = parseFloat(g('imp-margin')?.value) || _cfg.margin;
+  const paper  = pKey === 'custom'
+    ? { w: parseFloat(g('imp-pw')?.value)||_cfg.pw, h: parseFloat(g('imp-ph')?.value)||_cfg.ph }
+    : (PAPER_SIZES[pKey] || PAPER_SIZES.A4P);
+  const uw = paper.w - 2*margin, uh = paper.h - 2*margin;
+  const fw = cw*cols <= uw+0.5, fh = ch*rows <= uh+0.5;
+  const el = g('imp-fit-check'); if (!el) return;
+  if (fw && fh) {
+    el.style.background='#dcfce7'; el.style.color='#166534';
+    el.innerHTML=`<i class="fas fa-check-circle"></i> Griglia ${cols}×${rows} entra (${(cw*cols).toFixed(0)}×${(ch*rows).toFixed(0)}mm su ${uw.toFixed(0)}×${uh.toFixed(0)}mm disponibili)`;
+  } else {
+    el.style.background='#fee2e2'; el.style.color='#991b1b';
+    el.innerHTML=`<i class="fas fa-times-circle"></i> Non entra — ${!fw?`largh. ${(cw*cols).toFixed(0)}>${uw.toFixed(0)}mm`:''}${!fw&&!fh?' · ':''}${!fh?`alt. ${(ch*rows).toFixed(0)}>${uh.toFixed(0)}mm`:''}`;
+  }
+}
+
+function saveImpStampa() {
+  const pKey = g('imp-paper')?.value || _cfg.paper;
+  const paper = pKey === 'custom'
+    ? { w: parseFloat(g('imp-pw')?.value)||_cfg.pw, h: parseFloat(g('imp-ph')?.value)||_cfg.ph }
+    : (PAPER_SIZES[pKey] || PAPER_SIZES.A4P);
+  _cfg = {
+    cols:   Math.max(1, parseInt(g('imp-cols')?.value)  || _cfg.cols),
+    rows:   Math.max(1, parseInt(g('imp-rows')?.value)  || _cfg.rows),
+    cw:     parseFloat(g('imp-cw')?.value)   || _cfg.cw,
+    ch:     parseFloat(g('imp-ch')?.value)   || _cfg.ch,
+    paper:  pKey, pw: paper.w, ph: paper.h,
+    margin: parseFloat(g('imp-margin')?.value) || _cfg.margin,
+  };
+  saveCfg();
+  R();
+  setTimeout(() => {
+    const el = g('imp-fit-check');
+    if (el) { const prev=el.innerHTML; el.innerHTML='<i class="fas fa-check"></i> Salvato!'; setTimeout(()=>{if(el)el.innerHTML=prev;},1500); }
+  }, 60);
+}
+
+function updateBrandColor(nome, colore) {
+  _brandColors[nome] = colore;
+  saveBrandColors();
+  const row = document.querySelector(`.bc-row .bc-name`);
+  // aggiorna il swatch visivamente senza re-render
+  document.querySelectorAll('.bc-row').forEach(r => {
+    const nm = r.querySelector('.bc-name')?.textContent;
+    if (nm === nome) { const sw = r.querySelector('.bc-swatch'); if(sw) sw.style.background = colore; }
+  });
+}
+
+function addBrandColor() {
+  const nome = (g('bc-new-name')?.value || '').trim().toUpperCase();
+  const colore = g('bc-new-color')?.value || '#1e293b';
+  if (!nome) { g('bc-new-name')?.focus(); return; }
+  _brandColors[nome] = colore;
+  saveBrandColors();
+  R();
+}
+
+function deleteBrandColor(nome) {
+  if (!confirm(`Rimuovere il colore per "${nome}"?`)) return;
+  delete _brandColors[nome];
+  saveBrandColors();
+  R();
+}
+
+function resetBrandColors() {
+  if (!confirm('Ripristinare tutti i colori ai valori di default? Le modifiche personalizzate verranno perse.')) return;
+  _brandColors = { ...DEFAULT_BRAND_COLORS };
+  saveBrandColors();
+  R();
+}
+
+function exportCatalogCSV() {
+  const cols   = ['codice','descrizione','peso','unita','prezzo','fornitore','marchio','bio','senza_glutine','vegano'];
+  const header = ['Codice','Descrizione','Peso','Unità','Prezzo','Fornitore','Marchio','BIO','Senza Glutine','Vegano'];
+  const rows = _catalogo.map(p => cols.map(c => {
+    const v = p[c];
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'boolean') return v ? 'SI' : '';
+    const s = String(v);
+    return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s;
+  }));
+  const csv = [header, ...rows].map(r => r.join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `catalogo_frontalini_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+async function svuotaCatalogo() {
+  if (!confirm(`Eliminare TUTTI i ${_catalogo.length} prodotti dal catalogo?\nQuesta operazione non può essere annullata.`)) return;
+  if (!confirm('Ultima conferma: vuoi davvero eliminare tutto il catalogo?')) return;
+  const { error } = await db.from('frontalini_catalogo').delete().neq('id', 0);
+  if (error) { alert('Errore: ' + error.message); return; }
+  await loadCatalogo();
+  R();
 }
 
 // ── IMPORTAZIONE EXCEL ─────────────────────────────────────────────────────
@@ -1451,6 +1687,7 @@ async function saveBulkEditModal() {
 // ── INIT ───────────────────────────────────────────────────────────────────
 loadDraft();
 loadCfg();
+loadBrandColors();
 
 async function init() {
   _loading = true; R();
