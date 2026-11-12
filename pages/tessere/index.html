@@ -731,6 +731,32 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
           </div>
         </div>
       </div>
+      <div class="msg-card collapsed" id="conv-spesa-msg-card">
+        <div class="msg-card-hdr" onclick="this.closest('.msg-card').classList.toggle('collapsed')">
+          <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
+            <div class="msg-tipo" style="margin-bottom:0">conversione_digitale_spesa</div>
+            <span style="font-size:13px;font-weight:800;color:#1e293b">Conversione cartacea → digitale + spesa</span>
+          </div>
+          <i class="fas fa-chevron-down msg-chevron"></i>
+        </div>
+        <div class="msg-body" style="margin-top:10px">
+          <div class="msg-testo" id="conv-spesa-msg-preview" style="white-space:pre-wrap;margin-bottom:8px"></div>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">
+            Variabili: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">{nome}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{importo}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{timbri_spesa}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{timbri_totali}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{timbri_max}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{sconto_msg}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{tessera_url}</code>
+            <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;margin-left:4px">{salva_url}</code>
+          </div>
+          <div class="msg-actions">
+            <button class="btn btn-outline btn-sm" onclick="openConvSpesaMsgModal()"><i class="fas fa-pen"></i> Modifica</button>
+            <button class="btn btn-outline btn-sm" onclick="apriProvaWa('conversione_digitale_spesa',this)"><i class="fab fa-whatsapp" style="color:#25d366"></i> Prova</button>
+          </div>
+        </div>
+      </div>
       <div class="msg-card collapsed" id="ordine-ritiro-msg-card">
         <div class="msg-card-hdr" onclick="this.closest('.msg-card').classList.toggle('collapsed')">
           <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:0">
@@ -1518,6 +1544,27 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-outline" onclick="closeRegSpesaMsgModal()">Annulla</button>
       <button class="btn btn-red" onclick="saveRegSpesaMsg()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<div class="small-modal" id="conv-spesa-msg-modal">
+  <div class="small-modal-panel" style="max-width:660px">
+    <h3>Conversione cartacea → digitale + spesa</h3>
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.6">
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{nome}</code> nome &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{importo}</code> importo €<br>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_spesa}</code> timbri guadagnati oggi &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_totali}</code> timbri totali attuali<br>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{timbri_max}</code> timbri max &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{sconto_msg}</code> riga sconto (vuota se assente)<br>
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{tessera_url}</code> link tessera &nbsp;·&nbsp;
+      <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:11px">{salva_url}</code> link salva app
+    </div>
+    <textarea class="field-textarea" id="conv-spesa-msg-testo" style="min-height:300px;margin-bottom:14px;font-family:inherit"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeConvSpesaMsgModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveConvSpesaMsg()">Salva</button>
     </div>
   </div>
 </div>
@@ -2437,6 +2484,7 @@ function _refreshConsentMsgPreview() {
   _refreshDigLinkMsgPreview();
   _refreshInstallAppMsgPreview();
   _refreshRegSpesaMsgPreview();
+  _refreshConvSpesaMsgPreview();
   _refreshOrdineRitiroMsgPreview();
   _refreshOrdineSpedMsgPreview();
 }
@@ -2448,9 +2496,10 @@ const _PROVA_LABELS = {
   consenso_privacy:        'Consenso privacy WA',
   link_digitale:           'Link tessera digitale',
   installazione_app:       'Istruzioni installazione app',
-  registrazione_spesa:     'Registrazione spesa',
-  ordine_pronto_ritiro:    'Ordine pronto (ritiro)',
-  ordine_pronto_spedizione:'Ordine pronto (spedizione)',
+  registrazione_spesa:          'Registrazione spesa',
+  conversione_digitale_spesa:   'Conversione cartacea → digitale + spesa',
+  ordine_pronto_ritiro:         'Ordine pronto (ritiro)',
+  ordine_pronto_spedizione:     'Ordine pronto (spedizione)',
 };
 
 function apriProvaWa(tipo, btn) {
@@ -2476,6 +2525,12 @@ function _buildProvaMsgTesto(tipo) {
     return _buildRegSpesaMsg({
       nome, importo: '52.00', timbriNuovi: 2, timbriAttuali: 7,
       scontoGenerato: 0, cartaUrl: esUrl, salvaUrl,
+    });
+  }
+  if (tipo === 'conversione_digitale_spesa') {
+    return _buildConvSpesaMsg({
+      nome, importo: 38.50, timbriSpesa: 2, timbriTotali: 5,
+      scontoGen: 0, cartaUrl: esUrl, salvaUrl,
     });
   }
   if (tipo === 'consenso_privacy') {
@@ -2873,6 +2928,62 @@ async function saveRegSpesaMsg() {
   _refreshRegSpesaMsgPreview();
   showToast('Messaggio aggiornato ✓');
 }
+// ── Messaggio conversione cartacea → digitale + spesa ─────────────────────────
+const _CONV_SPESA_MSG_DEFAULT = `Ciao {nome}! 👋\n\nEcco la tua nuova Tessera Fedeltà digitale Meridiano 361! ✨\n\nPer la spesa di oggi di €{importo} hai ottenuto {timbri_spesa}. Ora hai {timbri_totali}/{timbri_max} timbri. 🤩\n{sconto_msg}\n📲 Guarda qui la tua tessera:\n{tessera_url}\n\n💾 Puoi salvare la tua tessera sul dispositivo, scopri qui come:\n{salva_url}\n\n⭐ Se vuoi dirci com'è andata la visita, apri la tessera e lascia una valutazione — la trovi in fondo alla pagina!`;
+
+function _getConvSpesaMsgTesto() {
+  const tmpl = allMsgTemplates.find(t => t.tipo === 'conversione_digitale_spesa');
+  return tmpl?.testo || _CONV_SPESA_MSG_DEFAULT;
+}
+function _buildConvSpesaMsg({ nome, importo, timbriSpesa, timbriTotali, scontoGen, cartaUrl, salvaUrl }) {
+  const timbri_spesa  = timbriSpesa + (timbriSpesa !== 1 ? ' timbri' : ' timbro');
+  const timbri_totali = Math.min(timbriTotali, DIG_TIMBRI_MAX);
+  const timbri_max    = DIG_TIMBRI_MAX;
+  const sconto_msg    = scontoGen > 0
+    ? `🎉 Hai completato la tessera! Hai €${scontoGen} di sconto sulla prossima spesa.\n` : '';
+  return _getConvSpesaMsgTesto()
+    .replace(/{nome}/g,         nome || '')
+    .replace(/{importo}/g,      typeof importo === 'number' ? importo.toFixed(2) : importo)
+    .replace(/{timbri_spesa}/g, timbri_spesa)
+    .replace(/{timbri_totali}/g,timbri_totali)
+    .replace(/{timbri_max}/g,   timbri_max)
+    .replace(/{sconto_msg}/g,   sconto_msg)
+    .replace(/{tessera_url}/g,  cartaUrl)
+    .replace(/{salva_url}/g,    salvaUrl)
+    .replace(/\n\n\n+/g,        '\n\n');
+}
+function _refreshConvSpesaMsgPreview() {
+  const el = document.getElementById('conv-spesa-msg-preview');
+  if (el) el.textContent = _getConvSpesaMsgTesto();
+}
+function openConvSpesaMsgModal() {
+  document.getElementById('conv-spesa-msg-testo').value = _getConvSpesaMsgTesto();
+  document.getElementById('conv-spesa-msg-modal').classList.add('open');
+}
+function closeConvSpesaMsgModal() {
+  document.getElementById('conv-spesa-msg-modal').classList.remove('open');
+}
+async function saveConvSpesaMsg() {
+  const testo = document.getElementById('conv-spesa-msg-testo').value.trim();
+  if (!testo) { showToast('Inserisci il testo'); return; }
+  const existing = allMsgTemplates.find(t => t.tipo === 'conversione_digitale_spesa');
+  if (existing) {
+    await _sb.from('tessere_messaggi').update({ testo, updated_at: new Date().toISOString() }).eq('id', existing.id);
+    existing.testo = testo;
+  } else {
+    const { data } = await _sb.from('tessere_messaggi').insert({
+      tipo: 'conversione_digitale_spesa',
+      titolo: 'Conversione cartacea → digitale + spesa',
+      testo,
+      destinatari: 'tutti',
+    }).select().single();
+    if (data) allMsgTemplates.push(data);
+  }
+  closeConvSpesaMsgModal();
+  _refreshConvSpesaMsgPreview();
+  showToast('Messaggio aggiornato ✓');
+}
+
 function openConsentMsgModal() {
   document.getElementById('consent-msg-testo').value = _getConsentMsgTesto();
   document.getElementById('consent-msg-modal').classList.add('open');
@@ -6350,7 +6461,7 @@ async function inviaWADopoConversione() {
     const salvaUrl     = `${location.origin}/salva-tessera`;
     const nome         = c?.nome || '';
 
-    const waMsg = `Ciao ${nome}! 👋\n\nEcco la tua nuova Tessera Fedeltà digitale Meridiano 361! ✨\n\nPer la spesa di oggi di €${importo.toFixed(2)} hai ottenuto ${timbriSpesa} timbr${timbriSpesa!==1?'i':'o'}. Ora hai ${Math.min(timbriTotali, DIG_TIMBRI_MAX)}/${DIG_TIMBRI_MAX} timbri.${scontoGen > 0 ? `\n🎉 Hai completato la tessera! Hai €${scontoGen} di sconto sulla prossima spesa.` : ''}\n\n📲 Guarda qui la tua tessera:\n${cartaUrl}\n\n💾 Puoi salvare la tua tessera sul dispositivo, scopri qui come:\n${salvaUrl}\n\n⭐ Se vuoi dirci com'è andata la visita, apri la tessera e lascia una valutazione — la trovi in fondo alla pagina!`;
+    const waMsg = _buildConvSpesaMsg({ nome, importo, timbriSpesa, timbriTotali, scontoGen, cartaUrl, salvaUrl });
 
     // Apri WA subito (contesto click) poi salva async
     if (tel) window.open(_waUrl(tel, waMsg), '_blank');
