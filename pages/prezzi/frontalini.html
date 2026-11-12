@@ -100,25 +100,23 @@
     .stat-n{font-size:22px;font-weight:900;color:var(--s800)}
     .stat-l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400)}
 
-    /* ── FRONTALINO (screen preview) ── */
-    .fr-wrap{display:flex;flex-wrap:wrap;gap:4px;padding:12px}
-    .fr-page-label{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--s400);padding:8px 12px 4px;background:var(--s50);border-top:1px solid var(--s100)}
-
-    /* frontalino base — dimensioni settate da CSS vars o inline */
-    .frontalino{display:flex;border:1px solid #333;overflow:hidden;background:#fff;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;flex-shrink:0}
-    .frontalino.fr-screen{/* per anteprima su schermo */}
-    .fr-side{background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:2px}
+    /* ── FRONTALINO ── */
+    .fr-page-label{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--s400);padding:8px 12px 4px;background:var(--s50);border-top:1px solid var(--s100);text-align:center}
+    .fr-page-grid{display:grid;gap:0;justify-content:center;padding:var(--fr-margin,7mm)}
+    .frontalino{display:flex;border:0.5pt solid #333;overflow:hidden;background:#fff;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;flex-shrink:0}
+    .fr-side{background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px}
     .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .fr-body{flex:1;display:flex;flex-direction:column;min-width:0;padding:2px 3px 2px 3px;gap:1px;overflow:hidden}
+    .fr-body{flex:1;display:flex;flex-direction:column;min-width:0;padding:1.5px 3px 1.5px 2px;gap:0.5px;overflow:hidden;background:#fff}
     .fr-desc{font-weight:700;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;color:#000}
-    .fr-price-row{display:flex;align-items:baseline;gap:2px;line-height:1}
+    .fr-price-row{display:flex;align-items:baseline;gap:1px;line-height:1}
     .fr-prezzo{font-weight:900;color:#000;line-height:1}
     .fr-euro{font-weight:700;color:#000}
-    .fr-attrs{display:flex;flex-wrap:wrap;gap:2px}
-    .fr-attr-tag{border:1px solid #000;font-weight:900;text-transform:uppercase;letter-spacing:.5px;padding:0 2px;line-height:1.3;white-space:nowrap}
+    .fr-attrs{display:flex;flex-wrap:wrap;gap:1.5px}
+    /* Attributi: sfondo BIANCO, bordo nero — come nell'Excel */
+    .fr-attr-tag{border:0.5pt solid #000;background:#fff;color:#000;font-weight:900;text-transform:uppercase;letter-spacing:.4px;padding:0 1.5px;line-height:1.35;white-space:nowrap}
     .fr-sec{display:flex;flex-wrap:wrap;gap:3px;color:#333;margin-top:auto}
-    .fr-empty{background:#f8fafc}
-    .fr-warn-miss{background:#fef3c7;border-color:#f59e0b}
+    .fr-empty{background:#fff;border:0.5pt solid #ccc}
+    .fr-warn-miss{border-color:#f59e0b}
 
     /* ── PRINT ── */
     @media print {
@@ -128,16 +126,13 @@
       .print-only { display:block !important; }
       #app { display:none !important; }
       #print-wrap { display:block !important; }
-      .print-page {
-        display: grid;
-        gap: 0;
-        page-break-after: always;
-        break-after: page;
-      }
-      .print-page:last-child { page-break-after: avoid; break-after: avoid; }
+      .fr-page-grid { page-break-after: always; break-after: page; }
+      .fr-page-grid:last-child { page-break-after: avoid; break-after: avoid; }
       .frontalino { break-inside: avoid; }
-      .fr-side { background: #1e293b !important; color: #fff !important; }
+      .fr-side { background: #1e293b !important; }
       .fr-brand { color: #fff !important; }
+      .fr-body { background: #fff !important; }
+      .fr-attr-tag { background: #fff !important; color: #000 !important; }
     }
     #print-wrap { display:none; }
 
@@ -445,10 +440,10 @@ function frontalino(item, forPrint = false, scale = 1) {
   const pu = prezzoUnitario(item.peso, item.unita, item.prezzo);
   const pd = pesoDisplay(item.peso, item.unita);
   const attrs = [];
-  if (item.bio)               attrs.push(['BIO', 'ap-bio']);
-  if (item.senza_glutine)     attrs.push(['SENZA GLUTINE', 'ap-sg']);
-  if (item.vegano)            attrs.push(['VEGAN', 'ap-veg']);
-  if (item.solidale_italiano) attrs.push(['SOLIDALE ITALIANO', 'ap-ita']);
+  if (item.bio)               attrs.push(['BIO']);
+  if (item.senza_glutine)     attrs.push(['SENZA GLUTINE']);
+  if (item.vegano)            attrs.push(['VEGAN']);
+  if (item.solidale_italiano) attrs.push(['SOLIDALE ITALIANO']);
 
   const prezzo = item.prezzo != null ? fmtN(item.prezzo) : '';
   const puStr  = pu ? fmtN(pu.val) + ' ' + pu.label : '';
@@ -458,12 +453,12 @@ function frontalino(item, forPrint = false, scale = 1) {
   const cw = _cfg.cw, ch = _cfg.ch;
   // Proporzionale alla dimensione configurata
   const sideW  = Math.round(cw * 0.15 * scale);
-  const descSz = Math.max(5, Math.round(ch * 0.22 * scale));
-  const preSz  = Math.max(8, Math.round(ch * 0.44 * scale));
-  const eurSz  = Math.max(6, Math.round(ch * 0.26 * scale));
-  const attrSz = Math.max(4, Math.round(ch * 0.11 * scale));
-  const secSz  = Math.max(4, Math.round(ch * 0.13 * scale));
-  const brandSz= Math.max(5, Math.round(sideW * 0.42 * scale));
+  const descSz = Math.max(5, Math.round(ch * 0.40 * scale));
+  const preSz  = Math.max(8, Math.round(ch * 0.75 * scale));
+  const eurSz  = Math.max(5, Math.round(ch * 0.50 * scale));
+  const attrSz = Math.max(4, Math.round(ch * 0.25 * scale));
+  const secSz  = Math.max(4, Math.round(ch * 0.20 * scale));
+  const brandSz= Math.max(5, Math.round(sideW * 0.67 * scale));
   const lines  = ch > 30 ? 3 : 2;  // righe max descrizione
 
   const warnClass = missingUnit ? ' fr-warn-miss' : '';
@@ -481,7 +476,7 @@ function frontalino(item, forPrint = false, scale = 1) {
           ? `<span class="fr-prezzo" style="font-size:${preSz}pt">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt">€</span>`
           : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
       </div>
-      ${attrs.length ? `<div class="fr-attrs">${attrs.map(([lbl,cls])=>`<span class="fr-attr-tag ${cls}" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}</div>` : ''}
+      ${attrs.length ? `<div class="fr-attrs">${attrs.map(([lbl])=>`<span class="fr-attr-tag" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}</div>` : ''}
       <div class="fr-sec" style="font-size:${secSz}pt">
         ${pu  ? `<span>${escH(puStr)}</span>` : ''}
         ${pd  ? `<span>${escH(pd)}</span>`   : ''}
@@ -684,7 +679,7 @@ function rStampa() {
     ).join('');
     return `
       <div class="fr-page-label no-print">Pagina ${pi+1} di ${pages.length} · ${page.length} frontalini</div>
-      <div class="fr-wrap" style="display:grid;grid-template-columns:${colsStr};grid-template-rows:${rowsStr};gap:0;padding:${_cfg.margin}mm">
+      <div class="fr-page-grid" style="grid-template-columns:${colsStr};grid-template-rows:${rowsStr};padding:${_cfg.margin}mm">
         ${cells}
       </div>`;
   }).join('');
@@ -935,7 +930,7 @@ function doPrint() {
     const cells = Array.from({ length: ppp }).map((_, j) =>
       j < page.length ? frontalino(page[j], true, 1) : frontalino_empty(1)
     ).join('');
-    return `<div class="print-page" style="display:grid;grid-template-columns:${colsStr};grid-template-rows:${rowsStr};gap:0;width:${paper.w}mm;min-height:${paper.h}mm;padding:${_cfg.margin}mm">${cells}</div>`;
+    return `<div class="print-page" style="display:grid;grid-template-columns:${colsStr};grid-template-rows:${rowsStr};justify-content:center;gap:0;width:${paper.w}mm;min-height:${paper.h}mm;padding:${_cfg.margin}mm;box-sizing:border-box">${cells}</div>`;
   }).join('');
 
   const printCSS = `
