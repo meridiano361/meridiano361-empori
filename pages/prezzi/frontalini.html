@@ -108,7 +108,7 @@
     .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;letter-spacing:.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     /* Body: grid 3 righe fisse — desc 50%, mid 38%, sec 12% */
     .fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;min-width:0;padding:2px 3px 1px 3px;overflow:hidden;background:#fff}
-    .fr-desc{font-weight:900;line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;color:#000;align-self:center}
+    .fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:center}
     /* Riga centrale: prezzo a sx, quadrati attr a dx */
     .fr-mid{display:flex;align-items:center;overflow:hidden;gap:3px;min-width:0}
     .fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
@@ -137,7 +137,6 @@
       .fr-page-grid:last-child { page-break-after: avoid; break-after: avoid; }
       .frontalino { break-inside: avoid; }
       .fr-side { background: #1e293b !important; }
-      .fr-brand { color: #fff !important; }
       .fr-body { background: #fff !important; }
       .fr-attr-tag { background: #fff !important; color: #000 !important; }
     }
@@ -450,6 +449,14 @@ function loadBrandColors() {
   try { const s=localStorage.getItem(BRAND_COLORS_KEY); if(s) _brandColors=JSON.parse(s); } catch {}
 }
 function saveBrandColors() { localStorage.setItem(BRAND_COLORS_KEY, JSON.stringify(_brandColors)); }
+const BRAND_FONTS_KEY = 'm361_frontalini_bfonts';
+let _brandFonts = {};
+function loadBrandFonts() { try { const s=localStorage.getItem(BRAND_FONTS_KEY); if(s) _brandFonts=JSON.parse(s); } catch {} }
+function saveBrandFonts() { localStorage.setItem(BRAND_FONTS_KEY, JSON.stringify(_brandFonts)); }
+function getBrandFont(marchio, fornitore) {
+  const k = ((marchio || fornitore) || '').toUpperCase().trim();
+  return _brandFonts[k] || {};
+}
 function getBandColor(marchio, fornitore) {
   const k = ((marchio || fornitore) || '').toUpperCase().trim();
   return _brandColors[k] || '#1e293b';
@@ -470,6 +477,8 @@ let _fFor     = '';            // filtro fornitore
 let _fMar     = '';            // filtro marchio
 let _fBio = false, _fSg = false, _fVeg = false, _fWarn = false;
 let _fUnita = '';  // '' = tutti, 'g'|'kg'|'ml'|'L'|'pz' = solo quella, 'none' = senza unità
+let _bzSearch = '', _bzFFor = '', _bzFMar = '', _bzFUnita = '';
+let _bzFBio = false, _bzFSg = false, _bzFVeg = false, _bzFWarn = false;
 let _editId   = null;          // draft item in editing
 let _selBozza = new Set();    // _id degli item bozza selezionati
 let _loading  = true;
@@ -487,17 +496,32 @@ let _cfg = {
 
 const STYLE_KEY = 'm361_frontalini_style';
 const DEFAULT_STYLE = {
-  fontFamily:    'Arial,Helvetica,sans-serif',
-  bandWidthRatio: 0.07,  // banda / larghezza frontalino
-  descRatio:     0.65,   // desc font / altezza frontalino
-  prezzoRatio:   0.80,
-  euroRatio:     0.50,
-  attrRatio:     0.28,
-  secRatio:      0.20,
-  brandRatio:    0.67,   // brand font / larghezza banda
+  fontFamily:  'Arial,Helvetica,sans-serif',
+  bandWidthMm: 4,
+  desc:   { size: 13, bold: true,  italic: false, color: '#000000' },
+  prezzo: { size: 16, bold: true,  italic: false, color: '#000000' },
+  euro:   { size: 10, bold: false, italic: false, color: '#000000' },
+  attr:   { size:  6, bold: true,  italic: false, color: '#000000' },
+  sec:    { size:  4, bold: false, italic: false, color: '#333333' },
+  brand:  { size:  3, bold: true,  italic: false, color: null },
 };
-let _style = { ...DEFAULT_STYLE };
-function loadStyle() { try { const s=localStorage.getItem(STYLE_KEY); if(s) Object.assign(_style, JSON.parse(s)); } catch {} }
+const DS = DEFAULT_STYLE;
+let _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
+  desc:{...DS.desc}, prezzo:{...DS.prezzo}, euro:{...DS.euro},
+  attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand} };
+function loadStyle() {
+  try {
+    const s = localStorage.getItem(STYLE_KEY);
+    if (!s) return;
+    const saved = JSON.parse(s);
+    if (saved.descRatio !== undefined) { localStorage.removeItem(STYLE_KEY); return; }
+    if (saved.fontFamily)                _style.fontFamily  = saved.fontFamily;
+    if (saved.bandWidthMm !== undefined) _style.bandWidthMm = saved.bandWidthMm;
+    ['desc','prezzo','euro','attr','sec','brand'].forEach(k => {
+      if (saved[k] && typeof saved[k] === 'object') Object.assign(_style[k], saved[k]);
+    });
+  } catch {}
+}
 function saveStyle() { localStorage.setItem(STYLE_KEY, JSON.stringify(_style)); }
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -613,6 +637,30 @@ function filteredCatalogo() {
 function fornitori() { return [...new Set(_catalogo.map(p=>p.fornitore).filter(Boolean))].sort(); }
 function marchi()    { return [...new Set(_catalogo.map(p=>p.marchio  ).filter(Boolean))].sort(); }
 
+function bozza_fornitori() { return [...new Set(_draft.map(it=>it.fornitore).filter(Boolean))].sort(); }
+function bozza_marchi()    { return [...new Set(_draft.map(it=>it.marchio  ).filter(Boolean))].sort(); }
+
+function filteredBozza() {
+  return _draft.filter(it => {
+    if (_bzSearch) {
+      const q = _bzSearch.toLowerCase();
+      if (!(it.descrizione||'').toLowerCase().includes(q)
+       && !(it.codice||'').toLowerCase().includes(q)
+       && !(it.fornitore||'').toLowerCase().includes(q)
+       && !(it.marchio||'').toLowerCase().includes(q)) return false;
+    }
+    if (_bzFFor && (it.fornitore||'').toLowerCase() !== _bzFFor.toLowerCase()) return false;
+    if (_bzFMar && (it.marchio||'').toLowerCase()   !== _bzFMar.toLowerCase()) return false;
+    if (_bzFBio  && !it.bio) return false;
+    if (_bzFSg   && !it.senza_glutine) return false;
+    if (_bzFVeg  && !it.vegano) return false;
+    if (_bzFUnita === 'none' && it.unita) return false;
+    if (_bzFUnita && _bzFUnita !== 'none' && it.unita !== _bzFUnita) return false;
+    if (_bzFWarn && !(it.peso && !it.unita)) return false;
+    return true;
+  });
+}
+
 // ── MODIFICA CATALOGO ──────────────────────────────────────────────────────
 function openCatEditModal(id) {
   const p = _catalogo.find(c => c.id === id);
@@ -700,37 +748,40 @@ function frontalino(item, forPrint = false, scale = 1) {
 
   const cw = _cfg.cw, ch = _cfg.ch;
   const st = _style;
-  const sideW  = Math.round(cw * st.bandWidthRatio * scale);
-  const descSz = Math.max(5, Math.round(ch * st.descRatio    * scale));
-  const preSz  = Math.max(8, Math.round(ch * st.prezzoRatio  * scale));
-  const eurSz  = Math.max(5, Math.round(ch * st.euroRatio    * scale));
-  const attrSz = Math.max(4, Math.round(ch * st.attrRatio    * scale));
-  const secSz  = Math.max(4, Math.round(ch * st.secRatio     * scale));
-  const brandSz= Math.max(5, Math.round(sideW * st.brandRatio * scale));
-  const lines  = ch > 30 ? 3 : 2;
+  const sideW   = st.bandWidthMm * scale;
+  const descSz  = st.desc.size   * scale;
+  const preSz   = st.prezzo.size * scale;
+  const eurSz   = st.euro.size   * scale;
+  const attrSz  = st.attr.size   * scale;
+  const secSz   = st.sec.size    * scale;
+  const brandSz = st.brand.size  * scale;
 
   const bandBg = getBandColor(item.marchio, item.fornitore);
   const bandTx = bandTextColor(bandBg);
+  const bf = getBrandFont(item.marchio, item.fornitore);
+  const bfColor  = (bf.color  != null) ? bf.color  : (st.brand.color != null ? st.brand.color : bandTx);
+  const bfBold   = bf.bold   != null ? (bf.bold   ? '700' : '400') : (st.brand.bold   ? '700' : '400');
+  const bfItalic = bf.italic != null ? (bf.italic ? 'italic' : 'normal') : (st.brand.italic ? 'italic' : 'normal');
   const warnClass = missingUnit ? ' fr-warn-miss' : '';
 
   const ff = st.fontFamily || 'Arial,Helvetica,sans-serif';
   return `<div class="frontalino${forPrint?'':' fr-screen'}${warnClass}"
     style="width:${cw*scale}mm;height:${ch*scale}mm;font-family:${ff}"
     ${forPrint?'':'data-id="'+escH(item._id)+'"'}>
-    <div class="fr-side" style="width:${sideW*scale}mm;background:${bandBg}">
-      <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bandTx}">${escH(brand)}</span>
+    <div class="fr-side" style="width:${sideW}mm;background:${bandBg}">
+      <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bfColor};font-weight:${bfBold};font-style:${bfItalic}">${escH(brand)}</span>
     </div>
     <div class="fr-body">
-      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${lines}">${escH(item.descrizione)}</div>
+      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:1;font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}">${escH(item.descrizione)}</div>
       <div class="fr-mid">
         <div class="fr-price-grp">
           ${prezzo
-            ? `<span class="fr-prezzo" style="font-size:${preSz}pt">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt">€</span>`
+            ? `<span class="fr-prezzo" style="font-size:${preSz}pt;font-weight:${st.prezzo.bold?'900':'400'};font-style:${st.prezzo.italic?'italic':'normal'};color:${st.prezzo.color}">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt;font-weight:${st.euro.bold?'700':'400'};font-style:${st.euro.italic?'italic':'normal'};color:${st.euro.color}">€</span>`
             : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
         </div>
         ${attrs.length ? `<div class="fr-attrs-sq">${attrs.map(([lbl,cls])=>`<span class="fr-attr-sq ${cls||''}" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}</div>` : ''}
       </div>
-      <div class="fr-sec" style="font-size:${secSz}pt">
+      <div class="fr-sec" style="font-size:${secSz}pt;font-weight:${st.sec.bold?'700':'400'};font-style:${st.sec.italic?'italic':'normal'};color:${st.sec.color}">
         ${pu  ? `<span>${escH(puStr)}</span>` : ''}
         ${pd  ? `<span>${escH(pd)}</span>`   : ''}
         ${item.codice ? `<span>cod ${escH(item.codice)}</span>` : ''}
@@ -811,28 +862,30 @@ function rSelezione() {
         <button class="btn btn-out btn-sm" onclick="openManModal(null)"><i class="fas fa-plus"></i> Frontalino manuale</button>
         ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-blue btn-sm" onclick="openImportModal()"><i class="fas fa-file-excel"></i> Importa Excel</button>` : ''}
       </div>
-      <div style="padding:0 14px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select class="inp inp-sm" style="min-width:140px" onchange="setFFor(this.value)">
-          <option value="">Tutti i fornitori</option>
-          ${fors.map(f=>`<option value="${escH(f)}"${_fFor===f?' selected':''}>${escH(f)}</option>`).join('')}
-        </select>
-        <select class="inp inp-sm" style="min-width:140px" onchange="setFMar(this.value)">
-          <option value="">Tutti i marchi</option>
-          ${mars.map(m=>`<option value="${escH(m)}"${_fMar===m?' selected':''}>${escH(m)}</option>`).join('')}
-        </select>
-        <select class="inp inp-sm" onchange="_fUnita=this.value;R()">
-          <option value="">Tutte le unità</option>
-          ${['g','kg','ml','L','pz'].map(u=>`<option value="${u}"${_fUnita===u?' selected':''}>${u}</option>`).join('')}
-          <option value="none"${_fUnita==='none'?' selected':''}>Senza unità</option>
-        </select>
-        <select class="inp inp-sm" onchange="applyAttrFilter(this.value)">
-          <option value="">Tutti gli attributi</option>
-          <option value="bio"${_fBio?' selected':''}>BIO</option>
-          <option value="sg"${_fSg?' selected':''}>Senza Glutine</option>
-          <option value="veg"${_fVeg?' selected':''}>Vegano</option>
-          <option value="warn"${_fWarn?' selected':''}>Peso senza unità</option>
-        </select>
-        ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="btn btn-out btn-xs" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">Reset filtri</button>` : ''}
+      <div style="padding:0 14px 8px;overflow-x:auto">
+        <div style="display:flex;gap:6px;align-items:center;min-width:max-content">
+          <select class="inp inp-sm" style="width:130px;flex-shrink:0" onchange="setFFor(this.value)">
+            <option value="">Tutti fornitori</option>
+            ${fors.map(f=>`<option value="${escH(f)}"${_fFor===f?' selected':''}>${escH(f)}</option>`).join('')}
+          </select>
+          <select class="inp inp-sm" style="width:130px;flex-shrink:0" onchange="setFMar(this.value)">
+            <option value="">Tutti marchi</option>
+            ${mars.map(m=>`<option value="${escH(m)}"${_fMar===m?' selected':''}>${escH(m)}</option>`).join('')}
+          </select>
+          <select class="inp inp-sm" style="width:110px;flex-shrink:0" onchange="_fUnita=this.value;R()">
+            <option value="">Tutte unità</option>
+            ${['g','kg','ml','L','pz'].map(u=>`<option value="${u}"${_fUnita===u?' selected':''}>${u}</option>`).join('')}
+            <option value="none"${_fUnita==='none'?' selected':''}>Senza unità</option>
+          </select>
+          <select class="inp inp-sm" style="width:120px;flex-shrink:0" onchange="applyAttrFilter(this.value)">
+            <option value="">Tutti attr.</option>
+            <option value="bio"${_fBio?' selected':''}>BIO</option>
+            <option value="sg"${_fSg?' selected':''}>Senza Glutine</option>
+            <option value="veg"${_fVeg?' selected':''}>Vegano</option>
+            <option value="warn"${_fWarn?' selected':''}>Peso senza unità</option>
+          </select>
+          ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="btn btn-out btn-xs" style="flex-shrink:0" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">Reset</button>` : ''}
+        </div>
       </div>
       ${list.length > 0 ? `
       <div style="padding:7px 14px;border-bottom:1px solid var(--s100);display:flex;align-items:center;gap:8px;background:var(--s50)">
@@ -860,10 +913,15 @@ function rBozza() {
   const np = draftPageCount();
   const ppp= _cfg.cols * _cfg.rows;
   const nSelBz = _selBozza.size;
-  const allSelBz = _draft.length > 0 && _draft.every(it => _selBozza.has(it._id));
+  const fors = bozza_fornitori();
+  const mars = bozza_marchi();
+  const list = filteredBozza();
+  const allSelBz = list.length > 0 && list.every(it => _selBozza.has(it._id));
+  const hasBzFilters = _bzSearch || _bzFFor || _bzFMar || _bzFBio || _bzFSg || _bzFVeg || _bzFWarn || _bzFUnita;
 
-  const rows = _draft.map((it, idx) => {
+  const rows = list.map((it, idx) => {
     if (_editId === it._id) return rBozzaEditRow(it);
+    const realIdx = _draft.indexOf(it);
     const pu = prezzoUnitario(it.peso, it.unita, it.prezzo);
     const pd = pesoDisplay(it.peso, it.unita);
     const warn = it.peso && !it.unita;
@@ -889,8 +947,8 @@ function rBozza() {
           <button class="copie-btn" onclick="setCopie('${it._id}', ${(it.copie||1)+1})">+</button>
         </div>
         <div class="row-acts">
-          ${idx>0?`<button class="btn btn-out btn-xs" onclick="moveDraftItem('${it._id}',-1)" title="Su"><i class="fas fa-arrow-up"></i></button>`:''}
-          ${idx<_draft.length-1?`<button class="btn btn-out btn-xs" onclick="moveDraftItem('${it._id}',1)" title="Giù"><i class="fas fa-arrow-down"></i></button>`:''}
+          ${realIdx>0?`<button class="btn btn-out btn-xs" onclick="moveDraftItem('${it._id}',-1)" title="Su"><i class="fas fa-arrow-up"></i></button>`:''}
+          ${realIdx<_draft.length-1?`<button class="btn btn-out btn-xs" onclick="moveDraftItem('${it._id}',1)" title="Giù"><i class="fas fa-arrow-down"></i></button>`:''}
           <button class="btn btn-blue btn-xs" onclick="openManModal('${it._id}')"><i class="fas fa-pencil"></i></button>
           <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="removeDraftItem('${it._id}')"><i class="fas fa-trash"></i></button>
         </div>
@@ -907,13 +965,42 @@ function rBozza() {
       <div class="stat-box"><div class="stat-n" style="color:var(--blue-tx)">${np}</div><div class="stat-l">Pagine (${ppp}/p.)</div></div>
     </div>
     <div class="card mb-3">
-      ${_draft.length > 0 ? `
+      <div style="padding:8px 14px;border-bottom:1px solid var(--s100);overflow-x:auto">
+        <div style="display:flex;gap:6px;align-items:center;min-width:max-content">
+          <div class="search-wrap" style="width:160px;flex-shrink:0">
+            <i class="fas fa-search"></i>
+            <input class="inp inp-sm" placeholder="Cerca…" value="${escH(_bzSearch)}" oninput="setBzSearch(this.value)" style="padding-left:28px">
+          </div>
+          <select class="inp inp-sm" style="width:120px;flex-shrink:0" onchange="setBzFFor(this.value)">
+            <option value="">Tutti fornitori</option>
+            ${fors.map(f=>`<option value="${escH(f)}"${_bzFFor===f?' selected':''}>${escH(f)}</option>`).join('')}
+          </select>
+          <select class="inp inp-sm" style="width:120px;flex-shrink:0" onchange="setBzFMar(this.value)">
+            <option value="">Tutti marchi</option>
+            ${mars.map(m=>`<option value="${escH(m)}"${_bzFMar===m?' selected':''}>${escH(m)}</option>`).join('')}
+          </select>
+          <select class="inp inp-sm" style="width:110px;flex-shrink:0" onchange="_bzFUnita=this.value;R()">
+            <option value="">Tutte unità</option>
+            ${['g','kg','ml','L','pz'].map(u=>`<option value="${u}"${_bzFUnita===u?' selected':''}>${u}</option>`).join('')}
+            <option value="none"${_bzFUnita==='none'?' selected':''}>Senza unità</option>
+          </select>
+          <select class="inp inp-sm" style="width:120px;flex-shrink:0" onchange="applyBzAttrFilter(this.value)">
+            <option value="">Tutti attr.</option>
+            <option value="bio"${_bzFBio?' selected':''}>BIO</option>
+            <option value="sg"${_bzFSg?' selected':''}>Senza Glutine</option>
+            <option value="veg"${_bzFVeg?' selected':''}>Vegano</option>
+            <option value="warn"${_bzFWarn?' selected':''}>Peso senza unità</option>
+          </select>
+          ${hasBzFilters ? `<button class="btn btn-out btn-xs" style="flex-shrink:0" onclick="resetBzFilters()">Reset</button>` : ''}
+        </div>
+      </div>
+      ${list.length > 0 ? `
       <div style="padding:7px 14px;border-bottom:1px solid var(--s100);display:flex;align-items:center;gap:8px;background:var(--s50)">
         <input type="checkbox" class="cat-check" ${allSelBz?'checked':''} onchange="toggleSelBozzaAll(this.checked)">
-        <span style="font-size:12px;color:var(--s500);flex:1">${allSelBz?'Deseleziona tutti':'Seleziona tutti'}</span>
+        <span style="font-size:12px;color:var(--s500);flex:1">${allSelBz?'Deseleziona tutti':'Seleziona tutti'} <span style="color:var(--s400)">(${list.length}${list.length<_draft.length?' visibili':''})</span></span>
         ${nSelBz>0?`<span style="font-size:12px;font-weight:800;color:var(--red)">${nSelBz} selezionat${nSelBz===1?'o':'i'}</span>`:''}
       </div>` : ''}
-      ${rows || `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">Lista vuota — aggiungi prodotti dalla selezione.</div>`}
+      ${rows || `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">${_draft.length===0?'Lista vuota — aggiungi prodotti dalla selezione.':'Nessun risultato.'}</div>`}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-out" onclick="setView('selezione')"><i class="fas fa-plus"></i> Aggiungi prodotti</button>
@@ -1033,8 +1120,9 @@ function toggleSelBozza(id) {
   R();
 }
 function toggleSelBozzaAll(checked) {
-  if (checked) _draft.forEach(it => _selBozza.add(it._id));
-  else         _draft.forEach(it => _selBozza.delete(it._id));
+  const list = filteredBozza();
+  if (checked) list.forEach(it => _selBozza.add(it._id));
+  else         list.forEach(it => _selBozza.delete(it._id));
   R();
 }
 function setBulkCopieBozza() {
@@ -1065,6 +1153,26 @@ function applyAttrFilter(v) {
   if (v === 'sg')   _fSg   = true;
   if (v === 'veg')  _fVeg  = true;
   if (v === 'warn') _fWarn = true;
+  R();
+}
+
+function setBzSearch(v) { _bzSearch = v; R(); }
+function setBzFFor(v)   { _bzFFor = v; R(); }
+function setBzFMar(v)   { _bzFMar = v; R(); }
+function applyBzAttrFilter(v) {
+  _bzFBio = _bzFSg = _bzFVeg = _bzFWarn = false;
+  if (v === 'bio')  _bzFBio  = true;
+  if (v === 'sg')   _bzFSg   = true;
+  if (v === 'veg')  _bzFVeg  = true;
+  if (v === 'warn') _bzFWarn = true;
+  R();
+}
+function resetBzFilters() { _bzSearch=''; _bzFFor=''; _bzFMar=''; _bzFBio=_bzFSg=_bzFVeg=_bzFWarn=false; _bzFUnita=''; R(); }
+
+function updateBrandFont(nome, prop, val) {
+  if (!_brandFonts[nome]) _brandFonts[nome] = {};
+  _brandFonts[nome][prop] = val;
+  saveBrandFonts();
   R();
 }
 
@@ -1280,17 +1388,16 @@ function doPrint() {
     .fr-side { display: flex; align-items: center; justify-content: center; padding: 1px; background: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .fr-brand { writing-mode: vertical-rl; transform: rotate(180deg); color: #fff !important; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; text-align: center; overflow: hidden; white-space: nowrap; }
     .fr-body { flex: 1; display: grid; grid-template-rows: 50% 38% 12%; padding: 2px 3px 1px 3px; overflow: hidden; min-width: 0; background: #fff !important; }
-    .fr-desc { font-weight: 900; line-height: 1.1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; color: #000; align-self: center; }
+    .fr-desc { line-height: 1.1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; align-self: center; }
     .fr-mid { display: flex; align-items: center; overflow: hidden; gap: 3px; min-width: 0; }
     .fr-price-grp { display: flex; align-items: baseline; gap: 1px; flex-shrink: 0; }
-    .fr-prezzo { font-weight: 900; color: #000; line-height: 1; }
-    .fr-euro { font-weight: 700; color: #000; }
+    .fr-prezzo { line-height: 1; }
     .fr-attrs-sq { display: flex; gap: 2px; margin-left: auto; align-self: stretch; align-items: stretch; flex-shrink: 0; }
     .fr-attr-sq { display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 900; text-transform: uppercase; letter-spacing: .3px; line-height: 1.1; padding: 0 2px; word-break: break-word; border: 0.5pt solid #999; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .fr-at-bio { background: #99cc00 !important; color: #333 !important; border-color: #99cc00 !important; }
     .fr-at-sg  { background: #ffff00 !important; color: #333 !important; border-color: #ccc !important; }
     .fr-at-veg { background: #008000 !important; color: #fff !important; border-color: #008000 !important; }
-    .fr-sec { display: flex; flex-wrap: wrap; gap: 2px; color: #333; align-self: center; }
+    .fr-sec { display: flex; flex-wrap: wrap; gap: 2px; align-self: center; }
     .fr-empty { background: #f8f8f8; }
   `;
 
@@ -1311,12 +1418,31 @@ function rImpostazioni() {
     .sort(([a],[b]) => a.localeCompare(b))
     .map(([nome, colore]) => {
       const safe = nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="bc-row">
-        <div class="bc-swatch" style="background:${escH(colore)}"></div>
-        <span class="bc-name">${escH(nome)}</span>
-        <input type="color" class="bc-color-inp" value="${escH(colore)}" title="${escH(colore)}"
-          onchange="updateBrandColor('${safe}',this.value)">
-        <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="deleteBrandColor('${safe}')">
+      const bf = _brandFonts[nome] || {};
+      const bfCol = (bf.color != null) ? bf.color : bandTextColor(colore);
+      return `<div class="bc-row" style="flex-wrap:wrap;gap:6px 8px">
+        <div class="bc-swatch" style="background:${escH(colore)};flex-shrink:0"></div>
+        <span class="bc-name" style="min-width:120px">${escH(nome)}</span>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          <span style="font-size:9px;color:var(--s400);font-weight:800">SFONDO</span>
+          <input type="color" class="bc-color-inp" value="${escH(colore)}" title="Colore sfondo banda"
+            onchange="updateBrandColor('${safe}',this.value)">
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          <span style="font-size:9px;color:var(--s400);font-weight:800">TESTO</span>
+          <input type="color" value="${escH(bfCol)}" title="Colore testo"
+            onchange="updateBrandFont('${safe}','color',this.value)" style="width:28px;height:24px;border:none;padding:0;cursor:pointer;border-radius:4px">
+          <label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer" title="Auto da luminanza sfondo">
+            <input type="checkbox" ${bf.color==null?'checked':''} onchange="updateBrandFont('${safe}','color',this.checked?null:'${escH(bandTextColor(colore))}')" style="accent-color:var(--red);width:12px;height:12px;cursor:pointer"> auto
+          </label>
+          <label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer" title="Grassetto">
+            <input type="checkbox" ${bf.bold?'checked':''} onchange="updateBrandFont('${safe}','bold',this.checked)" style="accent-color:var(--red);width:12px;height:12px;cursor:pointer"> <b>B</b>
+          </label>
+          <label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer" title="Corsivo">
+            <input type="checkbox" ${bf.italic?'checked':''} onchange="updateBrandFont('${safe}','italic',this.checked)" style="accent-color:var(--red);width:12px;height:12px;cursor:pointer"> <i>I</i>
+          </label>
+        </div>
+        <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b;flex-shrink:0" onclick="deleteBrandColor('${safe}')">
           <i class="fas fa-trash"></i>
         </button>
       </div>`;
@@ -1376,30 +1502,65 @@ function rImpostazioni() {
     <details class="card mb-3 imp-section">
       <summary>Stile frontalino</summary>
       <div class="imp-section-body">
-        <div class="imp-grid" style="margin-bottom:12px">
+        <div class="imp-grid" style="margin-bottom:14px">
           <div class="f-g" style="grid-column:1/-1">
-            <label class="lbl">Font</label>
+            <label class="lbl">Font famiglia</label>
             <select class="inp inp-sm" id="st-font" onchange="previewStyle()">
               ${['Arial,Helvetica,sans-serif','Georgia,serif','Times New Roman,serif','Courier New,monospace','Verdana,sans-serif','Trebuchet MS,sans-serif','Impact,sans-serif'].map(f=>`<option value="${f}"${_style.fontFamily===f?' selected':''}>${f.split(',')[0]}</option>`).join('')}
             </select>
           </div>
+          <div class="f-g">
+            <label class="lbl">Banda larghezza (mm)</label>
+            <input class="inp inp-sm" id="st-band-mm" type="number" min="1" max="20" step="0.5" value="${_style.bandWidthMm}" oninput="previewStyle()">
+          </div>
         </div>
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:8px">Dimensioni testo (% altezza frontalino)</div>
-        <div class="imp-grid" style="margin-bottom:12px">
-          <div class="f-g"><label class="lbl">Descrizione %</label>
-            <input class="inp inp-sm" id="st-desc" type="number" min="10" max="120" step="1" value="${Math.round(_style.descRatio*100)}" oninput="previewStyle()"></div>
-          <div class="f-g"><label class="lbl">Prezzo %</label>
-            <input class="inp inp-sm" id="st-prezzo" type="number" min="10" max="150" step="1" value="${Math.round(_style.prezzoRatio*100)}" oninput="previewStyle()"></div>
-          <div class="f-g"><label class="lbl">€ simbolo %</label>
-            <input class="inp inp-sm" id="st-euro" type="number" min="10" max="120" step="1" value="${Math.round(_style.euroRatio*100)}" oninput="previewStyle()"></div>
-          <div class="f-g"><label class="lbl">Attributi (BIO…) %</label>
-            <input class="inp inp-sm" id="st-attr" type="number" min="5" max="80" step="1" value="${Math.round(_style.attrRatio*100)}" oninput="previewStyle()"></div>
-          <div class="f-g"><label class="lbl">Secondario %</label>
-            <input class="inp inp-sm" id="st-sec" type="number" min="5" max="60" step="1" value="${Math.round(_style.secRatio*100)}" oninput="previewStyle()"></div>
-          <div class="f-g"><label class="lbl">Banda % larghezza</label>
-            <input class="inp inp-sm" id="st-band" type="number" min="3" max="25" step="1" value="${Math.round(_style.bandWidthRatio*100)}" oninput="previewStyle()"></div>
-          <div class="f-g"><label class="lbl">Font marchio % banda</label>
-            <input class="inp inp-sm" id="st-brand" type="number" min="20" max="120" step="1" value="${Math.round(_style.brandRatio*100)}" oninput="previewStyle()"></div>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:8px">Stile per elemento</div>
+        <div style="overflow-x:auto;margin-bottom:14px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:420px">
+            <thead>
+              <tr style="border-bottom:1.5px solid var(--s200)">
+                <th style="text-align:left;padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500)">Elemento</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">pt</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Bold</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Corsivo</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Colore</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[
+                ['desc',   'Descrizione',    _style.desc  ],
+                ['prezzo', 'Prezzo',          _style.prezzo],
+                ['euro',   'Simbolo €',       _style.euro  ],
+                ['attr',   'Attributi (BIO…)',_style.attr  ],
+                ['sec',    'Secondario',       _style.sec   ],
+                ['brand',  'Marchio (banda)',  _style.brand ],
+              ].map(([k,lbl,el]) => `
+              <tr style="border-bottom:1px solid var(--s100)">
+                <td style="padding:6px 8px;font-weight:600;color:var(--s700)">${lbl}</td>
+                <td style="padding:4px 6px;text-align:center">
+                  <input type="number" id="st-${k}-size" min="1" max="60" step="1" value="${el.size}"
+                    oninput="previewStyle()" style="width:48px;text-align:center;padding:3px 4px;border:1.5px solid var(--s200);border-radius:6px;font-size:12px;font-family:inherit">
+                </td>
+                <td style="padding:4px 6px;text-align:center">
+                  <input type="checkbox" id="st-${k}-bold" ${el.bold?'checked':''} onchange="previewStyle()" style="accent-color:var(--red);width:15px;height:15px;cursor:pointer">
+                </td>
+                <td style="padding:4px 6px;text-align:center">
+                  <input type="checkbox" id="st-${k}-italic" ${el.italic?'checked':''} onchange="previewStyle()" style="accent-color:var(--red);width:15px;height:15px;cursor:pointer">
+                </td>
+                <td style="padding:4px 6px;text-align:center">
+                  ${k==='brand'
+                    ? `<div style="display:flex;align-items:center;gap:4px;justify-content:center">
+                         <input type="color" id="st-brand-color" value="${el.color||'#ffffff'}" ${el.color===null?'disabled':''} onchange="previewStyle()" style="width:28px;height:24px;border:none;padding:0;cursor:pointer;border-radius:4px">
+                         <label style="display:flex;align-items:center;gap:2px;font-size:10px;cursor:pointer" title="Auto da luminanza">
+                           <input type="checkbox" id="st-brand-color-auto" ${el.color===null?'checked':''} onchange="g('st-brand-color').disabled=this.checked;previewStyle()" style="accent-color:var(--red);width:12px;height:12px;cursor:pointer"> auto
+                         </label>
+                       </div>`
+                    : `<input type="color" id="st-${k}-color" value="${el.color||'#000000'}" onchange="previewStyle()" style="width:28px;height:24px;border:none;padding:0;cursor:pointer;border-radius:4px">`
+                  }
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
         </div>
         <div id="st-preview" style="margin-bottom:12px;overflow:auto"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1453,15 +1614,26 @@ function rImpostazioni() {
 }
 
 function readStyleFields() {
+  function el(k) {
+    const def = DEFAULT_STYLE[k];
+    return {
+      size:   parseFloat(g(`st-${k}-size`)?.value)  || def.size,
+      bold:   g(`st-${k}-bold`)?.checked  ?? def.bold,
+      italic: g(`st-${k}-italic`)?.checked ?? def.italic,
+      color:  g(`st-${k}-color`)?.value   || def.color,
+    };
+  }
+  const brandEl = el('brand');
+  if (g('st-brand-color-auto')?.checked) brandEl.color = null;
   return {
-    fontFamily:     g('st-font')?.value    || DEFAULT_STYLE.fontFamily,
-    descRatio:      (parseInt(g('st-desc')?.value)   || Math.round(DEFAULT_STYLE.descRatio*100))   / 100,
-    prezzoRatio:    (parseInt(g('st-prezzo')?.value) || Math.round(DEFAULT_STYLE.prezzoRatio*100)) / 100,
-    euroRatio:      (parseInt(g('st-euro')?.value)   || Math.round(DEFAULT_STYLE.euroRatio*100))   / 100,
-    attrRatio:      (parseInt(g('st-attr')?.value)   || Math.round(DEFAULT_STYLE.attrRatio*100))   / 100,
-    secRatio:       (parseInt(g('st-sec')?.value)    || Math.round(DEFAULT_STYLE.secRatio*100))    / 100,
-    bandWidthRatio: (parseInt(g('st-band')?.value)   || Math.round(DEFAULT_STYLE.bandWidthRatio*100)) / 100,
-    brandRatio:     (parseInt(g('st-brand')?.value)  || Math.round(DEFAULT_STYLE.brandRatio*100))  / 100,
+    fontFamily:  g('st-font')?.value || DEFAULT_STYLE.fontFamily,
+    bandWidthMm: parseFloat(g('st-band-mm')?.value) || DEFAULT_STYLE.bandWidthMm,
+    desc:   el('desc'),
+    prezzo: el('prezzo'),
+    euro:   el('euro'),
+    attr:   el('attr'),
+    sec:    el('sec'),
+    brand:  brandEl,
   };
 }
 
@@ -1484,7 +1656,9 @@ function saveStyleSettings() {
 
 function resetStyle() {
   if (!confirm('Ripristinare le impostazioni di stile ai valori di default?')) return;
-  _style = { ...DEFAULT_STYLE };
+  _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
+    desc:{...DS.desc}, prezzo:{...DS.prezzo}, euro:{...DS.euro},
+    attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand} };
   saveStyle();
   R();
 }
@@ -1861,6 +2035,7 @@ async function saveBulkEditModal() {
 loadDraft();
 loadCfg();
 loadBrandColors();
+loadBrandFonts();
 loadStyle();
 
 async function init() {
