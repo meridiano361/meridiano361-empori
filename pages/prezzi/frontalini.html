@@ -756,6 +756,7 @@ function rSelezione() {
   const fors  = fornitori();
   const mars  = marchi();
   const nSel  = _sel.size;
+  const allSel = list.length > 0 && list.every(p => _sel.has(p.id));
 
   const catalogHTML = list.length
     ? list.map(p => {
@@ -823,6 +824,12 @@ function rSelezione() {
         </select>
         ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="btn btn-out btn-xs" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">Reset filtri</button>` : ''}
       </div>
+      ${list.length > 0 ? `
+      <div style="padding:7px 14px;border-bottom:1px solid var(--s100);display:flex;align-items:center;gap:8px;background:var(--s50)">
+        <input type="checkbox" class="cat-check" ${allSel?'checked':''} onchange="toggleSelAll(this.checked)" title="Seleziona tutti">
+        <span style="font-size:12px;color:var(--s500);flex:1">${allSel?'Deseleziona tutti':'Seleziona tutti'} <span style="color:var(--s400)">(${list.length} prodotti visibili)</span></span>
+        ${nSel>0?`<span style="font-size:12px;font-weight:800;color:var(--red)">${nSel} selezionat${nSel===1?'o':'i'}</span>`:''}
+      </div>` : ''}
       <div>${catalogHTML}</div>
     </div>
     ${nSel > 0 ? `
@@ -988,6 +995,13 @@ function setView(v) { _view = v; R(); }
 // ── SELEZIONE ACTIONS ──────────────────────────────────────────────────────
 function toggleSel(id) {
   if (_sel.has(id)) _sel.delete(id); else _sel.add(id);
+  R();
+}
+
+function toggleSelAll(checked) {
+  const list = filteredCatalogo();
+  if (checked) list.forEach(p => _sel.add(p.id));
+  else         list.forEach(p => _sel.delete(p.id));
   R();
 }
 
