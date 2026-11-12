@@ -630,7 +630,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const itFmt   = n => Number(n||0).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2,useGrouping:true});
-const itParse = s => parseFloat(String(s||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.')) || 0;
+const itParse = s => {
+  const v = String(s||'').replace(/[€\s]/g,'').trim();
+  if (!v) return 0;
+  const dots = (v.match(/\./g)||[]).length;
+  const commas = (v.match(/,/g)||[]).length;
+  if (commas === 0 && dots <= 1) return parseFloat(v) || 0;
+  if (dots > 0 && commas === 0) return parseFloat(v.replace(/\./g,'')) || 0;
+  const lDot = v.lastIndexOf('.'), lComma = v.lastIndexOf(',');
+  if (lDot > lComma) return parseFloat(v.replace(/,/g,'')) || 0;
+  return parseFloat(v.replace(/\./g,'').replace(',','.')) || 0;
+};
 const fmtData = v => { if(!v) return '—'; const p=String(v).split('T')[0].split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:v; };
 const SUPABASE_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
@@ -1542,7 +1552,7 @@ function addRow(gid) {
         <td class="p-1"><input type="text" placeholder="Descrizione" autocapitalize="sentences" class="w-full border-gray-200 border rounded-lg p-2 desc-input"></td>
         <td class="p-1"><input type="text" class="price-input w-full border-gray-200 border rounded-lg p-2 text-right" value="€ 0,00"></td>
         <td class="p-1"><input type="number" class="iva-input w-full border-gray-200 border rounded-lg p-2 text-center" placeholder="%" min="0" max="100" step="1" style="min-width:52px"></td>
-        <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ie-value">—</td>
+        <td class="p-1 ie-value"><input type="text" class="ie-input w-full border-gray-200 border rounded-lg p-2 text-right text-slate-500" placeholder="—" style="min-width:70px;font-size:12px"></td>
         <td class="p-1"><input type="number" class="sconto-input w-full border-gray-200 border rounded-lg p-2 text-center" placeholder="%" min="0" max="100" step="0.1" style="min-width:52px"></td>
         <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ii-sc-value">—</td>
         <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ie-sc-value">—</td>
@@ -1578,6 +1588,12 @@ function addRow(gid) {
     row.querySelector('.price-input').addEventListener('focus', function() { clearCurrency(this); });
     row.querySelector('.price-input').addEventListener('blur',  function() { formatCurrency(this); });
     row.querySelector('.price-input').addEventListener('input', () => calcRow(rowId, gid));
+    row.querySelector('.ie-input').addEventListener('focus', function() { clearCurrency(this); });
+    row.querySelector('.ie-input').addEventListener('blur',  function() {
+        const v = itParse(this.value); this.value = v > 0 ? '€ ' + itFmt(v) : '';
+        calcRowFromIE(rowId, gid);
+    });
+    row.querySelector('.ie-input').addEventListener('input', () => calcRowFromIE(rowId, gid));
     row.querySelector('.qty-input').addEventListener('input',   () => calcRow(rowId, gid));
     row.querySelector('.iva-input').addEventListener('input',   () => calcRow(rowId, gid));
     row.querySelector('.sconto-input').addEventListener('input',() => calcRow(rowId, gid));
@@ -1628,7 +1644,8 @@ function calcRow(rowId, gid) {
     const effectiveII = priceIISc != null ? priceIISc : priceII;
     const costoBase   = costoIE != null ? costoIE : (costoII > 0 ? costoII : null);
 
-    row.querySelector('.ie-value').textContent    = priceIE  != null ? '€ ' + itFmt(priceIE)   : '—';
+    const ieInpEl = row.querySelector('.ie-input');
+    if (ieInpEl && document.activeElement !== ieInpEl) ieInpEl.value = priceIE != null ? '€ ' + itFmt(priceIE) : '';
     row.querySelector('.ii-sc-value').textContent = priceIISc != null ? '€ ' + itFmt(priceIISc) : '—';
     row.querySelector('.ie-sc-value').textContent = priceIESc != null ? '€ ' + itFmt(priceIESc) : '—';
 
@@ -1822,8 +1839,22 @@ function calcBomboniereBreakdown() {
     if (document.getElementById('breakdown-total'))  document.getElementById('breakdown-total').textContent  = fmt(subtotBomb + subtotConfez);
 }
 
-function clearCurrency(inp) { const v = inp.value.replace('€','').replace(',','.').trim(); inp.value = (v==='0.00'||v==='0') ? '' : v; }
+function clearCurrency(inp) { const v = inp.value.replace(/[€\s]/g,'').trim(); inp.value = (v==='0,00'||v==='0.00'||v==='0') ? '' : v; }
 function formatCurrency(inp) { inp.value = '€ ' + itFmt(itParse(inp.value)); }
+
+function calcRowFromIE(rowId, gid) {
+    const row = document.getElementById(`row-${rowId}`); if (!row) return;
+    const priceIE = itParse(row.querySelector('.ie-input').value);
+    if (priceIE > 0) {
+        const iva = parseFloat(row.querySelector('.iva-input')?.value) || 0;
+        if (iva > 0) {
+            const priceInput = row.querySelector('.price-input');
+            if (document.activeElement !== priceInput)
+                priceInput.value = '€ ' + itFmt(priceIE * (1 + iva / 100));
+        }
+    }
+    calcRow(rowId, gid);
+}
 
 function removeRow(rowId, gid) {
     document.getElementById(`row-${rowId}`)?.remove();
@@ -2388,7 +2419,7 @@ function stampaPDFConColonne() {
             const _parseE = s => s && s !== '—' ? itParse(s) : 0;
             const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
             const _pii    = _parseE(row.querySelector('.price-input')?.value);
-            const _pie    = _parseE(row.querySelector('.ie-value')?.textContent);
+            const _pie    = _parseE(row.querySelector('.ie-input')?.value);
             const _piisc  = _parseE(row.querySelector('.ii-sc-value')?.textContent);
             const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
             const _effII  = _piisc || _pii;
@@ -2398,7 +2429,7 @@ function stampaPDFConColonne() {
                 codice, desc,
                 pii:       row.querySelector('.price-input')?.value || '—',
                 iva:       row.querySelector('.iva-input')?.value || '—',
-                pie:       row.querySelector('.ie-value')?.textContent || '—',
+                pie:       row.querySelector('.ie-input')?.value || '—',
                 sconto:    row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
                 piisc:     row.querySelector('.ii-sc-value')?.textContent || '—',
                 piesc:     row.querySelector('.ie-sc-value')?.textContent || '—',
