@@ -601,7 +601,7 @@ function frontalino(item, forPrint = false, scale = 1) {
   const missingUnit = item.peso && !item.unita;
 
   const cw = _cfg.cw, ch = _cfg.ch;
-  const sideW  = Math.round(cw * 0.15 * scale);
+  const sideW  = Math.round(cw * 0.10 * scale);
   const descSz = Math.max(5, Math.round(ch * 0.55 * scale));
   const preSz  = Math.max(8, Math.round(ch * 0.75 * scale));
   const eurSz  = Math.max(5, Math.round(ch * 0.50 * scale));
@@ -853,8 +853,11 @@ function rStampa() {
       <button class="btn btn-out btn-xs" onclick="openCfgModal()"><i class="fas fa-cog"></i> Modifica</button>
     </div>
     ${warnFit}
+    ${(() => { const wu = _draft.filter(it=>it.peso&&!it.unita); return wu.length ? `<div class="warn-box mb-3"><i class="fas fa-exclamation-triangle"></i><div><strong>${wu.length} prodott${wu.length===1?'o':'i'} con unità mancante</strong> — la stampa è bloccata:<br>${wu.map(it=>`<span style="font-size:11px">• ${escH(it.descrizione)}</span>`).join('<br>')}<br><span style="font-size:11px;margin-top:4px;display:block">Modifica nel catalogo (✏️) oppure rimuovili dalla bozza.</span></div></div>` : ''; })()}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <button class="btn btn-red" onclick="doPrint()"><i class="fas fa-print"></i> Stampa / Salva PDF</button>
+      ${_draft.some(it=>it.peso&&!it.unita)
+        ? `<button class="btn" style="background:#e2e8f0;color:var(--s400);cursor:not-allowed" disabled><i class="fas fa-ban"></i> Stampa bloccata</button>`
+        : `<button class="btn btn-red" onclick="doPrint()"><i class="fas fa-print"></i> Stampa / Salva PDF</button>`}
       <button class="btn btn-out" onclick="openCfgModal()"><i class="fas fa-cog"></i> Impostazioni</button>
       <span style="font-size:11px;color:var(--s400);align-self:center">${slots.length} frontalini · ${pages.length} pagine</span>
     </div>
@@ -1075,6 +1078,11 @@ function saveCfgModal() {
 
 // ── STAMPA ─────────────────────────────────────────────────────────────────
 function doPrint() {
+  const missingUnits = _draft.filter(it => it.peso && !it.unita);
+  if (missingUnits.length > 0) {
+    alert(`Impossibile stampare: ${missingUnits.length} prodott${missingUnits.length===1?'o':'i'} ${missingUnits.length===1?'ha':'hanno'} un peso senza unità di misura:\n\n${missingUnits.map(it=>'• '+it.descrizione).join('\n')}\n\nCorreggi prima nel catalogo (✏️) o rimuovili dalla bozza.`);
+    return;
+  }
   const ppp  = _cfg.cols * _cfg.rows;
   const slots = [];
   for (const it of _draft) for (let i=0; i<(it.copie||1); i++) slots.push(it);
