@@ -81,7 +81,8 @@
     .ap-warn{background:#fee2e2;color:#991b1b}
 
     /* BOZZA LIST */
-    .bz-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;border-bottom:1px solid var(--s100);align-items:start}
+    .bz-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:12px 14px;border-bottom:1px solid var(--s100);align-items:start}
+    .bz-row.selected{background:#fdf4ff}
     .bz-row:last-child{border-bottom:none}
     .bz-row.editing{background:#fffbf5}
     .bz-desc{font-size:14px;font-weight:700;color:var(--s800)}
@@ -464,6 +465,7 @@ let _fMar     = '';            // filtro marchio
 let _fBio = false, _fSg = false, _fVeg = false, _fWarn = false;
 let _fUnita = '';  // '' = tutti, 'g'|'kg'|'ml'|'L'|'pz' = solo quella, 'none' = senza unità
 let _editId   = null;          // draft item in editing
+let _selBozza = new Set();    // _id degli item bozza selezionati
 let _loading  = true;
 let _importRows = [];          // righe Excel in attesa di conferma
 let _manEditId = null;         // se stiamo modificando un draft item
@@ -497,6 +499,7 @@ const g    = id => document.getElementById(id);
 const escH = s  => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const iid  = () => 'di_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 const fmtN = (n, d=2) => (n == null || !isFinite(n)) ? '' : n.toFixed(d).replace('.', ',');
+const titleCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
 function prezzoUnitario(peso, unita, prezzo) {
   if (!peso || !prezzo || !unita || peso === 0) return null;
@@ -559,6 +562,7 @@ function moveDraftItem(id, dir) {
 
 function removeDraftItem(id) {
   _draft = _draft.filter(d => d._id !== id);
+  _selBozza.delete(id);
   saveDraft(); R();
 }
 
@@ -639,8 +643,8 @@ async function saveCatEditModal() {
     prezzo:            g('ce-prezzo').value !== '' ? parseFloat(g('ce-prezzo').value) : null,
     peso:              g('ce-peso').value !== '' ? parseFloat(g('ce-peso').value) : null,
     unita:             g('ce-unita').value || null,
-    fornitore:         g('ce-fornitore').value.trim() || null,
-    marchio:           g('ce-marchio').value.trim() || null,
+    fornitore:         titleCase(g('ce-fornitore').value.trim()) || null,
+    marchio:           titleCase(g('ce-marchio').value.trim()) || null,
     note:              g('ce-note').value.trim() || null,
     bio:               g('ce-bio').checked,
     senza_glutine:     g('ce-sg').checked,
@@ -849,6 +853,8 @@ function rBozza() {
   const nc = draftTotalCopies();
   const np = draftPageCount();
   const ppp= _cfg.cols * _cfg.rows;
+  const nSelBz = _selBozza.size;
+  const allSelBz = _draft.length > 0 && _draft.every(it => _selBozza.has(it._id));
 
   const rows = _draft.map((it, idx) => {
     if (_editId === it._id) return rBozzaEditRow(it);
@@ -856,8 +862,10 @@ function rBozza() {
     const pd = pesoDisplay(it.peso, it.unita);
     const warn = it.peso && !it.unita;
     const attrs = [it.bio&&'BIO',it.senza_glutine&&'SG',it.vegano&&'VEG'].filter(Boolean);
-    return `<div class="bz-row">
-      <div>
+    const isSel = _selBozza.has(it._id);
+    return `<div class="bz-row${isSel?' selected':''}">
+      <input type="checkbox" class="cat-check" ${isSel?'checked':''} onclick="toggleSelBozza('${it._id}')">
+      <div style="flex:1;min-width:0">
         <div class="bz-desc">${escH(it.descrizione)}</div>
         <div class="bz-meta">
           ${it.marchio||it.fornitore ? `<span>${escH(it.marchio||it.fornitore)}</span> · ` : ''}
@@ -893,6 +901,12 @@ function rBozza() {
       <div class="stat-box"><div class="stat-n" style="color:var(--blue-tx)">${np}</div><div class="stat-l">Pagine (${ppp}/p.)</div></div>
     </div>
     <div class="card mb-3">
+      ${_draft.length > 0 ? `
+      <div style="padding:7px 14px;border-bottom:1px solid var(--s100);display:flex;align-items:center;gap:8px;background:var(--s50)">
+        <input type="checkbox" class="cat-check" ${allSelBz?'checked':''} onchange="toggleSelBozzaAll(this.checked)">
+        <span style="font-size:12px;color:var(--s500);flex:1">${allSelBz?'Deseleziona tutti':'Seleziona tutti'}</span>
+        ${nSelBz>0?`<span style="font-size:12px;font-weight:800;color:var(--red)">${nSelBz} selezionat${nSelBz===1?'o':'i'}</span>`:''}
+      </div>` : ''}
       ${rows || `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">Lista vuota — aggiungi prodotti dalla selezione.</div>`}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -902,6 +916,16 @@ function rBozza() {
         <button class="btn btn-red" onclick="setView('stampa')"><i class="fas fa-print"></i> Vai all'anteprima →</button>
       ` : ''}
     </div>
+    ${nSelBz > 0 ? `
+    <div class="add-float">
+      <span style="flex:1;font-size:13px;font-weight:800"><span class="add-float-n">${nSelBz}</span> selezionat${nSelBz===1?'o':'i'}</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:#94a3b8">Copie:</span>
+        <input type="number" min="1" value="1" id="bz-bulk-copie" style="width:46px;text-align:center;padding:5px;border:1.5px solid #475569;border-radius:7px;background:#334155;color:#fff;font-family:inherit;font-size:14px;font-weight:900">
+        <button class="btn btn-amber btn-sm" onclick="setBulkCopieBozza()"><i class="fas fa-hashtag"></i> Imposta copie</button>
+        <button class="btn btn-xs" style="background:#fee2e2;color:#fff" onclick="removeBulkBozza()"><i class="fas fa-trash"></i> Rimuovi</button>
+      </div>
+    </div>` : ''}
   `;
 }
 
@@ -998,6 +1022,27 @@ function toggleSel(id) {
   R();
 }
 
+function toggleSelBozza(id) {
+  if (_selBozza.has(id)) _selBozza.delete(id); else _selBozza.add(id);
+  R();
+}
+function toggleSelBozzaAll(checked) {
+  if (checked) _draft.forEach(it => _selBozza.add(it._id));
+  else         _draft.forEach(it => _selBozza.delete(it._id));
+  R();
+}
+function setBulkCopieBozza() {
+  const n = Math.max(1, parseInt(g('bz-bulk-copie')?.value) || 1);
+  _draft.forEach(it => { if (_selBozza.has(it._id)) it.copie = n; });
+  saveDraft(); R();
+}
+function removeBulkBozza() {
+  if (!confirm(`Rimuovere ${_selBozza.size} prodott${_selBozza.size===1?'o':'i'} dalla bozza?`)) return;
+  _draft = _draft.filter(it => !_selBozza.has(it._id));
+  _selBozza.clear();
+  saveDraft(); R();
+}
+
 function toggleSelAll(checked) {
   const list = filteredCatalogo();
   if (checked) list.forEach(p => _sel.add(p.id));
@@ -1092,8 +1137,8 @@ function readManFields() {
     peso:            g('man-peso').value !== '' ? parseFloat(g('man-peso').value) : null,
     unita:           g('man-unita').value || null,
     prezzo:          g('man-prezzo').value !== '' ? parseFloat(g('man-prezzo').value) : null,
-    fornitore:       g('man-fornitore').value.trim(),
-    marchio:         g('man-marchio').value.trim(),
+    fornitore:       titleCase(g('man-fornitore').value.trim()),
+    marchio:         titleCase(g('man-marchio').value.trim()),
     bio:             g('man-bio').checked,
     senza_glutine:   g('man-sg').checked,
     vegano:          g('man-veg').checked,
@@ -1622,8 +1667,8 @@ function readExcelSheet(ws) {
       peso,
       unita:             null,  // non specificata — da completare
       prezzo,
-      fornitore:         rawMF != null ? String(rawMF).trim() : '',
-      marchio:           rawMF != null ? String(rawMF).trim() : '',
+      fornitore:         rawMF != null ? titleCase(String(rawMF).trim()) : '',
+      marchio:           rawMF != null ? titleCase(String(rawMF).trim()) : '',
       bio,
       senza_glutine:     isSi(rawSG),
       vegano:            isSi(rawVeg),
@@ -1780,8 +1825,8 @@ async function saveBulkEditModal() {
   const update = {};
   if (g('be-chk-unita').checked)    update.unita     = g('be-unita').value || null;
   if (g('be-chk-peso').checked)     update.peso      = g('be-peso').value !== '' ? parseFloat(g('be-peso').value) : null;
-  if (g('be-chk-fornitore').checked)update.fornitore = g('be-fornitore').value.trim() || null;
-  if (g('be-chk-marchio').checked)  update.marchio   = g('be-marchio').value.trim() || null;
+  if (g('be-chk-fornitore').checked)update.fornitore = titleCase(g('be-fornitore').value.trim()) || null;
+  if (g('be-chk-marchio').checked)  update.marchio   = titleCase(g('be-marchio').value.trim()) || null;
   if (g('be-chk-bio').checked)  update.bio               = g('be-bio-grp').querySelector('input[value="1"]').checked;
   if (g('be-chk-sg').checked)   update.senza_glutine      = g('be-sg-grp').querySelector('input[value="1"]').checked;
   if (g('be-chk-veg').checked)  update.vegano             = g('be-veg-grp').querySelector('input[value="1"]').checked;
