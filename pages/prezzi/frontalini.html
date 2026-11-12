@@ -295,6 +295,46 @@
   </div>
 </div>
 
+<!-- Modal: modifica prodotto catalogo -->
+<div class="modal-bg" id="modal-cat-edit">
+  <div class="modal-box">
+    <h3>✏️ Modifica prodotto catalogo</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Descrizione *</label><input class="inp" id="ce-desc" placeholder="Es: Pasta di farro 500g"></div>
+      <div class="f-g"><label class="lbl">Codice</label><input class="inp" id="ce-codice" placeholder="Es: 7599"></div>
+      <div class="f-g"><label class="lbl">Prezzo €</label><input class="inp" id="ce-prezzo" type="number" step="0.01" min="0" placeholder="0,00"></div>
+      <div class="f-g"><label class="lbl">Quantità</label><input class="inp" id="ce-peso" type="number" min="0" step="any" placeholder="Es: 500"></div>
+      <div class="f-g">
+        <label class="lbl">Unità di misura</label>
+        <select class="inp" id="ce-unita">
+          <option value="">— non specificata</option>
+          <option value="g">g (grammi)</option>
+          <option value="kg">kg (chilogrammi)</option>
+          <option value="ml">ml (millilitri)</option>
+          <option value="L">L (litri)</option>
+          <option value="pz">pz (pezzi)</option>
+        </select>
+      </div>
+      <div class="f-g"><label class="lbl">Fornitore</label><input class="inp" id="ce-fornitore" placeholder="Es: Libera Terra"></div>
+      <div class="f-g"><label class="lbl">Marchio (da stampare)</label><input class="inp" id="ce-marchio" placeholder="Es: Libera Terra"></div>
+      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Note</label><input class="inp" id="ce-note" placeholder=""></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-bio" style="accent-color:var(--green);width:16px;height:16px"> BIO</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-sg" style="accent-color:var(--amber);width:16px;height:16px"> Senza Glutine</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-veg" style="accent-color:#7c3aed;width:16px;height:16px"> Vegano</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="ce-ita" style="accent-color:var(--blue);width:16px;height:16px"> Solidale Italiano</label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="deleteCatItem()"><i class="fas fa-trash"></i> Elimina</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-out" onclick="closeCatEditModal()">Annulla</button>
+        <button class="btn btn-red" onclick="saveCatEditModal()"><i class="fas fa-save"></i> Salva</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ── SETUP ──────────────────────────────────────────────────────────────────
@@ -321,6 +361,7 @@ let _editId   = null;          // draft item in editing
 let _loading  = true;
 let _importRows = [];          // righe Excel in attesa di conferma
 let _manEditId = null;         // se stiamo modificando un draft item
+let _catEditId = null;         // ID prodotto catalogo in modifica
 
 let _cfg = {
   cols: 3, rows: 13,
@@ -435,6 +476,69 @@ function filteredCatalogo() {
 function fornitori() { return [...new Set(_catalogo.map(p=>p.fornitore).filter(Boolean))].sort(); }
 function marchi()    { return [...new Set(_catalogo.map(p=>p.marchio  ).filter(Boolean))].sort(); }
 
+// ── MODIFICA CATALOGO ──────────────────────────────────────────────────────
+function openCatEditModal(id) {
+  const p = _catalogo.find(c => c.id === id);
+  if (!p) return;
+  _catEditId = id;
+  g('ce-desc').value      = p.descrizione || '';
+  g('ce-codice').value    = p.codice || '';
+  g('ce-prezzo').value    = p.prezzo ?? '';
+  g('ce-peso').value      = p.peso ?? '';
+  g('ce-unita').value     = p.unita || '';
+  g('ce-fornitore').value = p.fornitore || '';
+  g('ce-marchio').value   = p.marchio || '';
+  g('ce-note').value      = p.note || '';
+  g('ce-bio').checked     = !!p.bio;
+  g('ce-sg').checked      = !!p.senza_glutine;
+  g('ce-veg').checked     = !!p.vegano;
+  g('ce-ita').checked     = !!p.solidale_italiano;
+  g('modal-cat-edit').classList.add('open');
+  setTimeout(() => g('ce-desc')?.focus(), 100);
+}
+
+function closeCatEditModal() {
+  g('modal-cat-edit').classList.remove('open');
+  _catEditId = null;
+}
+
+async function saveCatEditModal() {
+  const desc = g('ce-desc').value.trim();
+  if (!desc) { alert('La descrizione è obbligatoria.'); g('ce-desc')?.focus(); return; }
+  const btn = g('modal-cat-edit').querySelector('.btn-red');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+  const { error } = await db.from('frontalini_catalogo').update({
+    descrizione:       desc,
+    codice:            g('ce-codice').value.trim() || null,
+    prezzo:            g('ce-prezzo').value !== '' ? parseFloat(g('ce-prezzo').value) : null,
+    peso:              g('ce-peso').value !== '' ? parseFloat(g('ce-peso').value) : null,
+    unita:             g('ce-unita').value || null,
+    fornitore:         g('ce-fornitore').value.trim() || null,
+    marchio:           g('ce-marchio').value.trim() || null,
+    note:              g('ce-note').value.trim() || null,
+    bio:               g('ce-bio').checked,
+    senza_glutine:     g('ce-sg').checked,
+    vegano:            g('ce-veg').checked,
+    solidale_italiano: g('ce-ita').checked,
+  }).eq('id', _catEditId);
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Salva'; }
+  if (error) { alert('Errore salvataggio: ' + error.message); return; }
+  await loadCatalogo();
+  closeCatEditModal();
+  R();
+}
+
+async function deleteCatItem() {
+  const p = _catalogo.find(c => c.id === _catEditId);
+  if (!p) return;
+  if (!confirm(`Eliminare "${p.descrizione}" dal catalogo?\nL'azione non può essere annullata.`)) return;
+  const { error } = await db.from('frontalini_catalogo').delete().eq('id', _catEditId);
+  if (error) { alert('Errore eliminazione: ' + error.message); return; }
+  await loadCatalogo();
+  closeCatEditModal();
+  R();
+}
+
 // ── FRONTALINO HTML ────────────────────────────────────────────────────────
 function frontalino(item, forPrint = false, scale = 1) {
   const pu = prezzoUnitario(item.peso, item.unita, item.prezzo);
@@ -536,8 +640,9 @@ function rSelezione() {
               ${pu ? `<span class="cat-sup">${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
             </div>
           </div>
-          <div style="text-align:right;flex-shrink:0">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
             ${p.prezzo != null ? `<div class="cat-price">${fmtN(p.prezzo)} €</div>` : '<div class="cat-price" style="color:var(--s300)">—</div>'}
+            ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-out btn-xs" onclick="event.stopPropagation();openCatEditModal(${p.id})" title="Modifica prodotto"><i class="fas fa-pencil"></i></button>` : ''}
           </div>
         </div>`;
       }).join('')
@@ -1145,10 +1250,11 @@ async function confirmImport() {
 }
 
 // Chiudi modali cliccando lo sfondo
-['modal-man','modal-cfg','modal-import'].forEach(id => {
+['modal-man','modal-cfg','modal-import','modal-cat-edit'].forEach(id => {
   g(id)?.addEventListener('click', e => { if (e.target.id === id) {
     if (id==='modal-man') closeManModal();
     else if (id==='modal-cfg') closeCfgModal();
+    else if (id==='modal-cat-edit') closeCatEditModal();
     else closeImportModal();
   }});
 });
