@@ -800,18 +800,28 @@ function rSelezione() {
         <button class="btn btn-out btn-sm" onclick="openManModal(null)"><i class="fas fa-plus"></i> Frontalino manuale</button>
         ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-blue btn-sm" onclick="openImportModal()"><i class="fas fa-file-excel"></i> Importa Excel</button>` : ''}
       </div>
-      <div style="padding:0 14px 6px;display:flex;gap:8px;flex-wrap:wrap">
-        ${fors.length ? `<div class="pill-bar" style="gap:4px">${fors.map(f=>`<button class="fpill ${_fFor===f?'on':''}" onclick="setFFor('${escH(f)}')">${escH(f)}</button>`).join('')}</div>` : ''}
-        ${mars.length && mars.some(m=>!fors.includes(m)) ? `<div class="pill-bar" style="gap:4px">${mars.filter(m=>!fors.includes(m)).map(m=>`<button class="fpill ${_fMar===m?'on':''}" onclick="setFMar('${escH(m)}')">${escH(m)}</button>`).join('')}</div>` : ''}
-      </div>
-      <div style="padding:0 14px 10px;display:flex;gap:4px;flex-wrap:wrap">
-        <button class="fpill ${_fBio?'on-red':''}" onclick="_fBio=!_fBio;R()">🌿 BIO</button>
-        <button class="fpill ${_fSg?'on-red':''}" onclick="_fSg=!_fSg;R()">🌾 Senza Glutine</button>
-        <button class="fpill ${_fVeg?'on-red':''}" onclick="_fVeg=!_fVeg;R()">🌱 Vegano</button>
-        ${['g','kg','ml','L','pz'].map(u=>`<button class="fpill ${_fUnita===u?'on-red':''}" onclick="_fUnita=_fUnita==='${u}'?'':'${u}';R()">${u}</button>`).join('')}
-        <button class="fpill ${_fUnita==='none'?'on-red':''}" onclick="_fUnita=_fUnita==='none'?'':'none';R()">senza unità</button>
-        <button class="fpill ${_fWarn?'on-red':''}" onclick="_fWarn=!_fWarn;R()">⚠️ peso senza unità</button>
-        ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="fpill" style="color:#991b1b;border-color:#fca5a5" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">✕ Reset filtri</button>` : ''}
+      <div style="padding:0 14px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select class="inp inp-sm" style="min-width:140px" onchange="setFFor(this.value)">
+          <option value="">Tutti i fornitori</option>
+          ${fors.map(f=>`<option value="${escH(f)}"${_fFor===f?' selected':''}>${escH(f)}</option>`).join('')}
+        </select>
+        <select class="inp inp-sm" style="min-width:140px" onchange="setFMar(this.value)">
+          <option value="">Tutti i marchi</option>
+          ${mars.map(m=>`<option value="${escH(m)}"${_fMar===m?' selected':''}>${escH(m)}</option>`).join('')}
+        </select>
+        <select class="inp inp-sm" onchange="_fUnita=this.value;R()">
+          <option value="">Tutte le unità</option>
+          ${['g','kg','ml','L','pz'].map(u=>`<option value="${u}"${_fUnita===u?' selected':''}>${u}</option>`).join('')}
+          <option value="none"${_fUnita==='none'?' selected':''}>Senza unità</option>
+        </select>
+        <select class="inp inp-sm" onchange="applyAttrFilter(this.value)">
+          <option value="">Tutti gli attributi</option>
+          <option value="bio"${_fBio?' selected':''}>BIO</option>
+          <option value="sg"${_fSg?' selected':''}>Senza Glutine</option>
+          <option value="veg"${_fVeg?' selected':''}>Vegano</option>
+          <option value="warn"${_fWarn?' selected':''}>Peso senza unità</option>
+        </select>
+        ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="btn btn-out btn-xs" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">Reset filtri</button>` : ''}
       </div>
       <div>${catalogHTML}</div>
     </div>
@@ -982,8 +992,16 @@ function toggleSel(id) {
 }
 
 function onSearch(v) { _search = v; R(); }
-function setFFor(v)  { _fFor = (_fFor === v) ? '' : v; R(); }
-function setFMar(v)  { _fMar = (_fMar === v) ? '' : v; R(); }
+function setFFor(v)  { _fFor = v; R(); }
+function setFMar(v)  { _fMar = v; R(); }
+function applyAttrFilter(v) {
+  _fBio = _fSg = _fVeg = _fWarn = false;
+  if (v === 'bio')  _fBio  = true;
+  if (v === 'sg')   _fSg   = true;
+  if (v === 'veg')  _fVeg  = true;
+  if (v === 'warn') _fWarn = true;
+  R();
+}
 
 function aggiungiSelezionati() {
   const inp = g('add-copie-inp');
