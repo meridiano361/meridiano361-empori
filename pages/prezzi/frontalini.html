@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frontalini</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- SheetJS per importazione Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --red:#B5453A;--red-dark:#8c362d;--red-light:#fdf1f0;
+      --green:#059669;--green-light:#dcfce7;--green-tx:#166534;
+      --blue:#3b82f6;--blue-light:#dbeafe;--blue-tx:#1d4ed8;
+      --amber:#f59e0b;--amber-light:#fef3c7;--amber-tx:#92400e;
+      --s50:#f8fafc;--s100:#f1f5f9;--s200:#e2e8f0;--s300:#cbd5e1;
+      --s400:#94a3b8;--s500:#64748b;--s600:#475569;--s700:#334155;--s800:#1e293b;
+    }
+    *{box-sizing:border-box}
+    body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f0f2f5;font-size:15px}
+    h1,h2,h3{margin:0}
+
+    /* NAV TABS */
+    .fl-tabs{display:flex;background:#fff;border-bottom:2px solid var(--s200);position:sticky;top:0;z-index:100}
+    .fl-tab{flex:1;padding:12px 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border:none;background:transparent;color:var(--s400);transition:all .15s;border-bottom:3px solid transparent;margin-bottom:-2px;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px}
+    .fl-tab:hover{color:var(--s700);background:var(--s50)}
+    .fl-tab.active{color:var(--red);border-bottom-color:var(--red)}
+    .fl-badge{font-size:9px;background:var(--red);color:#fff;border-radius:9px;padding:1px 5px;font-weight:900}
+    .fl-tab.active .fl-badge{background:var(--red-dark)}
+
+    /* SECTION TITLE */
+    .sec-t{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--s400);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .sec-t::before{content:'';width:3px;height:16px;background:var(--red);border-radius:2px;flex-shrink:0}
+
+    /* CARDS */
+    .card{background:#fff;border-radius:16px;border:1px solid var(--s200);box-shadow:0 1px 4px rgba(0,0,0,.05);overflow:hidden}
+    .card-p{padding:16px}
+
+    /* BUTTONS */
+    .btn{border:none;cursor:pointer;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:all .12s;white-space:nowrap}
+    .btn-red{background:var(--red);color:#fff}.btn-red:hover{background:var(--red-dark)}
+    .btn-out{background:#fff;color:var(--s700);border:1.5px solid var(--s200)}.btn-out:hover{border-color:var(--s400);color:var(--s800)}
+    .btn-green{background:var(--green-light);color:var(--green-tx)}.btn-green:hover{background:#a7f3d0}
+    .btn-sm{padding:6px 11px;font-size:11px;border-radius:8px}
+    .btn-xs{padding:4px 8px;font-size:10px;border-radius:6px}
+    .btn-blue{background:var(--blue-light);color:var(--blue-tx)}.btn-blue:hover{background:#bfdbfe}
+    .btn-amber{background:var(--amber-light);color:var(--amber-tx)}.btn-amber:hover{background:#fde68a}
+
+    /* INPUTS */
+    .inp{border:1.5px solid var(--s200);border-radius:10px;padding:9px 11px;font-size:14px;font-family:inherit;outline:none;background:#fff;transition:border .15s;width:100%}
+    .inp:focus{border-color:var(--red)}
+    .inp-sm{padding:6px 9px;font-size:13px;border-radius:8px}
+    .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:3px;display:block}
+    .f-g{display:flex;flex-direction:column;gap:3px}
+
+    /* FILTER PILLS */
+    .pill-bar{display:flex;gap:5px;flex-wrap:wrap}
+    .fpill{padding:5px 11px;border-radius:8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border:1.5px solid var(--s200);background:#fff;color:var(--s500);transition:all .12s}
+    .fpill.on{background:var(--s800);color:#fff;border-color:var(--s800)}
+    .fpill.on-red{background:var(--red);color:#fff;border-color:var(--red)}
+
+    /* CATALOG ITEM */
+    .cat-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--s100);cursor:pointer;transition:background .1s}
+    .cat-item:last-child{border-bottom:none}
+    .cat-item:hover{background:var(--s50)}
+    .cat-item.selected{background:#fdf4ff}
+    .cat-check{width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0}
+    .cat-desc{font-size:14px;font-weight:600;color:var(--s800);flex:1;min-width:0}
+    .cat-code{font-size:11px;color:var(--s400);font-family:monospace}
+    .cat-price{font-size:14px;font-weight:800;color:var(--s700);white-space:nowrap}
+    .cat-sup{font-size:10px;color:var(--s500);white-space:nowrap}
+    .attr-pill{font-size:8px;font-weight:900;padding:1px 5px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}
+    .ap-bio{background:#dcfce7;color:#166534}
+    .ap-sg{background:#fef3c7;color:#92400e}
+    .ap-veg{background:#ede9fe;color:#6d28d9}
+    .ap-ita{background:#dbeafe;color:#1d4ed8}
+    .ap-warn{background:#fee2e2;color:#991b1b}
+
+    /* BOZZA LIST */
+    .bz-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;border-bottom:1px solid var(--s100);align-items:start}
+    .bz-row:last-child{border-bottom:none}
+    .bz-row.editing{background:#fffbf5}
+    .bz-desc{font-size:14px;font-weight:700;color:var(--s800)}
+    .bz-meta{font-size:11px;color:var(--s500);margin-top:2px}
+    .bz-warn{color:var(--amber-tx);font-weight:700}
+    .copie-ctrl{display:flex;align-items:center;gap:5px}
+    .copie-btn{width:26px;height:26px;border:1.5px solid var(--s200);border-radius:7px;background:#fff;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;color:var(--s600);transition:all .12s}
+    .copie-btn:hover{border-color:var(--s400);background:var(--s50)}
+    .copie-n{width:36px;text-align:center;border:1.5px solid var(--s200);border-radius:7px;padding:3px;font-size:14px;font-weight:800;font-family:inherit}
+    .row-acts{display:flex;gap:5px;flex-wrap:wrap}
+
+    /* STATS BAR */
+    .stat-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+    .stat-box{background:#fff;border:1px solid var(--s200);border-radius:12px;padding:10px;text-align:center}
+    .stat-n{font-size:22px;font-weight:900;color:var(--s800)}
+    .stat-l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400)}
+
+    /* ── FRONTALINO (screen preview) ── */
+    .fr-wrap{display:flex;flex-wrap:wrap;gap:4px;padding:12px}
+    .fr-page-label{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--s400);padding:8px 12px 4px;background:var(--s50);border-top:1px solid var(--s100)}
+
+    /* frontalino base — dimensioni settate da CSS vars o inline */
+    .frontalino{display:flex;border:1px solid #333;overflow:hidden;background:#fff;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;flex-shrink:0}
+    .frontalino.fr-screen{/* per anteprima su schermo */}
+    .fr-side{background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:2px}
+    .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .fr-body{flex:1;display:flex;flex-direction:column;min-width:0;padding:2px 3px 2px 3px;gap:1px;overflow:hidden}
+    .fr-desc{font-weight:700;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;color:#000}
+    .fr-price-row{display:flex;align-items:baseline;gap:2px;line-height:1}
+    .fr-prezzo{font-weight:900;color:#000;line-height:1}
+    .fr-euro{font-weight:700;color:#000}
+    .fr-attrs{display:flex;flex-wrap:wrap;gap:2px}
+    .fr-attr-tag{border:1px solid #000;font-weight:900;text-transform:uppercase;letter-spacing:.5px;padding:0 2px;line-height:1.3;white-space:nowrap}
+    .fr-sec{display:flex;flex-wrap:wrap;gap:3px;color:#333;margin-top:auto}
+    .fr-empty{background:#f8fafc}
+    .fr-warn-miss{background:#fef3c7;border-color:#f59e0b}
+
+    /* ── PRINT ── */
+    @media print {
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html,body { margin:0; padding:0; background:white; }
+      .no-print { display:none !important; }
+      .print-only { display:block !important; }
+      #app { display:none !important; }
+      #print-wrap { display:block !important; }
+      .print-page {
+        display: grid;
+        gap: 0;
+        page-break-after: always;
+        break-after: page;
+      }
+      .print-page:last-child { page-break-after: avoid; break-after: avoid; }
+      .frontalino { break-inside: avoid; }
+      .fr-side { background: #1e293b !important; color: #fff !important; }
+      .fr-brand { color: #fff !important; }
+    }
+    #print-wrap { display:none; }
+
+    /* MODALS */
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px}
+    .modal-bg.open{display:flex}
+    .modal-box{background:#fff;border-radius:20px;padding:22px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+    .modal-box h3{font-size:16px;font-weight:900;color:var(--s800);margin-bottom:16px}
+
+    /* BACK BUTTON */
+    .bk{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:800;color:var(--s500);background:none;border:none;cursor:pointer;padding:0;transition:color .15s}
+    .bk:hover{color:var(--red)}
+
+    /* CONFIG TABLE */
+    .cfg-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+
+    /* SEARCH BAR */
+    .search-wrap{position:relative}
+    .search-wrap i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--s400);font-size:13px;pointer-events:none}
+    .search-wrap .inp{padding-left:32px}
+
+    /* IMPORT TABLE */
+    .import-tbl{width:100%;border-collapse:collapse;font-size:12px}
+    .import-tbl th{padding:5px 8px;background:var(--s100);text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);border-bottom:1px solid var(--s200)}
+    .import-tbl td{padding:5px 8px;border-bottom:1px solid var(--s100)}
+    .import-tbl tr:last-child td{border-bottom:none}
+    .import-tbl tr:hover td{background:var(--s50)}
+
+    /* ADD-TO-BOZZA FLOAT */
+    .add-float{position:sticky;bottom:70px;left:0;right:0;background:var(--s800);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;z-index:50;border-radius:14px;margin:0 -4px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+    .add-float-n{font-size:16px;font-weight:900;color:#fbbf24}
+
+    /* WARN BOX */
+    .warn-box{background:var(--amber-light);border:1.5px solid #fcd34d;border-radius:12px;padding:12px 14px;font-size:12px;color:var(--amber-tx);display:flex;gap:8px;align-items:flex-start}
+
+    @media(max-width:600px){
+      .cfg-row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body class="pb-24">
+<script src="../../scripts/auth.js"></script>
+<script src="../../scripts/nav-script.js"></script>
+
+<!-- App shell -->
+<div id="app">
+  <div class="fl-tabs no-print" id="fl-tabs"></div>
+  <main class="max-w-3xl mx-auto p-4" id="fl-main"></main>
+</div>
+
+<!-- Print area (nascosto, visibile solo in stampa) -->
+<div id="print-wrap" class="print-only"></div>
+
+<!-- Modal: frontalino manuale -->
+<div class="modal-bg" id="modal-man">
+  <div class="modal-box">
+    <h3 id="modal-man-title">Frontalino manuale</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Descrizione *</label><input class="inp" id="man-desc" placeholder="Es: Pasta di farro 500g"></div>
+      <div class="f-g"><label class="lbl">Codice</label><input class="inp" id="man-codice" placeholder="Es: 7599"></div>
+      <div class="f-g"><label class="lbl">Prezzo €</label><input class="inp" id="man-prezzo" type="number" step="0.01" min="0" placeholder="0,00"></div>
+      <div class="f-g"><label class="lbl">Quantità</label><input class="inp" id="man-peso" type="number" min="0" step="any" placeholder="Es: 500"></div>
+      <div class="f-g">
+        <label class="lbl">Unità di misura</label>
+        <select class="inp" id="man-unita">
+          <option value="">— non specificata</option>
+          <option value="g">g (grammi)</option>
+          <option value="kg">kg (chilogrammi)</option>
+          <option value="ml">ml (millilitri)</option>
+          <option value="L">L (litri)</option>
+          <option value="pz">pz (pezzi)</option>
+        </select>
+      </div>
+      <div class="f-g"><label class="lbl">Fornitore</label><input class="inp" id="man-fornitore" placeholder="Es: Libera Terra"></div>
+      <div class="f-g"><label class="lbl">Marchio (da stampare)</label><input class="inp" id="man-marchio" placeholder="Es: Libera Terra"></div>
+      <div class="f-g"><label class="lbl">Copie</label><input class="inp" id="man-copie" type="number" min="1" value="1"></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-bio" style="accent-color:var(--green);width:16px;height:16px"> BIO</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-sg" style="accent-color:var(--amber);width:16px;height:16px"> Senza Glutine</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-veg" style="accent-color:#7c3aed;width:16px;height:16px"> Vegano</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="man-ita" style="accent-color:var(--blue);width:16px;height:16px"> Solidale Italiano</label>
+    </div>
+    <div id="man-save-cat-wrap" style="display:none;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;padding:8px 10px;background:var(--s50);border-radius:9px;border:1px solid var(--s200)">
+        <input type="checkbox" id="man-save-cat" style="accent-color:var(--red);width:16px;height:16px">
+        <span>Salva anche nel catalogo (prodotto permanente)</span>
+      </label>
+    </div>
+    <div id="man-preview-wrap" style="margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-out" onclick="closeManModal()">Annulla</button>
+      <button class="btn btn-out btn-sm" onclick="manUpdatePreview()"><i class="fas fa-eye"></i> Aggiorna anteprima</button>
+      <button class="btn btn-red" onclick="saveManModal()"><i class="fas fa-plus"></i> Aggiungi alla bozza</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: configurazione stampa -->
+<div class="modal-bg" id="modal-cfg">
+  <div class="modal-box">
+    <h3>⚙️ Configurazione stampa</h3>
+    <div class="warn-box" style="margin-bottom:14px">
+      <i class="fas fa-exclamation-triangle"></i>
+      <div><strong>Misure da confermare.</strong> Le dimensioni predefinite sono un punto di partenza — adattale alle misure reali del tuo frontalino fisico prima di stampare.</div>
+    </div>
+    <div class="cfg-row">
+      <div class="f-g"><label class="lbl">Colonne</label><input class="inp" id="cfg-cols" type="number" min="1" max="10" value="3"></div>
+      <div class="f-g"><label class="lbl">Righe per pagina</label><input class="inp" id="cfg-rows" type="number" min="1" max="30" value="13"></div>
+      <div class="f-g"><label class="lbl">Larghezza frontalino (mm)</label><input class="inp" id="cfg-cw" type="number" min="20" max="300" value="64"></div>
+      <div class="f-g"><label class="lbl">Altezza frontalino (mm)</label><input class="inp" id="cfg-ch" type="number" min="10" max="200" value="21"></div>
+      <div class="f-g"><label class="lbl">Formato carta</label>
+        <select class="inp" id="cfg-paper">
+          <option value="A4P">A4 Portrait (210×297mm)</option>
+          <option value="A4L">A4 Landscape (297×210mm)</option>
+          <option value="A3P">A3 Portrait (297×420mm)</option>
+          <option value="A3L">A3 Landscape (420×297mm)</option>
+          <option value="custom">Personalizzato</option>
+        </select>
+      </div>
+      <div class="f-g"><label class="lbl">Margine pagina (mm)</label><input class="inp" id="cfg-margin" type="number" min="0" max="50" value="7"></div>
+    </div>
+    <div id="cfg-custom-paper" style="display:none">
+      <div class="cfg-row">
+        <div class="f-g"><label class="lbl">Larghezza carta (mm)</label><input class="inp" id="cfg-pw" type="number" min="50" value="210"></div>
+        <div class="f-g"><label class="lbl">Altezza carta (mm)</label><input class="inp" id="cfg-ph" type="number" min="50" value="297"></div>
+      </div>
+    </div>
+    <div id="cfg-fit-check" style="font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-out" onclick="closeCfgModal()">Annulla</button>
+      <button class="btn btn-red" onclick="saveCfgModal()">Applica</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: importa Excel -->
+<div class="modal-bg" id="modal-import">
+  <div class="modal-box" style="max-width:720px">
+    <h3>📥 Importa prodotti da Excel</h3>
+    <p style="font-size:12px;color:var(--s500);margin-bottom:14px">Seleziona il file Excel con i fogli catalogo. Potrai rivedere i dati prima del salvataggio.</p>
+    <div id="import-step1">
+      <input type="file" id="import-file" accept=".xlsx,.xls,.ods" style="display:none" onchange="handleImportFile(this)">
+      <button class="btn btn-blue" onclick="document.getElementById('import-file').click()"><i class="fas fa-file-excel"></i> Scegli file…</button>
+      <p style="font-size:11px;color:var(--s400);margin-top:8px">Verranno letti i fogli con colonne: CODICE, DESCRIZIONE, PESO, PREZZO, BIO, SENZA GLUTINE / GLUT FREE, VEG / VEGANO, ITA / SIA, MARCHIO / fornitore</p>
+    </div>
+    <div id="import-step2" style="display:none">
+      <div id="import-summary" style="margin-bottom:12px"></div>
+      <div style="max-height:300px;overflow-y:auto;border:1px solid var(--s200);border-radius:10px;margin-bottom:12px">
+        <table class="import-tbl" id="import-preview-tbl">
+          <thead><tr><th>Descrizione</th><th>Cod</th><th>Peso</th><th>Prezzo</th><th>Fornitore/Marchio</th><th>Attrs</th><th>⚠️</th></tr></thead>
+          <tbody id="import-preview-body"></tbody>
+        </table>
+      </div>
+      <div class="warn-box" style="margin-bottom:12px">
+        <i class="fas fa-info-circle"></i>
+        <div><strong>Unità di misura non specificate</strong>: le righe con ⚠️ hanno peso senza unità — verranno importate con unità vuota. Potrai completarle in seguito nel catalogo.</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn btn-out" onclick="resetImport()">Indietro</button>
+        <button class="btn btn-red" id="import-confirm-btn" onclick="confirmImport()"><i class="fas fa-database"></i> Importa nel catalogo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ── SETUP ──────────────────────────────────────────────────────────────────
+const { createClient } = supabase;
+const db = createClient(
+  'https://hsalynvxazxqtmsvjrzc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+);
+
+const DRAFT_KEY    = 'm361_frontalini_bozza';
+const CFG_KEY      = 'm361_frontalini_cfg';
+const PAPER_SIZES  = { A4P:{w:210,h:297}, A4L:{w:297,h:210}, A3P:{w:297,h:420}, A3L:{w:420,h:297} };
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let _view     = 'selezione';   // 'selezione' | 'bozza' | 'stampa'
+let _catalogo = [];
+let _draft    = [];
+let _sel      = new Set();     // IDs prodotti selezionati nel catalogo
+let _addCopie = 1;
+let _search   = '';
+let _fFor     = '';            // filtro fornitore
+let _fMar     = '';            // filtro marchio
+let _editId   = null;          // draft item in editing
+let _loading  = true;
+let _importRows = [];          // righe Excel in attesa di conferma
+let _manEditId = null;         // se stiamo modificando un draft item
+
+let _cfg = {
+  cols: 3, rows: 13,
+  cw: 64, ch: 21,            // mm — ⚠️ DA CONFERMARE
+  paper: 'A4P',
+  pw: 210, ph: 297,
+  margin: 7,
+};
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+const g    = id => document.getElementById(id);
+const escH = s  => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const iid  = () => 'di_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+const fmtN = (n, d=2) => (n == null || !isFinite(n)) ? '' : n.toFixed(d).replace('.', ',');
+
+function prezzoUnitario(peso, unita, prezzo) {
+  if (!peso || !prezzo || !unita || peso === 0) return null;
+  if (unita === 'g')  return { val: prezzo / peso * 1000, label: '€/kg' };
+  if (unita === 'kg') return { val: prezzo / peso,         label: '€/kg' };
+  if (unita === 'ml') return { val: prezzo / peso * 1000, label: '€/L'  };
+  if (unita === 'L')  return { val: prezzo / peso,         label: '€/L'  };
+  return null;
+}
+
+function pesoDisplay(peso, unita) {
+  if (peso == null || peso === '') return '';
+  const n = Number(peso);
+  if (!n) return '';
+  if (!unita) return n + ' ⚠️';   // unità mancante
+  if (unita === 'g')  return n + ' g';
+  if (unita === 'kg') return fmtN(n) + ' kg';
+  if (unita === 'ml') return n + ' ml';
+  if (unita === 'L')  return fmtN(n) + ' L';
+  if (unita === 'pz') return n + ' pz';
+  return String(n);
+}
+
+// ── DRAFT ──────────────────────────────────────────────────────────────────
+function saveDraft()   { localStorage.setItem(DRAFT_KEY, JSON.stringify(_draft)); }
+function saveCfg()     { localStorage.setItem(CFG_KEY,   JSON.stringify(_cfg));   }
+function loadDraft()   { try { const s = localStorage.getItem(DRAFT_KEY); if(s) _draft = JSON.parse(s); } catch{} }
+function loadCfg()     { try { const s = localStorage.getItem(CFG_KEY);   if(s) Object.assign(_cfg, JSON.parse(s)); } catch{} }
+
+function draftTotalCopies() { return _draft.reduce((s,i) => s + (i.copie || 1), 0); }
+function draftPageCount()   { const ppp = _cfg.cols * _cfg.rows; return Math.ceil(draftTotalCopies() / ppp) || 0; }
+
+function addCatalogToDraft(cat, copie) {
+  const ex = _draft.find(d => d.source_id === cat.id);
+  if (ex) { ex.copie = (ex.copie || 1) + copie; saveDraft(); R(); return; }
+  _draft.push({ _id: iid(), source_id: cat.id,
+    codice: cat.codice||'', descrizione: cat.descrizione,
+    peso: cat.peso, unita: cat.unita,
+    prezzo: cat.prezzo, fornitore: cat.fornitore||'', marchio: cat.marchio||'',
+    bio: !!cat.bio, senza_glutine: !!cat.senza_glutine,
+    vegano: !!cat.vegano, solidale_italiano: !!cat.solidale_italiano, copie });
+  saveDraft(); R();
+}
+
+function setCopie(id, n) {
+  const it = _draft.find(d => d._id === id);
+  if (!it) return;
+  it.copie = Math.max(1, parseInt(n) || 1);
+  saveDraft(); R();
+}
+
+function moveDraftItem(id, dir) {
+  const idx = _draft.findIndex(d => d._id === id);
+  if (idx < 0) return;
+  const ni = idx + dir;
+  if (ni < 0 || ni >= _draft.length) return;
+  [_draft[idx], _draft[ni]] = [_draft[ni], _draft[idx]];
+  saveDraft(); R();
+}
+
+function removeDraftItem(id) {
+  _draft = _draft.filter(d => d._id !== id);
+  saveDraft(); R();
+}
+
+function clearDraft() {
+  if (!confirm('Svuotare la lista di stampa? L\'azione non può essere annullata.')) return;
+  _draft = []; _sel = new Set(); saveDraft(); R();
+}
+
+// ── CATALOG ────────────────────────────────────────────────────────────────
+async function loadCatalogo() {
+  try {
+    const { data, error } = await db.from('frontalini_catalogo').select('*').order('descrizione');
+    if (error) throw error;
+    _catalogo = data || [];
+  } catch(e) {
+    console.warn('frontalini_catalogo non disponibile:', e.message);
+    _catalogo = [];
+  }
+}
+
+function filteredCatalogo() {
+  return _catalogo.filter(p => {
+    if (_search) {
+      const q = _search.toLowerCase();
+      if (!(p.descrizione||'').toLowerCase().includes(q)
+       && !(p.codice||'').toLowerCase().includes(q)
+       && !(p.fornitore||'').toLowerCase().includes(q)
+       && !(p.marchio||'').toLowerCase().includes(q)) return false;
+    }
+    if (_fFor && (p.fornitore||'').toLowerCase() !== _fFor.toLowerCase()) return false;
+    if (_fMar && (p.marchio||'').toLowerCase() !== _fMar.toLowerCase()) return false;
+    return true;
+  });
+}
+
+function fornitori() { return [...new Set(_catalogo.map(p=>p.fornitore).filter(Boolean))].sort(); }
+function marchi()    { return [...new Set(_catalogo.map(p=>p.marchio  ).filter(Boolean))].sort(); }
+
+// ── FRONTALINO HTML ────────────────────────────────────────────────────────
+function frontalino(item, forPrint = false, scale = 1) {
+  const pu = prezzoUnitario(item.peso, item.unita, item.prezzo);
+  const pd = pesoDisplay(item.peso, item.unita);
+  const attrs = [];
+  if (item.bio)               attrs.push(['BIO', 'ap-bio']);
+  if (item.senza_glutine)     attrs.push(['SENZA GLUTINE', 'ap-sg']);
+  if (item.vegano)            attrs.push(['VEGAN', 'ap-veg']);
+  if (item.solidale_italiano) attrs.push(['SOLIDALE ITALIANO', 'ap-ita']);
+
+  const prezzo = item.prezzo != null ? fmtN(item.prezzo) : '';
+  const puStr  = pu ? fmtN(pu.val) + ' ' + pu.label : '';
+  const brand  = (item.marchio || item.fornitore || '').toUpperCase();
+  const missingUnit = item.peso && !item.unita;
+
+  const cw = _cfg.cw, ch = _cfg.ch;
+  // Proporzionale alla dimensione configurata
+  const sideW  = Math.round(cw * 0.15 * scale);
+  const descSz = Math.max(5, Math.round(ch * 0.22 * scale));
+  const preSz  = Math.max(8, Math.round(ch * 0.44 * scale));
+  const eurSz  = Math.max(6, Math.round(ch * 0.26 * scale));
+  const attrSz = Math.max(4, Math.round(ch * 0.11 * scale));
+  const secSz  = Math.max(4, Math.round(ch * 0.13 * scale));
+  const brandSz= Math.max(5, Math.round(sideW * 0.42 * scale));
+  const lines  = ch > 30 ? 3 : 2;  // righe max descrizione
+
+  const warnClass = missingUnit ? ' fr-warn-miss' : '';
+
+  return `<div class="frontalino${forPrint?'':' fr-screen'}${warnClass}"
+    style="width:${cw*scale}mm;height:${ch*scale}mm;"
+    ${forPrint?'':'data-id="'+escH(item._id)+'"'}>
+    <div class="fr-side" style="width:${sideW*scale}mm">
+      <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm">${escH(brand)}</span>
+    </div>
+    <div class="fr-body">
+      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${lines}">${escH(item.descrizione)}</div>
+      <div class="fr-price-row">
+        ${prezzo
+          ? `<span class="fr-prezzo" style="font-size:${preSz}pt">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt">€</span>`
+          : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
+      </div>
+      ${attrs.length ? `<div class="fr-attrs">${attrs.map(([lbl,cls])=>`<span class="fr-attr-tag ${cls}" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}</div>` : ''}
+      <div class="fr-sec" style="font-size:${secSz}pt">
+        ${pu  ? `<span>${escH(puStr)}</span>` : ''}
+        ${pd  ? `<span>${escH(pd)}</span>`   : ''}
+        ${item.codice ? `<span>cod ${escH(item.codice)}</span>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function frontalino_empty(scale=1) {
+  return `<div class="frontalino fr-empty" style="width:${_cfg.cw*scale}mm;height:${_cfg.ch*scale}mm"></div>`;
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+
+function rTabs() {
+  const nc = draftTotalCopies();
+  const tabs = [
+    { k:'selezione', icon:'fas fa-search',   lbl:'Selezione'  },
+    { k:'bozza',     icon:'fas fa-list',      lbl:'Bozza',     badge: nc || '' },
+    { k:'stampa',    icon:'fas fa-print',     lbl:'Stampa'     },
+  ];
+  g('fl-tabs').innerHTML = tabs.map(t=>`
+    <button class="fl-tab ${_view===t.k?'active':''}" onclick="setView('${t.k}')">
+      <i class="${t.icon}"></i> ${t.lbl}
+      ${t.badge ? `<span class="fl-badge">${t.badge}</span>` : ''}
+    </button>`).join('');
+}
+
+function rSelezione() {
+  const list = filteredCatalogo();
+  const fors  = fornitori();
+  const mars  = marchi();
+  const nSel  = _sel.size;
+
+  const catalogHTML = list.length
+    ? list.map(p => {
+        const isSel = _sel.has(p.id);
+        const pu = prezzoUnitario(p.peso, p.unita, p.prezzo);
+        const attrs = [];
+        if (p.bio)               attrs.push(['BIO','ap-bio']);
+        if (p.senza_glutine)     attrs.push(['SG','ap-sg']);
+        if (p.vegano)            attrs.push(['VEG','ap-veg']);
+        if (p.solidale_italiano) attrs.push(['ITA','ap-ita']);
+        if (p.peso && !p.unita)  attrs.push(['⚠️ unità?','ap-warn']);
+        return `<div class="cat-item${isSel?' selected':''}" onclick="toggleSel(${p.id})">
+          <input type="checkbox" class="cat-check" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSel(${p.id})">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span class="cat-desc">${escH(p.descrizione)}</span>
+              ${attrs.map(([l,c])=>`<span class="attr-pill ${c}">${l}</span>`).join('')}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
+              ${p.codice ? `<span class="cat-code">${escH(p.codice)}</span>` : ''}
+              ${p.fornitore||p.marchio ? `<span class="cat-sup">${escH(p.marchio||p.fornitore)}</span>` : ''}
+              ${p.peso ? `<span class="cat-sup">${escH(pesoDisplay(p.peso, p.unita))}</span>` : ''}
+              ${pu ? `<span class="cat-sup">${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            ${p.prezzo != null ? `<div class="cat-price">${fmtN(p.prezzo)} €</div>` : '<div class="cat-price" style="color:var(--s300)">—</div>'}
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">${_catalogo.length===0 ? 'Catalogo vuoto — aggiungi prodotti manualmente o importa da Excel.' : 'Nessun risultato.'}</div>`;
+
+  return `
+    <button class="bk" onclick="window.location.href='prezzi.html'" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Prezzi da fare</button>
+    <div class="sec-t">Selezione prodotti</div>
+    <div class="card mb-3">
+      <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="search-wrap" style="flex:1;min-width:180px">
+          <i class="fas fa-search"></i>
+          <input class="inp" id="fl-search" placeholder="Cerca descrizione, codice, fornitore…" value="${escH(_search)}" oninput="onSearch(this.value)">
+        </div>
+        <button class="btn btn-out btn-sm" onclick="openManModal(null)"><i class="fas fa-plus"></i> Frontalino manuale</button>
+        ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-blue btn-sm" onclick="openImportModal()"><i class="fas fa-file-excel"></i> Importa Excel</button>` : ''}
+      </div>
+      <div style="padding:0 14px 10px;display:flex;gap:8px;flex-wrap:wrap">
+        ${fors.length ? `<div class="pill-bar" style="gap:4px">${fors.map(f=>`<button class="fpill ${_fFor===f?'on':''}" onclick="setFFor('${escH(f)}')">${escH(f)}</button>`).join('')}</div>` : ''}
+        ${mars.length && mars.some(m=>!fors.includes(m)) ? `<div class="pill-bar" style="gap:4px">${mars.filter(m=>!fors.includes(m)).map(m=>`<button class="fpill ${_fMar===m?'on':''}" onclick="setFMar('${escH(m)}')">${escH(m)}</button>`).join('')}</div>` : ''}
+      </div>
+      <div>${catalogHTML}</div>
+    </div>
+    ${nSel > 0 ? `
+    <div class="add-float">
+      <span style="flex:1;font-size:13px;font-weight:800"><span class="add-float-n">${nSel}</span> prodott${nSel===1?'o':'i'} selezionat${nSel===1?'o':'i'}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:11px;color:#94a3b8">Copie:</span>
+        <input type="number" min="1" value="${_addCopie}" style="width:46px;text-align:center;padding:5px;border:1.5px solid #475569;border-radius:7px;background:#334155;color:#fff;font-family:inherit;font-size:14px;font-weight:900" id="add-copie-inp" onchange="_addCopie=Math.max(1,parseInt(this.value)||1)">
+        <button class="btn btn-red btn-sm" onclick="aggiungiSelezionati()"><i class="fas fa-plus-circle"></i> Aggiungi alla bozza</button>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+function rBozza() {
+  const nc = draftTotalCopies();
+  const np = draftPageCount();
+  const ppp= _cfg.cols * _cfg.rows;
+
+  const rows = _draft.map((it, idx) => {
+    if (_editId === it._id) return rBozzaEditRow(it);
+    const pu = prezzoUnitario(it.peso, it.unita, it.prezzo);
+    const pd = pesoDisplay(it.peso, it.unita);
+    const warn = it.peso && !it.unita;
+    const attrs = [it.bio&&'BIO',it.senza_glutine&&'SG',it.vegano&&'VEG',it.solidale_italiano&&'ITA'].filter(Boolean);
+    return `<div class="bz-row">
+      <div>
+        <div class="bz-desc">${escH(it.descrizione)}</div>
+        <div class="bz-meta">
+          ${it.marchio||it.fornitore ? `<span>${escH(it.marchio||it.fornitore)}</span> · ` : ''}
+          ${it.codice ? `<span>cod ${escH(it.codice)}</span> · ` : ''}
+          ${it.prezzo != null ? `<span>${fmtN(it.prezzo)} €</span> · ` : ''}
+          ${pd ? `<span${warn?' class="bz-warn"':''}>${escH(pd)}</span>` : ''}
+          ${pu ? ` · <span>${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
+          ${attrs.length ? ` · ${attrs.map(a=>`<span class="attr-pill ap-bio">${a}</span>`).join(' ')}` : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <div class="copie-ctrl">
+          <button class="copie-btn" onclick="setCopie('${it._id}', ${(it.copie||1)-1})">−</button>
+          <input class="copie-n" type="number" min="1" value="${it.copie||1}" onchange="setCopie('${it._id}',this.value)">
+          <button class="copie-btn" onclick="setCopie('${it._id}', ${(it.copie||1)+1})">+</button>
+        </div>
+        <div class="row-acts">
+          ${idx>0?`<button class="btn btn-out btn-xs" onclick="moveDraftItem('${it._id}',-1)" title="Su"><i class="fas fa-arrow-up"></i></button>`:''}
+          ${idx<_draft.length-1?`<button class="btn btn-out btn-xs" onclick="moveDraftItem('${it._id}',1)" title="Giù"><i class="fas fa-arrow-down"></i></button>`:''}
+          <button class="btn btn-blue btn-xs" onclick="openManModal('${it._id}')"><i class="fas fa-pencil"></i></button>
+          <button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="removeDraftItem('${it._id}')"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <button class="bk" onclick="window.location.href='prezzi.html'" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Prezzi da fare</button>
+    <div class="sec-t">Lista di stampa</div>
+    <div class="stat-bar">
+      <div class="stat-box"><div class="stat-n">${_draft.length}</div><div class="stat-l">Prodotti</div></div>
+      <div class="stat-box"><div class="stat-n" style="color:var(--red)">${nc}</div><div class="stat-l">Copie tot.</div></div>
+      <div class="stat-box"><div class="stat-n" style="color:var(--blue-tx)">${np}</div><div class="stat-l">Pagine (${ppp}/p.)</div></div>
+    </div>
+    <div class="card mb-3">
+      ${rows || `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">Lista vuota — aggiungi prodotti dalla selezione.</div>`}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-out" onclick="setView('selezione')"><i class="fas fa-plus"></i> Aggiungi prodotti</button>
+      ${_draft.length ? `
+        <button class="btn btn-out" style="color:#991b1b" onclick="clearDraft()"><i class="fas fa-trash"></i> Svuota lista</button>
+        <button class="btn btn-red" onclick="setView('stampa')"><i class="fas fa-print"></i> Vai all'anteprima →</button>
+      ` : ''}
+    </div>
+  `;
+}
+
+function rBozzaEditRow(it) {
+  // editing inline - usa il modal invece
+  return '';
+}
+
+function rStampa() {
+  if (_draft.length === 0) return `
+    <div style="text-align:center;padding:48px;color:var(--s400)">
+      <div style="font-size:48px;margin-bottom:12px">🖨️</div>
+      <div style="font-size:14px;font-weight:600">Lista vuota</div>
+      <div style="font-size:12px;margin-bottom:16px">Aggiungi prodotti dalla selezione prima di stampare.</div>
+      <button class="btn btn-red" onclick="setView('selezione')"><i class="fas fa-plus"></i> Vai alla selezione</button>
+    </div>`;
+
+  const ppp  = _cfg.cols * _cfg.rows;
+  const sc   = 1;  // screen scale = 1 (mm units, browser scales for screen)
+
+  // Espandi draft in lista di slot
+  const slots = [];
+  for (const it of _draft) for (let i=0; i<(it.copie||1); i++) slots.push(it);
+
+  // Pagine
+  const pages = [];
+  for (let i=0; i<slots.length; i+=ppp) pages.push(slots.slice(i,i+ppp));
+
+  // Check se 3×rows entra nel formato selezionato
+  const paper = PAPER_SIZES[_cfg.paper] || { w: _cfg.pw, h: _cfg.ph };
+  const usableW = paper.w - 2*_cfg.margin;
+  const usableH = paper.h - 2*_cfg.margin;
+  const fitsW = _cfg.cw * _cfg.cols <= usableW + 0.5;
+  const fitsH = _cfg.ch * _cfg.rows <= usableH + 0.5;
+
+  const warnFit = (!fitsW || !fitsH)
+    ? `<div class="warn-box mb-3"><i class="fas fa-exclamation-triangle"></i>
+        <div>Con le misure attuali (${_cfg.cw}×${_cfg.ch}mm per frontalino, carta ${paper.w}×${paper.h}mm, margini ${_cfg.margin}mm), la griglia ${_cfg.cols}×${_cfg.rows} <strong>non entra in una pagina</strong>${!fitsW?` (larghezza: necessari ${_cfg.cw*_cfg.cols}mm, disponibili ${usableW}mm)` : ''}${!fitsH?` (altezza: necessari ${_cfg.ch*_cfg.rows}mm, disponibili ${usableH}mm)`:''}. Verranno generate ${pages.length} pagine.</div>
+       </div>`
+    : '';
+
+  const pagesHTML = pages.map((page, pi) => {
+    const colsStr = `repeat(${_cfg.cols}, ${_cfg.cw}mm)`;
+    const rowsStr = `repeat(${_cfg.rows}, ${_cfg.ch}mm)`;
+    const cells = Array.from({ length: ppp }).map((_, j) =>
+      j < page.length ? frontalino(page[j], false, sc) : frontalino_empty(sc)
+    ).join('');
+    return `
+      <div class="fr-page-label no-print">Pagina ${pi+1} di ${pages.length} · ${page.length} frontalini</div>
+      <div class="fr-wrap" style="display:grid;grid-template-columns:${colsStr};grid-template-rows:${rowsStr};gap:0;padding:${_cfg.margin}mm">
+        ${cells}
+      </div>`;
+  }).join('');
+
+  return `
+    <button class="bk" onclick="setView('bozza')" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Lista di stampa</button>
+    <div class="sec-t">Anteprima di stampa</div>
+    <div class="warn-box mb-3">
+      <i class="fas fa-ruler"></i>
+      <div><strong>⚠️ Misure da confermare.</strong> Default: ${_cfg.cw}×${_cfg.ch}mm per frontalino, ${_cfg.cols}×${_cfg.rows} per pagina su ${_cfg.paper}.
+        <button class="btn btn-amber btn-xs" style="margin-left:8px" onclick="openCfgModal()"><i class="fas fa-cog"></i> Configura</button>
+      </div>
+    </div>
+    ${warnFit}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-red" onclick="doPrint()"><i class="fas fa-print"></i> Stampa / Salva PDF</button>
+      <button class="btn btn-out" onclick="openCfgModal()"><i class="fas fa-cog"></i> Impostazioni</button>
+      <span style="font-size:11px;color:var(--s400);align-self:center">${slots.length} frontalini · ${pages.length} pagine</span>
+    </div>
+    <div style="border:1px solid var(--s200);border-radius:12px;overflow:hidden;background:#e2e8f0">
+      ${pagesHTML}
+    </div>
+  `;
+}
+
+// ── MASTER RENDER ──────────────────────────────────────────────────────────
+function R() {
+  rTabs();
+  if (_loading) {
+    g('fl-main').innerHTML = `<div style="padding:48px;text-align:center;color:var(--s400)"><i class="fas fa-spinner fa-spin fa-2x"></i><div style="margin-top:12px;font-size:13px">Caricamento...</div></div>`;
+    return;
+  }
+  if (_view === 'selezione') g('fl-main').innerHTML = rSelezione();
+  else if (_view === 'bozza') g('fl-main').innerHTML = rBozza();
+  else g('fl-main').innerHTML = rStampa();
+}
+
+function setView(v) { _view = v; R(); }
+
+// ── SELEZIONE ACTIONS ──────────────────────────────────────────────────────
+function toggleSel(id) {
+  if (_sel.has(id)) _sel.delete(id); else _sel.add(id);
+  R();
+}
+
+function onSearch(v) { _search = v; R(); }
+function setFFor(v)  { _fFor = (_fFor === v) ? '' : v; R(); }
+function setFMar(v)  { _fMar = (_fMar === v) ? '' : v; R(); }
+
+function aggiungiSelezionati() {
+  const inp = g('add-copie-inp');
+  const copie = inp ? Math.max(1, parseInt(inp.value)||1) : _addCopie;
+  _catalogo.filter(p => _sel.has(p.id)).forEach(p => addCatalogToDraft(p, copie));
+  _sel.clear();
+  _view = 'bozza';
+  R();
+}
+
+// ── MODAL MANUALE ──────────────────────────────────────────────────────────
+function openManModal(draftId) {
+  _manEditId = draftId;
+  const isAdmin_ = typeof isAdmin === 'function' && isAdmin();
+  g('man-save-cat-wrap').style.display = (!draftId && isAdmin_) ? '' : 'none';
+
+  if (draftId) {
+    // Modifica item esistente
+    const it = _draft.find(d => d._id === draftId);
+    if (!it) return;
+    g('modal-man-title').textContent = 'Modifica frontalino';
+    g('man-desc').value     = it.descrizione || '';
+    g('man-codice').value   = it.codice || '';
+    g('man-prezzo').value   = it.prezzo ?? '';
+    g('man-peso').value     = it.peso ?? '';
+    g('man-unita').value    = it.unita || '';
+    g('man-fornitore').value= it.fornitore || '';
+    g('man-marchio').value  = it.marchio || '';
+    g('man-copie').value    = it.copie || 1;
+    g('man-bio').checked    = !!it.bio;
+    g('man-sg').checked     = !!it.senza_glutine;
+    g('man-veg').checked    = !!it.vegano;
+    g('man-ita').checked    = !!it.solidale_italiano;
+  } else {
+    g('modal-man-title').textContent = 'Frontalino manuale';
+    ['man-desc','man-codice','man-prezzo','man-peso','man-fornitore','man-marchio'].forEach(id=>g(id).value='');
+    g('man-unita').value = '';
+    g('man-copie').value = '1';
+    g('man-bio').checked = g('man-sg').checked = g('man-veg').checked = g('man-ita').checked = false;
+    // Dati da prezzi da fare (passati via localStorage)
+    try {
+      const pre = JSON.parse(localStorage.getItem('m361_fl_add') || 'null');
+      if (pre) {
+        if (pre.codice)     g('man-codice').value   = pre.codice;
+        if (pre.descrizione)g('man-desc').value      = pre.descrizione;
+        if (pre.prezzo)     g('man-prezzo').value    = pre.prezzo;
+        localStorage.removeItem('m361_fl_add');
+      }
+    } catch {}
+  }
+  g('man-preview-wrap').innerHTML = '';
+  g('modal-man').classList.add('open');
+  setTimeout(() => g('man-desc')?.focus(), 100);
+}
+
+function closeManModal() {
+  g('modal-man').classList.remove('open');
+  _manEditId = null;
+  g('man-preview-wrap').innerHTML = '';
+}
+
+function manUpdatePreview() {
+  const item = readManFields();
+  g('man-preview-wrap').innerHTML = `
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:6px">Anteprima frontalino</div>
+    <div style="overflow:auto">${frontalino(item, false, 1.5)}</div>`;
+}
+
+function readManFields() {
+  return {
+    _id: _manEditId || '',
+    source_id: null,
+    codice:          g('man-codice').value.trim(),
+    descrizione:     g('man-desc').value.trim(),
+    peso:            g('man-peso').value !== '' ? parseFloat(g('man-peso').value) : null,
+    unita:           g('man-unita').value || null,
+    prezzo:          g('man-prezzo').value !== '' ? parseFloat(g('man-prezzo').value) : null,
+    fornitore:       g('man-fornitore').value.trim(),
+    marchio:         g('man-marchio').value.trim(),
+    bio:             g('man-bio').checked,
+    senza_glutine:   g('man-sg').checked,
+    vegano:          g('man-veg').checked,
+    solidale_italiano: g('man-ita').checked,
+    copie:           Math.max(1, parseInt(g('man-copie').value)||1),
+  };
+}
+
+async function saveManModal() {
+  const f = readManFields();
+  if (!f.descrizione) { alert('La descrizione è obbligatoria.'); g('man-desc')?.focus(); return; }
+
+  if (_manEditId) {
+    // Update esistente
+    const it = _draft.find(d => d._id === _manEditId);
+    if (it) Object.assign(it, f, { _id: _manEditId });
+    saveDraft();
+  } else {
+    // Nuovo
+    f._id = iid();
+    _draft.push(f);
+    saveDraft();
+  }
+
+  // Salva nel catalogo se richiesto
+  const saveCat = !_manEditId && g('man-save-cat')?.checked;
+  if (saveCat) {
+    const { error } = await db.from('frontalini_catalogo').insert([{
+      codice: f.codice || null,
+      descrizione: f.descrizione,
+      peso: f.peso, unita: f.unita, prezzo: f.prezzo,
+      fornitore: f.fornitore || null, marchio: f.marchio || null,
+      bio: f.bio, senza_glutine: f.senza_glutine,
+      vegano: f.vegano, solidale_italiano: f.solidale_italiano,
+    }]);
+    if (!error) { await loadCatalogo(); }
+  }
+
+  closeManModal();
+  _view = 'bozza';
+  R();
+}
+
+// ── CONFIGURAZIONE STAMPA ──────────────────────────────────────────────────
+function openCfgModal() {
+  g('cfg-cols').value   = _cfg.cols;
+  g('cfg-rows').value   = _cfg.rows;
+  g('cfg-cw').value     = _cfg.cw;
+  g('cfg-ch').value     = _cfg.ch;
+  g('cfg-paper').value  = _cfg.paper;
+  g('cfg-margin').value = _cfg.margin;
+  g('cfg-pw').value     = _cfg.pw;
+  g('cfg-ph').value     = _cfg.ph;
+  toggleCustomPaper();
+  updateFitCheck();
+  g('modal-cfg').classList.add('open');
+}
+function closeCfgModal() { g('modal-cfg').classList.remove('open'); }
+
+function toggleCustomPaper() {
+  g('cfg-custom-paper').style.display = g('cfg-paper').value === 'custom' ? '' : 'none';
+}
+g('cfg-paper')?.addEventListener('change', () => { toggleCustomPaper(); updateFitCheck(); });
+['cfg-cols','cfg-rows','cfg-cw','cfg-ch','cfg-margin','cfg-pw','cfg-ph'].forEach(id=>{
+  g(id)?.addEventListener('input', updateFitCheck);
+});
+
+function updateFitCheck() {
+  const cols = parseInt(g('cfg-cols').value)||3, rows = parseInt(g('cfg-rows').value)||13;
+  const cw   = parseFloat(g('cfg-cw').value)||64, ch = parseFloat(g('cfg-ch').value)||21;
+  const pKey = g('cfg-paper').value;
+  const margin = parseFloat(g('cfg-margin').value)||7;
+  const paper  = pKey === 'custom'
+    ? { w: parseFloat(g('cfg-pw').value)||210, h: parseFloat(g('cfg-ph').value)||297 }
+    : (PAPER_SIZES[pKey] || PAPER_SIZES.A4P);
+  const uw = paper.w - 2*margin, uh = paper.h - 2*margin;
+  const fw = cw * cols <= uw + 0.5, fh = ch * rows <= uh + 0.5;
+  const el = g('cfg-fit-check');
+  if (!el) return;
+  if (fw && fh) {
+    el.style.background = '#dcfce7'; el.style.color = '#166534';
+    el.innerHTML = `<i class="fas fa-check-circle"></i> ✓ La griglia ${cols}×${rows} entra (${cw*cols}mm × ${ch*rows}mm su area utile ${uw.toFixed(0)}×${uh.toFixed(0)}mm)`;
+  } else {
+    el.style.background = '#fee2e2'; el.style.color = '#991b1b';
+    el.innerHTML = `<i class="fas fa-times-circle"></i> ✗ La griglia non entra — ${!fw?`larghezza: servono ${cw*cols}mm, disponibili ${uw.toFixed(0)}mm`:''}${!fw&&!fh?' · ':''}${!fh?`altezza: servono ${ch*rows}mm, disponibili ${uh.toFixed(0)}mm`:''}`;
+  }
+}
+
+function saveCfgModal() {
+  const pKey = g('cfg-paper').value;
+  const paper = pKey==='custom'
+    ? { w: parseFloat(g('cfg-pw').value)||210, h: parseFloat(g('cfg-ph').value)||297 }
+    : (PAPER_SIZES[pKey] || PAPER_SIZES.A4P);
+  _cfg = {
+    cols:   Math.max(1,parseInt(g('cfg-cols').value)||3),
+    rows:   Math.max(1,parseInt(g('cfg-rows').value)||13),
+    cw:     parseFloat(g('cfg-cw').value)||64,
+    ch:     parseFloat(g('cfg-ch').value)||21,
+    paper:  pKey,
+    pw:     paper.w, ph: paper.h,
+    margin: parseFloat(g('cfg-margin').value)||7,
+  };
+  saveCfg();
+  closeCfgModal();
+  R();
+}
+
+// ── STAMPA ─────────────────────────────────────────────────────────────────
+function doPrint() {
+  const ppp  = _cfg.cols * _cfg.rows;
+  const slots = [];
+  for (const it of _draft) for (let i=0; i<(it.copie||1); i++) slots.push(it);
+
+  const colsStr = `repeat(${_cfg.cols}, ${_cfg.cw}mm)`;
+  const rowsStr = `repeat(${_cfg.rows}, ${_cfg.ch}mm)`;
+  const paper   = PAPER_SIZES[_cfg.paper] || { w: _cfg.pw, h: _cfg.ph };
+
+  const pages = [];
+  for (let i=0; i<slots.length; i+=ppp) pages.push(slots.slice(i,i+ppp));
+
+  const pagesHTML = pages.map(page => {
+    const cells = Array.from({ length: ppp }).map((_, j) =>
+      j < page.length ? frontalino(page[j], true, 1) : frontalino_empty(1)
+    ).join('');
+    return `<div class="print-page" style="display:grid;grid-template-columns:${colsStr};grid-template-rows:${rowsStr};gap:0;width:${paper.w}mm;min-height:${paper.h}mm;padding:${_cfg.margin}mm">${cells}</div>`;
+  }).join('');
+
+  const printCSS = `
+    @page { size: ${paper.w}mm ${paper.h}mm; margin: 0; }
+    body { margin: 0; padding: 0; background: white; font-family: Arial, Helvetica, sans-serif; }
+    .print-page { page-break-after: always; break-after: page; box-sizing: border-box; }
+    .print-page:last-child { page-break-after: avoid; break-after: avoid; }
+    .frontalino { display: flex; border: 0.5px solid #333; overflow: hidden; background: #fff; box-sizing: border-box; }
+    .fr-side { display: flex; align-items: center; justify-content: center; padding: 1px; background: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fr-brand { writing-mode: vertical-rl; transform: rotate(180deg); color: #fff !important; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; text-align: center; overflow: hidden; white-space: nowrap; }
+    .fr-body { flex: 1; display: flex; flex-direction: column; padding: 1px 2px; gap: 0.5px; overflow: hidden; min-width: 0; }
+    .fr-desc { font-weight: 700; line-height: 1.1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; color: #000; }
+    .fr-price-row { display: flex; align-items: baseline; gap: 1px; line-height: 1; }
+    .fr-prezzo { font-weight: 900; color: #000; }
+    .fr-euro { font-weight: 700; color: #000; }
+    .fr-attrs { display: flex; flex-wrap: wrap; gap: 1px; }
+    .fr-attr-tag { border: 0.5px solid #000; font-weight: 900; text-transform: uppercase; letter-spacing: .4px; padding: 0 1px; line-height: 1.3; white-space: nowrap; }
+    .fr-sec { display: flex; flex-wrap: wrap; gap: 2px; color: #333; margin-top: auto; }
+    .fr-empty { background: #f8f8f8; }
+  `;
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${printCSS}</style></head><body>${pagesHTML}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 400);
+}
+
+// ── IMPORTAZIONE EXCEL ─────────────────────────────────────────────────────
+function openImportModal() { g('modal-import').classList.add('open'); }
+function closeImportModal(){ g('modal-import').classList.remove('open'); resetImport(); }
+function resetImport() {
+  _importRows = [];
+  g('import-step1').style.display = '';
+  g('import-step2').style.display = 'none';
+  g('import-file').value = '';
+}
+
+const SHEET_COLS = {
+  codice:            ['CODICE'],
+  descrizione:       ['DESCRIZIONE'],
+  peso:              ['PESO'],
+  prezzo:            ['PREZZO'],
+  bio:               ['BIO'],
+  senza_glutine:     ['GLUT FREE','SENZA GLUTINE'],
+  vegano:            ['VEG','VEGANO'],
+  solidale_italiano: ['ITA','SIA','SOLIDALE ITALIANO'],
+  marchio_fornitore: ['MARCHIO','fornitore'],
+};
+
+function readExcelSheet(ws) {
+  const ref = ws['!ref']; if (!ref) return [];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  if (rows.length < 2) return [];
+  const header = rows[0].map(h => h == null ? '' : String(h).trim().toUpperCase());
+
+  function colIdx(keys) {
+    for (const k of keys) {
+      const i = header.indexOf(k.toUpperCase());
+      if (i >= 0) return i;
+    }
+    return -1;
+  }
+
+  const idxMap = {};
+  for (const [field, keys] of Object.entries(SHEET_COLS)) {
+    idxMap[field] = colIdx(keys);
+  }
+  if (idxMap.descrizione < 0) return [];
+
+  const result = [];
+  for (let r=1; r<rows.length; r++) {
+    const row = rows[r];
+    const desc = row[idxMap.descrizione];
+    if (!desc) continue;
+
+    const rawBio  = idxMap.bio >= 0 ? row[idxMap.bio] : null;
+    const rawSG   = idxMap.senza_glutine >= 0 ? row[idxMap.senza_glutine] : null;
+    const rawVeg  = idxMap.vegano >= 0 ? row[idxMap.vegano] : null;
+    const rawIta  = idxMap.solidale_italiano >= 0 ? row[idxMap.solidale_italiano] : null;
+    const rawMF   = idxMap.marchio_fornitore >= 0 ? row[idxMap.marchio_fornitore] : null;
+    const rawPeso = idxMap.peso >= 0 ? row[idxMap.peso] : null;
+    const rawPrezzo = idxMap.prezzo >= 0 ? row[idxMap.prezzo] : null;
+
+    // BIO: "BIO" string o boolean
+    const bio = typeof rawBio === 'string' ? rawBio.toUpperCase().includes('BIO') : !!rawBio;
+    // Attributi: "SI" o truthy, "NO" = false, null/'' = false (not "NO")
+    const isSi = v => { if (v == null || v === '') return false; return String(v).trim().toUpperCase() === 'SI' || v === true; };
+    const peso   = rawPeso != null && rawPeso !== '' ? parseFloat(rawPeso) : null;
+    const prezzo = rawPrezzo != null && rawPrezzo !== '' ? parseFloat(rawPrezzo) : null;
+
+    result.push({
+      codice:            idxMap.codice>=0 ? (row[idxMap.codice]!=null ? String(row[idxMap.codice]).trim() : '') : '',
+      descrizione:       String(desc).trim(),
+      peso,
+      unita:             null,  // non specificata — da completare
+      prezzo,
+      fornitore:         rawMF != null ? String(rawMF).trim() : '',
+      marchio:           rawMF != null ? String(rawMF).trim() : '',
+      bio,
+      senza_glutine:     isSi(rawSG),
+      vegano:            isSi(rawVeg),
+      solidale_italiano: isSi(rawIta),
+    });
+  }
+  return result;
+}
+
+async function handleImportFile(input) {
+  const file = input.files[0]; if (!file) return;
+  const btn = g('import-confirm-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    const buf  = await file.arrayBuffer();
+    const wb   = XLSX.read(buf, { type: 'array' });
+    const catalogSheets = wb.SheetNames.filter(n => !['lista','frontalini','loghi'].includes(n.toLowerCase()));
+
+    _importRows = [];
+    for (const name of catalogSheets) {
+      const ws   = wb.Sheets[name];
+      const rows = readExcelSheet(ws);
+      _importRows.push(...rows);
+    }
+
+    if (_importRows.length === 0) {
+      alert('Nessun prodotto trovato. Verifica che il file contenga fogli con colonne DESCRIZIONE e PREZZO.');
+      return;
+    }
+
+    // Deduplication: rimuovi duplicati per (descrizione case-insensitive)
+    const seen = new Set();
+    _importRows = _importRows.filter(r => {
+      const key = r.descrizione.toUpperCase();
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+
+    // Confronto con catalogo esistente per rilevare duplicati
+    const existingDescs = new Set(_catalogo.map(c => c.descrizione.toUpperCase()));
+    _importRows.forEach(r => { r._dup = existingDescs.has(r.descrizione.toUpperCase()); });
+
+    const nNew  = _importRows.filter(r => !r._dup).length;
+    const nDup  = _importRows.filter(r =>  r._dup).length;
+    const nWarn = _importRows.filter(r => r.peso && !r.unita).length;
+
+    g('import-summary').innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span class="attr-pill ap-bio">${_importRows.length} totali</span>
+        <span class="attr-pill ap-sg">${nNew} nuovi</span>
+        ${nDup ? `<span class="attr-pill ap-warn">${nDup} già presenti (verranno saltati)</span>` : ''}
+        ${nWarn ? `<span class="attr-pill ap-warn">${nWarn} con unità mancante</span>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--s500)">Verranno importati solo i <strong>${nNew} nuovi</strong> prodotti. I ${nDup} duplicati verranno saltati.</div>
+    `;
+
+    const tbody = g('import-preview-body');
+    tbody.innerHTML = _importRows.slice(0, 100).map(r => {
+      const attrs = [r.bio&&'BIO',r.senza_glutine&&'SG',r.vegano&&'VEG',r.solidale_italiano&&'ITA'].filter(Boolean).join(' ');
+      const warn  = r.peso && !r.unita;
+      return `<tr style="${r._dup?'opacity:.4':''}">
+        <td><strong>${escH(r.descrizione)}</strong>${r._dup?' <span style="color:#991b1b;font-size:9px">già presente</span>':''}</td>
+        <td style="color:var(--s400)">${escH(r.codice)}</td>
+        <td>${r.peso!=null?r.peso:''}</td>
+        <td>${r.prezzo!=null?fmtN(r.prezzo)+' €':''}</td>
+        <td style="font-size:11px">${escH(r.fornitore)}</td>
+        <td style="font-size:10px">${escH(attrs)}</td>
+        <td>${warn?'⚠️':''}</td>
+      </tr>`;
+    }).join('') + (_importRows.length>100?`<tr><td colspan="7" style="text-align:center;color:var(--s400);font-size:11px">…e altri ${_importRows.length-100} prodotti</td></tr>`:'');
+
+    g('import-step1').style.display = 'none';
+    g('import-step2').style.display = '';
+    if (btn) btn.disabled = false;
+
+  } catch(e) {
+    alert('Errore lettura file: ' + e.message);
+  }
+}
+
+async function confirmImport() {
+  const btn = g('import-confirm-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importazione…'; }
+
+  const toInsert = _importRows.filter(r => !r._dup).map(r => ({
+    codice:            r.codice || null,
+    descrizione:       r.descrizione,
+    peso:              r.peso,
+    unita:             r.unita,
+    prezzo:            r.prezzo,
+    fornitore:         r.fornitore || null,
+    marchio:           r.marchio || null,
+    bio:               r.bio,
+    senza_glutine:     r.senza_glutine,
+    vegano:            r.vegano,
+    solidale_italiano: r.solidale_italiano,
+  }));
+
+  if (toInsert.length === 0) { closeImportModal(); return; }
+
+  // Inserisci a blocchi di 100
+  for (let i=0; i<toInsert.length; i+=100) {
+    const batch = toInsert.slice(i, i+100);
+    const { error } = await db.from('frontalini_catalogo').insert(batch);
+    if (error) { alert('Errore importazione: ' + error.message); break; }
+  }
+
+  await loadCatalogo();
+  closeImportModal();
+  alert(`✓ ${toInsert.length} prodotti importati nel catalogo.`);
+  R();
+}
+
+// Chiudi modali cliccando lo sfondo
+['modal-man','modal-cfg','modal-import'].forEach(id => {
+  g(id)?.addEventListener('click', e => { if (e.target.id === id) {
+    if (id==='modal-man') closeManModal();
+    else if (id==='modal-cfg') closeCfgModal();
+    else closeImportModal();
+  }});
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+loadDraft();
+loadCfg();
+
+async function init() {
+  _loading = true; R();
+  await loadCatalogo();
+  _loading = false;
+
+  // Se arrivati da prezzi da fare
+  if (localStorage.getItem('m361_fl_add')) {
+    openManModal(null);
+  }
+
+  R();
+}
+init();
+</script>
+
+<script src="../../scripts/nav-script.js"></script>
+</body>
+</html>
