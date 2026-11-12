@@ -104,20 +104,25 @@
     .fr-page-label{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--s400);padding:8px 12px 4px;background:var(--s50);border-top:1px solid var(--s100);text-align:center}
     .fr-page-grid{display:grid;gap:0;justify-content:center;padding:var(--fr-margin,7mm)}
     .frontalino{display:flex;border:0.5pt solid #333;overflow:hidden;background:#fff;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;flex-shrink:0}
-    .fr-side{background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px}
-    .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);color:#fff;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .fr-body{flex:1;display:flex;flex-direction:column;min-width:0;padding:1.5px 3px 1.5px 2px;gap:0.5px;overflow:hidden;background:#fff}
-    .fr-desc{font-weight:700;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;color:#000}
-    .fr-price-row{display:flex;align-items:center;gap:3px;line-height:1;flex-wrap:wrap}
+    .fr-side{display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px;background:#1e293b}
+    .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;letter-spacing:.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Body: grid 3 righe fisse — desc 50%, mid 38%, sec 12% */
+    .fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;min-width:0;padding:2px 3px 1px 3px;overflow:hidden;background:#fff}
+    .fr-desc{font-weight:900;line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;color:#000;align-self:center}
+    /* Riga centrale: prezzo a sx, quadrati attr a dx */
+    .fr-mid{display:flex;align-items:center;overflow:hidden;gap:3px;min-width:0}
+    .fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
     .fr-prezzo{font-weight:900;color:#000;line-height:1}
     .fr-euro{font-weight:700;color:#000}
-    /* Attributi — colori da Excel CF rules */
-    .fr-attr-tag{border:0.5pt solid #999;background:#fff;color:#000;font-weight:900;text-transform:uppercase;letter-spacing:.4px;padding:0 1.5px;line-height:1.35;white-space:nowrap}
+    /* Quadrati attributi — destra della riga mid */
+    .fr-attrs-sq{display:flex;gap:2px;margin-left:auto;align-self:stretch;align-items:stretch;flex-shrink:0}
+    .fr-attr-sq{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:900;text-transform:uppercase;letter-spacing:.3px;line-height:1.1;padding:0 2px;word-break:break-word;border:0.5pt solid #999}
+    /* Colori attributi da Excel CF rules */
     .fr-at-bio{background:#008000;color:#fff;border-color:#008000}
     .fr-at-sg{background:#ffff00;color:#333;border-color:#ccc}
     .fr-at-veg{background:#99cc00;color:#333;border-color:#99cc00}
     .fr-at-ita{background:#cc0000;color:#fff;border-color:#cc0000}
-    .fr-sec{display:flex;flex-wrap:wrap;gap:3px;color:#333;margin-top:auto}
+    .fr-sec{display:flex;gap:5px;align-items:center;color:#333;overflow:hidden;white-space:nowrap}
     .fr-empty{background:#fff;border:0.5pt solid #ccc}
     .fr-warn-miss{border-color:#f59e0b}
 
@@ -171,8 +176,17 @@
     /* WARN BOX */
     .warn-box{background:var(--amber-light);border:1.5px solid #fcd34d;border-radius:12px;padding:12px 14px;font-size:12px;color:var(--amber-tx);display:flex;gap:8px;align-items:flex-start}
 
+    /* BULK EDIT */
+    .be-field-row{display:grid;grid-template-columns:160px 1fr;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--s100)}
+    .be-field-row:last-of-type{border-bottom:none}
+    .be-toggle{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer}
+    .be-toggle input[type=checkbox]{accent-color:var(--red);width:15px;height:15px;cursor:pointer;flex-shrink:0}
+    .be-radio-grp{display:flex;gap:14px;font-size:13px}
+    .be-radio-grp label{display:flex;align-items:center;gap:5px;cursor:pointer}
+
     @media(max-width:600px){
       .cfg-row{grid-template-columns:1fr}
+      .be-field-row{grid-template-columns:1fr;gap:4px}
     }
   </style>
 </head>
@@ -334,6 +348,58 @@
         <button class="btn btn-out" onclick="closeCatEditModal()">Annulla</button>
         <button class="btn btn-red" onclick="saveCatEditModal()"><i class="fas fa-save"></i> Salva</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: modifica massiva prodotti catalogo -->
+<div class="modal-bg" id="modal-bulk-edit">
+  <div class="modal-box" style="max-width:480px">
+    <h3>✏️ Modifica massiva prodotti</h3>
+    <p id="be-subtitle" style="font-size:12px;color:var(--s500);margin-bottom:12px"></p>
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:8px">Spunta i campi da modificare:</div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-unita" onchange="beToggleField('be-unita',this)"> Unità di misura</label>
+      <select class="inp inp-sm" id="be-unita" disabled>
+        <option value="">— rimuovi unità</option>
+        <option value="g">g (grammi)</option>
+        <option value="kg">kg (chilogrammi)</option>
+        <option value="ml">ml (millilitri)</option>
+        <option value="L">L (litri)</option>
+        <option value="pz">pz (pezzi)</option>
+      </select>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-peso" onchange="beToggleField('be-peso',this)"> Quantità</label>
+      <input class="inp inp-sm" id="be-peso" type="number" min="0" step="any" placeholder="Es: 500" disabled>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-fornitore" onchange="beToggleField('be-fornitore',this)"> Fornitore</label>
+      <input class="inp inp-sm" id="be-fornitore" placeholder="Es: Altromercato" disabled>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-marchio" onchange="beToggleField('be-marchio',this)"> Marchio</label>
+      <input class="inp inp-sm" id="be-marchio" placeholder="Es: Altromercato" disabled>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-bio" onchange="beToggleField('be-bio-grp',this)"> BIO</label>
+      <span id="be-bio-grp" class="be-radio-grp" style="opacity:.35;pointer-events:none"><label><input type="radio" name="be-bio" value="1"> Sì</label><label><input type="radio" name="be-bio" value="0" checked> No</label></span>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-sg" onchange="beToggleField('be-sg-grp',this)"> Senza Glutine</label>
+      <span id="be-sg-grp" class="be-radio-grp" style="opacity:.35;pointer-events:none"><label><input type="radio" name="be-sg" value="1"> Sì</label><label><input type="radio" name="be-sg" value="0" checked> No</label></span>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-veg" onchange="beToggleField('be-veg-grp',this)"> Vegano</label>
+      <span id="be-veg-grp" class="be-radio-grp" style="opacity:.35;pointer-events:none"><label><input type="radio" name="be-veg" value="1"> Sì</label><label><input type="radio" name="be-veg" value="0" checked> No</label></span>
+    </div>
+    <div class="be-field-row">
+      <label class="be-toggle"><input type="checkbox" id="be-chk-ita" onchange="beToggleField('be-ita-grp',this)"> Solidale Italiano</label>
+      <span id="be-ita-grp" class="be-radio-grp" style="opacity:.35;pointer-events:none"><label><input type="radio" name="be-ita" value="1"> Sì</label><label><input type="radio" name="be-ita" value="0" checked> No</label></span>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
+      <button class="btn btn-out" onclick="closeBulkEditModal()">Annulla</button>
+      <button class="btn btn-red" id="be-save-btn" onclick="saveBulkEditModal()"><i class="fas fa-save"></i> Applica a tutti</button>
     </div>
   </div>
 </div>
@@ -590,10 +656,10 @@ function frontalino(item, forPrint = false, scale = 1) {
   const pu = prezzoUnitario(item.peso, item.unita, item.prezzo);
   const pd = pesoDisplay(item.peso, item.unita);
   const attrs = [];
-  if (item.bio)               attrs.push(['BIO',     'fr-at-bio']);
-  if (item.senza_glutine)     attrs.push(['SG',      'fr-at-sg' ]);
-  if (item.vegano)            attrs.push(['VEGAN',   'fr-at-veg']);
-  if (item.solidale_italiano) attrs.push(['SOL.IT.', 'fr-at-ita']);
+  if (item.bio)               attrs.push(['BIO',              'fr-at-bio']);
+  if (item.senza_glutine)     attrs.push(['SENZA GLUTINE',    'fr-at-sg' ]);
+  if (item.vegano)            attrs.push(['VEGAN',            'fr-at-veg']);
+  if (item.solidale_italiano) attrs.push(['SOLIDALE ITALIANO','fr-at-ita']);
 
   const prezzo = item.prezzo != null ? fmtN(item.prezzo) : '';
   const puStr  = pu ? fmtN(pu.val) + ' ' + pu.label : '';
@@ -602,8 +668,8 @@ function frontalino(item, forPrint = false, scale = 1) {
 
   const cw = _cfg.cw, ch = _cfg.ch;
   const sideW  = Math.round(cw * 0.10 * scale);
-  const descSz = Math.max(5, Math.round(ch * 0.55 * scale));
-  const preSz  = Math.max(8, Math.round(ch * 0.75 * scale));
+  const descSz = Math.max(5, Math.round(ch * 0.65 * scale));
+  const preSz  = Math.max(8, Math.round(ch * 0.80 * scale));
   const eurSz  = Math.max(5, Math.round(ch * 0.50 * scale));
   const attrSz = Math.max(4, Math.round(ch * 0.28 * scale));
   const secSz  = Math.max(4, Math.round(ch * 0.20 * scale));
@@ -622,11 +688,13 @@ function frontalino(item, forPrint = false, scale = 1) {
     </div>
     <div class="fr-body">
       <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${lines}">${escH(item.descrizione)}</div>
-      <div class="fr-price-row">
-        ${prezzo
-          ? `<span class="fr-prezzo" style="font-size:${preSz}pt">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt">€</span>`
-          : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
-        ${attrs.map(([lbl,cls])=>`<span class="fr-attr-tag ${cls||''}" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}
+      <div class="fr-mid">
+        <div class="fr-price-grp">
+          ${prezzo
+            ? `<span class="fr-prezzo" style="font-size:${preSz}pt">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt">€</span>`
+            : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
+        </div>
+        ${attrs.length ? `<div class="fr-attrs-sq">${attrs.map(([lbl,cls])=>`<span class="fr-attr-sq ${cls||''}" style="font-size:${attrSz}pt">${lbl}</span>`).join('')}</div>` : ''}
       </div>
       <div class="fr-sec" style="font-size:${secSz}pt">
         ${pu  ? `<span>${escH(puStr)}</span>` : ''}
@@ -724,7 +792,8 @@ function rSelezione() {
     ${nSel > 0 ? `
     <div class="add-float">
       <span style="flex:1;font-size:13px;font-weight:800"><span class="add-float-n">${nSel}</span> prodott${nSel===1?'o':'i'} selezionat${nSel===1?'o':'i'}</span>
-      <div style="display:flex;align-items:center;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-amber btn-sm" onclick="openBulkEditModal()"><i class="fas fa-pencil"></i> Modifica tutti</button>` : ''}
         <span style="font-size:11px;color:#94a3b8">Copie:</span>
         <input type="number" min="1" value="${_addCopie}" style="width:46px;text-align:center;padding:5px;border:1.5px solid #475569;border-radius:7px;background:#334155;color:#fff;font-family:inherit;font-size:14px;font-weight:900" id="add-copie-inp" onchange="_addCopie=Math.max(1,parseInt(this.value)||1)">
         <button class="btn btn-red btn-sm" onclick="aggiungiSelezionati()"><i class="fas fa-plus-circle"></i> Aggiungi alla bozza</button>
@@ -1109,18 +1178,19 @@ function doPrint() {
     .frontalino { display: flex; border: 0.5px solid #333; overflow: hidden; background: #fff; box-sizing: border-box; }
     .fr-side { display: flex; align-items: center; justify-content: center; padding: 1px; background: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .fr-brand { writing-mode: vertical-rl; transform: rotate(180deg); color: #fff !important; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; text-align: center; overflow: hidden; white-space: nowrap; }
-    .fr-body { flex: 1; display: flex; flex-direction: column; padding: 1px 2px; gap: 0.5px; overflow: hidden; min-width: 0; }
-    .fr-desc { font-weight: 700; line-height: 1.1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; color: #000; }
-    .fr-price-row { display: flex; align-items: baseline; gap: 1px; line-height: 1; }
-    .fr-prezzo { font-weight: 900; color: #000; }
+    .fr-body { flex: 1; display: grid; grid-template-rows: 50% 38% 12%; padding: 2px 3px 1px 3px; overflow: hidden; min-width: 0; background: #fff !important; }
+    .fr-desc { font-weight: 900; line-height: 1.1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; color: #000; align-self: center; }
+    .fr-mid { display: flex; align-items: center; overflow: hidden; gap: 3px; min-width: 0; }
+    .fr-price-grp { display: flex; align-items: baseline; gap: 1px; flex-shrink: 0; }
+    .fr-prezzo { font-weight: 900; color: #000; line-height: 1; }
     .fr-euro { font-weight: 700; color: #000; }
-    .fr-price-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
-    .fr-attr-tag { border: 0.5pt solid #999; background: #fff; color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: .4px; padding: 0 1px; line-height: 1.3; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fr-attrs-sq { display: flex; gap: 2px; margin-left: auto; align-self: stretch; align-items: stretch; flex-shrink: 0; }
+    .fr-attr-sq { display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 900; text-transform: uppercase; letter-spacing: .3px; line-height: 1.1; padding: 0 2px; word-break: break-word; border: 0.5pt solid #999; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .fr-at-bio { background: #008000 !important; color: #fff !important; border-color: #008000 !important; }
     .fr-at-sg  { background: #ffff00 !important; color: #333 !important; border-color: #ccc !important; }
     .fr-at-veg { background: #99cc00 !important; color: #333 !important; border-color: #99cc00 !important; }
     .fr-at-ita { background: #cc0000 !important; color: #fff !important; border-color: #cc0000 !important; }
-    .fr-sec { display: flex; flex-wrap: wrap; gap: 2px; color: #333; margin-top: auto; }
+    .fr-sec { display: flex; flex-wrap: wrap; gap: 2px; color: #333; align-self: center; }
     .fr-empty { background: #f8f8f8; }
   `;
 
@@ -1316,12 +1386,80 @@ async function confirmImport() {
   R();
 }
 
+// ── MODIFICA MASSIVA CATALOGO ──────────────────────────────────────────────
+function openBulkEditModal() {
+  const n = _sel.size;
+  if (!n) return;
+  g('be-subtitle').textContent = `Verranno modificati ${n} prodott${n===1?'o':'i'} selezionat${n===1?'o':'i'}.`;
+  // Reset all checkboxes and inputs
+  ['be-chk-unita','be-chk-peso','be-chk-fornitore','be-chk-marchio','be-chk-bio','be-chk-sg','be-chk-veg','be-chk-ita'].forEach(id=>{
+    const el = g(id); if(el) el.checked = false;
+  });
+  ['be-unita','be-peso','be-fornitore','be-marchio'].forEach(id=>{
+    const el = g(id); if(!el) return; el.disabled = true;
+    if(el.tagName==='INPUT') el.value=''; else el.value='';
+  });
+  ['be-bio-grp','be-sg-grp','be-veg-grp','be-ita-grp'].forEach(id=>{
+    const el = g(id); if(!el) return; el.style.opacity='.35'; el.style.pointerEvents='none';
+    const noRadio = el.querySelector('input[value="0"]'); if(noRadio) noRadio.checked=true;
+  });
+  g('modal-bulk-edit').classList.add('open');
+}
+
+function closeBulkEditModal() {
+  g('modal-bulk-edit').classList.remove('open');
+}
+
+function beToggleField(fieldId, chk) {
+  const el = g(fieldId);
+  if (!el) return;
+  const on = chk.checked;
+  if (el.classList.contains('be-radio-grp')) {
+    el.style.opacity = on ? '1' : '.35';
+    el.style.pointerEvents = on ? '' : 'none';
+  } else {
+    el.disabled = !on;
+    if (!on && el.tagName === 'INPUT') el.value = '';
+  }
+}
+
+async function saveBulkEditModal() {
+  const ids = [..._sel];
+  if (!ids.length) { closeBulkEditModal(); return; }
+
+  const update = {};
+  if (g('be-chk-unita').checked)    update.unita     = g('be-unita').value || null;
+  if (g('be-chk-peso').checked)     update.peso      = g('be-peso').value !== '' ? parseFloat(g('be-peso').value) : null;
+  if (g('be-chk-fornitore').checked)update.fornitore = g('be-fornitore').value.trim() || null;
+  if (g('be-chk-marchio').checked)  update.marchio   = g('be-marchio').value.trim() || null;
+  if (g('be-chk-bio').checked)  update.bio               = g('be-bio-grp').querySelector('input[value="1"]').checked;
+  if (g('be-chk-sg').checked)   update.senza_glutine      = g('be-sg-grp').querySelector('input[value="1"]').checked;
+  if (g('be-chk-veg').checked)  update.vegano             = g('be-veg-grp').querySelector('input[value="1"]').checked;
+  if (g('be-chk-ita').checked)  update.solidale_italiano  = g('be-ita-grp').querySelector('input[value="1"]').checked;
+
+  if (Object.keys(update).length === 0) { closeBulkEditModal(); return; }
+
+  const btn = g('be-save-btn');
+  if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Salvataggio…'; }
+
+  const { error } = await db.from('frontalini_catalogo').update(update).in('id', ids);
+
+  if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Applica a tutti'; }
+  if (error) { alert('Errore: ' + error.message); return; }
+
+  await loadCatalogo();
+  _sel.clear();
+  closeBulkEditModal();
+  R();
+}
+
 // Chiudi modali cliccando lo sfondo
-['modal-man','modal-cfg','modal-import','modal-cat-edit'].forEach(id => {
+['modal-man','modal-cfg','modal-import','modal-cat-edit','modal-bulk-edit'].forEach(id => {
   g(id)?.addEventListener('click', e => { if (e.target.id === id) {
     if (id==='modal-man') closeManModal();
     else if (id==='modal-cfg') closeCfgModal();
     else if (id==='modal-cat-edit') closeCatEditModal();
+    else if (id==='modal-bulk-edit') closeBulkEditModal();
     else closeImportModal();
   }});
 });
