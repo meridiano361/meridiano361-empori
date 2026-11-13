@@ -1283,9 +1283,9 @@
               <table class="prod-tbl">
                 <thead><tr>
                   <th>Codice</th><th>Descrizione</th><th>Peso / Unità</th><th>Prezzo</th>
-                  <th>Fornitore</th><th>Marchio</th><th>Attributi</th><th></th>
+                  <th>IVA</th><th>Fornitore</th><th>Marchio</th><th>Attributi</th><th></th>
                 </tr></thead>
-                <tbody id="prod-fr-tbody"><tr><td colspan="8" class="prod-empty">Caricamento…</td></tr></tbody>
+                <tbody id="prod-fr-tbody"><tr><td colspan="9" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1332,6 +1332,8 @@
   bio             boolean not null default false,
   senza_glutine   boolean not null default false,
   vegano          boolean not null default false,
+  iva             smallint,
+  foto_url        text,
   note            text,
   category        text,
   linea           text,
@@ -1391,6 +1393,15 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                   <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Prezzo (€)</label>
                   <input id="pfr-prezzo" class="form-input" type="number" step="0.01" min="0" placeholder="es. 3.50">
                 </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">IVA</label>
+                  <select id="pfr-iva" class="form-select">
+                    <option value="">— non spec. —</option>
+                    <option value="4">4%</option>
+                    <option value="10">10%</option>
+                    <option value="22">22%</option>
+                  </select>
+                </div>
                 <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">
                   <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Descrizione *</label>
                   <input id="pfr-descrizione" class="form-input" placeholder="NOME PRODOTTO (maiuscolo)" oninput="this.value=this.value.toUpperCase()">
@@ -1427,6 +1438,23 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <div style="margin-top:14px;display:flex;flex-direction:column;gap:4px">
                 <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Note</label>
                 <textarea id="pfr-note" class="form-input" rows="2" placeholder="Note aggiuntive…" style="resize:vertical"></textarea>
+              </div>
+              <div style="margin-top:14px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:6px">Foto prodotto</label>
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div id="pfr-foto-wrap" style="width:72px;height:72px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                    <i class="fas fa-image" style="color:#cbd5e1;font-size:22px" id="pfr-foto-icon"></i>
+                    <img id="pfr-foto-img" style="display:none;width:100%;height:100%;object-fit:cover">
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">
+                      <i class="fas fa-upload"></i> Carica foto
+                      <input type="file" id="pfr-foto-input" accept="image/*" style="display:none" onchange="onPfrFotoChange(this)">
+                    </label>
+                    <button type="button" id="pfr-foto-del" onclick="rimuoviFotoFrontalino()" style="display:none;font-size:12px;font-weight:700;color:#B5453A;background:none;border:none;cursor:pointer;text-align:left;padding:0"><i class="fas fa-trash" style="margin-right:4px"></i>Rimuovi foto</button>
+                    <div id="pfr-foto-progress" style="font-size:11px;color:#64748b;display:none">Caricamento…</div>
+                  </div>
+                </div>
               </div>
               <div id="modal-fr-prod-msg" class="modal-op-msg" style="margin-top:10px"></div>
             </div>
@@ -5301,18 +5329,25 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (count) count.textContent = items.length + ' / ' + _prodFrontalini.length + ' prodotti';
         const tbody = document.getElementById('prod-fr-tbody');
         if (!tbody) return;
-        if (!items.length) { tbody.innerHTML = `<tr><td colspan="8" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="9" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
         tbody.innerHTML = items.map(p => {
             const attrs = [
                 p.bio             ? '<span class="prod-attr bio">BIO</span>'  : '',
                 p.senza_glutine   ? '<span class="prod-attr sg">S.G.</span>'  : '',
                 p.vegano          ? '<span class="prod-attr veg">VEG</span>'  : '',
             ].join('');
+            const ivaCell = p.iva != null
+                ? `<span style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;border-radius:4px;padding:1px 5px">${p.iva}%</span>`
+                : `<span style="color:#cbd5e1;font-size:11px">—</span>`;
+            const fotoCell = p.foto_url
+                ? `<img src="${escHtml(p.foto_url)}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;border:1px solid #e2e8f0">`
+                : `<span style="color:#cbd5e1;font-size:11px">—</span>`;
             return `<tr>
               <td style="color:#94a3b8;font-size:11px">${escHtml(p.codice||'—')}</td>
-              <td style="font-weight:700;color:#1e293b">${escHtml(p.descrizione)}</td>
+              <td style="font-weight:700;color:#1e293b">${fotoCell} ${escHtml(p.descrizione)}</td>
               <td>${p.peso != null ? p.peso + (p.unita ? ' ' + p.unita : '') : '—'}</td>
               <td style="font-weight:600">${_fmtP(p.prezzo)}</td>
+              <td>${ivaCell}</td>
               <td>${escHtml(p.fornitore||'—')}</td>
               <td>${escHtml(p.marchio||'—')}</td>
               <td>${attrs || '<span style="color:#cbd5e1;font-size:11px">—</span>'}</td>
@@ -5364,6 +5399,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     // ── MODAL FRONTALINI ──────────────────────────────────────────
+    let _pfrFotoUrl = null;
     function apriModalFrontalinoProd(id) {
         _prodEditFrId = id;
         const p = id != null ? _prodFrontalini.find(x => x.id === id) : null;
@@ -5371,6 +5407,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         document.getElementById('pfr-codice').value       = p?.codice       || '';
         document.getElementById('pfr-descrizione').value  = p?.descrizione  || '';
         document.getElementById('pfr-prezzo').value       = p?.prezzo       ?? '';
+        document.getElementById('pfr-iva').value          = p?.iva != null ? String(p.iva) : '';
         document.getElementById('pfr-fornitore').value    = p?.fornitore    || '';
         document.getElementById('pfr-marchio').value      = p?.marchio      || '';
         document.getElementById('pfr-peso').value         = p?.peso         ?? '';
@@ -5379,9 +5416,44 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         document.getElementById('pfr-sg').checked         = !!p?.senza_glutine;
         document.getElementById('pfr-veg').checked        = !!p?.vegano;
         document.getElementById('pfr-note').value         = p?.note         || '';
+        // foto
+        _pfrFotoUrl = p?.foto_url || null;
+        const fImg = document.getElementById('pfr-foto-img');
+        const fIco = document.getElementById('pfr-foto-icon');
+        const fDel = document.getElementById('pfr-foto-del');
+        if (_pfrFotoUrl) {
+            fImg.src = _pfrFotoUrl; fImg.style.display = ''; fIco.style.display = 'none'; fDel.style.display = '';
+        } else {
+            fImg.src = ''; fImg.style.display = 'none'; fIco.style.display = ''; fDel.style.display = 'none';
+        }
+        document.getElementById('pfr-foto-progress').style.display = 'none';
+        document.getElementById('pfr-foto-input').value = '';
         document.getElementById('modal-fr-prod-msg').className = 'modal-op-msg';
         document.getElementById('modal-fr-prod-msg').textContent = '';
         document.getElementById('modal-frontalino-prod').style.display = 'flex';
+    }
+    async function onPfrFotoChange(input) {
+        const file = input.files?.[0]; if (!file) return;
+        const prog = document.getElementById('pfr-foto-progress');
+        prog.style.display = ''; prog.textContent = 'Caricamento…';
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `frontalini/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await db.storage.from('prodotti-foto').upload(path, file, { upsert: true });
+        if (error) { prog.textContent = 'Errore: ' + error.message; return; }
+        const { data: urlData } = db.storage.from('prodotti-foto').getPublicUrl(path);
+        _pfrFotoUrl = urlData.publicUrl;
+        const fImg = document.getElementById('pfr-foto-img');
+        fImg.src = _pfrFotoUrl; fImg.style.display = '';
+        document.getElementById('pfr-foto-icon').style.display = 'none';
+        document.getElementById('pfr-foto-del').style.display = '';
+        prog.style.display = 'none';
+    }
+    function rimuoviFotoFrontalino() {
+        _pfrFotoUrl = null;
+        document.getElementById('pfr-foto-img').src = ''; document.getElementById('pfr-foto-img').style.display = 'none';
+        document.getElementById('pfr-foto-icon').style.display = '';
+        document.getElementById('pfr-foto-del').style.display = 'none';
+        document.getElementById('pfr-foto-input').value = '';
     }
     function chiudiModalFrontalinoProd() {
         document.getElementById('modal-frontalino-prod').style.display = 'none';
@@ -5392,10 +5464,12 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (!desc) { _showProdMsg('fr', 'La descrizione è obbligatoria', 'error'); return; }
         const btn = document.getElementById('modal-fr-prod-save');
         btn.disabled = true; btn.textContent = 'Salvataggio…';
+        const ivaVal = parseInt(document.getElementById('pfr-iva').value);
         const payload = {
             codice:            document.getElementById('pfr-codice').value.trim() || null,
             descrizione:       desc,
             prezzo:            parseFloat(document.getElementById('pfr-prezzo').value) || null,
+            iva:               isNaN(ivaVal) ? null : ivaVal,
             fornitore:         document.getElementById('pfr-fornitore').value.trim() || null,
             marchio:           document.getElementById('pfr-marchio').value.trim() || null,
             peso:              parseFloat(document.getElementById('pfr-peso').value) || null,
@@ -5404,6 +5478,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             senza_glutine:     document.getElementById('pfr-sg').checked,
             vegano:            document.getElementById('pfr-veg').checked,
             note:              document.getElementById('pfr-note').value.trim() || null,
+            foto_url:          _pfrFotoUrl || null,
         };
         const { error } = _prodEditFrId != null
             ? await db.from('frontalini_catalogo').update(payload).eq('id', _prodEditFrId)
@@ -5523,7 +5598,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         { key:'marchio',     label:'Marchio',     frKey:'marchio',      rifKey:'marchio'       },
     ];
     // Campi solo frontalini (default preso sempre da frontalini)
-    const MERGE_ONLY_FR  = ['bio','senza_glutine','vegano','note'];
+    const MERGE_ONLY_FR  = ['bio','senza_glutine','vegano','note','iva','foto_url'];
     // Campi solo rifornimento (default preso sempre da rifornimento)
     const MERGE_ONLY_RIF = ['category','linea','pack_size','assortment_cremona','assortment_casalmaggiore','assortment_viadana','active','source_sheet'];
 
@@ -5787,7 +5862,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 peso: fr.peso ?? null, unita: fr.unita || null, prezzo: fr.prezzo ?? null,
                 fornitore: fr.fornitore || null, marchio: fr.marchio || null,
                 bio: !!fr.bio, senza_glutine: !!fr.senza_glutine, vegano: !!fr.vegano,
-                note: fr.note || null,
+                note: fr.note || null, iva: fr.iva ?? null, foto_url: fr.foto_url || null,
                 active: true,
             });
         }
@@ -5825,7 +5900,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     fornitore: fr.fornitore || rif.fornitore || null,
                     marchio: fr.marchio || rif.marchio || null,
                     bio: !!fr.bio, senza_glutine: !!fr.senza_glutine, vegano: !!fr.vegano,
-                    note: fr.note || null,
+                    note: fr.note || null, iva: fr.iva ?? null, foto_url: fr.foto_url || null,
                     category: rif.category || null, linea: rif.linea || null,
                     pack_size: rif.pack_size || null,
                     assortment_cremona: !!rif.assortment_cremona,

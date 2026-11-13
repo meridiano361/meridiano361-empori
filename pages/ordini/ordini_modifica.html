@@ -892,6 +892,13 @@
             row.querySelector('.desc-input').addEventListener('input', function() { if (this.value) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1); });
             _acWire(row.querySelector('.codice-input'), row);
             _acWire(row.querySelector('.desc-input'), row);
+            ['.desc-input','.codice-input'].forEach(sel => {
+                row.querySelector(sel)?.addEventListener('dblclick', () => {
+                    const c = row.querySelector('.codice-input')?.value?.trim();
+                    const d = row.querySelector('.desc-input')?.value?.trim();
+                    if (c || d) apriSchedaProd(c, d);
+                });
+            });
             row.querySelector('.pronta-input').addEventListener('input', () => calcRow(rowId, groupId));
             row.querySelector('.forn-input').addEventListener('input', () => calcRow(rowId, groupId));
             row.querySelector('.emp-q-input').addEventListener('input', () => calcRow(rowId, groupId));
@@ -2016,14 +2023,59 @@ ${noteCliente ? `<div style="margin-top:20px;background:#f0f9ff;border:1px solid
     <script>
 let _acProd=[], _acDropEl=null;
 (function _injectAcCss(){if(document.getElementById('ac-prod-style'))return;const s=document.createElement('style');s.id='ac-prod-style';s.textContent=`.ac-prod-drop{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.13);overflow:hidden;overflow-y:auto;max-height:260px}.ac-prod-item{padding:8px 12px;cursor:pointer;transition:background .1s;border-bottom:1px solid #f1f5f9}.ac-prod-item:last-child{border-bottom:none}.ac-prod-item:hover{background:#f8fafc}.ac-prod-top{display:flex;align-items:center;gap:6px;margin-bottom:2px}.ac-prod-code{font-family:monospace;font-size:10px;color:#94a3b8}.ac-prod-src{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#64748b}.ac-prod-name{font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ac-prod-price{font-size:11px;font-weight:600;color:#B5453A;margin-top:2px}`;document.head.appendChild(s);})();
-(async function _loadAcProd(){try{const [{data:fr},{data:rf}]=await Promise.all([_supabase.from('frontalini_catalogo').select('codice,descrizione,prezzo'),_supabase.from('rifornimento_catalogo').select('product_code,description,pvp').eq('active',true)]);_acProd=[...(fr||[]).map(p=>({c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'frontalini'})),...(rf||[]).map(p=>({c:p.product_code||'',n:p.description,p:p.pvp,src:'fornitura'}))]}catch(e){}})();
+(async function _loadAcProd(){try{const [{data:fr},{data:rf}]=await Promise.all([_supabase.from('frontalini_catalogo').select('codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note'),_supabase.from('rifornimento_catalogo').select('product_code,description,pvp,fornitore,marchio,quantita,unita_misura,category').eq('active',true)]);_acProd=[...(fr||[]).map(p=>({c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'frontalini',iva:p.iva??null,bio:!!p.bio,sg:!!p.senza_glutine,veg:!!p.vegano,forn:p.fornitore||'',marc:p.marchio||'',peso:p.peso??null,unita:p.unita||'',foto:p.foto_url||null,note:p.note||''})),...(rf||[]).map(p=>({c:p.product_code||'',n:p.description,p:p.pvp,src:'fornitura',iva:null,bio:false,sg:false,veg:false,forn:p.fornitore||'',marc:p.marchio||'',peso:p.quantita??null,unita:p.unita_misura||'',foto:null,note:''}))]}catch(e){}})();
 function _acEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _acSearch(q){q=q.trim().toLowerCase();if(q.length<2)return [];return _acProd.filter(p=>p.n.toLowerCase().includes(q)||p.c.toLowerCase().includes(q)).slice(0,10);}
 function _acShow(inp,results,row){_acHide();if(!results.length)return;const d=document.createElement('div');d.className='ac-prod-drop';d.innerHTML=results.map((p,i)=>`<div class="ac-prod-item" data-i="${i}"><div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)||'—'}</span><span class="ac-prod-src">${p.src}</span></div><div class="ac-prod-name">${_acEsc(p.n)}</div>${p.p!=null?`<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.',',')}</div>`:''}</div>`).join('');const rect=inp.getBoundingClientRect();d.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,240)}px;z-index:99999`;d.querySelectorAll('.ac-prod-item').forEach((el,i)=>{el.addEventListener('mousedown',e=>{e.preventDefault();_acApply(row,results[i]);_acHide();});});document.body.appendChild(d);_acDropEl=d;}
 function _acHide(){_acDropEl?.remove();_acDropEl=null;}
 function _acApply(row,prod){row.querySelector('.codice-input').value=prod.c;row.querySelector('.desc-input').value=prod.n;if(prod.p!=null){const pi=row.querySelector('.price-input');if(pi){pi.value='€ '+Number(prod.p).toFixed(2).replace('.',',');pi.dispatchEvent(new Event('input'));}}}
 function _acWire(inp,row){inp.addEventListener('input',function(){_acShow(inp,_acSearch(this.value),row);});inp.addEventListener('blur',()=>setTimeout(_acHide,200));inp.addEventListener('focus',function(){if(this.value.length>=2)_acShow(inp,_acSearch(this.value),row);});}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')_acHide();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){_acHide();chiudiSchedaProd();}});
+
+function apriSchedaProd(codice,desc){
+    const q=(codice||'').toLowerCase(),qd=(desc||'').toLowerCase();
+    if(!q&&!qd)return;
+    const prod=_acProd.find(p=>(q&&p.c&&p.c.toLowerCase()===q)||(qd&&p.n&&p.n.toLowerCase()===qd))
+        ||_acProd.find(p=>(q&&p.c&&p.c.toLowerCase().includes(q))||(qd&&p.n&&p.n.toLowerCase().includes(qd)));
+    if(!prod){alert('Prodotto non trovato nel catalogo');return;}
+    const fmtP=v=>v!=null?'€ '+Number(v).toFixed(2).replace('.',','):'—';
+    const pill=(bg,tc,lbl)=>`<span style="background:${bg};color:${tc};font-size:11px;font-weight:800;border-radius:5px;padding:2px 7px">${lbl}</span>`;
+    const src=prod.src==='frontalini'?'Frontalini':'Fornitura';
+    document.getElementById('sprod-src').textContent=src;
+    document.getElementById('sprod-nome').textContent=prod.n||'—';
+    const fotoWrap=document.getElementById('sprod-foto-wrap');
+    const fotoImg=document.getElementById('sprod-foto');
+    if(prod.foto){fotoImg.src=prod.foto;fotoWrap.style.display='';}else{fotoWrap.style.display='none';}
+    const attrs=[prod.bio?pill('#dcfce7','#15803d','BIO'):'',prod.sg?pill('#fef3c7','#92400e','S.G.'):'',prod.veg?pill('#ede9fe','#6d28d9','VEG'):''].filter(Boolean);
+    document.getElementById('sprod-body').innerHTML=`
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:12px">
+            <div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">Codice</div><div style="font-weight:700;color:#1e293b;font-size:14px">${prod.c||'—'}</div></div>
+            <div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">Prezzo</div><div style="font-weight:800;color:#B5453A;font-size:16px">${fmtP(prod.p)}</div></div>
+            ${prod.iva!=null?`<div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">IVA</div><div style="font-weight:700;color:#1e293b;font-size:14px">${prod.iva}%</div></div>`:''}
+            ${prod.forn?`<div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">Fornitore</div><div style="font-weight:600;color:#1e293b;font-size:13px">${prod.forn}</div></div>`:''}
+            ${prod.marc?`<div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">Marchio</div><div style="font-weight:600;color:#1e293b;font-size:13px">${prod.marc}</div></div>`:''}
+            ${prod.peso!=null?`<div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">Peso/Qtà</div><div style="font-weight:600;color:#1e293b;font-size:13px">${prod.peso}${prod.unita?' '+prod.unita:''}</div></div>`:''}
+        </div>
+        ${attrs.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${attrs.join('')}</div>`:''}
+        ${prod.note?`<div style="font-size:12px;color:#64748b;background:#f8fafc;border-radius:8px;padding:8px 10px">${prod.note}</div>`:''}`;
+    document.getElementById('modal-scheda-prod').style.display='flex';
+}
+function chiudiSchedaProd(){document.getElementById('modal-scheda-prod').style.display='none';}
     </script>
+
+<div id="modal-scheda-prod" onclick="if(event.target===this)chiudiSchedaProd()" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.55);align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:20px 20px 0 0;max-width:500px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 -4px 32px rgba(0,0,0,.18)">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:20px 20px 0 0;z-index:1">
+      <div>
+        <div id="sprod-src" style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:2px"></div>
+        <h3 id="sprod-nome" style="margin:0;font-size:17px;font-weight:800;color:#1e293b;line-height:1.2"></h3>
+      </div>
+      <button onclick="chiudiSchedaProd()" style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:none;font-size:18px;cursor:pointer;color:#64748b;flex-shrink:0;margin-left:12px">×</button>
+    </div>
+    <div id="sprod-foto-wrap" style="display:none"><img id="sprod-foto" style="width:100%;max-height:200px;object-fit:cover"></div>
+    <div id="sprod-body" style="padding:16px 20px 32px"></div>
+  </div>
+</div>
+
 </body>
 </html>
