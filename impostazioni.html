@@ -1415,12 +1415,12 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px">
                   <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Fornitore</label>
-                  <input id="pfr-fornitore" class="form-input" list="pfr-forn-list" placeholder="es. Altromercato">
+                  <input id="pfr-fornitore" class="form-input" list="pfr-forn-list" placeholder="es. Altromercato" oninput="if(this.value)this.value=this.value.charAt(0).toUpperCase()+this.value.slice(1)">
                   <datalist id="pfr-forn-list"></datalist>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px">
                   <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Marchio</label>
-                  <input id="pfr-marchio" class="form-input" list="pfr-marc-list" placeholder="es. Natyr">
+                  <input id="pfr-marchio" class="form-input" list="pfr-marc-list" placeholder="es. Natyr" oninput="if(this.value)this.value=this.value.charAt(0).toUpperCase()+this.value.slice(1)">
                   <datalist id="pfr-marc-list"></datalist>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px">
@@ -5338,26 +5338,29 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (!tbody) return;
         if (!items.length) { tbody.innerHTML = `<tr><td colspan="9" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
         tbody.innerHTML = items.map(p => {
-            const attrs = [
+            const attrBadges = [
                 p.bio             ? '<span class="prod-attr bio">BIO</span>'  : '',
                 p.senza_glutine   ? '<span class="prod-attr sg">S.G.</span>'  : '',
                 p.vegano          ? '<span class="prod-attr veg">VEG</span>'  : '',
-            ].join('');
+            ].filter(Boolean).join('');
+            const fotoThumb = p.foto_url
+                ? `<img src="${escHtml(p.foto_url)}" style="width:26px;height:26px;border-radius:4px;object-fit:cover;border:1px solid #e2e8f0;vertical-align:middle;flex-shrink:0">`
+                : '';
+            const attrsCell = (attrBadges || fotoThumb)
+                ? `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${attrBadges}${fotoThumb}</div>`
+                : `<span style="color:#cbd5e1;font-size:11px">—</span>`;
             const ivaCell = p.iva != null
                 ? `<span style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;border-radius:4px;padding:1px 5px">${p.iva}%</span>`
                 : `<span style="color:#cbd5e1;font-size:11px">—</span>`;
-            const fotoCell = p.foto_url
-                ? `<img src="${escHtml(p.foto_url)}" style="width:28px;height:28px;border-radius:4px;object-fit:cover;border:1px solid #e2e8f0">`
-                : `<span style="color:#cbd5e1;font-size:11px">—</span>`;
             return `<tr>
               <td style="color:#94a3b8;font-size:11px">${escHtml(p.codice||'—')}</td>
-              <td style="font-weight:700;color:#1e293b">${fotoCell} ${escHtml(p.descrizione)}</td>
+              <td style="font-weight:700;color:#1e293b">${escHtml(p.descrizione)}</td>
               <td>${p.peso != null ? p.peso + (p.unita ? ' ' + p.unita : '') : '—'}</td>
               <td style="font-weight:600">${_fmtP(p.prezzo)}</td>
               <td>${ivaCell}</td>
               <td>${escHtml(p.fornitore||'—')}</td>
               <td>${escHtml(p.marchio||'—')}</td>
-              <td>${attrs || '<span style="color:#cbd5e1;font-size:11px">—</span>'}</td>
+              <td>${attrsCell}</td>
               <td style="white-space:nowrap">
                 <button class="prod-row-btn" onclick="apriModalFrontalinoProd(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button>
                 <button class="prod-row-btn del" onclick="eliminaProdFrontalino(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>
