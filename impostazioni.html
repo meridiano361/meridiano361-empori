@@ -5682,16 +5682,23 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             }
         });
 
-        // Campi solo frontalini
-        const frOnlyLabels = {bio:'BIO',senza_glutine:'Senza Glutine',vegano:'Vegano',solidale_italiano:'Solidale IT.',note:'Note'};
+        // Campi solo frontalini — attributi boolean su una riga, note separata
+        const attrBools = [
+            { k:'bio',               label:'BIO',         bg:'#dcfce7', tx:'#15803d' },
+            { k:'senza_glutine',     label:'Senza Glutine', bg:'#fef3c7', tx:'#92400e' },
+            { k:'vegano',            label:'Vegano',      bg:'#ede9fe', tx:'#6d28d9' },
+            { k:'solidale_italiano', label:'Solidale IT.',bg:'#dbeafe', tx:'#1d4ed8' },
+        ];
         html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Attributi (da Frontalini)</div>`;
-        MERGE_ONLY_FR.forEach(k => {
-            const v = fr[k];
-            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:12px">
-              <span style="color:#64748b;font-weight:600">${frOnlyLabels[k]||k}</span>
-              <span style="color:#1e293b">${_fmtMergeVal(k, v) || '<span style="color:#cbd5e1">—</span>'}</span>
-            </div>`;
+        html += `<div style="display:flex;gap:7px;flex-wrap:wrap;padding:4px 0 8px">`;
+        attrBools.forEach(a => {
+            const on = !!fr[a.k];
+            html += `<span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1.5px solid ${on ? a.tx : '#e2e8f0'};background:${on ? a.bg : '#f8fafc'};color:${on ? a.tx : '#94a3b8'}">${a.label}: ${on ? 'Sì' : 'No'}</span>`;
         });
+        html += `</div>`;
+        if (fr.note) {
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:12px"><span style="color:#64748b;font-weight:600">Note</span><span style="color:#1e293b">${_escU(fr.note)}</span></div>`;
+        }
 
         // Campi solo fornitura
         const rifOnlyLabels = {category:'Categoria',linea:'Linea',pack_size:'Pack size',assortment_cremona:'Cremona',assortment_casalmaggiore:'Casalmaggiore',assortment_viadana:'Viadana',active:'Attivo',source_sheet:'Source sheet'};
