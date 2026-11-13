@@ -928,7 +928,7 @@ function rBozza() {
           ${it.prezzo != null ? `<span>${fmtN(it.prezzo)} €</span> · ` : ''}
           ${pd ? `<span${warn?' class="bz-warn"':''}>${escH(pd)}</span>` : ''}
           ${pu ? ` · <span>${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
-          ${attrs.length ? ` · ${attrs.map(a=>`<span class="attr-pill ap-bio">${a}</span>`).join(' ')}` : ''}
+          ${attrs.length ? ` · ${attrs.map(a=>`<span class="attr-pill ${a==='BIO'?'ap-bio':a==='SG'?'ap-sg':'ap-veg'}">${a}</span>`).join(' ')}` : ''}
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -1414,6 +1414,7 @@ function doPrint() {
   `;
 
   const win = window.open('', '_blank');
+  if (!win) { alert('Abilita i popup del browser per stampare.'); return; }
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${printCSS}</style></head><body>${pagesHTML}</body></html>`);
   win.document.close();
   win.focus();
@@ -1726,8 +1727,6 @@ function saveImpStampa() {
 function updateBrandColor(nome, colore) {
   _brandColors[nome] = colore;
   saveBrandColors();
-  const row = document.querySelector(`.bc-row .bc-name`);
-  // aggiorna il swatch visivamente senza re-render
   document.querySelectorAll('.bc-row').forEach(r => {
     const nm = r.querySelector('.bc-name')?.textContent;
     if (nm === nome) { const sw = r.querySelector('.bc-swatch'); if(sw) sw.style.background = colore; }
@@ -1953,15 +1952,16 @@ async function confirmImport() {
   if (toInsert.length === 0) { closeImportModal(); return; }
 
   // Inserisci a blocchi di 100
+  let _importErr = false;
   for (let i=0; i<toInsert.length; i+=100) {
     const batch = toInsert.slice(i, i+100);
     const { error } = await db.from('frontalini_catalogo').insert(batch);
-    if (error) { alert('Errore importazione: ' + error.message); break; }
+    if (error) { alert('Errore importazione: ' + error.message); _importErr = true; break; }
   }
 
   await loadCatalogo();
   closeImportModal();
-  alert(`✓ ${toInsert.length} prodotti importati nel catalogo.`);
+  if (!_importErr) alert(`✓ ${toInsert.length} prodotti importati nel catalogo.`);
   R();
 }
 
@@ -2065,6 +2065,5 @@ async function init() {
 init();
 </script>
 
-<script src="../../scripts/nav-script.js"></script>
 </body>
 </html>
