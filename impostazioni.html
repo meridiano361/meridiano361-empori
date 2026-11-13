@@ -1268,6 +1268,11 @@
             .prod-row-btn.del{border-color:#fecaca;background:#fef2f2;color:#ef4444}
             .prod-row-btn.del:hover{background:#ef4444;color:#fff;border-color:#ef4444}
             .prod-empty{text-align:center;padding:40px;color:#94a3b8;font-size:13px}
+            .be-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f8fafc}
+            .be-row label{display:flex;align-items:center;gap:7px;min-width:160px;font-size:13px;font-weight:600;color:#475569;cursor:pointer;user-select:none}
+            .be-row label input[type=checkbox]{accent-color:#3b82f6;cursor:pointer;flex-shrink:0}
+            .be-row .be-val{flex:1;font-size:12px;padding:5px 8px}
+            .be-row .be-val:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed}
             .prod-count{font-size:11px;color:#94a3b8;margin-left:auto;white-space:nowrap}
           </style>
 
@@ -1296,7 +1301,8 @@
             <div id="prod-sel-bar" style="display:none;align-items:center;gap:10px;padding:8px 14px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;margin-bottom:8px;font-size:13px;font-weight:700;color:#92400e">
               <i class="fas fa-check-square"></i>
               <span id="prod-sel-count"></span>
-              <button onclick="eliminaSelezionati()" style="margin-left:4px;background:#dc2626;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-trash" style="margin-right:5px"></i>Elimina selezionati</button>
+              <button onclick="apriBulkEdit()" style="margin-left:4px;background:#1d4ed8;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-pencil" style="margin-right:5px"></i>Modifica selezionati</button>
+              <button onclick="eliminaSelezionati()" style="background:#dc2626;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-trash" style="margin-right:5px"></i>Elimina selezionati</button>
               <button onclick="_deselTutti()" style="background:#fff;color:#92400e;border:1.5px solid #f59e0b;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Deseleziona tutto</button>
             </div>
             <div class="s-card" style="overflow:auto">
@@ -1585,6 +1591,51 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             </div>
           </div>
         </div>
+
+      <!-- MODAL: modifica in blocco prodotti selezionati -->
+      <div id="modal-bulk-edit" class="modal-overlay" onclick="if(event.target===this)chiudiBulkEdit()" style="display:none">
+        <div class="modal-box" style="max-width:520px">
+          <div class="modal-header">
+            <h3>Modifica in blocco</h3>
+            <button onclick="chiudiBulkEdit()">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size:12px;color:#64748b;margin:0 0 14px">Spunta i campi da modificare. Solo i campi spuntati verranno aggiornati. I campi non applicabili alla fonte vengono ignorati automaticamente.</p>
+
+            <div style="display:flex;flex-direction:column;gap:4px">
+
+              <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;padding:6px 0 2px">Tutti i prodotti</div>
+
+              <div class="be-row"><label><input type="checkbox" id="be-chk-fornitore" onchange="beToggle(this)"> Fornitore</label><input id="be-val-fornitore" class="be-val form-input" disabled list="pfr-forn-list" placeholder="—"></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-marchio" onchange="beToggle(this)"> Marchio</label><input id="be-val-marchio" class="be-val form-input" disabled placeholder="—"></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-categoria" onchange="beToggle(this)"> Categoria</label><input id="be-val-categoria" class="be-val form-input" disabled list="pfr-cat-list" placeholder="—"></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-pvp" onchange="beToggle(this)"> PVP (€)</label><input id="be-val-pvp" class="be-val form-input" disabled type="number" step="0.01" min="0"></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-pack" onchange="beToggle(this)"> Pack size</label><input id="be-val-pack" class="be-val form-input" disabled type="number" step="1" min="0"></div>
+
+              <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;padding:10px 0 2px">Frontalini e Prodotti</div>
+
+              <div class="be-row"><label><input type="checkbox" id="be-chk-iva" onchange="beToggle(this)"> IVA (%)</label><input id="be-val-iva" class="be-val form-input" disabled type="number" min="0" max="100"></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-bio" onchange="beToggle(this)"> Bio</label><select id="be-val-bio" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-sg" onchange="beToggle(this)"> Senza Glutine</label><select id="be-val-sg" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-vegano" onchange="beToggle(this)"> Vegano</label><select id="be-val-vegano" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+
+              <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;padding:10px 0 2px">Fornitura e Prodotti</div>
+
+              <div class="be-row"><label><input type="checkbox" id="be-chk-linea" onchange="beToggle(this)"> Linea</label><input id="be-val-linea" class="be-val form-input" disabled placeholder="—"></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-active" onchange="beToggle(this)"> Attivo</label><select id="be-val-active" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-cr" onchange="beToggle(this)"> Cremona</label><select id="be-val-cr" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-ca" onchange="beToggle(this)"> Casalmaggiore</label><select id="be-val-ca" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+              <div class="be-row"><label><input type="checkbox" id="be-chk-vi" onchange="beToggle(this)"> Viadana</label><select id="be-val-vi" class="be-val form-input" disabled><option value="true">Sì</option><option value="false">No</option></select></div>
+
+            </div>
+            <div id="modal-be-msg" class="modal-op-msg" style="margin-top:10px"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" onclick="chiudiBulkEdit()">Annulla</button>
+            <button class="btn-primary" id="be-save-btn" onclick="salvaBulkEdit()">Salva modifiche</button>
+          </div>
+        </div>
+      </div>
 
       <!-- MODAL: prodotto unificato (prodotti_catalogo) -->
       <div id="modal-prod-unif" class="modal-overlay" onclick="if(event.target===this)chiudiModalProdUnif()" style="display:none">
@@ -5710,6 +5761,82 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (err) { showToast('Errore: ' + err.error.message, 'err'); return; }
         _selProd.clear();
         showToast(`${n} prodott${n===1?'o':'i'} eliminat${n===1?'o':'i'}`, 'ok');
+        await caricaProdotti();
+    }
+
+    // ── BULK EDIT ─────────────────────────────────────────────────
+    function apriBulkEdit() {
+        if (!_selProd.size) return;
+        // Reset tutti i campi
+        document.querySelectorAll('#modal-bulk-edit .be-row input[type=checkbox]').forEach(cb => { cb.checked = false; });
+        document.querySelectorAll('#modal-bulk-edit .be-val').forEach(el => { el.disabled = true; el.value = ''; });
+        document.getElementById('modal-be-msg').textContent = '';
+        document.getElementById('modal-be-msg').className = 'modal-op-msg';
+        document.getElementById('be-save-btn').disabled = false;
+        document.getElementById('be-save-btn').textContent = 'Salva modifiche';
+        document.getElementById('modal-bulk-edit').style.display = 'flex';
+    }
+    function chiudiBulkEdit() { document.getElementById('modal-bulk-edit').style.display = 'none'; }
+    function beToggle(cb) {
+        const val = cb.closest('.be-row').querySelector('.be-val');
+        val.disabled = !cb.checked;
+        if (cb.checked) val.focus();
+    }
+    async function salvaBulkEdit() {
+        const FIELDS = {
+            fornitore: { fr:'fornitore',    rf:'fornitore',               pu:'fornitore',               type:'text'   },
+            marchio:   { fr:'marchio',      rf:'marchio',                 pu:'marchio',                 type:'text'   },
+            categoria: { fr:'category',     rf:'category',                pu:'category',                type:'text'   },
+            pvp:       { fr:'prezzo',       rf:'pvp',                     pu:'prezzo',                  type:'number' },
+            pack:      { fr:'pack_size',    rf:'pack_size',               pu:'pack_size',               type:'number' },
+            iva:       { fr:'iva',          rf:null,                      pu:'iva',                     type:'number' },
+            bio:       { fr:'bio',          rf:null,                      pu:'bio',                     type:'bool'   },
+            sg:        { fr:'senza_glutine',rf:null,                      pu:'senza_glutine',           type:'bool'   },
+            vegano:    { fr:'vegano',       rf:null,                      pu:'vegano',                  type:'bool'   },
+            linea:     { fr:null,           rf:'linea',                   pu:'linea',                   type:'text'   },
+            active:    { fr:null,           rf:'active',                  pu:'active',                  type:'bool'   },
+            cr:        { fr:null,           rf:'assortment_cremona',       pu:'assortment_cremona',       type:'bool'   },
+            ca:        { fr:null,           rf:'assortment_casalmaggiore', pu:'assortment_casalmaggiore', type:'bool'   },
+            vi:        { fr:null,           rf:'assortment_viadana',       pu:'assortment_viadana',       type:'bool'   },
+        };
+        const frPay = {}, rfPay = {}, puPay = {};
+        let anyField = false;
+        for (const [key, def] of Object.entries(FIELDS)) {
+            const chk = document.getElementById(`be-chk-${key}`);
+            if (!chk?.checked) continue;
+            const raw = document.getElementById(`be-val-${key}`)?.value ?? '';
+            let val;
+            if (def.type === 'bool')   val = raw === 'true';
+            else if (def.type === 'number') { val = parseFloat(raw); if (isNaN(val)) val = null; }
+            else val = raw.trim() || null;
+            if (def.fr) { frPay[def.fr] = val; anyField = true; }
+            if (def.rf) { rfPay[def.rf] = val; anyField = true; }
+            if (def.pu) { puPay[def.pu] = val; anyField = true; }
+        }
+        if (!anyField) {
+            const msg = document.getElementById('modal-be-msg');
+            msg.textContent = 'Seleziona almeno un campo da modificare.'; msg.className = 'modal-op-msg modal-op-msg-error'; msg.style.display='block'; return;
+        }
+        const frIds = [], rfIds = [], puIds = [];
+        _selProd.forEach(k => { const [s,id] = k.split(':'); if(s==='frontalini') frIds.push(Number(id)); else if(s==='fornitura') rfIds.push(Number(id)); else puIds.push(Number(id)); });
+        const btn = document.getElementById('be-save-btn');
+        btn.disabled = true; btn.textContent = 'Salvataggio…';
+        const ops = [];
+        if (frIds.length && Object.keys(frPay).length) ops.push(db.from('frontalini_catalogo').update(frPay).in('id', frIds));
+        if (rfIds.length && Object.keys(rfPay).length) ops.push(db.from('rifornimento_catalogo').update(rfPay).in('id', rfIds));
+        if (puIds.length && Object.keys(puPay).length) ops.push(db.from('prodotti_catalogo').update(puPay).in('id', puIds));
+        if (!ops.length) {
+            btn.disabled=false; btn.textContent='Salva modifiche';
+            const msg=document.getElementById('modal-be-msg');
+            msg.textContent='Nessun campo applicabile ai prodotti selezionati.'; msg.className='modal-op-msg modal-op-msg-error'; msg.style.display='block'; return;
+        }
+        const results = await Promise.all(ops);
+        btn.disabled = false; btn.textContent = 'Salva modifiche';
+        const err = results.find(r => r.error);
+        if (err) { const msg=document.getElementById('modal-be-msg'); msg.textContent='Errore: '+err.error.message; msg.className='modal-op-msg modal-op-msg-error'; msg.style.display='block'; return; }
+        chiudiBulkEdit();
+        showToast(`${_selProd.size} prodotti aggiornati`, 'ok');
+        _selProd.clear();
         await caricaProdotti();
     }
 
