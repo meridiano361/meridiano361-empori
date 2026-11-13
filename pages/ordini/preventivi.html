@@ -2576,6 +2576,7 @@ function stampaPDFConColonne() {
             const desc   = row.querySelector('.desc-input')?.value || '';
             if (!codice && !desc) return;
             const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
+            const sitoUrl = row.dataset.sito || '';
             const _parseE = s => s && s !== '—' ? itParse(s) : 0;
             const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
             const _pii    = _parseE(row.querySelector('.price-input')?.value);
@@ -2584,9 +2585,10 @@ function stampaPDFConColonne() {
             const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
             const _effII  = _piisc || _pii;
             const _effIE  = _piesc || _pie || _effII;
+            const descCell = desc + (sel.has('sito') && sitoUrl ? `<br><a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:underline">Scheda prodotto ↗</a>` : '');
             out.push({
                 foto:      fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
-                codice, desc,
+                codice, desc: descCell,
                 pii:       row.querySelector('.price-input')?.value || '—',
                 iva:       row.querySelector('.iva-input')?.value || '—',
                 pie:       row.querySelector('.ie-input')?.value || '—',
@@ -2863,6 +2865,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="pie"> Prezzo i.e.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piisc"> Prezzo i.i. sc.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piesc"> Prezzo i.e. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="sito"> Link sito prodotto</label>
     </div>
 
     <!-- ── Tot. riga ── -->
@@ -2943,8 +2946,8 @@ let _acProd=[], _acDropEl=null, _catalogTable='frontalini_catalogo';
         const { count } = await _supabase.from('prodotti_catalogo').select('id',{count:'exact',head:true});
         if (count > 0) {
             _catalogTable = 'prodotti_catalogo';
-            const { data:pu } = await _supabase.from('prodotti_catalogo').select('id,codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note').eq('active',true);
-            _acProd = (pu||[]).map(p=>({id:p.id,c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'prodotti',iva:p.iva??null,bio:!!p.bio,sg:!!p.senza_glutine,veg:!!p.vegano,forn:p.fornitore||'',marc:p.marchio||'',peso:p.peso??null,unita:p.unita||'',foto:p.foto_url||null,note:p.note||''}));
+            const { data:pu } = await _supabase.from('prodotti_catalogo').select('id,codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note,sito_url').eq('active',true);
+            _acProd = (pu||[]).map(p=>({id:p.id,c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'prodotti',iva:p.iva??null,bio:!!p.bio,sg:!!p.senza_glutine,veg:!!p.vegano,forn:p.fornitore||'',marc:p.marchio||'',peso:p.peso??null,unita:p.unita||'',foto:p.foto_url||null,note:p.note||'',sito:p.sito_url||null}));
         } else {
             const [{data:fr},{data:rf}] = await Promise.all([
                 _supabase.from('frontalini_catalogo').select('id,codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note'),
@@ -2964,6 +2967,7 @@ function _acHide(){_acDropEl?.remove();_acDropEl=null;}
 function _acApply(row,prod){
     row.dataset.prodId  = prod.id  != null ? String(prod.id)  : '';
     row.dataset.prodSrc = prod.src || '';
+    row.dataset.sito    = prod.sito || '';
     row.querySelector('.codice-input').value=prod.c;
     row.querySelector('.desc-input').value=prod.n;
     if(prod.p!=null){const pi=row.querySelector('.price-input');if(pi){pi.value='€ '+Number(prod.p).toFixed(2).replace('.',',');pi.dispatchEvent(new Event('input'));}}
@@ -3030,7 +3034,9 @@ function apriSchedaProd(codice, desc) {
                 <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="se-veg" ${prod.veg?'checked':''}> Vegano</label>
             </div>
             <div style="margin-top:12px"><label style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:3px">Note</label>
-                <textarea id="se-note" class="form-input w-full" rows="2" style="resize:none">${esc(prod.note)}</textarea></div>`;
+                <textarea id="se-note" class="form-input w-full" rows="2" style="resize:none">${esc(prod.note)}</textarea></div>
+            <div style="margin-top:12px"><label style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:3px">Link sito prodotto</label>
+                <input id="se-sito" class="form-input w-full" type="url" placeholder="https://…" value="${esc(prod.sito||'')}"></div>`;
         saveBtn.style.display = '';
     } else {
         const fmtP = v => v!=null ? '€ '+Number(v).toFixed(2).replace('.',',') : '—';
@@ -3046,7 +3052,8 @@ function apriSchedaProd(codice, desc) {
                 ${prod.peso!=null?`<div><div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:2px">Peso/Qtà</div><div style="font-weight:600;color:#1e293b;font-size:13px">${prod.peso}${prod.unita?' '+prod.unita:''}</div></div>`:''}
             </div>
             ${attrs.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${attrs.join('')}</div>`:''}
-            ${prod.note?`<div style="font-size:12px;color:#64748b;background:#f8fafc;border-radius:8px;padding:8px 10px">${prod.note}</div>`:''}`;
+            ${prod.note?`<div style="font-size:12px;color:#64748b;background:#f8fafc;border-radius:8px;padding:8px 10px">${prod.note}</div>`:''}
+            ${prod.sito?`<div style="margin-top:10px"><a href="${prod.sito}" target="_blank" rel="noopener" style="font-size:12px;color:#2563eb;text-decoration:underline;word-break:break-all"><i class="fas fa-external-link-alt" style="margin-right:4px;font-size:10px"></i>Scheda prodotto</a></div>`:''}`;
         saveBtn.style.display = 'none';
     }
     document.getElementById('modal-scheda-prod').style.display = 'flex';
@@ -3086,7 +3093,9 @@ function nuovaSchedaProd(row, preVal) {
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="se-veg"> Vegano</label>
         </div>
         <div style="margin-top:12px"><label style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:3px">Note</label>
-            <textarea id="se-note" class="form-input w-full" rows="2" style="resize:none"></textarea></div>`;
+            <textarea id="se-note" class="form-input w-full" rows="2" style="resize:none"></textarea></div>
+        <div style="margin-top:12px"><label style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:3px">Link sito prodotto</label>
+            <input id="se-sito" class="form-input w-full" type="url" placeholder="https://…"></div>`;
     const saveBtn = document.getElementById('sprod-save-btn');
     saveBtn.style.display = '';
     saveBtn.innerHTML = '<i class="fas fa-plus mr-1"></i> Crea prodotto';
@@ -3110,12 +3119,13 @@ async function salvaSchedaProd() {
         senza_glutine: document.getElementById('se-sg')?.checked || false,
         vegano:        document.getElementById('se-veg')?.checked || false,
         note:          document.getElementById('se-note')?.value.trim() || null,
+        sito_url:      document.getElementById('se-sito')?.value.trim() || null,
     };
     if (isCreate) {
         const { data, error } = await _supabase.from(_catalogTable).insert(payload).select('id').single();
         btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus mr-1"></i> Crea prodotto';
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
-        const newProd = {id:data.id,c:payload.codice||'',n:payload.descrizione||'',p:payload.prezzo,src:_catalogTable==='prodotti_catalogo'?'prodotti':'frontalini',iva:payload.iva,bio:payload.bio,sg:payload.senza_glutine,veg:payload.vegano,forn:payload.fornitore||'',marc:payload.marchio||'',peso:payload.peso,unita:payload.unita||'',foto:null,note:payload.note||''};
+        const newProd = {id:data.id,c:payload.codice||'',n:payload.descrizione||'',p:payload.prezzo,src:_catalogTable==='prodotti_catalogo'?'prodotti':'frontalini',iva:payload.iva,bio:payload.bio,sg:payload.senza_glutine,veg:payload.vegano,forn:payload.fornitore||'',marc:payload.marchio||'',peso:payload.peso,unita:payload.unita||'',foto:null,note:payload.note||'',sito:payload.sito_url||null};
         _acProd.push(newProd);
         if (_schedaProdRow) _acApply(_schedaProdRow, newProd);
         showToast('Prodotto creato', 'ok');
@@ -3124,7 +3134,7 @@ async function salvaSchedaProd() {
         btn.disabled = false; btn.innerHTML = '<i class="fas fa-check mr-1"></i> Salva';
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         const idx = _acProd.findIndex(p => p.id === _schedaProdId);
-        if (idx >= 0) Object.assign(_acProd[idx], { c: payload.codice||'', n: payload.descrizione||'', p: payload.prezzo, iva: payload.iva, forn: payload.fornitore||'', marc: payload.marchio||'', peso: payload.peso, unita: payload.unita||'', bio: payload.bio, sg: payload.senza_glutine, veg: payload.vegano, note: payload.note||'' });
+        if (idx >= 0) Object.assign(_acProd[idx], { c: payload.codice||'', n: payload.descrizione||'', p: payload.prezzo, iva: payload.iva, forn: payload.fornitore||'', marc: payload.marchio||'', peso: payload.peso, unita: payload.unita||'', bio: payload.bio, sg: payload.senza_glutine, veg: payload.vegano, note: payload.note||'', sito: payload.sito_url||null });
         showToast('Prodotto aggiornato', 'ok');
     }
     chiudiSchedaProd();
