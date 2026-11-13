@@ -1321,17 +1321,36 @@
           <!-- ── Tab Unifica ── -->
           <div id="prod-tab-unifica" style="display:none">
             <div style="padding:16px 0 10px">
-              <div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:12px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px">
-                <strong>Unificazione database prodotti</strong> — Questa operazione crea una nuova tabella <code>prodotti_catalogo</code> che sostituisce <code>frontalini_catalogo</code> e <code>rifornimento_catalogo</code>. Esegui prima l'SQL, poi avvia l'analisi e risolvi i doppioni.
+
+              <!-- Azione principale -->
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+                <button class="btn-primary" onclick="avviaAnalisiDoppioni()" style="padding:9px 20px;font-size:13px"><i class="fas fa-search" style="margin-right:5px"></i>Analizza doppioni</button>
+                <span style="font-size:12px;color:#94a3b8">Confronta frontalini e fornitura per trovare prodotti duplicati</span>
               </div>
 
-              <!-- STEP 1 + 2 collassabili dopo analisi -->
-              <div id="unif-setup-steps">
+              <!-- Lista doppioni -->
+              <div id="unif-doppioni-wrap" style="display:none;margin-bottom:20px">
+                <div style="margin-bottom:10px;position:relative;max-width:320px">
+                  <input id="unif-search" type="text" placeholder="🔍  Cerca per nome o codice…" class="form-input" style="padding-right:32px" oninput="_doppSearch=this.value.trim().toLowerCase();renderDoppioni()">
+                  <button type="button" onclick="document.getElementById('unif-search').value='';_doppSearch='';renderDoppioni()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1" title="Cancella ricerca">×</button>
+                </div>
+                <div id="unif-doppioni-list"></div>
+              </div>
 
-              <!-- STEP 1: SQL -->
-              <div style="margin-bottom:20px">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">1</span>Crea la nuova tabella in Supabase SQL Editor</div>
-                <div style="position:relative">
+              <!-- Migrazione -->
+              <div id="unif-migra-wrap" style="display:none;margin-bottom:20px">
+                <div id="unif-riepilogo" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn-primary" onclick="eseguiMigrazione(false)" style="padding:9px 20px;font-size:13px;background:#15803d"><i class="fas fa-database" style="margin-right:5px"></i>Migra tutti</button>
+                  <button class="btn-secondary" onclick="eseguiMigrazione(true)" style="padding:9px 20px;font-size:13px">Migra solo doppioni risolti</button>
+                </div>
+                <div id="unif-progresso" style="margin-top:10px;font-size:12px;color:#64748b"></div>
+              </div>
+
+              <!-- SQL nascosto -->
+              <details style="margin-top:8px">
+                <summary style="font-size:11px;color:#94a3b8;cursor:pointer;user-select:none">SQL creazione tabella</summary>
+                <div style="position:relative;margin-top:8px">
                   <pre id="unif-sql" style="background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px;font-size:11px;overflow-x:auto;line-height:1.5;white-space:pre">create table prodotti_catalogo (
   id              bigint generated always as identity primary key,
   codice          text,
@@ -1362,41 +1381,8 @@ create policy "public read"  on prodotti_catalogo for select using (true);
 create policy "auth write"   on prodotti_catalogo for all using (auth.role() = 'authenticated');</pre>
                   <button onclick="copiaSQL()" style="position:absolute;top:10px;right:10px;background:#334155;color:#cbd5e1;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit"><i class="fas fa-copy" style="margin-right:4px"></i>Copia</button>
                 </div>
-              </div>
+              </details>
 
-              <!-- STEP 2: analisi -->
-              <div style="margin-bottom:16px">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:middle;font-size:9px;margin-right:5px">2</span>Analizza doppioni tra i due cataloghi</div>
-                <button class="btn-primary" onclick="avviaAnalisiDoppioni()" style="padding:9px 20px;font-size:13px"><i class="fas fa-search" style="margin-right:5px"></i>Avvia analisi</button>
-              </div>
-
-              </div><!-- /unif-setup-steps -->
-
-              <!-- toggle setup (visibile solo dopo analisi) -->
-              <div id="unif-setup-toggle" style="display:none;margin-bottom:12px">
-                <button type="button" onclick="toggleUnifSetup()" style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:5px 12px;cursor:pointer">
-                  <i class="fas fa-chevron-down" id="unif-setup-chevron" style="font-size:9px;margin-right:4px"></i>Mostra SQL e configurazione
-                </button>
-              </div>
-
-              <!-- STEP 3: lista doppioni -->
-              <div id="unif-doppioni-wrap" style="display:none;margin-bottom:20px">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">3</span>Doppioni rilevati — clicca "Unisci" per scegliere cosa tenere</div>
-                <div style="margin-bottom:10px;position:relative;max-width:320px">
-                  <input id="unif-search" type="text" placeholder="🔍  Cerca per nome o codice…" class="form-input" style="padding-right:32px" oninput="_doppSearch=this.value.trim().toLowerCase();renderDoppioni()">
-                  <button type="button" onclick="document.getElementById('unif-search').value='';_doppSearch='';renderDoppioni()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1" title="Cancella ricerca">×</button>
-                </div>
-                <div id="unif-doppioni-list"></div>
-              </div>
-
-              <!-- STEP 4: migra -->
-              <div id="unif-migra-wrap" style="display:none">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">4</span>Esegui la migrazione</div>
-                <div id="unif-riepilogo" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
-                <button class="btn-primary" onclick="eseguiMigrazione(false)" style="padding:9px 20px;font-size:13px;background:#15803d"><i class="fas fa-database" style="margin-right:5px"></i>Migra tutti i prodotti</button>
-                <button class="btn-secondary" onclick="eseguiMigrazione(true)" style="padding:9px 20px;font-size:13px"><i class="fas fa-compress-alt" style="margin-right:5px"></i>Migra solo doppioni risolti</button>
-                <div id="unif-progresso" style="margin-top:10px;font-size:12px;color:#64748b"></div>
-              </div>
             </div>
           </div>
 
@@ -1743,23 +1729,18 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
       <!-- MODAL: merge prodotto doppione -->
       <div id="modal-merge-prod" class="modal-overlay" onclick="if(event.target===this)closeMergeProdModal()" style="display:none">
-        <div class="modal-box" style="max-width:700px">
+        <div class="modal-box" style="max-width:520px">
           <div class="modal-header">
-            <h3>Unisci prodotto doppio</h3>
+            <h3>Unisci prodotti</h3>
             <button onclick="closeMergeProdModal()">×</button>
           </div>
           <div class="modal-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:12px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;text-align:center">
-              <div style="background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:4px">Frontalini</div>
-              <div style="background:#f0fdf4;color:#15803d;border-radius:6px;padding:4px">Fornitura</div>
-              <div style="background:#f1f5f9;border-radius:6px;padding:4px">Risultato</div>
-            </div>
-            <div id="merge-prod-body" style="overflow-y:auto;max-height:420px"></div>
+            <div id="merge-prod-body" style="overflow-y:auto;max-height:500px"></div>
             <input type="file" id="merge-foto-new-input" accept="image/*" style="display:none" onchange="onMergeFotoUpload(this)">
           </div>
           <div class="modal-footer">
             <button class="btn-secondary" onclick="closeMergeProdModal()">Annulla</button>
-            <button class="btn-primary" onclick="confirmMergeProd()"><i class="fas fa-check" style="margin-right:5px"></i>Conferma unione</button>
+            <button class="btn-primary" onclick="confirmMergeProd()"><i class="fas fa-check" style="margin-right:5px"></i>Conferma</button>
           </div>
         </div>
       </div>
@@ -6193,7 +6174,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     let _doppSearch     = '';
     let _doppRisolti    = {};   // key='fr_id:rif_id' → payload
     let _mergeTarget    = null; // {fr, rif} corrente
-    let _mergeProdSels  = {};   // field → 'fr'|'rif'
+    let _mergeBase      = 'fr'; // quale catalogo vince sui campi comuni
+    let _mergeProdSels  = {};   // field → 'fr'|'rif' (legacy, non più usato dal render)
     let _mergeProdOver  = {};   // field → valore manuale
 
     // Campi condivisi (da confrontare)
@@ -6220,8 +6202,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         _doppRisolti = {};
         _doppSearch = '';
         const si = document.getElementById('unif-search'); if (si) si.value = '';
-        document.getElementById('unif-setup-steps').style.display = 'none';
-        document.getElementById('unif-setup-toggle').style.display = '';
         document.getElementById('unif-doppioni-wrap').style.display = '';
         document.getElementById('unif-migra-wrap').style.display = '';
         renderDoppioni();
@@ -6316,15 +6296,11 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const fr  = _prodFrontalini.find(x => String(x.id) === String(frId));
         const rif = _prodFornitura.find(x => String(x.id) === String(rifId));
         if (!fr || !rif) return;
-        _mergeTarget = { fr, rif };
+        _mergeTarget   = { fr, rif };
+        _mergeBase     = 'fr';
         _mergeProdSels = {};
         _mergeProdOver = {};
-        // Pre-seleziona: se frontalini ha un valore, prende frontalini; altrimenti fornitura
-        MERGE_PROD_FIELDS.forEach(f => {
-            const vFr  = fr[f.frKey];
-            const vRif = rif[f.rifKey];
-            _mergeProdSels[f.key] = (vFr != null && vFr !== '') ? 'fr' : 'rif';
-        });
+        _mergeFotoProgress = false;
         _renderMergeProdBody();
         document.getElementById('modal-merge-prod').style.display = 'flex';
     }
@@ -6343,149 +6319,105 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     function _renderMergeProdBody() {
         if (!_mergeTarget) return;
         const { fr, rif } = _mergeTarget;
-        const style = `border-bottom:1px solid #f1f5f9;display:grid;grid-template-columns:120px 1fr 1fr 1fr;gap:6px;align-items:center;padding:6px 0`;
+        const base = _mergeBase || 'fr';
 
-        let html = `<div style="${style.replace('display:grid','display:grid')}">
-          <div></div>
-          <div style="font-size:10px;font-weight:800;color:#1d4ed8;text-align:center;background:#dbeafe;border-radius:5px;padding:3px">Frontalini</div>
-          <div style="font-size:10px;font-weight:800;color:#15803d;text-align:center;background:#f0fdf4;border-radius:5px;padding:3px">Fornitura</div>
-          <div style="font-size:10px;font-weight:800;color:#475569;text-align:center;background:#f1f5f9;border-radius:5px;padding:3px">Risultato</div>
+        // 1. Due card selezionabili (FRO / FOR)
+        const cardSt = (sel, bc, bg) =>
+            `cursor:pointer;border-radius:10px;padding:12px;border:2px solid ${sel?bc:'#e2e8f0'};background:${sel?bg:'#f8fafc'};flex:1`;
+        let html = `<div style="display:flex;gap:10px;margin-bottom:16px">`;
+        html += `<div onclick="_setMergeBase('fr')" style="${cardSt(base==='fr','#1d4ed8','#dbeafe')}">
+          <div style="font-size:9px;font-weight:800;color:${base==='fr'?'#1d4ed8':'#94a3b8'};text-transform:uppercase;margin-bottom:5px">
+            <input type="radio" ${base==='fr'?'checked':''} readonly style="margin-right:4px;accent-color:#1d4ed8;pointer-events:none"> Frontalini
+          </div>
+          <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:3px">${_escU(fr.descrizione||'—')}</div>
+          <div style="font-size:11px;color:#64748b">${[fr.codice, fr.fornitore, fr.prezzo != null ? '€'+fr.prezzo : ''].filter(Boolean).join(' · ')}</div>
         </div>`;
-
-        MERGE_PROD_FIELDS.forEach(f => {
-            const vFr  = fr[f.frKey];
-            const vRif = rif[f.rifKey];
-            const dFr  = _fmtMergeVal(f.key, vFr);
-            const dRif = _fmtMergeVal(f.key, vRif);
-            const selFr = _mergeProdSels[f.key] !== 'rif';
-            const selVal = selFr ? dFr : dRif;
-            const resultVal = _mergeProdOver[f.key] !== undefined ? _mergeProdOver[f.key] : selVal;
-            const same = dFr !== '' && dRif !== '' && dFr.toLowerCase() === dRif.toLowerCase();
-
-            if (same) {
-                html += `<div style="${style}">
-                  <div style="font-size:11px;font-weight:700;color:#64748b">${_escU(f.label)}</div>
-                  <div colspan="2" style="font-size:12px;color:#475569;grid-column:span 2;text-align:center;background:#f8fafc;border-radius:5px;padding:3px 6px"><i class="fas fa-equals" style="font-size:9px;opacity:.5;margin-right:3px"></i>${_escU(dFr)}</div>
-                  <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(resultVal)}" oninput="_onMergeProdEdit('${f.key}',this.value)">
-                </div>`;
-            } else {
-                html += `<div style="${style}">
-                  <div style="font-size:11px;font-weight:700;color:#64748b">${_escU(f.label)}</div>
-                  <div onclick="setMergeProdSel('${f.key}','fr')" style="cursor:pointer;border-radius:6px;padding:4px 7px;border:2px solid ${selFr?'#3b82f6':'#e2e8f0'};background:${selFr?'#dbeafe':'#fff'};font-size:12px;min-height:28px">
-                    <input type="radio" name="mpf-${f.key}" value="fr" ${selFr?'checked':''} style="margin-right:4px;accent-color:#3b82f6">${dFr ? _escU(dFr) : '<span style="color:#cbd5e1">—</span>'}
-                  </div>
-                  <div onclick="setMergeProdSel('${f.key}','rif')" style="cursor:pointer;border-radius:6px;padding:4px 7px;border:2px solid ${!selFr?'#16a34a':'#e2e8f0'};background:${!selFr?'#f0fdf4':'#fff'};font-size:12px;min-height:28px">
-                    <input type="radio" name="mpf-${f.key}" value="rif" ${!selFr?'checked':''} style="margin-right:4px;accent-color:#16a34a">${dRif ? _escU(dRif) : '<span style="color:#cbd5e1">—</span>'}
-                  </div>
-                  <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(resultVal)}" oninput="_onMergeProdEdit('${f.key}',this.value)">
-                </div>`;
-            }
-        });
-
-        // Attributi booleani — click per toggle
-        const attrBools = [
-            { k:'bio',           label:'BIO',           bg:'#dcfce7', tx:'#15803d' },
-            { k:'senza_glutine', label:'Senza Glutine', bg:'#fef3c7', tx:'#92400e' },
-            { k:'vegano',        label:'Vegano',        bg:'#ede9fe', tx:'#6d28d9' },
-        ];
-        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Attributi</div>`;
-        html += `<div style="display:flex;gap:7px;flex-wrap:wrap;padding:4px 0 8px">`;
-        attrBools.forEach(a => {
-            const on = _mergeProdOver[a.k] !== undefined ? !!_mergeProdOver[a.k] : !!fr[a.k];
-            html += `<span onclick="_toggleMergeBool('${a.k}')" title="Clicca per modificare" style="cursor:pointer;user-select:none;font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1.5px solid ${on ? a.tx : '#e2e8f0'};background:${on ? a.bg : '#f8fafc'};color:${on ? a.tx : '#94a3b8'}">${a.label}: ${on ? 'Sì' : 'No'}</span>`;
-        });
+        html += `<div onclick="_setMergeBase('rif')" style="${cardSt(base==='rif','#15803d','#f0fdf4')}">
+          <div style="font-size:9px;font-weight:800;color:${base==='rif'?'#15803d':'#94a3b8'};text-transform:uppercase;margin-bottom:5px">
+            <input type="radio" ${base==='rif'?'checked':''} readonly style="margin-right:4px;accent-color:#15803d;pointer-events:none"> Fornitura
+          </div>
+          <div style="font-weight:700;font-size:13px;color:#1e293b;margin-bottom:3px">${_escU(rif.description||'—')}</div>
+          <div style="font-size:11px;color:#64748b">${[rif.product_code, rif.fornitore, rif.pvp != null ? '€'+rif.pvp : ''].filter(Boolean).join(' · ')}</div>
+        </div>`;
         html += `</div>`;
 
-        // Note — modificabile
-        const noteVal = _mergeProdOver['note'] !== undefined ? _mergeProdOver['note'] : (fr.note || '');
-        html += `<div style="${style};grid-template-columns:120px 1fr">
-          <div style="font-size:11px;font-weight:700;color:#64748b">Note</div>
-          <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(noteVal)}" oninput="_onMergeProdEdit('note',this.value)">
+        // 2. Descrizione editabile
+        const baseDesc = base === 'fr' ? (fr.descrizione||'') : (rif.description||'');
+        const descVal = _mergeProdOver['descrizione'] !== undefined ? _mergeProdOver['descrizione'] : baseDesc;
+        html += `<div style="margin-bottom:12px">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Descrizione</label>
+          <input class="form-input" value="${_escU(descVal)}" oninput="_onMergeProdEdit('descrizione',this.value)" style="font-size:13px;text-transform:uppercase">
         </div>`;
 
-        // IVA — modificabile
-        const ivaVal = _mergeProdOver['iva'] !== undefined ? _mergeProdOver['iva'] : (fr.iva ?? '');
-        html += `<div style="${style};grid-template-columns:120px 1fr">
-          <div style="font-size:11px;font-weight:700;color:#64748b">IVA (%)</div>
-          <input type="number" min="0" max="100" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(String(ivaVal))}" oninput="_onMergeProdEdit('iva',this.value ? parseFloat(this.value) : null)">
-        </div>`;
+        // 3. Attributi + IVA inline
+        const attrBools = [
+            { k:'bio',           label:'BIO',  bg:'#dcfce7', tx:'#15803d' },
+            { k:'senza_glutine', label:'S.G.', bg:'#fef3c7', tx:'#92400e' },
+            { k:'vegano',        label:'Vegano', bg:'#ede9fe', tx:'#6d28d9' },
+        ];
+        html += `<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px">`;
+        attrBools.forEach(a => {
+            const on = _mergeProdOver[a.k] !== undefined ? !!_mergeProdOver[a.k] : !!fr[a.k];
+            html += `<span onclick="_toggleMergeBool('${a.k}')" style="cursor:pointer;user-select:none;font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1.5px solid ${on?a.tx:'#e2e8f0'};background:${on?a.bg:'#f8fafc'};color:${on?a.tx:'#94a3b8'}">${a.label}: ${on?'Sì':'No'}</span>`;
+        });
+        const ivaVal = _mergeProdOver['iva'] !== undefined ? _mergeProdOver['iva'] : (fr.iva??'');
+        html += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#64748b">IVA <input type="number" min="0" max="100" style="width:56px;font-size:11px;border:1px solid #e2e8f0;border-radius:5px;padding:3px 6px;font-family:inherit" value="${_escU(String(ivaVal))}" oninput="_onMergeProdEdit('iva',this.value?parseFloat(this.value):null)">%</div>`;
+        html += `</div>`;
 
-        // Dati fornitura — modificabili
-        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Dati fornitura</div>`;
-
-        const catVal = _mergeProdOver['category'] !== undefined ? _mergeProdOver['category'] : (rif.category || '');
-        html += `<div style="${style};grid-template-columns:120px 1fr">
-          <div style="font-size:11px;font-weight:700;color:#64748b">Categoria</div>
-          <input list="pfr-cat-list" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(catVal)}" oninput="_onMergeProdEdit('category',this.value)">
-        </div>`;
-
-        const lineaVal = _mergeProdOver['linea'] !== undefined ? _mergeProdOver['linea'] : (rif.linea || '');
-        html += `<div style="${style};grid-template-columns:120px 1fr">
-          <div style="font-size:11px;font-weight:700;color:#64748b">Linea</div>
-          <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(lineaVal)}" oninput="_onMergeProdEdit('linea',this.value)">
-        </div>`;
-
-        const packVal = _mergeProdOver['pack_size'] !== undefined ? _mergeProdOver['pack_size'] : (rif.pack_size || '');
-        html += `<div style="${style};grid-template-columns:120px 1fr">
-          <div style="font-size:11px;font-weight:700;color:#64748b">Pack size</div>
-          <input type="number" min="1" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(String(packVal))}" oninput="_onMergeProdEdit('pack_size',this.value)">
-        </div>`;
-
+        // 4. Assortimenti
         const asmFields = [
             { k:'assortment_cremona',       label:'Cremona' },
             { k:'assortment_casalmaggiore', label:'Casalmaggiore' },
             { k:'assortment_viadana',       label:'Viadana' },
             { k:'active',                   label:'Attivo' },
         ];
-        html += `<div style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0">`;
+        html += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">`;
         asmFields.forEach(af => {
-            const on = _mergeProdOver[af.k] !== undefined ? !!_mergeProdOver[af.k] : (af.k === 'active' ? rif.active !== false : !!rif[af.k]);
+            const on = _mergeProdOver[af.k] !== undefined ? !!_mergeProdOver[af.k] : (af.k==='active' ? rif.active!==false : !!rif[af.k]);
             html += `<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#475569;font-weight:600">
-              <input type="checkbox" ${on ? 'checked' : ''} onchange="_onMergeProdEdit('${af.k}',this.checked)" style="accent-color:#3b82f6"> ${af.label}
+              <input type="checkbox" ${on?'checked':''} onchange="_onMergeProdEdit('${af.k}',this.checked)" style="accent-color:#3b82f6"> ${af.label}
             </label>`;
         });
         html += `</div>`;
 
-        // Foto — selezione visuale FRO / FOR / Nessuna / Nuova
+        // 5. Foto (solo se almeno una presente)
         const fotoFr  = fr.foto_url  || null;
         const fotoRif = rif.foto_url || null;
         const fotoSel = _mergeProdOver['foto_url'] !== undefined ? _mergeProdOver['foto_url'] : (fotoFr || fotoRif || null);
-        const thumb = url => url
-            ? `<img src="${_escU(url)}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;display:block">`
-            : `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;color:#cbd5e1"><i class="fas fa-image" style="font-size:22px"></i></div>`;
-
-        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Foto prodotto</div>`;
-        html += `<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:4px 0 8px">`;
-
-        const fotoCases = [
-            { key:'fr',   url:fotoFr,  label:'FRO', selColor:'#1d4ed8', selBg:'#dbeafe', skip:!fotoFr },
-            { key:'rif',  url:fotoRif, label:'FOR', selColor:'#15803d', selBg:'#f0fdf4', skip:!fotoRif },
-            { key:'none', url:null,    label:'Nessuna', selColor:'#475569', selBg:'#f1f5f9', skip:false },
-        ];
-        fotoCases.forEach(fc => {
-            if (fc.skip) return;
-            const sel = fc.key === 'none' ? (fotoSel === null || fotoSel === '') : (fotoSel === fc.url && fc.url);
-            html += `<div onclick="_selectMergeFoto('${fc.key}')" style="cursor:pointer;border-radius:8px;border:2px solid ${sel?fc.selColor:'#e2e8f0'};background:${sel?fc.selBg:'#f8fafc'};padding:4px 4px 2px;text-align:center">
-              ${fc.url ? thumb(fc.url) : `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;color:${sel?fc.selColor:'#cbd5e1'}"><i class="fas fa-ban" style="font-size:22px"></i></div>`}
-              <div style="font-size:9px;font-weight:800;color:${sel?fc.selColor:'#94a3b8'};margin-top:2px">${fc.label}${sel?' ✓':''}</div>
+        if (fotoFr || fotoRif) {
+            html += `<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">`;
+            const thumb = (url, label, selC, selBg, key) => {
+                const sel = fotoSel === url;
+                return `<div onclick="_selectMergeFoto('${key}')" style="cursor:pointer;border-radius:8px;border:2px solid ${sel?selC:'#e2e8f0'};background:${sel?selBg:'#f8fafc'};padding:4px;text-align:center">
+                  <img src="${_escU(url)}" style="width:52px;height:52px;object-fit:cover;border-radius:5px;display:block">
+                  <div style="font-size:9px;font-weight:800;color:${sel?selC:'#94a3b8'};margin-top:2px">${label}${sel?' ✓':''}</div>
+                </div>`;
+            };
+            if (fotoFr)  html += thumb(fotoFr,  'FRO', '#1d4ed8', '#dbeafe', 'fr');
+            if (fotoRif) html += thumb(fotoRif, 'FOR', '#15803d', '#f0fdf4', 'rif');
+            const selNone = !fotoSel;
+            html += `<div onclick="_selectMergeFoto('none')" style="cursor:pointer;border-radius:8px;border:2px solid ${selNone?'#475569':'#e2e8f0'};background:${selNone?'#f1f5f9':'#f8fafc'};padding:4px 8px;text-align:center;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+              <i class="fas fa-ban" style="font-size:16px;color:${selNone?'#475569':'#cbd5e1'}"></i>
+              <div style="font-size:9px;font-weight:800;color:${selNone?'#475569':'#94a3b8'}">Nessuna</div>
             </div>`;
-        });
-
-        // Foto caricata via upload
-        if (fotoSel && fotoSel !== fotoFr && fotoSel !== fotoRif && fotoSel !== null) {
-            html += `<div style="border-radius:8px;border:2px solid #7c3aed;background:#f3e8ff;padding:4px 4px 2px;text-align:center">
-              ${thumb(fotoSel)}
-              <div style="font-size:9px;font-weight:800;color:#7c3aed;margin-top:2px">Nuova ✓</div>
-            </div>`;
+            if (fotoSel && fotoSel !== fotoFr && fotoSel !== fotoRif) {
+                html += `<div style="border-radius:8px;border:2px solid #7c3aed;background:#f3e8ff;padding:4px;text-align:center">
+                  <img src="${_escU(fotoSel)}" style="width:52px;height:52px;object-fit:cover;border-radius:5px;display:block">
+                  <div style="font-size:9px;font-weight:800;color:#7c3aed;margin-top:2px">Nuova ✓</div>
+                </div>`;
+            }
+            html += `<button type="button" onclick="document.getElementById('merge-foto-new-input').click()" style="background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;color:#475569;align-self:flex-end" title="Carica nuova foto"><i class="fas fa-upload"></i></button>`;
+            if (_mergeFotoProgress) html += `<span style="font-size:10px;color:#64748b;align-self:flex-end">Caricamento…</span>`;
+            html += `</div>`;
         }
 
-        html += `<div style="display:flex;flex-direction:column;gap:5px;justify-content:flex-end">
-          <button type="button" onclick="document.getElementById('merge-foto-new-input').click()" style="background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#475569;white-space:nowrap"><i class="fas fa-upload" style="margin-right:4px"></i>Carica nuova</button>
-          ${_mergeFotoProgress ? `<div style="font-size:10px;color:#64748b">Caricamento…</div>` : ''}
-        </div>`;
-        html += `</div>`;
-
         document.getElementById('merge-prod-body').innerHTML = html;
+    }
+
+    function _setMergeBase(base) {
+        _mergeBase = base;
+        delete _mergeProdOver['descrizione'];
+        _renderMergeProdBody();
     }
 
     function setMergeProdSel(field, source) {
@@ -6538,35 +6470,37 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     function confirmMergeProd() {
         if (!_mergeTarget) return;
         const { fr, rif } = _mergeTarget;
-        const payload = {};
+        const base = _mergeBase || 'fr';
+        const ov = _mergeProdOver;
 
-        MERGE_PROD_FIELDS.forEach(f => {
-            const selFr = _mergeProdSels[f.key] !== 'rif';
-            const valSrc = selFr ? fr[f.frKey] : rif[f.rifKey];
-            const valFinal = _mergeProdOver[f.key] !== undefined ? _mergeProdOver[f.key] : (valSrc ?? '');
-            // Converti al tipo giusto
-            if (f.key === 'peso' || f.key === 'prezzo') {
-                payload[f.key] = valFinal !== '' ? parseFloat(valFinal) || null : null;
-            } else {
-                payload[f.key] = valFinal || null;
-            }
-        });
-        // Attributi booleani — usa override se impostato
-        ['bio','senza_glutine','vegano'].forEach(k => {
-            payload[k] = _mergeProdOver[k] !== undefined ? !!_mergeProdOver[k] : !!fr[k];
-        });
-        payload.note     = _mergeProdOver['note']     !== undefined ? (_mergeProdOver['note']     || null) : (fr.note     || null);
-        payload.iva      = _mergeProdOver['iva'] !== undefined ? (_mergeProdOver['iva'] !== null && _mergeProdOver['iva'] !== '' ? parseFloat(_mergeProdOver['iva']) || null : null) : (fr.iva ?? null);
-        payload.foto_url = _mergeProdOver['foto_url'] !== undefined ? (_mergeProdOver['foto_url'] || null) : (fr.foto_url || rif.foto_url || null);
-        // Dati fornitura — usa override se impostato
-        payload.category                 = (_mergeProdOver['category']  !== undefined ? _mergeProdOver['category']  : rif.category)  || null;
-        payload.linea                    = (_mergeProdOver['linea']     !== undefined ? _mergeProdOver['linea']     : rif.linea)     || null;
-        payload.pack_size                = (_mergeProdOver['pack_size'] !== undefined ? parseInt(_mergeProdOver['pack_size'])||null : rif.pack_size) || null;
-        payload.assortment_cremona       = _mergeProdOver['assortment_cremona']       !== undefined ? !!_mergeProdOver['assortment_cremona']       : !!rif.assortment_cremona;
-        payload.assortment_casalmaggiore = _mergeProdOver['assortment_casalmaggiore'] !== undefined ? !!_mergeProdOver['assortment_casalmaggiore'] : !!rif.assortment_casalmaggiore;
-        payload.assortment_viadana       = _mergeProdOver['assortment_viadana']       !== undefined ? !!_mergeProdOver['assortment_viadana']       : !!rif.assortment_viadana;
-        payload.active                   = _mergeProdOver['active']                   !== undefined ? !!_mergeProdOver['active']                   : rif.active !== false;
-        payload.source_sheet             = rif.source_sheet || null;
+        // Helper: pick override → base → fallback
+        const pick = (key, frVal, rifVal) => ov[key] !== undefined ? ov[key] : (base === 'fr' ? frVal : rifVal);
+
+        const payload = {
+            codice:      pick('codice',      fr.codice,      rif.product_code)   || null,
+            descrizione: (ov['descrizione'] !== undefined ? ov['descrizione'] : (base==='fr' ? fr.descrizione : rif.description) || '').toUpperCase(),
+            peso:        pick('peso',        fr.peso,        rif.quantita)       ?? null,
+            unita:       pick('unita',       fr.unita,       rif.unita_misura)   || null,
+            prezzo:      pick('prezzo',      fr.prezzo,      rif.pvp)            ?? null,
+            fornitore:   pick('fornitore',   fr.fornitore,   rif.fornitore)      || null,
+            marchio:     pick('marchio',     fr.marchio,     rif.marchio)        || null,
+            // Attributi: sempre da FRO (con possibilità di override)
+            bio:          ov['bio']          !== undefined ? !!ov['bio']          : !!fr.bio,
+            senza_glutine:ov['senza_glutine']!== undefined ? !!ov['senza_glutine']: !!fr.senza_glutine,
+            vegano:       ov['vegano']       !== undefined ? !!ov['vegano']       : !!fr.vegano,
+            iva:          ov['iva']          !== undefined ? (ov['iva']!==null&&ov['iva']!=='' ? parseFloat(ov['iva'])||null : null) : (fr.iva ?? null),
+            note:         ov['note']         !== undefined ? (ov['note']          || null) : (fr.note || null),
+            foto_url:     ov['foto_url']     !== undefined ? (ov['foto_url']      || null) : (fr.foto_url || rif.foto_url || null),
+            // Dati fornitura: sempre da FOR (con possibilità di override)
+            category:    (ov['category']    !== undefined ? ov['category']    : rif.category)  || null,
+            linea:       (ov['linea']        !== undefined ? ov['linea']        : rif.linea)     || null,
+            pack_size:    ov['pack_size']    !== undefined ? (parseInt(ov['pack_size'])||null)   : (rif.pack_size || null),
+            assortment_cremona:       ov['assortment_cremona']       !== undefined ? !!ov['assortment_cremona']       : !!rif.assortment_cremona,
+            assortment_casalmaggiore: ov['assortment_casalmaggiore'] !== undefined ? !!ov['assortment_casalmaggiore'] : !!rif.assortment_casalmaggiore,
+            assortment_viadana:       ov['assortment_viadana']       !== undefined ? !!ov['assortment_viadana']       : !!rif.assortment_viadana,
+            active:       ov['active']       !== undefined ? !!ov['active']       : rif.active !== false,
+            source_sheet: rif.source_sheet || null,
+        };
 
         const k = fr.id + ':' + rif.id;
         _doppRisolti[k] = payload;
