@@ -5599,20 +5599,27 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const marc = document.getElementById('prod-all-marc')?.value || '';
         const cat  = document.getElementById('prod-all-cat')?.value  || '';
 
-        // Se prodotti_catalogo ha dati, è la fonte ufficiale:
-        // "Tutte le fonti" mostra solo PRO; FRO/FOR restano visibili solo se scelti esplicitamente.
-        const hasUnif = _prodUnificati.length > 0;
-        const showFro = src === 'frontalini' || (!src && !hasUnif);
-        const showFor = src === 'fornitura'  || (!src && !hasUnif);
+        const showFro = src === 'frontalini' || !src;
+        const showFor = src === 'fornitura'  || !src;
         const showPro = src === 'prodotti'   || !src;
 
-        const frItems = !showFro ? [] : _prodFrontalini.map(p => ({
+        // Quando esistono record PRO, nascondi FRO/FOR già migrati (match per codice o descrizione)
+        const proCodicis = new Set(_prodUnificati.map(p => (p.codice||'').toLowerCase().trim()).filter(Boolean));
+        const proDescs   = new Set(_prodUnificati.map(p => (p.descrizione||'').toLowerCase().trim()).filter(Boolean));
+        const giaMigrato = (codice, desc) => {
+            if (!_prodUnificati.length || src) return false; // in filtro per fonte: mostra tutto
+            const c = (codice||'').toLowerCase().trim();
+            const d = (desc||'').toLowerCase().trim();
+            return (c && proCodicis.has(c)) || (d && proDescs.has(d));
+        };
+
+        const frItems = !showFro ? [] : _prodFrontalini.filter(p => !giaMigrato(p.codice, p.descrizione)).map(p => ({
             _src:'frontalini', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:null, ca:null, vi:null, attivo:true,
             peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null,
         }));
-        const rfItems = !showFor ? [] : _prodFornitura.map(p => ({
+        const rfItems = !showFor ? [] : _prodFornitura.filter(p => !giaMigrato(p.product_code, p.description)).map(p => ({
             _src:'fornitura', _id:p.id, codice:p.product_code||'', descrizione:p.description||'',
             pvp:p.pvp, pack:p.pack_size, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
