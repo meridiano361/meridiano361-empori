@@ -1754,6 +1754,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <div style="background:#f1f5f9;border-radius:6px;padding:4px">Risultato</div>
             </div>
             <div id="merge-prod-body" style="overflow-y:auto;max-height:420px"></div>
+            <input type="file" id="merge-foto-new-input" accept="image/*" style="display:none" onchange="onMergeFotoUpload(this)">
           </div>
           <div class="modal-footer">
             <button class="btn-secondary" onclick="closeMergeProdModal()">Annulla</button>
@@ -6437,6 +6438,45 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         });
         html += `</div>`;
 
+        // Foto — selezione visuale FRO / FOR / Nessuna / Nuova
+        const fotoFr  = fr.foto_url  || null;
+        const fotoRif = rif.foto_url || null;
+        const fotoSel = _mergeProdOver['foto_url'] !== undefined ? _mergeProdOver['foto_url'] : (fotoFr || fotoRif || null);
+        const thumb = url => url
+            ? `<img src="${_escU(url)}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;display:block">`
+            : `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;color:#cbd5e1"><i class="fas fa-image" style="font-size:22px"></i></div>`;
+
+        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Foto prodotto</div>`;
+        html += `<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:4px 0 8px">`;
+
+        const fotoCases = [
+            { key:'fr',   url:fotoFr,  label:'FRO', selColor:'#1d4ed8', selBg:'#dbeafe', skip:!fotoFr },
+            { key:'rif',  url:fotoRif, label:'FOR', selColor:'#15803d', selBg:'#f0fdf4', skip:!fotoRif },
+            { key:'none', url:null,    label:'Nessuna', selColor:'#475569', selBg:'#f1f5f9', skip:false },
+        ];
+        fotoCases.forEach(fc => {
+            if (fc.skip) return;
+            const sel = fc.key === 'none' ? (fotoSel === null || fotoSel === '') : (fotoSel === fc.url && fc.url);
+            html += `<div onclick="_selectMergeFoto('${fc.key}')" style="cursor:pointer;border-radius:8px;border:2px solid ${sel?fc.selColor:'#e2e8f0'};background:${sel?fc.selBg:'#f8fafc'};padding:4px 4px 2px;text-align:center">
+              ${fc.url ? thumb(fc.url) : `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;color:${sel?fc.selColor:'#cbd5e1'}"><i class="fas fa-ban" style="font-size:22px"></i></div>`}
+              <div style="font-size:9px;font-weight:800;color:${sel?fc.selColor:'#94a3b8'};margin-top:2px">${fc.label}${sel?' ✓':''}</div>
+            </div>`;
+        });
+
+        // Foto caricata via upload
+        if (fotoSel && fotoSel !== fotoFr && fotoSel !== fotoRif && fotoSel !== null) {
+            html += `<div style="border-radius:8px;border:2px solid #7c3aed;background:#f3e8ff;padding:4px 4px 2px;text-align:center">
+              ${thumb(fotoSel)}
+              <div style="font-size:9px;font-weight:800;color:#7c3aed;margin-top:2px">Nuova ✓</div>
+            </div>`;
+        }
+
+        html += `<div style="display:flex;flex-direction:column;gap:5px;justify-content:flex-end">
+          <button type="button" onclick="document.getElementById('merge-foto-new-input').click()" style="background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;color:#475569;white-space:nowrap"><i class="fas fa-upload" style="margin-right:4px"></i>Carica nuova</button>
+          ${_mergeFotoProgress ? `<div style="font-size:10px;color:#64748b">Caricamento…</div>` : ''}
+        </div>`;
+        html += `</div>`;
+
         document.getElementById('merge-prod-body').innerHTML = html;
     }
 
@@ -6456,6 +6496,28 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
     function _onMergeProdEdit(field, value) {
         _mergeProdOver[field] = value;
+    }
+
+    let _mergeFotoProgress = false;
+    function _selectMergeFoto(src) {
+        const { fr, rif } = _mergeTarget;
+        if (src === 'fr')   _mergeProdOver['foto_url'] = fr.foto_url  || null;
+        else if (src === 'rif') _mergeProdOver['foto_url'] = rif.foto_url || null;
+        else _mergeProdOver['foto_url'] = null;
+        _renderMergeProdBody();
+    }
+    async function onMergeFotoUpload(input) {
+        const file = input.files?.[0]; if (!file) return;
+        _mergeFotoProgress = true; _renderMergeProdBody();
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `merge/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await db.storage.from('prodotti-foto').upload(path, file, { upsert: true });
+        _mergeFotoProgress = false;
+        if (error) { showToast('Errore foto: ' + error.message, 'err'); _renderMergeProdBody(); return; }
+        const { data: urlData } = db.storage.from('prodotti-foto').getPublicUrl(path);
+        _mergeProdOver['foto_url'] = urlData.publicUrl;
+        input.value = '';
+        _renderMergeProdBody();
     }
 
     function _toggleMergeBool(key) {
@@ -6485,8 +6547,9 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         ['bio','senza_glutine','vegano'].forEach(k => {
             payload[k] = _mergeProdOver[k] !== undefined ? !!_mergeProdOver[k] : !!fr[k];
         });
-        payload.note = _mergeProdOver['note'] !== undefined ? (_mergeProdOver['note'] || null) : (fr.note || null);
-        payload.iva  = fr.iva ?? null;
+        payload.note     = _mergeProdOver['note']     !== undefined ? (_mergeProdOver['note']     || null) : (fr.note     || null);
+        payload.iva      = fr.iva ?? null;
+        payload.foto_url = _mergeProdOver['foto_url'] !== undefined ? (_mergeProdOver['foto_url'] || null) : (fr.foto_url || rif.foto_url || null);
         // Dati fornitura — usa override se impostato
         payload.category                 = (_mergeProdOver['category']  !== undefined ? _mergeProdOver['category']  : rif.category)  || null;
         payload.linea                    = (_mergeProdOver['linea']     !== undefined ? _mergeProdOver['linea']     : rif.linea)     || null;
