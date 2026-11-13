@@ -803,43 +803,63 @@ function rTabs() {
     </button>`).join('');
 }
 
+function _rCatItem(p) {
+  const isSel = _sel.has(p.id);
+  const pu = prezzoUnitario(p.peso, p.unita, p.prezzo);
+  const attrs = [];
+  if (p.bio)               attrs.push(['BIO','ap-bio']);
+  if (p.senza_glutine)     attrs.push(['SG','ap-sg']);
+  if (p.vegano)            attrs.push(['VEG','ap-veg']);
+  if (p.peso && !p.unita)  attrs.push(['⚠️ unità?','ap-warn']);
+  return `<div class="cat-item${isSel?' selected':''}" onclick="toggleSel(${p.id})">
+    <input type="checkbox" class="cat-check" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSel(${p.id})">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span class="cat-desc">${escH(p.descrizione)}</span>
+        ${attrs.map(([l,c])=>`<span class="attr-pill ${c}">${l}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
+        ${p.codice ? `<span class="cat-code">${escH(p.codice)}</span>` : ''}
+        ${p.fornitore||p.marchio ? `<span class="cat-sup">${escH(titleCase(p.marchio||p.fornitore))}</span>` : ''}
+        ${p.peso ? `<span class="cat-sup">${escH(pesoDisplay(p.peso, p.unita))}</span>` : ''}
+        ${pu ? `<span class="cat-sup">${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+      ${p.prezzo != null ? `<div class="cat-price">${fmtN(p.prezzo)} €</div>` : '<div class="cat-price" style="color:var(--s300)">—</div>'}
+      ${typeof isAdmin==='function'&&isAdmin() ? `<div style="display:flex;gap:3px"><button class="btn btn-out btn-xs" onclick="event.stopPropagation();openCatEditModal(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button><button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="event.stopPropagation();quickDeleteCat(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function _rSelallBar(list) {
+  const nSel = _sel.size;
+  const allSel = list.length > 0 && list.every(p => _sel.has(p.id));
+  return `<input type="checkbox" class="cat-check" ${allSel?'checked':''} onchange="toggleSelAll(this.checked)" title="Seleziona tutti">
+    <span style="font-size:12px;color:var(--s500);flex:1">${allSel?'Deseleziona tutti':'Seleziona tutti'} <span style="color:var(--s400)">(${list.length} prodotti visibili)</span></span>
+    ${nSel>0?`<span style="font-size:12px;font-weight:800;color:var(--red)">${nSel} selezionat${nSel===1?'o':'i'}</span>`:''}`;
+}
+
+// Aggiorna solo la lista prodotti senza ricreare l'input di ricerca
+function rCatOnly() {
+  const catEl = document.getElementById('fl-cat-rows');
+  if (!catEl || _view !== 'selezione') { R(); return; }
+  const list = filteredCatalogo();
+  catEl.innerHTML = list.length
+    ? list.map(_rCatItem).join('')
+    : `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">${_catalogo.length===0?'Catalogo vuoto — aggiungi prodotti manualmente o importa da Excel.':'Nessun risultato.'}</div>`;
+  const sarEl = document.getElementById('fl-selall-row');
+  if (sarEl) {
+    sarEl.style.display = list.length > 0 ? 'flex' : 'none';
+    if (list.length > 0) sarEl.innerHTML = _rSelallBar(list);
+  }
+}
+
 function rSelezione() {
   const list = filteredCatalogo();
   const fors  = fornitori();
   const mars  = marchi();
   const nSel  = _sel.size;
-  const allSel = list.length > 0 && list.every(p => _sel.has(p.id));
-
-  const catalogHTML = list.length
-    ? list.map(p => {
-        const isSel = _sel.has(p.id);
-        const pu = prezzoUnitario(p.peso, p.unita, p.prezzo);
-        const attrs = [];
-        if (p.bio)               attrs.push(['BIO','ap-bio']);
-        if (p.senza_glutine)     attrs.push(['SG','ap-sg']);
-        if (p.vegano)            attrs.push(['VEG','ap-veg']);
-        if (p.peso && !p.unita)  attrs.push(['⚠️ unità?','ap-warn']);
-        return `<div class="cat-item${isSel?' selected':''}" onclick="toggleSel(${p.id})">
-          <input type="checkbox" class="cat-check" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSel(${p.id})">
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              <span class="cat-desc">${escH(p.descrizione)}</span>
-              ${attrs.map(([l,c])=>`<span class="attr-pill ${c}">${l}</span>`).join('')}
-            </div>
-            <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
-              ${p.codice ? `<span class="cat-code">${escH(p.codice)}</span>` : ''}
-              ${p.fornitore||p.marchio ? `<span class="cat-sup">${escH(titleCase(p.marchio||p.fornitore))}</span>` : ''}
-              ${p.peso ? `<span class="cat-sup">${escH(pesoDisplay(p.peso, p.unita))}</span>` : ''}
-              ${pu ? `<span class="cat-sup">${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-            ${p.prezzo != null ? `<div class="cat-price">${fmtN(p.prezzo)} €</div>` : '<div class="cat-price" style="color:var(--s300)">—</div>'}
-            ${typeof isAdmin==='function'&&isAdmin() ? `<div style="display:flex;gap:3px"><button class="btn btn-out btn-xs" onclick="event.stopPropagation();openCatEditModal(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button><button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="event.stopPropagation();quickDeleteCat(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button></div>` : ''}
-          </div>
-        </div>`;
-      }).join('')
-    : `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">${_catalogo.length===0 ? 'Catalogo vuoto — aggiungi prodotti manualmente o importa da Excel.' : 'Nessun risultato.'}</div>`;
 
   return `
     <button class="bk" onclick="window.location.href='prezzi.html'" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Prezzi da fare</button>
@@ -878,13 +898,8 @@ function rSelezione() {
           ${(_fFor||_fMar||_fBio||_fSg||_fVeg||_fUnita||_fWarn) ? `<button class="btn btn-out btn-xs" style="flex-shrink:0" onclick="_fFor='';_fMar='';_fBio=_fSg=_fVeg=_fWarn=false;_fUnita='';R()">Reset</button>` : ''}
         </div>
       </div>
-      ${list.length > 0 ? `
-      <div style="padding:7px 14px;border-bottom:1px solid var(--s100);display:flex;align-items:center;gap:8px;background:var(--s50)">
-        <input type="checkbox" class="cat-check" ${allSel?'checked':''} onchange="toggleSelAll(this.checked)" title="Seleziona tutti">
-        <span style="font-size:12px;color:var(--s500);flex:1">${allSel?'Deseleziona tutti':'Seleziona tutti'} <span style="color:var(--s400)">(${list.length} prodotti visibili)</span></span>
-        ${nSel>0?`<span style="font-size:12px;font-weight:800;color:var(--red)">${nSel} selezionat${nSel===1?'o':'i'}</span>`:''}
-      </div>` : ''}
-      <div>${catalogHTML}</div>
+      <div id="fl-selall-row" style="padding:7px 14px;border-bottom:1px solid var(--s100);display:${list.length>0?'flex':'none'};align-items:center;gap:8px;background:var(--s50)">${list.length>0?_rSelallBar(list):''}</div>
+      <div id="fl-cat-rows">${list.length ? list.map(_rCatItem).join('') : `<div style="padding:36px;text-align:center;color:var(--s400);font-size:13px">${_catalogo.length===0?'Catalogo vuoto — aggiungi prodotti manualmente o importa da Excel.':'Nessun risultato.'}</div>`}</div>
     </div>
     ${nSel > 0 ? `
     <div class="add-float">
@@ -1137,17 +1152,17 @@ function toggleSelAll(checked) {
 
 function onSearch(v) {
   _search = v;
-  R();
+  rCatOnly();
 }
-function setFFor(v)  { _fFor = v; R(); }
-function setFMar(v)  { _fMar = v; R(); }
+function setFFor(v)  { _fFor = v; rCatOnly(); }
+function setFMar(v)  { _fMar = v; rCatOnly(); }
 function applyAttrFilter(v) {
   _fBio = _fSg = _fVeg = _fWarn = false;
   if (v === 'bio')  _fBio  = true;
   if (v === 'sg')   _fSg   = true;
   if (v === 'veg')  _fVeg  = true;
   if (v === 'warn') _fWarn = true;
-  R();
+  rCatOnly();
 }
 
 function setBzSearch(v) { _bzSearch = v; R(); }
