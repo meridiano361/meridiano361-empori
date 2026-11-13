@@ -1393,7 +1393,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <div id="unif-migra-wrap" style="display:none">
                 <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">4</span>Esegui la migrazione</div>
                 <div id="unif-riepilogo" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
-                <button class="btn-primary" onclick="eseguiMigrazione()" style="padding:9px 20px;font-size:13px;background:#15803d"><i class="fas fa-database" style="margin-right:5px"></i>Migra tutti i prodotti in <code style="background:rgba(255,255,255,.2);border-radius:4px;padding:1px 5px">prodotti_catalogo</code></button>
+                <button class="btn-primary" onclick="eseguiMigrazione(false)" style="padding:9px 20px;font-size:13px;background:#15803d"><i class="fas fa-database" style="margin-right:5px"></i>Migra tutti i prodotti</button>
+                <button class="btn-secondary" onclick="eseguiMigrazione(true)" style="padding:9px 20px;font-size:13px"><i class="fas fa-compress-alt" style="margin-right:5px"></i>Migra solo doppioni risolti</button>
                 <div id="unif-progresso" style="margin-top:10px;font-size:12px;color:#64748b"></div>
               </div>
             </div>
@@ -6402,6 +6403,13 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
           <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(noteVal)}" oninput="_onMergeProdEdit('note',this.value)">
         </div>`;
 
+        // IVA — modificabile
+        const ivaVal = _mergeProdOver['iva'] !== undefined ? _mergeProdOver['iva'] : (fr.iva ?? '');
+        html += `<div style="${style};grid-template-columns:120px 1fr">
+          <div style="font-size:11px;font-weight:700;color:#64748b">IVA (%)</div>
+          <input type="number" min="0" max="100" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(String(ivaVal))}" oninput="_onMergeProdEdit('iva',this.value ? parseFloat(this.value) : null)">
+        </div>`;
+
         // Dati fornitura — modificabili
         html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Dati fornitura</div>`;
 
@@ -6548,7 +6556,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             payload[k] = _mergeProdOver[k] !== undefined ? !!_mergeProdOver[k] : !!fr[k];
         });
         payload.note     = _mergeProdOver['note']     !== undefined ? (_mergeProdOver['note']     || null) : (fr.note     || null);
-        payload.iva      = fr.iva ?? null;
+        payload.iva      = _mergeProdOver['iva'] !== undefined ? (_mergeProdOver['iva'] !== null && _mergeProdOver['iva'] !== '' ? parseFloat(_mergeProdOver['iva']) || null : null) : (fr.iva ?? null);
         payload.foto_url = _mergeProdOver['foto_url'] !== undefined ? (_mergeProdOver['foto_url'] || null) : (fr.foto_url || rif.foto_url || null);
         // Dati fornitura — usa override se impostato
         payload.category                 = (_mergeProdOver['category']  !== undefined ? _mergeProdOver['category']  : rif.category)  || null;
@@ -6568,10 +6576,17 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         showToast('Doppione risolto', 'ok');
     }
 
-    async function eseguiMigrazione() {
-        const doppNonRisolti = _doppioni.filter(d => !_doppRisolti[d.fr.id + ':' + d.rif.id]);
-        if (doppNonRisolti.length > 0) {
-            if (!confirm(`Ci sono ancora ${doppNonRisolti.length} doppioni da risolvere. I doppioni non risolti verranno importati dalla versione Frontalini. Continuare?`)) return;
+    async function eseguiMigrazione(soloRisolti = false) {
+        const doppRisoltiList = _doppioni.filter(d => _doppRisolti[d.fr.id + ':' + d.rif.id]);
+        const doppNonRisolti  = _doppioni.filter(d => !_doppRisolti[d.fr.id + ':' + d.rif.id]);
+
+        if (soloRisolti) {
+            if (!doppRisoltiList.length) { showToast('Nessun doppione risolto da migrare', 'err'); return; }
+            if (!confirm(`Verranno inseriti in prodotti_catalogo solo i ${doppRisoltiList.length} doppioni già risolti. I prodotti non coinvolti rimarranno nelle tabelle originali. Continuare?`)) return;
+        } else {
+            if (doppNonRisolti.length > 0) {
+                if (!confirm(`Ci sono ancora ${doppNonRisolti.length} doppioni da risolvere. I doppioni non risolti verranno importati dalla versione Frontalini. Continuare?`)) return;
+            }
         }
 
         const progEl = document.getElementById('unif-progresso');
@@ -6582,6 +6597,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
         const records = [];
 
+        if (!soloRisolti) {
         // 1. Prodotti solo frontalini (non doppioni)
         for (const fr of _prodFrontalini) {
             if (usedFrIds.has(fr.id)) continue;
@@ -6611,13 +6627,14 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 active: rif.active !== false, source_sheet: rif.source_sheet || null,
             });
         }
+        } // fine if (!soloRisolti)
 
-        // 3. Doppioni risolti
+        // 3. Doppioni
         for (const d of _doppioni) {
             const k = d.fr.id + ':' + d.rif.id;
             if (_doppRisolti[k]) {
                 records.push({ ...(_doppRisolti[k]), descrizione: (_doppRisolti[k].descrizione || '').toUpperCase() });
-            } else {
+            } else if (!soloRisolti) {
                 // Non risolto: usa frontalini come base + dati fornitura
                 const fr = d.fr, rif = d.rif;
                 records.push({
@@ -6653,8 +6670,9 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             progEl.textContent = `Inseriti ${n} / ${records.length} prodotti…`;
         }
 
-        progEl.innerHTML = `<span style="color:#15803d;font-weight:700"><i class="fas fa-check-circle" style="margin-right:5px"></i>Migrazione completata! ${n} prodotti inseriti in <code>prodotti_catalogo</code>.</span>`;
-        showToast(`Migrazione completata: ${n} prodotti`, 'ok');
+        const modeLabel = soloRisolti ? 'doppioni risolti migrati' : 'prodotti inseriti';
+        progEl.innerHTML = `<span style="color:#15803d;font-weight:700"><i class="fas fa-check-circle" style="margin-right:5px"></i>Migrazione completata! ${n} ${modeLabel} in <code>prodotti_catalogo</code>.</span>`;
+        showToast(`Migrazione completata: ${n} ${modeLabel}`, 'ok');
     }
     </script>
 </body>

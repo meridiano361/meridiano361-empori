@@ -1404,7 +1404,7 @@ function onFotoChange(input) {
             const row = input.closest('tr');
             const prodId = row?.dataset?.prodId;
             const prodSrc = row?.dataset?.prodSrc;
-            if (prodId && prodSrc === 'frontalini') {
+            if (prodId && ['frontalini','prodotti'].includes(prodSrc)) {
                 _sincFotoAnag(prodId, canvas, dataUrl, input, img);
             }
         };
@@ -1417,13 +1417,14 @@ async function _sincFotoAnag(prodId, canvas, fallbackDataUrl, input, imgEl) {
     try {
         canvas.toBlob(async (blob) => {
             if (!blob) return;
-            const path = `frontalini/${prodId}_${Date.now()}.jpg`;
+            const _fotoPrefix = _catalogTable === 'prodotti_catalogo' ? 'prodotti' : 'frontalini';
+            const path = `${_fotoPrefix}/${prodId}_${Date.now()}.jpg`;
             const { error: upErr } = await _supabase.storage.from('prodotti-foto').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
             if (upErr) return;
             const { data: urlData } = _supabase.storage.from('prodotti-foto').getPublicUrl(path);
             const publicUrl = urlData.publicUrl;
             // Aggiorna anagrafica
-            await _supabase.from('frontalini_catalogo').update({ foto_url: publicUrl }).eq('id', prodId);
+            await _supabase.from(_catalogTable).update({ foto_url: publicUrl }).eq('id', prodId);
             // Aggiorna cache autocomplete
             const idx = _acProd.findIndex(p => String(p.id) === String(prodId));
             if (idx >= 0) _acProd[idx].foto = publicUrl;
@@ -2930,7 +2931,7 @@ function chiudiLightbox() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { chiudiLightbox(); _acHide(); } });
 
 // ── AUTOCOMPLETE PRODOTTI ─────────────────────────────────────
-let _acProd=[], _acDropEl=null;
+let _acProd=[], _acDropEl=null, _catalogTable='frontalini_catalogo';
 (function _injectAcCss(){
     if(document.getElementById('ac-prod-style')) return;
     const s=document.createElement('style'); s.id='ac-prod-style';
@@ -2939,14 +2940,21 @@ let _acProd=[], _acDropEl=null;
 })();
 (async function _loadAcProd(){
     try {
-        const [{data:fr},{data:rf}] = await Promise.all([
-            _supabase.from('frontalini_catalogo').select('id,codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note'),
-            _supabase.from('rifornimento_catalogo').select('product_code,description,pvp,fornitore,marchio,quantita,unita_misura,category').eq('active',true),
-        ]);
-        _acProd = [
-            ...(fr||[]).map(p=>({id:p.id,c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'frontalini',iva:p.iva??null,bio:!!p.bio,sg:!!p.senza_glutine,veg:!!p.vegano,forn:p.fornitore||'',marc:p.marchio||'',peso:p.peso??null,unita:p.unita||'',foto:p.foto_url||null,note:p.note||''})),
-            ...(rf||[]).map(p=>({id:null,c:p.product_code||'',n:p.description,p:p.pvp,src:'fornitura',iva:null,bio:false,sg:false,veg:false,forn:p.fornitore||'',marc:p.marchio||'',peso:p.quantita??null,unita:p.unita_misura||'',foto:null,note:''})),
-        ];
+        const { count } = await _supabase.from('prodotti_catalogo').select('id',{count:'exact',head:true});
+        if (count > 0) {
+            _catalogTable = 'prodotti_catalogo';
+            const { data:pu } = await _supabase.from('prodotti_catalogo').select('id,codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note').eq('active',true);
+            _acProd = (pu||[]).map(p=>({id:p.id,c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'prodotti',iva:p.iva??null,bio:!!p.bio,sg:!!p.senza_glutine,veg:!!p.vegano,forn:p.fornitore||'',marc:p.marchio||'',peso:p.peso??null,unita:p.unita||'',foto:p.foto_url||null,note:p.note||''}));
+        } else {
+            const [{data:fr},{data:rf}] = await Promise.all([
+                _supabase.from('frontalini_catalogo').select('id,codice,descrizione,prezzo,iva,bio,senza_glutine,vegano,fornitore,marchio,peso,unita,foto_url,note'),
+                _supabase.from('rifornimento_catalogo').select('product_code,description,pvp,fornitore,marchio,quantita,unita_misura,category').eq('active',true),
+            ]);
+            _acProd = [
+                ...(fr||[]).map(p=>({id:p.id,c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'frontalini',iva:p.iva??null,bio:!!p.bio,sg:!!p.senza_glutine,veg:!!p.vegano,forn:p.fornitore||'',marc:p.marchio||'',peso:p.peso??null,unita:p.unita||'',foto:p.foto_url||null,note:p.note||''})),
+                ...(rf||[]).map(p=>({id:null,c:p.product_code||'',n:p.description,p:p.pvp,src:'fornitura',iva:null,bio:false,sg:false,veg:false,forn:p.fornitore||'',marc:p.marchio||'',peso:p.quantita??null,unita:p.unita_misura||'',foto:null,note:''})),
+            ];
+        }
     } catch(e){}
 })();
 function _acEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -3104,15 +3112,15 @@ async function salvaSchedaProd() {
         note:          document.getElementById('se-note')?.value.trim() || null,
     };
     if (isCreate) {
-        const { data, error } = await _supabase.from('frontalini_catalogo').insert(payload).select('id').single();
+        const { data, error } = await _supabase.from(_catalogTable).insert(payload).select('id').single();
         btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus mr-1"></i> Crea prodotto';
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
-        const newProd = {id:data.id,c:payload.codice||'',n:payload.descrizione||'',p:payload.prezzo,src:'frontalini',iva:payload.iva,bio:payload.bio,sg:payload.senza_glutine,veg:payload.vegano,forn:payload.fornitore||'',marc:payload.marchio||'',peso:payload.peso,unita:payload.unita||'',foto:null,note:payload.note||''};
+        const newProd = {id:data.id,c:payload.codice||'',n:payload.descrizione||'',p:payload.prezzo,src:_catalogTable==='prodotti_catalogo'?'prodotti':'frontalini',iva:payload.iva,bio:payload.bio,sg:payload.senza_glutine,veg:payload.vegano,forn:payload.fornitore||'',marc:payload.marchio||'',peso:payload.peso,unita:payload.unita||'',foto:null,note:payload.note||''};
         _acProd.push(newProd);
         if (_schedaProdRow) _acApply(_schedaProdRow, newProd);
         showToast('Prodotto creato', 'ok');
     } else {
-        const { error } = await _supabase.from('frontalini_catalogo').update(payload).eq('id', _schedaProdId);
+        const { error } = await _supabase.from(_catalogTable).update(payload).eq('id', _schedaProdId);
         btn.disabled = false; btn.innerHTML = '<i class="fas fa-check mr-1"></i> Salva';
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         const idx = _acProd.findIndex(p => p.id === _schedaProdId);
