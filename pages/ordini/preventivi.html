@@ -347,10 +347,22 @@
                         <input type="text" id="az-ragione-sociale" placeholder="Ragione sociale *" class="form-input w-full">
                         <!-- Referente -->
                         <div>
-                            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Persona di riferimento</div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Persona di riferimento</span>
+                                <button type="button" onclick="toggleAzRefRubrica()" class="text-xs font-bold text-[#B5453A] hover:underline flex items-center gap-1">
+                                    <i class="fas fa-address-book text-[10px]"></i> Cerca in rubrica
+                                </button>
+                            </div>
+                            <div id="az-ref-rubrica-panel" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 mb-2">
+                                <div class="relative mb-2">
+                                    <input type="text" id="az-ref-cr-search" placeholder="Nome o cognome…" class="form-input pr-10 text-sm" oninput="cercaAzRefRubrica(this.value)">
+                                    <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                                </div>
+                                <div id="az-ref-cr-results" class="max-h-40 overflow-y-auto -mx-1"></div>
+                            </div>
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
-                                    <input type="text" id="az-ref-nome" placeholder="Nome referente (cerca in rubrica…)" class="form-input w-full" oninput="onAzRefInput(this)" autocomplete="off">
+                                    <input type="text" id="az-ref-nome" placeholder="Nome referente" class="form-input w-full" oninput="onAzRefInput(this)" autocomplete="off">
                                     <div id="az-ref-ac" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
                                 </div>
                                 <input type="tel" id="az-ref-cel" placeholder="Cellulare" class="form-input" style="width:9rem">
@@ -1057,6 +1069,7 @@ function resetAziendaFields() {
     ['az-ragione-sociale','az-ref-nome','az-ref-cel','az-indirizzo','az-telefono','az-piva','az-cf','az-codice-univoco'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
     });
+    document.getElementById('az-ref-rubrica-panel')?.classList.add('hidden');
     // Collassa la sezione extra
     const panel = document.getElementById('az-extra-fields');
     if (panel) panel.classList.add('hidden');
@@ -2051,7 +2064,14 @@ function toggleGusto(gid) {
 }
 
 /* ────────────────── REFERENTE AZIENDA ────────────────── */
-let _azRefResults = [], _azRefTimer = null;
+let _azRefResults = [], _azRefTimer = null, _azRefCrResults = [], _azRefCrTimer = null;
+
+function _fillAzRef(c) {
+    const nome = c.cliente || [c.cognome, c.nome].filter(Boolean).join(' ');
+    document.getElementById('az-ref-nome').value = nome;
+    document.getElementById('az-ref-cel').value  = c.telefono || '';
+}
+
 function onAzRefInput(inp) {
     clearTimeout(_azRefTimer);
     const q = inp.value.trim();
@@ -2073,10 +2093,43 @@ function onAzRefInput(inp) {
 }
 function selectAzRef(idx) {
     const c = _azRefResults[idx]; if (!c) return;
-    const nome = c.cliente || [c.cognome, c.nome].filter(Boolean).join(' ');
-    document.getElementById('az-ref-nome').value = nome;
-    document.getElementById('az-ref-cel').value  = c.telefono || '';
+    _fillAzRef(c);
     document.getElementById('az-ref-ac').classList.add('hidden');
+}
+
+function toggleAzRefRubrica() {
+    const panel = document.getElementById('az-ref-rubrica-panel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        const inp = document.getElementById('az-ref-cr-search');
+        inp.value = '';
+        cercaAzRefRubrica('');
+        setTimeout(() => inp.focus(), 50);
+    }
+}
+async function cercaAzRefRubrica(q) {
+    clearTimeout(_azRefCrTimer);
+    _azRefCrTimer = setTimeout(async () => {
+        const el = document.getElementById('az-ref-cr-results');
+        el.innerHTML = '<div class="text-xs text-slate-400 text-center py-2">Caricamento…</div>';
+        let query = _supabase.from('clienti').select('id,nome,cognome,telefono,wa,cliente').order('cognome').limit(15);
+        if (q.trim()) query = query.or(`cognome.ilike.%${q}%,nome.ilike.%${q}%`);
+        const { data } = await query;
+        _azRefCrResults = data || [];
+        if (!_azRefCrResults.length) { el.innerHTML = '<div class="text-xs text-slate-400 text-center py-2">Nessun cliente trovato</div>'; return; }
+        el.innerHTML = _azRefCrResults.map((c,i) => {
+            const nome = c.cliente || [c.cognome, c.nome].filter(Boolean).join(' ');
+            return `<div class="px-3 py-2 cursor-pointer hover:bg-white rounded-lg flex items-center justify-between gap-2 transition-colors" onclick="selectAzRefFromRubrica(${i})">
+                <div><span class="font-bold text-slate-700 text-sm">${escHtml(nome)}</span>${c.telefono ? `<span class="text-xs text-slate-400 ml-2">${escHtml(c.telefono)}</span>` : ''}</div>
+                ${c.wa ? '<i class="fab fa-whatsapp text-green-500 text-sm flex-shrink-0"></i>' : ''}
+            </div>`;
+        }).join('');
+    }, q.trim() ? 300 : 0);
+}
+function selectAzRefFromRubrica(idx) {
+    const c = _azRefCrResults[idx]; if (!c) return;
+    _fillAzRef(c);
+    document.getElementById('az-ref-rubrica-panel').classList.add('hidden');
 }
 
 /* ────────────────── RUBRICA ────────────────── */
