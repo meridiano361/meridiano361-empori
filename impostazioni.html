@@ -1284,6 +1284,7 @@
                 <option value="">Tutte le fonti</option>
                 <option value="frontalini">Frontalini</option>
                 <option value="fornitura">Fornitura</option>
+                <option value="prodotti">Prodotti (unif.)</option>
               </select>
               <select id="prod-all-forn" onchange="renderProdAll()" style="max-width:150px"><option value="">Tutti i fornitori</option></select>
               <select id="prod-all-marc" onchange="renderProdAll()" style="max-width:140px"><option value="">Tutti i marchi</option></select>
@@ -1577,6 +1578,109 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             </div>
           </div>
         </div>
+
+      <!-- MODAL: prodotto unificato (prodotti_catalogo) -->
+      <div id="modal-prod-unif" class="modal-overlay" onclick="if(event.target===this)chiudiModalProdUnif()" style="display:none">
+        <div class="modal-box" style="max-width:640px">
+          <div class="modal-header">
+            <h3 id="modal-prun-titolo">Modifica prodotto</h3>
+            <button onclick="chiudiModalProdUnif()">×</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Codice</label>
+                <input id="prun-codice" class="form-input" placeholder="es. AM-001">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">IVA (%)</label>
+                <input id="prun-iva" class="form-input" type="number" min="0" max="100" placeholder="es. 10">
+              </div>
+              <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Descrizione *</label>
+                <input id="prun-desc" class="form-input" placeholder="Nome prodotto">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">PVP (€)</label>
+                <input id="prun-prezzo" class="form-input" type="number" step="0.01" min="0">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Pack size</label>
+                <input id="prun-pack" class="form-input" type="number" step="1" min="0">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Fornitore</label>
+                <input id="prun-fornitore" class="form-input" list="pfr-forn-list" placeholder="es. Altromercato">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Marchio</label>
+                <input id="prun-marchio" class="form-input" placeholder="es. Alce Nero">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Categoria</label>
+                <input id="prun-categoria" class="form-input" list="pfr-cat-list" placeholder="es. BEVANDE">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Linea</label>
+                <input id="prun-linea" class="form-input" placeholder="es. Bio">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Peso</label>
+                <input id="prun-peso" class="form-input" type="number" step="0.1" min="0">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Unità misura</label>
+                <input id="prun-unita" class="form-input" placeholder="es. ml, g, pz">
+              </div>
+            </div>
+            <div style="margin-top:14px">
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:8px">Attributi</label>
+              <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-bio"> BIO</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-sg"> Senza Glutine</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-veg"> Vegano</label>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Note</label>
+              <textarea id="prun-note" class="form-input" rows="2" placeholder="Note aggiuntive…" style="resize:vertical"></textarea>
+            </div>
+            <div style="margin-top:14px">
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:6px">Foto prodotto</label>
+              <div style="display:flex;align-items:center;gap:12px">
+                <div id="prun-foto-wrap" style="width:72px;height:72px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                  <i class="fas fa-image" style="color:#cbd5e1;font-size:22px" id="prun-foto-icon"></i>
+                  <img id="prun-foto-img" style="display:none;width:100%;height:100%;object-fit:cover">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <label style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">
+                    <i class="fas fa-upload"></i> Carica foto
+                    <input type="file" id="prun-foto-input" accept="image/*" style="display:none" onchange="onPrunFotoChange(this)">
+                  </label>
+                  <button type="button" id="prun-foto-del" onclick="rimuoviFotoProdUnif()" style="display:none;font-size:12px;font-weight:700;color:#B5453A;background:none;border:none;cursor:pointer;text-align:left;padding:0"><i class="fas fa-trash" style="margin-right:4px"></i>Rimuovi foto</button>
+                  <div id="prun-foto-progress" style="font-size:11px;color:#64748b;display:none">Caricamento…</div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:14px">
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:8px">Assortimento empori</label>
+              <div style="display:flex;gap:16px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-cr"> Cremona</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-ca"> Casalmaggiore</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-vi"> Viadana</label>
+              </div>
+            </div>
+            <div style="margin-top:12px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prun-active" checked> Prodotto attivo</label>
+            </div>
+            <div id="modal-prun-msg" class="modal-op-msg" style="margin-top:10px"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" onclick="chiudiModalProdUnif()">Annulla</button>
+            <button class="btn-primary" id="modal-prun-save" onclick="salvaModalProdUnif()">Salva</button>
+          </div>
+        </div>
+      </div>
 
       <!-- MODAL: merge prodotto doppione -->
       <div id="modal-merge-prod" class="modal-overlay" onclick="if(event.target===this)closeMergeProdModal()" style="display:none">
@@ -5305,19 +5409,21 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     // ═══════════════════════════════════════════════════════════
     // ANAGRAFICA PRODOTTI
     // ═══════════════════════════════════════════════════════════
-    let _prodFrontalini = [], _prodFornitura = [];
+    let _prodFrontalini = [], _prodFornitura = [], _prodUnificati = [];
     let _prodEditFrId = null, _prodEditRifId = null;
 
     const _fmtP = n => n != null ? '€ ' + Number(n).toFixed(2).replace('.', ',') : '—';
     const _bool3 = v => v === true ? '✓' : v === false ? '✗' : '—';
 
     async function caricaProdotti() {
-        const [{ data: fr }, { data: rf }] = await Promise.all([
+        const [{ data: fr }, { data: rf }, { data: pu }] = await Promise.all([
             db.from('frontalini_catalogo').select('*').order('descrizione'),
             db.from('rifornimento_catalogo').select('*').order('description'),
+            db.from('prodotti_catalogo').select('*').order('descrizione'),
         ]);
         _prodFrontalini = fr || [];
         _prodFornitura  = rf || [];
+        _prodUnificati  = pu || [];
         _aggiornaFiltriProd();
         renderProdAll();
     }
@@ -5327,9 +5433,12 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const marchiFr     = [...new Set(_prodFrontalini.map(p => p.marchio).filter(Boolean))].sort();
         const fornitoriRif = [...new Set(_prodFornitura.map(p => p.fornitore).filter(Boolean))].sort();
         const marchiRif    = [...new Set(_prodFornitura.map(p => p.marchio).filter(Boolean))].sort();
-        const categorie    = [...new Set(_prodFornitura.map(p => p.category).filter(Boolean))].sort();
-        const allFornitori = [...new Set([...fornituriFr, ...fornitoriRif])].sort();
-        const allMarchi    = [...new Set([...marchiFr, ...marchiRif])].sort();
+        const fornitoriPu  = [...new Set(_prodUnificati.map(p => p.fornitore).filter(Boolean))].sort();
+        const marchiPu     = [...new Set(_prodUnificati.map(p => p.marchio).filter(Boolean))].sort();
+        const categoriePu  = [...new Set(_prodUnificati.map(p => p.category).filter(Boolean))].sort();
+        const categorie    = [...new Set([..._prodFornitura.map(p => p.category), ..._prodFrontalini.map(p => p.category), ...categoriePu].filter(Boolean))].sort();
+        const allFornitori = [...new Set([...fornituriFr, ...fornitoriRif, ...fornitoriPu])].sort();
+        const allMarchi    = [...new Set([...marchiFr, ...marchiRif, ...marchiPu])].sort();
 
         const selAF = document.getElementById('prod-all-forn');
         const selAM = document.getElementById('prod-all-marc');
@@ -5456,13 +5565,19 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
             peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:p.foto_url||null,
         }));
-        let items = [...frItems, ...rfItems];
+        const puItems = src && src !== 'prodotti' ? [] : _prodUnificati.map(p => ({
+            _src:'prodotti', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
+            pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
+            cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
+            peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null,
+        }));
+        let items = [...frItems, ...rfItems, ...puItems];
         if (forn) items = items.filter(p => p.fornitore === forn);
         if (marc) items = items.filter(p => p.marchio   === marc);
         if (cat)  items = items.filter(p => p.categoria === cat);
         if (q)    items = items.filter(p => [p.codice,p.descrizione,p.fornitore,p.marchio,p.categoria].some(s => s.toLowerCase().includes(q)));
 
-        const total = _prodFrontalini.length + _prodFornitura.length;
+        const total = _prodFrontalini.length + _prodFornitura.length + _prodUnificati.length;
         const count = document.getElementById('prod-all-count');
         if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
         const tbody = document.getElementById('prod-all-tbody');
@@ -5471,7 +5586,9 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
         const srcBadge = s => s === 'frontalini'
             ? `<span style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FRO</span>`
-            : `<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FOR</span>`;
+            : s === 'fornitura'
+            ? `<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FOR</span>`
+            : `<span style="background:#f3e8ff;color:#7c3aed;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">PRO</span>`;
         const bool3 = v => v === true ? '<span style="color:#15803d;font-weight:700">✓</span>' : v === false ? '<span style="color:#ef4444;font-weight:700">✗</span>' : '<span style="color:#cbd5e1">—</span>';
         const fmtPeso = p => p.peso != null ? p.peso + (p.unita ? ' ' + p.unita : '') : '<span style="color:#cbd5e1">—</span>';
 
@@ -5487,8 +5604,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             const attBadge = p.attivo
                 ? '<span class="prod-attr att">Sì</span>'
                 : '<span class="prod-attr dis">No</span>';
-            const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : `apriModalFornituraProd(${p._id})`;
-            const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : `eliminaProdFornitura(${p._id})`;
+            const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : p._src === 'fornitura' ? `apriModalFornituraProd(${p._id})` : `apriModalProdUnif(${p._id})`;
+            const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : p._src === 'fornitura' ? `eliminaProdFornitura(${p._id})`  : `eliminaProdUnif(${p._id})`;
             return `<tr>
               <td>${srcBadge(p._src)}</td>
               <td style="color:#94a3b8;font-size:11px;font-family:monospace">${escHtml(p.codice||'—')}</td>
@@ -5721,8 +5838,121 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         await caricaProdotti();
     }
 
+    // ── MODAL PRODOTTO UNIFICATO (prodotti_catalogo) ──────────────
+    let _prodEditUnifId = null, _prunFotoUrl = null;
+    function apriModalProdUnif(id) {
+        _prodEditUnifId = id;
+        const p = id != null ? _prodUnificati.find(x => x.id === id) : null;
+        document.getElementById('modal-prun-titolo').textContent = p ? 'Modifica prodotto' : 'Nuovo prodotto';
+        document.getElementById('prun-codice').value     = p?.codice      || '';
+        document.getElementById('prun-iva').value        = p?.iva != null ? String(p.iva) : '';
+        document.getElementById('prun-desc').value       = p?.descrizione || '';
+        document.getElementById('prun-prezzo').value     = p?.prezzo      ?? '';
+        document.getElementById('prun-pack').value       = p?.pack_size   ?? '';
+        document.getElementById('prun-fornitore').value  = p?.fornitore   || '';
+        document.getElementById('prun-marchio').value    = p?.marchio     || '';
+        document.getElementById('prun-categoria').value  = p?.category    || '';
+        document.getElementById('prun-linea').value      = p?.linea       || '';
+        document.getElementById('prun-peso').value       = p?.peso        ?? '';
+        document.getElementById('prun-unita').value      = p?.unita       || '';
+        document.getElementById('prun-bio').checked      = !!p?.bio;
+        document.getElementById('prun-sg').checked       = !!p?.senza_glutine;
+        document.getElementById('prun-veg').checked      = !!p?.vegano;
+        document.getElementById('prun-note').value       = p?.note        || '';
+        document.getElementById('prun-cr').checked       = !!p?.assortment_cremona;
+        document.getElementById('prun-ca').checked       = !!p?.assortment_casalmaggiore;
+        document.getElementById('prun-vi').checked       = !!p?.assortment_viadana;
+        document.getElementById('prun-active').checked   = p?.active !== false;
+        // foto
+        _prunFotoUrl = p?.foto_url || null;
+        const fImg = document.getElementById('prun-foto-img');
+        const fIco = document.getElementById('prun-foto-icon');
+        const fDel = document.getElementById('prun-foto-del');
+        if (_prunFotoUrl) {
+            fImg.src = _prunFotoUrl; fImg.style.display = ''; fIco.style.display = 'none'; fDel.style.display = '';
+        } else {
+            fImg.src = ''; fImg.style.display = 'none'; fIco.style.display = ''; fDel.style.display = 'none';
+        }
+        document.getElementById('prun-foto-progress').style.display = 'none';
+        document.getElementById('prun-foto-input').value = '';
+        document.getElementById('modal-prun-msg').className = 'modal-op-msg';
+        document.getElementById('modal-prun-msg').textContent = '';
+        document.getElementById('modal-prod-unif').style.display = 'flex';
+    }
+    async function onPrunFotoChange(input) {
+        const file = input.files?.[0]; if (!file) return;
+        const prog = document.getElementById('prun-foto-progress');
+        prog.style.display = ''; prog.textContent = 'Caricamento…';
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `prodotti/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await db.storage.from('prodotti-foto').upload(path, file, { upsert: true });
+        if (error) { prog.textContent = 'Errore: ' + error.message; return; }
+        const { data: urlData } = db.storage.from('prodotti-foto').getPublicUrl(path);
+        _prunFotoUrl = urlData.publicUrl;
+        const fImg = document.getElementById('prun-foto-img');
+        fImg.src = _prunFotoUrl; fImg.style.display = '';
+        document.getElementById('prun-foto-icon').style.display = 'none';
+        document.getElementById('prun-foto-del').style.display = '';
+        prog.style.display = 'none';
+    }
+    function rimuoviFotoProdUnif() {
+        _prunFotoUrl = null;
+        document.getElementById('prun-foto-img').src = ''; document.getElementById('prun-foto-img').style.display = 'none';
+        document.getElementById('prun-foto-icon').style.display = '';
+        document.getElementById('prun-foto-del').style.display = 'none';
+        document.getElementById('prun-foto-input').value = '';
+    }
+    function chiudiModalProdUnif() {
+        document.getElementById('modal-prod-unif').style.display = 'none';
+        _prodEditUnifId = null; _prunFotoUrl = null;
+    }
+    async function salvaModalProdUnif() {
+        const desc = document.getElementById('prun-desc').value.trim().toUpperCase();
+        if (!desc) { _showProdMsg('unif', 'La descrizione è obbligatoria', 'error'); return; }
+        const btn = document.getElementById('modal-prun-save');
+        btn.disabled = true; btn.textContent = 'Salvataggio…';
+        const ivaVal = parseInt(document.getElementById('prun-iva').value);
+        const payload = {
+            codice:                  document.getElementById('prun-codice').value.trim() || null,
+            descrizione:             desc,
+            prezzo:                  parseFloat(document.getElementById('prun-prezzo').value) || null,
+            iva:                     isNaN(ivaVal) ? null : ivaVal,
+            pack_size:               parseInt(document.getElementById('prun-pack').value) || null,
+            fornitore:               document.getElementById('prun-fornitore').value.trim() || null,
+            marchio:                 document.getElementById('prun-marchio').value.trim() || null,
+            category:                document.getElementById('prun-categoria').value.trim() || null,
+            linea:                   document.getElementById('prun-linea').value.trim() || null,
+            peso:                    parseFloat(document.getElementById('prun-peso').value) || null,
+            unita:                   document.getElementById('prun-unita').value || null,
+            bio:                     document.getElementById('prun-bio').checked,
+            senza_glutine:           document.getElementById('prun-sg').checked,
+            vegano:                  document.getElementById('prun-veg').checked,
+            note:                    document.getElementById('prun-note').value.trim() || null,
+            foto_url:                _prunFotoUrl || null,
+            assortment_cremona:      document.getElementById('prun-cr').checked,
+            assortment_casalmaggiore:document.getElementById('prun-ca').checked,
+            assortment_viadana:      document.getElementById('prun-vi').checked,
+            active:                  document.getElementById('prun-active').checked,
+        };
+        const { error } = _prodEditUnifId != null
+            ? await db.from('prodotti_catalogo').update(payload).eq('id', _prodEditUnifId)
+            : await db.from('prodotti_catalogo').insert(payload);
+        btn.disabled = false; btn.textContent = 'Salva';
+        if (error) { _showProdMsg('unif', error.message, 'error'); return; }
+        chiudiModalProdUnif();
+        showToast(_prodEditUnifId ? 'Prodotto aggiornato' : 'Prodotto aggiunto', 'ok');
+        await caricaProdotti();
+    }
+    async function eliminaProdUnif(id) {
+        if (!confirm('Eliminare questo prodotto dal catalogo unificato?')) return;
+        const { error } = await db.from('prodotti_catalogo').delete().eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        showToast('Prodotto eliminato', 'ok');
+        await caricaProdotti();
+    }
+
     function _showProdMsg(which, msg, tipo) {
-        const id = which === 'fr' ? 'modal-fr-prod-msg' : 'modal-rif-prod-msg';
+        const id = which === 'fr' ? 'modal-fr-prod-msg' : which === 'unif' ? 'modal-prun-msg' : 'modal-rif-prod-msg';
         const el = document.getElementById(id);
         el.textContent = msg;
         el.className = 'modal-op-msg ' + (tipo === 'error' ? 'modal-op-msg-error' : 'modal-op-msg-success');
