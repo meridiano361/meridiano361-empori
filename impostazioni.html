@@ -1272,47 +1272,35 @@
           </style>
 
           <div class="prod-tabs">
-            <button class="prod-tab-btn active" data-tab="frontalini" onclick="showProdTab('frontalini')"><i class="fas fa-tag" style="margin-right:5px"></i>Frontalini</button>
-            <button class="prod-tab-btn" data-tab="fornitura" onclick="showProdTab('fornitura')"><i class="fas fa-boxes-stacked" style="margin-right:5px"></i>Fornitura</button>
+            <button class="prod-tab-btn active" data-tab="prodotti" onclick="showProdTab('prodotti')"><i class="fas fa-box" style="margin-right:5px"></i>Prodotti</button>
             <button class="prod-tab-btn" data-tab="unifica" onclick="showProdTab('unifica')"><i class="fas fa-code-merge" style="margin-right:5px"></i>Unifica</button>
           </div>
 
-          <!-- ── Tab Frontalini ── -->
-          <div id="prod-tab-frontalini">
+          <!-- ── Tab Prodotti (unificato frontalini + fornitura) ── -->
+          <div id="prod-tab-prodotti">
             <div class="prod-toolbar">
-              <input id="prod-fr-search" placeholder="🔍  Cerca descrizione / codice…" oninput="renderProdFrontalini()">
-              <select id="prod-fr-forn" onchange="renderProdFrontalini()" style="max-width:160px"><option value="">Tutti i fornitori</option></select>
-              <select id="prod-fr-marc" onchange="renderProdFrontalini()" style="max-width:160px"><option value="">Tutti i marchi</option></select>
-              <span class="prod-count" id="prod-fr-count"></span>
-              <button class="btn-primary" style="padding:7px 16px;font-size:13px;white-space:nowrap" onclick="apriModalFrontalinoProd(null)"><i class="fas fa-plus" style="margin-right:5px"></i>Aggiungi</button>
+              <input id="prod-all-search" placeholder="🔍  Cerca descrizione / codice…" oninput="renderProdAll()" style="flex:1;min-width:160px">
+              <select id="prod-all-src" onchange="renderProdAll()" style="max-width:140px">
+                <option value="">Tutte le fonti</option>
+                <option value="frontalini">Frontalini</option>
+                <option value="fornitura">Fornitura</option>
+              </select>
+              <select id="prod-all-forn" onchange="renderProdAll()" style="max-width:150px"><option value="">Tutti i fornitori</option></select>
+              <select id="prod-all-marc" onchange="renderProdAll()" style="max-width:140px"><option value="">Tutti i marchi</option></select>
+              <select id="prod-all-cat" onchange="renderProdAll()" style="max-width:140px"><option value="">Tutte le categorie</option></select>
+              <span class="prod-count" id="prod-all-count"></span>
+              <button class="btn-primary" style="padding:7px 14px;font-size:12px;white-space:nowrap" onclick="apriModalFrontalinoProd(null)"><i class="fas fa-tag" style="margin-right:4px"></i>+ Frontalino</button>
+              <button class="btn-secondary" style="padding:7px 14px;font-size:12px;white-space:nowrap" onclick="apriModalFornituraProd(null)"><i class="fas fa-boxes-stacked" style="margin-right:4px"></i>+ Fornitura</button>
             </div>
             <div class="s-card" style="overflow:auto">
               <table class="prod-tbl">
                 <thead><tr>
-                  <th>Codice</th><th>Descrizione</th><th>Peso / Unità</th><th>Prezzo</th>
-                  <th>IVA</th><th>Fornitore</th><th>Marchio</th><th>Attributi</th><th>Foto</th><th></th>
+                  <th>Fonte</th><th>Codice</th><th>Descrizione</th><th>PVP</th><th>Pack</th>
+                  <th>Fornitore</th><th>Marchio</th><th>Categoria</th>
+                  <th title="Cremona">CR</th><th title="Casalmaggiore">CA</th><th title="Viadana">VI</th>
+                  <th>Attivo</th><th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th></th>
                 </tr></thead>
-                <tbody id="prod-fr-tbody"><tr><td colspan="10" class="prod-empty">Caricamento…</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- ── Tab Fornitura ── -->
-          <div id="prod-tab-fornitura" style="display:none">
-            <div class="prod-toolbar">
-              <input id="prod-rif-search" placeholder="🔍  Cerca descrizione / codice…" oninput="renderProdFornitura()">
-              <select id="prod-rif-forn" onchange="renderProdFornitura()" style="max-width:160px"><option value="">Tutti i fornitori</option></select>
-              <select id="prod-rif-cat" onchange="renderProdFornitura()" style="max-width:160px"><option value="">Tutte le categorie</option></select>
-              <span class="prod-count" id="prod-rif-count"></span>
-              <button class="btn-primary" style="padding:7px 16px;font-size:13px;white-space:nowrap" onclick="apriModalFornituraProd(null)"><i class="fas fa-plus" style="margin-right:5px"></i>Aggiungi</button>
-            </div>
-            <div class="s-card" style="overflow:auto">
-              <table class="prod-tbl">
-                <thead><tr>
-                  <th>Codice</th><th>Descrizione</th><th>PVP</th><th>Pack</th>
-                  <th>Fornitore</th><th>Categoria</th><th>Marchio</th><th>CR</th><th>CA</th><th>VI</th><th>Attivo</th><th></th>
-                </tr></thead>
-                <tbody id="prod-rif-tbody"><tr><td colspan="12" class="prod-empty">Caricamento…</td></tr></tbody>
+                <tbody id="prod-all-tbody"><tr><td colspan="16" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -5305,24 +5293,24 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         _prodFrontalini = fr || [];
         _prodFornitura  = rf || [];
         _aggiornaFiltriProd();
-        renderProdFrontalini();
-        renderProdFornitura();
+        renderProdAll();
     }
 
     function _aggiornaFiltriProd() {
-        const fornituriFr = [...new Set(_prodFrontalini.map(p => p.fornitore).filter(Boolean))].sort();
-        const marchiFr    = [...new Set(_prodFrontalini.map(p => p.marchio).filter(Boolean))].sort();
-        const selFr = document.getElementById('prod-fr-forn');
-        const selMa = document.getElementById('prod-fr-marc');
-        if (selFr) { const v = selFr.value; selFr.innerHTML = '<option value="">Tutti i fornitori</option>' + fornituriFr.map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`).join(''); selFr.value = v; }
-        if (selMa) { const v = selMa.value; selMa.innerHTML = '<option value="">Tutti i marchi</option>' + marchiFr.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join(''); selMa.value = v; }
-
+        const fornituriFr  = [...new Set(_prodFrontalini.map(p => p.fornitore).filter(Boolean))].sort();
+        const marchiFr     = [...new Set(_prodFrontalini.map(p => p.marchio).filter(Boolean))].sort();
         const fornitoriRif = [...new Set(_prodFornitura.map(p => p.fornitore).filter(Boolean))].sort();
+        const marchiRif    = [...new Set(_prodFornitura.map(p => p.marchio).filter(Boolean))].sort();
         const categorie    = [...new Set(_prodFornitura.map(p => p.category).filter(Boolean))].sort();
-        const selRF = document.getElementById('prod-rif-forn');
-        const selRC = document.getElementById('prod-rif-cat');
-        if (selRF) { const v = selRF.value; selRF.innerHTML = '<option value="">Tutti i fornitori</option>' + fornitoriRif.map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`).join(''); selRF.value = v; }
-        if (selRC) { const v = selRC.value; selRC.innerHTML = '<option value="">Tutte le categorie</option>' + categorie.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join(''); selRC.value = v; }
+        const allFornitori = [...new Set([...fornituriFr, ...fornitoriRif])].sort();
+        const allMarchi    = [...new Set([...marchiFr, ...marchiRif])].sort();
+
+        const selAF = document.getElementById('prod-all-forn');
+        const selAM = document.getElementById('prod-all-marc');
+        const selAC = document.getElementById('prod-all-cat');
+        if (selAF) { const v = selAF.value; selAF.innerHTML = '<option value="">Tutti i fornitori</option>' + allFornitori.map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`).join(''); selAF.value = v; }
+        if (selAM) { const v = selAM.value; selAM.innerHTML = '<option value="">Tutti i marchi</option>'    + allMarchi.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join(''); selAM.value = v; }
+        if (selAC) { const v = selAC.value; selAC.innerHTML = '<option value="">Tutte le categorie</option>'+ categorie.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join(''); selAC.value = v; }
 
         // datalist autocomplete nei modal
         document.getElementById('pfr-forn-list').innerHTML  = fornituriFr.map(f => `<option value="${escHtml(f)}">`).join('');
@@ -5332,9 +5320,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     function showProdTab(tab) {
-        document.getElementById('prod-tab-frontalini').style.display = tab === 'frontalini' ? '' : 'none';
-        document.getElementById('prod-tab-fornitura').style.display  = tab === 'fornitura'  ? '' : 'none';
-        document.getElementById('prod-tab-unifica').style.display    = tab === 'unifica'    ? '' : 'none';
+        document.getElementById('prod-tab-prodotti').style.display = tab === 'prodotti' ? '' : 'none';
+        document.getElementById('prod-tab-unifica').style.display  = tab === 'unifica'  ? '' : 'none';
         document.querySelectorAll('.prod-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     }
 
@@ -5418,6 +5405,82 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <td style="white-space:nowrap">
                 <button class="prod-row-btn" onclick="apriModalFornituraProd(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button>
                 <button class="prod-row-btn del" onclick="eliminaProdFornitura(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderProdAll() {
+        const q    = (document.getElementById('prod-all-search')?.value || '').toLowerCase();
+        const src  = document.getElementById('prod-all-src')?.value  || '';
+        const forn = document.getElementById('prod-all-forn')?.value || '';
+        const marc = document.getElementById('prod-all-marc')?.value || '';
+        const cat  = document.getElementById('prod-all-cat')?.value  || '';
+
+        const frItems = src && src !== 'frontalini' ? [] : _prodFrontalini.map(p => ({
+            _src:'frontalini', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
+            pvp:p.prezzo, pack:null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:'',
+            cr:null, ca:null, vi:null, attivo:true,
+            peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null,
+        }));
+        const rfItems = src && src !== 'fornitura' ? [] : _prodFornitura.map(p => ({
+            _src:'fornitura', _id:p.id, codice:p.product_code||'', descrizione:p.description||'',
+            pvp:p.pvp, pack:p.pack_size, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
+            cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
+            peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:null,
+        }));
+        let items = [...frItems, ...rfItems];
+        if (forn) items = items.filter(p => p.fornitore === forn);
+        if (marc) items = items.filter(p => p.marchio   === marc);
+        if (cat)  items = items.filter(p => p.categoria === cat);
+        if (q)    items = items.filter(p => [p.codice,p.descrizione,p.fornitore,p.marchio,p.categoria].some(s => s.toLowerCase().includes(q)));
+
+        const total = _prodFrontalini.length + _prodFornitura.length;
+        const count = document.getElementById('prod-all-count');
+        if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
+        const tbody = document.getElementById('prod-all-tbody');
+        if (!tbody) return;
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="16" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
+
+        const srcBadge = s => s === 'frontalini'
+            ? `<span style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FRO</span>`
+            : `<span style="background:#fef3c7;color:#92400e;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FOR</span>`;
+        const bool3 = v => v === true ? '<span style="color:#15803d;font-weight:700">✓</span>' : v === false ? '<span style="color:#ef4444;font-weight:700">✗</span>' : '<span style="color:#cbd5e1">—</span>';
+        const fmtPeso = p => p.peso != null ? p.peso + (p.unita ? ' ' + p.unita : '') : '<span style="color:#cbd5e1">—</span>';
+
+        tbody.innerHTML = items.map(p => {
+            const attrBadges = [
+                p.bio ? '<span class="prod-attr bio">BIO</span>' : '',
+                p.sg  ? '<span class="prod-attr sg">S.G.</span>'  : '',
+                p.veg ? '<span class="prod-attr veg">VEG</span>'  : '',
+            ].filter(Boolean).join('') || '<span style="color:#cbd5e1">—</span>';
+            const fotoCell = p.foto
+                ? `<img src="${escHtml(p.foto)}" style="width:30px;height:30px;border-radius:4px;object-fit:cover;border:1px solid #e2e8f0;display:block">`
+                : '<span style="color:#cbd5e1">—</span>';
+            const attBadge = p.attivo
+                ? '<span class="prod-attr att">Sì</span>'
+                : '<span class="prod-attr dis">No</span>';
+            const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : `apriModalFornituraProd(${p._id})`;
+            const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : `eliminaProdFornitura(${p._id})`;
+            return `<tr>
+              <td>${srcBadge(p._src)}</td>
+              <td style="color:#94a3b8;font-size:11px;font-family:monospace">${escHtml(p.codice||'—')}</td>
+              <td style="font-weight:700;color:#1e293b;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.descrizione)}">${escHtml(p.descrizione)}</td>
+              <td style="font-weight:600;white-space:nowrap">${p.pvp != null ? _fmtP(p.pvp) : '<span style="color:#cbd5e1">—</span>'}</td>
+              <td style="text-align:center;color:#64748b">${p.pack ?? '<span style="color:#cbd5e1">—</span>'}</td>
+              <td style="font-size:12px">${escHtml(p.fornitore||'—')}</td>
+              <td style="font-size:12px">${escHtml(p.marchio||'—')}</td>
+              <td style="font-size:11px;color:#64748b">${escHtml(p.categoria||'—')}</td>
+              <td style="text-align:center">${bool3(p.cr)}</td>
+              <td style="text-align:center">${bool3(p.ca)}</td>
+              <td style="text-align:center">${bool3(p.vi)}</td>
+              <td>${attBadge}</td>
+              <td style="font-size:12px;white-space:nowrap">${fmtPeso(p)}</td>
+              <td>${attrBadges}</td>
+              <td>${fotoCell}</td>
+              <td style="white-space:nowrap">
+                <button class="prod-row-btn" onclick="${editFn}" title="Modifica"><i class="fas fa-pencil"></i></button>
+                <button class="prod-row-btn del" onclick="${delFn}" title="Elimina"><i class="fas fa-trash"></i></button>
               </td>
             </tr>`;
         }).join('');
