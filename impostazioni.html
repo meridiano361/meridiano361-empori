@@ -1290,9 +1290,9 @@
               <table class="prod-tbl">
                 <thead><tr>
                   <th>Codice</th><th>Descrizione</th><th>Peso / Unità</th><th>Prezzo</th>
-                  <th>IVA</th><th>Fornitore</th><th>Marchio</th><th>Attributi</th><th></th>
+                  <th>IVA</th><th>Fornitore</th><th>Marchio</th><th>Attributi</th><th>Foto</th><th></th>
                 </tr></thead>
-                <tbody id="prod-fr-tbody"><tr><td colspan="9" class="prod-empty">Caricamento…</td></tr></tbody>
+                <tbody id="prod-fr-tbody"><tr><td colspan="10" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -5336,18 +5336,16 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (count) count.textContent = items.length + ' / ' + _prodFrontalini.length + ' prodotti';
         const tbody = document.getElementById('prod-fr-tbody');
         if (!tbody) return;
-        if (!items.length) { tbody.innerHTML = `<tr><td colspan="9" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="10" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
         tbody.innerHTML = items.map(p => {
             const attrBadges = [
-                p.bio             ? '<span class="prod-attr bio">BIO</span>'  : '',
-                p.senza_glutine   ? '<span class="prod-attr sg">S.G.</span>'  : '',
-                p.vegano          ? '<span class="prod-attr veg">VEG</span>'  : '',
+                p.bio           ? '<span class="prod-attr bio">BIO</span>' : '',
+                p.senza_glutine ? '<span class="prod-attr sg">S.G.</span>' : '',
+                p.vegano        ? '<span class="prod-attr veg">VEG</span>' : '',
             ].filter(Boolean).join('');
-            const fotoThumb = p.foto_url
-                ? `<img src="${escHtml(p.foto_url)}" style="width:26px;height:26px;border-radius:4px;object-fit:cover;border:1px solid #e2e8f0;vertical-align:middle;flex-shrink:0">`
-                : '';
-            const attrsCell = (attrBadges || fotoThumb)
-                ? `<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${attrBadges}${fotoThumb}</div>`
+            const attrsCell = attrBadges || `<span style="color:#cbd5e1;font-size:11px">—</span>`;
+            const fotoCell  = p.foto_url
+                ? `<img src="${escHtml(p.foto_url)}" style="width:32px;height:32px;border-radius:5px;object-fit:cover;border:1px solid #e2e8f0;display:block">`
                 : `<span style="color:#cbd5e1;font-size:11px">—</span>`;
             const ivaCell = p.iva != null
                 ? `<span style="font-size:10px;font-weight:700;color:#64748b;background:#f1f5f9;border-radius:4px;padding:1px 5px">${p.iva}%</span>`
@@ -5361,6 +5359,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <td>${escHtml(p.fornitore||'—')}</td>
               <td>${escHtml(p.marchio||'—')}</td>
               <td>${attrsCell}</td>
+              <td>${fotoCell}</td>
               <td style="white-space:nowrap">
                 <button class="prod-row-btn" onclick="apriModalFrontalinoProd(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button>
                 <button class="prod-row-btn del" onclick="eliminaProdFrontalino(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>
