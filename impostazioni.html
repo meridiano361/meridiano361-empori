@@ -1368,6 +1368,10 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <!-- STEP 3: lista doppioni -->
               <div id="unif-doppioni-wrap" style="display:none;margin-bottom:20px">
                 <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">3</span>Doppioni rilevati — clicca "Unisci" per scegliere cosa tenere</div>
+                <div style="margin-bottom:10px;position:relative;max-width:320px">
+                  <input id="unif-search" type="text" placeholder="🔍  Cerca per nome o codice…" class="form-input" style="padding-right:32px" oninput="_doppSearch=this.value.trim().toLowerCase();renderDoppioni()">
+                  <button type="button" onclick="document.getElementById('unif-search').value='';_doppSearch='';renderDoppioni()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1" title="Cancella ricerca">×</button>
+                </div>
                 <div id="unif-doppioni-list"></div>
               </div>
 
@@ -5591,6 +5595,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     let _doppioni       = [];   // [{fr, rif}]
+    let _doppSearch     = '';
     let _doppRisolti    = {};   // key='fr_id:rif_id' → payload
     let _mergeTarget    = null; // {fr, rif} corrente
     let _mergeProdSels  = {};   // field → 'fr'|'rif'
@@ -5618,6 +5623,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         }
         _doppioni = _buildDoppioni();
         _doppRisolti = {};
+        _doppSearch = '';
+        const si = document.getElementById('unif-search'); if (si) si.value = '';
         document.getElementById('unif-doppioni-wrap').style.display = '';
         document.getElementById('unif-migra-wrap').style.display = '';
         renderDoppioni();
@@ -5656,7 +5663,19 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#16a34a;font-size:13px"><i class="fas fa-check-circle" style="margin-right:5px"></i>Nessun doppione trovato tra i due cataloghi</div>';
             return;
         }
-        wrap.innerHTML = `<div class="s-card" style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        const q = _doppSearch;
+        const filtered = q ? _doppioni.filter(d =>
+            (d.fr.descrizione||'').toLowerCase().includes(q) ||
+            (d.fr.codice||'').toLowerCase().includes(q) ||
+            (d.rif.description||'').toLowerCase().includes(q) ||
+            (d.rif.product_code||'').toLowerCase().includes(q)
+        ) : _doppioni;
+        const countInfo = q ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${filtered.length} di ${_doppioni.length} doppioni</div>` : '';
+        if (!filtered.length) {
+            wrap.innerHTML = countInfo + '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Nessun risultato per la ricerca</div>';
+            return;
+        }
+        wrap.innerHTML = countInfo + `<div class="s-card" style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="background:#f8fafc">
             <th style="padding:8px 10px;text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Frontalini</th>
             <th style="padding:8px 10px;text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Fornitura</th>
@@ -5664,7 +5683,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0"></th>
           </tr></thead>
           <tbody>
-          ${_doppioni.map(d => {
+          ${filtered.map(d => {
               const k = d.fr.id + ':' + d.rif.id;
               const risolto = !!_doppRisolti[k];
               return `<tr style="border-bottom:1px solid #f1f5f9">
