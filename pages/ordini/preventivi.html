@@ -1262,6 +1262,8 @@ async function apriPreventivo(id) {
                     if (fotoImg)  { fotoImg.src = r.foto_url; fotoImg.classList.remove('hidden'); fotoImg.closest('label').classList.add('has-foto'); }
                     if (fotoIcon) fotoIcon.classList.add('hidden');
                 }
+                if (r.prod_id)  row.dataset.prodId  = r.prod_id;
+                if (r.prod_src) row.dataset.prodSrc = r.prod_src;
                 const rowId = row.id.replace('row-', '');
                 calcRow(rowId, curGid);
             });
@@ -1397,10 +1399,39 @@ function onFotoChange(input) {
             img.classList.remove('hidden');
             icon.classList.add('hidden');
             label.classList.add('has-foto');
+
+            // Sincronizza foto su frontalini_catalogo se il prodotto è collegato
+            const row = input.closest('tr');
+            const prodId = row?.dataset?.prodId;
+            const prodSrc = row?.dataset?.prodSrc;
+            if (prodId && prodSrc === 'frontalini') {
+                _sincFotoAnag(prodId, canvas, dataUrl, input, img);
+            }
         };
         tmpImg.src = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+async function _sincFotoAnag(prodId, canvas, fallbackDataUrl, input, imgEl) {
+    try {
+        canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            const path = `frontalini/${prodId}_${Date.now()}.jpg`;
+            const { error: upErr } = await _supabase.storage.from('prodotti-foto').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+            if (upErr) return;
+            const { data: urlData } = _supabase.storage.from('prodotti-foto').getPublicUrl(path);
+            const publicUrl = urlData.publicUrl;
+            // Aggiorna anagrafica
+            await _supabase.from('frontalini_catalogo').update({ foto_url: publicUrl }).eq('id', prodId);
+            // Aggiorna cache autocomplete
+            const idx = _acProd.findIndex(p => String(p.id) === String(prodId));
+            if (idx >= 0) _acProd[idx].foto = publicUrl;
+            // Sostituisci base64 con URL stabile
+            input.dataset.foto = publicUrl;
+            if (imgEl) imgEl.src = publicUrl;
+        }, 'image/jpeg', 0.82);
+    } catch(e) {}
 }
 
 function onGroupFotoChange(gid, input) {
@@ -2380,6 +2411,8 @@ async function savePreventivo(event) {
                 sconto_perc: parseFloat(row.querySelector('.sconto-input')?.value)||0,
                 costo_ii:   itParse(document.getElementById(`internal-${row.id.replace('row-','')}`)?.querySelector('.costo-ii-input')?.value),
                 foto_url:   row.querySelector('.foto-input')?.dataset.foto || null,
+                prod_id:    row.dataset.prodId  || null,
+                prod_src:   row.dataset.prodSrc || null,
                 group_foto_url: document.getElementById(`group-foto-input-${gid}`)?.dataset.foto || null,
                 group_note: document.getElementById(`group-note-${gid}`)?.value.trim() || null,
                 qta,
@@ -2921,6 +2954,8 @@ function _acSearch(q){q=q.trim().toLowerCase();if(q.length<2)return [];return _a
 function _acShow(inp,results,row){_acHide();const isAdm=typeof isPreventiviAdmin==='function'?isPreventiviAdmin():false;const q=inp.value.trim();if(!results.length&&(!isAdm||q.length<1))return;const d=document.createElement('div');d.className='ac-prod-drop';let html=results.map((p,i)=>`<div class="ac-prod-item" data-i="${i}"><div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)||'—'}</span><span class="ac-prod-src">${p.src}</span></div><div class="ac-prod-name">${_acEsc(p.n)}</div>${p.p!=null?`<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.',',')}</div>`:''}</div>`).join('');if(isAdm)html+=`<div class="ac-prod-item" data-new="1" style="border-top:${results.length?'1':'0'}px solid #e2e8f0;color:#B5453A;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px"><i class="fas fa-plus-circle" style="font-size:11px"></i> Crea nuova anagrafica${q?` per &ldquo;${_acEsc(q)}&rdquo;`:''}</div>`;d.innerHTML=html;const rect=inp.getBoundingClientRect();d.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,240)}px;z-index:99999`;d.querySelectorAll('.ac-prod-item:not([data-new])').forEach((el,i)=>{el.addEventListener('mousedown',e=>{e.preventDefault();_acApply(row,results[i]);_acHide();});});d.querySelector('[data-new]')?.addEventListener('mousedown',e=>{e.preventDefault();_acHide();nuovaSchedaProd(row,q);});document.body.appendChild(d);_acDropEl=d;}
 function _acHide(){_acDropEl?.remove();_acDropEl=null;}
 function _acApply(row,prod){
+    row.dataset.prodId  = prod.id  != null ? String(prod.id)  : '';
+    row.dataset.prodSrc = prod.src || '';
     row.querySelector('.codice-input').value=prod.c;
     row.querySelector('.desc-input').value=prod.n;
     if(prod.p!=null){const pi=row.querySelector('.price-input');if(pi){pi.value='€ '+Number(prod.p).toFixed(2).replace('.',',');pi.dispatchEvent(new Event('input'));}}
