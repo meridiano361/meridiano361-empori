@@ -623,11 +623,11 @@ function filteredCatalogo() {
   });
 }
 
-function fornitori() { return [...new Set(_catalogo.map(p=>p.fornitore).filter(Boolean))].sort(); }
-function marchi()    { return [...new Set(_catalogo.map(p=>p.marchio  ).filter(Boolean))].sort(); }
+function fornitori() { return [...new Set(_catalogo.map(p=>titleCase(p.fornitore)).filter(Boolean))].sort(); }
+function marchi()    { return [...new Set(_catalogo.map(p=>titleCase(p.marchio  )).filter(Boolean))].sort(); }
 
-function bozza_fornitori() { return [...new Set(_draft.map(it=>it.fornitore).filter(Boolean))].sort(); }
-function bozza_marchi()    { return [...new Set(_draft.map(it=>it.marchio  ).filter(Boolean))].sort(); }
+function bozza_fornitori() { return [...new Set(_draft.map(it=>titleCase(it.fornitore)).filter(Boolean))].sort(); }
+function bozza_marchi()    { return [...new Set(_draft.map(it=>titleCase(it.marchio  )).filter(Boolean))].sort(); }
 
 function filteredBozza() {
   return _draft.filter(it => {
@@ -791,8 +791,8 @@ function rTabs() {
   const nc = draftTotalCopies();
   const admin = typeof isAdmin==='function' && isAdmin();
   const tabs = [
-    { k:'selezione',    icon:'fas fa-search',   lbl:'Selezione'  },
-    { k:'bozza',        icon:'fas fa-list',      lbl:'Bozza',     badge: nc || '' },
+    { k:'selezione',    icon:'fas fa-search',   lbl:'Prodotti'   },
+    { k:'bozza',        icon:'fas fa-list',      lbl:'Selezione', badge: nc || '' },
     { k:'stampa',       icon:'fas fa-print',     lbl:'Stampa'     },
     ...(admin ? [{ k:'impostazioni', icon:'fas fa-cog', lbl:'Impostazioni' }] : []),
   ];
@@ -828,7 +828,7 @@ function rSelezione() {
             </div>
             <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
               ${p.codice ? `<span class="cat-code">${escH(p.codice)}</span>` : ''}
-              ${p.fornitore||p.marchio ? `<span class="cat-sup">${escH(p.marchio||p.fornitore)}</span>` : ''}
+              ${p.fornitore||p.marchio ? `<span class="cat-sup">${escH(titleCase(p.marchio||p.fornitore))}</span>` : ''}
               ${p.peso ? `<span class="cat-sup">${escH(pesoDisplay(p.peso, p.unita))}</span>` : ''}
               ${pu ? `<span class="cat-sup">${escH(fmtN(pu.val)+' '+pu.label)}</span>` : ''}
             </div>
@@ -843,7 +843,7 @@ function rSelezione() {
 
   return `
     <button class="bk" onclick="window.location.href='prezzi.html'" style="margin-bottom:12px"><i class="fas fa-arrow-left"></i> Prezzi da fare</button>
-    <div class="sec-t">Selezione prodotti</div>
+    <div class="sec-t">Prodotti</div>
     <div class="card mb-3">
       <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <div class="search-wrap" style="flex:1;min-width:180px">
@@ -923,7 +923,7 @@ function rBozza() {
       <div style="flex:1;min-width:0">
         <div class="bz-desc">${escH(it.descrizione)}</div>
         <div class="bz-meta">
-          ${it.marchio||it.fornitore ? `<span>${escH(it.marchio||it.fornitore)}</span> · ` : ''}
+          ${it.marchio||it.fornitore ? `<span>${escH(titleCase(it.marchio||it.fornitore))}</span> · ` : ''}
           ${it.codice ? `<span>cod ${escH(it.codice)}</span> · ` : ''}
           ${it.prezzo != null ? `<span>${fmtN(it.prezzo)} €</span> · ` : ''}
           ${pd ? `<span${warn?' class="bz-warn"':''}>${escH(pd)}</span>` : ''}
@@ -1135,11 +1135,9 @@ function toggleSelAll(checked) {
   R();
 }
 
-let _searchTimer = null;
 function onSearch(v) {
   _search = v;
-  clearTimeout(_searchTimer);
-  _searchTimer = setTimeout(R, 180);
+  R();
 }
 function setFFor(v)  { _fFor = v; R(); }
 function setFMar(v)  { _fMar = v; R(); }
