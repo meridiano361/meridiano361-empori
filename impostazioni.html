@@ -5553,19 +5553,26 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const marc = document.getElementById('prod-all-marc')?.value || '';
         const cat  = document.getElementById('prod-all-cat')?.value  || '';
 
-        const frItems = src && src !== 'frontalini' ? [] : _prodFrontalini.map(p => ({
+        // Se prodotti_catalogo ha dati, è la fonte ufficiale:
+        // "Tutte le fonti" mostra solo PRO; FRO/FOR restano visibili solo se scelti esplicitamente.
+        const hasUnif = _prodUnificati.length > 0;
+        const showFro = src === 'frontalini' || (!src && !hasUnif);
+        const showFor = src === 'fornitura'  || (!src && !hasUnif);
+        const showPro = src === 'prodotti'   || !src;
+
+        const frItems = !showFro ? [] : _prodFrontalini.map(p => ({
             _src:'frontalini', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:null, ca:null, vi:null, attivo:true,
             peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null,
         }));
-        const rfItems = src && src !== 'fornitura' ? [] : _prodFornitura.map(p => ({
+        const rfItems = !showFor ? [] : _prodFornitura.map(p => ({
             _src:'fornitura', _id:p.id, codice:p.product_code||'', descrizione:p.description||'',
             pvp:p.pvp, pack:p.pack_size, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
             peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:p.foto_url||null,
         }));
-        const puItems = src && src !== 'prodotti' ? [] : _prodUnificati.map(p => ({
+        const puItems = !showPro ? [] : _prodUnificati.map(p => ({
             _src:'prodotti', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
