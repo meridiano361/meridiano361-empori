@@ -5941,23 +5941,19 @@ let _digSpesaTipo      = 'standard';
 let _scontoSubitoData  = null;
 let _trasferisciTesseraId = null;
 
-// Apre la tessera in una nuova scheda del BROWSER anche quando Chrome
-// ha la PWA installata. In modalità standalone (PWA) usa window.open normale.
 function apriVediTessera(e, url) {
   e.stopPropagation();
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches
-             || window.matchMedia('(display-mode: fullscreen)').matches
-             || window.navigator.standalone === true;
-  if (isPWA) {
-    // Dalla PWA: apre nel browser di sistema
-    window.open(url, '_blank', 'noopener,noreferrer');
-  } else {
-    // Dal browser: crea prima un tab vuoto poi naviga,
-    // aggirando il link-capturing della PWA installata
-    const w = window.open('about:blank', '_blank', 'noopener,noreferrer');
-    if (w) { w.location.href = url; }
-    else    { window.open(url, '_blank', 'noopener,noreferrer'); }
+  if (!url || url.endsWith('?t=')) {
+    showToast('Questa tessera non ha un link digitale', 'warning');
+    return;
   }
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 function renderDigitale() {
