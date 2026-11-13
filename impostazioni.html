@@ -287,6 +287,7 @@
             <button class="adm-nav-item"             id="nav-operatori"        data-tip="Gestione operatori e permessi" onclick="openSection('operatori')">       <i class="fas fa-users"></i><span>Operatori</span></button>
             <button class="adm-nav-item"             id="nav-sezioni"          data-tip="Accessi per sezione" onclick="openSection('sezioni')">              <i class="fas fa-table-cells"></i><span>Sezioni</span></button>
             <button class="adm-nav-item"             id="nav-personalizzazione" data-tip="Personalizzazione dell'interfaccia" onclick="openSection('personalizzazione')"><i class="fas fa-palette"></i><span>Personalizzazione</span></button>
+            <button class="adm-nav-item"             id="nav-prodotti"          data-tip="Anagrafica prodotti" onclick="openSection('prodotti')">             <i class="fas fa-box-open"></i><span>Prodotti</span></button>
           </div>
           <div class="adm-nav-foot">
             <div class="adm-nav-role">SUPER ADMIN</div>
@@ -1231,6 +1232,224 @@
             </div><!-- end pref-domain -->
         </div><!-- end section-personalizzazione -->
 
+        <!-- ═══════════════════════════════════════════════════════
+             SECTION: PRODOTTI — ANAGRAFICA
+        ═══════════════════════════════════════════════════════ -->
+        <div id="section-prodotti" class="section-page">
+          <style>
+            .prod-tabs{display:flex;gap:4px;margin-bottom:18px;background:#f1f5f9;border-radius:12px;padding:4px}
+            .prod-tab-btn{flex:1;padding:9px 0;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:all .15s;font-family:inherit}
+            .prod-tab-btn.active{background:#fff;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+            .prod-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+            .prod-toolbar input,.prod-toolbar select{border:1px solid #e2e8f0;border-radius:9px;padding:7px 12px;font-size:13px;color:#334155;background:#fff;font-family:inherit;outline:none}
+            .prod-toolbar input:focus,.prod-toolbar select:focus{border-color:#B5453A}
+            .prod-toolbar input{flex:1;min-width:160px}
+            .prod-tbl{width:100%;border-collapse:collapse;font-size:12px}
+            .prod-tbl th{padding:7px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;white-space:nowrap;text-align:left}
+            .prod-tbl td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+            .prod-tbl tr:last-child td{border-bottom:none}
+            .prod-tbl tbody tr:hover td{background:#f8fafc}
+            .prod-attr{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:800;text-transform:uppercase;margin:1px}
+            .prod-attr.bio{background:#d1fae5;color:#065f46}
+            .prod-attr.sg{background:#fef9c3;color:#854d0e}
+            .prod-attr.veg{background:#dcfce7;color:#166534}
+            .prod-attr.sol{background:#dbeafe;color:#1e40af}
+            .prod-attr.att{background:#f0fdf4;color:#15803d}
+            .prod-attr.dis{background:#fef2f2;color:#991b1b}
+            .prod-row-btn{width:28px;height:28px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#64748b;transition:all .12s}
+            .prod-row-btn:hover{background:#e2e8f0}
+            .prod-row-btn.del{border-color:#fecaca;background:#fef2f2;color:#ef4444}
+            .prod-row-btn.del:hover{background:#ef4444;color:#fff;border-color:#ef4444}
+            .prod-empty{text-align:center;padding:40px;color:#94a3b8;font-size:13px}
+            .prod-count{font-size:11px;color:#94a3b8;margin-left:auto;white-space:nowrap}
+          </style>
+
+          <div class="prod-tabs">
+            <button class="prod-tab-btn active" data-tab="frontalini" onclick="showProdTab('frontalini')"><i class="fas fa-tag" style="margin-right:5px"></i>Frontalini</button>
+            <button class="prod-tab-btn" data-tab="fornitura" onclick="showProdTab('fornitura')"><i class="fas fa-boxes-stacked" style="margin-right:5px"></i>Fornitura</button>
+          </div>
+
+          <!-- ── Tab Frontalini ── -->
+          <div id="prod-tab-frontalini">
+            <div class="prod-toolbar">
+              <input id="prod-fr-search" placeholder="🔍  Cerca descrizione / codice…" oninput="renderProdFrontalini()">
+              <select id="prod-fr-forn" onchange="renderProdFrontalini()" style="max-width:160px"><option value="">Tutti i fornitori</option></select>
+              <select id="prod-fr-marc" onchange="renderProdFrontalini()" style="max-width:160px"><option value="">Tutti i marchi</option></select>
+              <span class="prod-count" id="prod-fr-count"></span>
+              <button class="btn-primary" style="padding:7px 16px;font-size:13px;white-space:nowrap" onclick="apriModalFrontalinoProd(null)"><i class="fas fa-plus" style="margin-right:5px"></i>Aggiungi</button>
+            </div>
+            <div class="s-card" style="overflow:auto">
+              <table class="prod-tbl">
+                <thead><tr>
+                  <th>Codice</th><th>Descrizione</th><th>Peso / Unità</th><th>Prezzo</th>
+                  <th>Fornitore</th><th>Marchio</th><th>Attributi</th><th></th>
+                </tr></thead>
+                <tbody id="prod-fr-tbody"><tr><td colspan="8" class="prod-empty">Caricamento…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ── Tab Fornitura ── -->
+          <div id="prod-tab-fornitura" style="display:none">
+            <div class="prod-toolbar">
+              <input id="prod-rif-search" placeholder="🔍  Cerca descrizione / codice…" oninput="renderProdFornitura()">
+              <select id="prod-rif-forn" onchange="renderProdFornitura()" style="max-width:160px"><option value="">Tutti i fornitori</option></select>
+              <select id="prod-rif-cat" onchange="renderProdFornitura()" style="max-width:160px"><option value="">Tutte le categorie</option></select>
+              <span class="prod-count" id="prod-rif-count"></span>
+              <button class="btn-primary" style="padding:7px 16px;font-size:13px;white-space:nowrap" onclick="apriModalFornituraProd(null)"><i class="fas fa-plus" style="margin-right:5px"></i>Aggiungi</button>
+            </div>
+            <div class="s-card" style="overflow:auto">
+              <table class="prod-tbl">
+                <thead><tr>
+                  <th>Codice</th><th>Descrizione</th><th>PVP</th><th>Pack</th>
+                  <th>Fornitore</th><th>Categoria</th><th>Marchio</th><th>CR</th><th>CA</th><th>VI</th><th>Attivo</th><th></th>
+                </tr></thead>
+                <tbody id="prod-rif-tbody"><tr><td colspan="12" class="prod-empty">Caricamento…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div><!-- end section-prodotti -->
+
+        <!-- MODAL: prodotto frontalini -->
+        <div id="modal-frontalino-prod" class="modal-overlay" onclick="if(event.target===this)chiudiModalFrontalinoProd()" style="display:none">
+          <div class="modal-box" style="max-width:580px">
+            <div class="modal-header">
+              <h3 id="modal-fr-prod-titolo">Prodotto Frontalino</h3>
+              <button onclick="chiudiModalFrontalinoProd()">×</button>
+            </div>
+            <div class="modal-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Codice</label>
+                  <input id="pfr-codice" class="form-input" placeholder="es. 00123">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Prezzo (€)</label>
+                  <input id="pfr-prezzo" class="form-input" type="number" step="0.01" min="0" placeholder="es. 3.50">
+                </div>
+                <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Descrizione *</label>
+                  <input id="pfr-descrizione" class="form-input" placeholder="NOME PRODOTTO (maiuscolo)" oninput="this.value=this.value.toUpperCase()">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Fornitore</label>
+                  <input id="pfr-fornitore" class="form-input" list="pfr-forn-list" placeholder="es. Altromercato">
+                  <datalist id="pfr-forn-list"></datalist>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Marchio</label>
+                  <input id="pfr-marchio" class="form-input" list="pfr-marc-list" placeholder="es. Natyr">
+                  <datalist id="pfr-marc-list"></datalist>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Peso</label>
+                  <input id="pfr-peso" class="form-input" type="number" step="0.1" min="0" placeholder="es. 500">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Unità</label>
+                  <select id="pfr-unita" class="form-select">
+                    <option value="">— nessuna —</option>
+                    <option value="g">g</option><option value="kg">kg</option>
+                    <option value="ml">ml</option><option value="L">L</option>
+                    <option value="pz">pz</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:12px">
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-bio"> BIO</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-sg"> Senza Glutine</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-veg"> Vegano</label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-sol"> Solidale/Italiano</label>
+              </div>
+              <div style="margin-top:14px;display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Note</label>
+                <textarea id="pfr-note" class="form-input" rows="2" placeholder="Note aggiuntive…" style="resize:vertical"></textarea>
+              </div>
+              <div id="modal-fr-prod-msg" class="modal-op-msg" style="margin-top:10px"></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" onclick="chiudiModalFrontalinoProd()">Annulla</button>
+              <button class="btn-primary" id="modal-fr-prod-save" onclick="salvaProdFrontalino()">Salva</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: prodotto fornitura -->
+        <div id="modal-fornitura-prod" class="modal-overlay" onclick="if(event.target===this)chiudiModalFornituraProd()" style="display:none">
+          <div class="modal-box" style="max-width:620px">
+            <div class="modal-header">
+              <h3 id="modal-rif-prod-titolo">Prodotto Fornitura</h3>
+              <button onclick="chiudiModalFornituraProd()">×</button>
+            </div>
+            <div class="modal-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Codice prodotto *</label>
+                  <input id="prif-code" class="form-input" placeholder="es. AM-001">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Fonte (source sheet)</label>
+                  <input id="prif-sheet" class="form-input" placeholder="es. ALI AM">
+                </div>
+                <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Descrizione *</label>
+                  <input id="prif-desc" class="form-input" placeholder="Nome prodotto">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Fornitore</label>
+                  <input id="prif-forn" class="form-input" list="prif-forn-list" placeholder="es. Altromercato">
+                  <datalist id="prif-forn-list"></datalist>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Categoria</label>
+                  <input id="prif-cat" class="form-input" list="prif-cat-list" placeholder="es. BEVANDE">
+                  <datalist id="prif-cat-list"></datalist>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Marchio</label>
+                  <input id="prif-marchio" class="form-input" placeholder="es. Alce Nero">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Linea</label>
+                  <input id="prif-linea" class="form-input" placeholder="es. Bio">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">PVP (€)</label>
+                  <input id="prif-pvp" class="form-input" type="number" step="0.01" min="0">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Pack size</label>
+                  <input id="prif-pack" class="form-input" type="number" step="1" min="0">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Quantità</label>
+                  <input id="prif-qty" class="form-input" type="number" step="0.1" min="0">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Unità misura</label>
+                  <input id="prif-um" class="form-input" placeholder="es. ml, g, pz">
+                </div>
+              </div>
+              <div style="margin-top:14px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:8px">Assortimento empori</label>
+                <div style="display:flex;gap:16px;flex-wrap:wrap">
+                  <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-cr"> Cremona</label>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-ca"> Casalmaggiore</label>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-vi"> Viadana</label>
+                </div>
+              </div>
+              <div style="margin-top:14px">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-active" checked> Prodotto attivo</label>
+              </div>
+              <div id="modal-rif-prod-msg" class="modal-op-msg" style="margin-top:10px"></div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" onclick="chiudiModalFornituraProd()">Annulla</button>
+              <button class="btn-primary" id="modal-rif-prod-save" onclick="salvaProdFornitura()">Salva</button>
+            </div>
+          </div>
+        </div>
+
       </div><!-- end adm-main -->
 
     </div><!-- end admin-content -->
@@ -1663,6 +1882,7 @@
         accessi:'Accessi', loghi:'Loghi',
         sezioni:'Sezioni',
         personalizzazione:'Personalizzazione',
+        prodotti:'Anagrafica Prodotti',
     };
 
     function openSection(id) {
@@ -1712,6 +1932,7 @@
             if (id === 'empori')            caricaEmporiConfig();
         }
         if (id === 'personalizzazione') setTimeout(initPreviewScale, 100);
+        if (id === 'prodotti') caricaProdotti();
     }
 
     // ── LOGHI LISTINI ─────────────────────────────────────────────────────
@@ -4930,6 +5151,269 @@
         ?.addEventListener('input',  updateLoginPreview);
     document.getElementById('section-personalizzazione')
         ?.addEventListener('change', updateLoginPreview);
+
+    // ═══════════════════════════════════════════════════════════
+    // ANAGRAFICA PRODOTTI
+    // ═══════════════════════════════════════════════════════════
+    let _prodFrontalini = [], _prodFornitura = [];
+    let _prodEditFrId = null, _prodEditRifId = null;
+
+    const _fmtP = n => n != null ? '€ ' + Number(n).toFixed(2).replace('.', ',') : '—';
+    const _bool3 = v => v === true ? '✓' : v === false ? '✗' : '—';
+
+    async function caricaProdotti() {
+        const [{ data: fr }, { data: rf }] = await Promise.all([
+            db.from('frontalini_catalogo').select('*').order('descrizione'),
+            db.from('rifornimento_catalogo').select('*').order('description'),
+        ]);
+        _prodFrontalini = fr || [];
+        _prodFornitura  = rf || [];
+        _aggiornaFiltriProd();
+        renderProdFrontalini();
+        renderProdFornitura();
+    }
+
+    function _aggiornaFiltriProd() {
+        const fornituriFr = [...new Set(_prodFrontalini.map(p => p.fornitore).filter(Boolean))].sort();
+        const marchiFr    = [...new Set(_prodFrontalini.map(p => p.marchio).filter(Boolean))].sort();
+        const selFr = document.getElementById('prod-fr-forn');
+        const selMa = document.getElementById('prod-fr-marc');
+        if (selFr) { const v = selFr.value; selFr.innerHTML = '<option value="">Tutti i fornitori</option>' + fornituriFr.map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`).join(''); selFr.value = v; }
+        if (selMa) { const v = selMa.value; selMa.innerHTML = '<option value="">Tutti i marchi</option>' + marchiFr.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join(''); selMa.value = v; }
+
+        const fornitoriRif = [...new Set(_prodFornitura.map(p => p.fornitore).filter(Boolean))].sort();
+        const categorie    = [...new Set(_prodFornitura.map(p => p.category).filter(Boolean))].sort();
+        const selRF = document.getElementById('prod-rif-forn');
+        const selRC = document.getElementById('prod-rif-cat');
+        if (selRF) { const v = selRF.value; selRF.innerHTML = '<option value="">Tutti i fornitori</option>' + fornitoriRif.map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`).join(''); selRF.value = v; }
+        if (selRC) { const v = selRC.value; selRC.innerHTML = '<option value="">Tutte le categorie</option>' + categorie.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join(''); selRC.value = v; }
+
+        // datalist autocomplete nei modal
+        document.getElementById('pfr-forn-list').innerHTML  = fornituriFr.map(f => `<option value="${escHtml(f)}">`).join('');
+        document.getElementById('pfr-marc-list').innerHTML  = marchiFr.map(m => `<option value="${escHtml(m)}">`).join('');
+        document.getElementById('prif-forn-list').innerHTML = fornitoriRif.map(f => `<option value="${escHtml(f)}">`).join('');
+        document.getElementById('prif-cat-list').innerHTML  = categorie.map(c => `<option value="${escHtml(c)}">`).join('');
+    }
+
+    function showProdTab(tab) {
+        document.getElementById('prod-tab-frontalini').style.display = tab === 'frontalini' ? '' : 'none';
+        document.getElementById('prod-tab-fornitura').style.display  = tab === 'fornitura'  ? '' : 'none';
+        document.querySelectorAll('.prod-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    }
+
+    function renderProdFrontalini() {
+        const q    = (document.getElementById('prod-fr-search')?.value || '').toLowerCase();
+        const forn = document.getElementById('prod-fr-forn')?.value || '';
+        const marc = document.getElementById('prod-fr-marc')?.value || '';
+        const items = _prodFrontalini.filter(p => {
+            if (forn && p.fornitore !== forn) return false;
+            if (marc && p.marchio  !== marc) return false;
+            if (q && ![(p.descrizione||''),(p.codice||''),(p.fornitore||''),(p.marchio||'')].some(s => s.toLowerCase().includes(q))) return false;
+            return true;
+        });
+        const count = document.getElementById('prod-fr-count');
+        if (count) count.textContent = items.length + ' / ' + _prodFrontalini.length + ' prodotti';
+        const tbody = document.getElementById('prod-fr-tbody');
+        if (!tbody) return;
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="8" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
+        tbody.innerHTML = items.map(p => {
+            const attrs = [
+                p.bio             ? '<span class="prod-attr bio">BIO</span>'  : '',
+                p.senza_glutine   ? '<span class="prod-attr sg">S.G.</span>'  : '',
+                p.vegano          ? '<span class="prod-attr veg">VEG</span>'  : '',
+                p.solidale_italiano ? '<span class="prod-attr sol">SOL</span>' : '',
+            ].join('');
+            return `<tr>
+              <td style="color:#94a3b8;font-size:11px">${escHtml(p.codice||'—')}</td>
+              <td style="font-weight:700;color:#1e293b">${escHtml(p.descrizione)}</td>
+              <td>${p.peso != null ? p.peso + (p.unita ? ' ' + p.unita : '') : '—'}</td>
+              <td style="font-weight:600">${_fmtP(p.prezzo)}</td>
+              <td>${escHtml(p.fornitore||'—')}</td>
+              <td>${escHtml(p.marchio||'—')}</td>
+              <td>${attrs || '<span style="color:#cbd5e1;font-size:11px">—</span>'}</td>
+              <td style="white-space:nowrap">
+                <button class="prod-row-btn" onclick="apriModalFrontalinoProd(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button>
+                <button class="prod-row-btn del" onclick="eliminaProdFrontalino(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderProdFornitura() {
+        const q    = (document.getElementById('prod-rif-search')?.value || '').toLowerCase();
+        const forn = document.getElementById('prod-rif-forn')?.value || '';
+        const cat  = document.getElementById('prod-rif-cat')?.value  || '';
+        const items = _prodFornitura.filter(p => {
+            if (forn && p.fornitore !== forn) return false;
+            if (cat  && p.category  !== cat)  return false;
+            if (q && ![(p.description||''),(p.product_code||''),(p.fornitore||''),(p.category||''),(p.marchio||'')].some(s => s.toLowerCase().includes(q))) return false;
+            return true;
+        });
+        const count = document.getElementById('prod-rif-count');
+        if (count) count.textContent = items.length + ' / ' + _prodFornitura.length + ' prodotti';
+        const tbody = document.getElementById('prod-rif-tbody');
+        if (!tbody) return;
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="12" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
+        tbody.innerHTML = items.map(p => {
+            const att = p.active !== false
+                ? '<span class="prod-attr att">Attivo</span>'
+                : '<span class="prod-attr dis">Inattivo</span>';
+            return `<tr>
+              <td style="color:#94a3b8;font-size:11px">${escHtml(p.product_code||'—')}</td>
+              <td style="font-weight:700;color:#1e293b;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.description)}</td>
+              <td style="font-weight:600">${_fmtP(p.pvp)}</td>
+              <td style="text-align:center">${p.pack_size ?? '—'}</td>
+              <td>${escHtml(p.fornitore||'—')}</td>
+              <td style="font-size:11px">${escHtml(p.category||'—')}</td>
+              <td>${escHtml(p.marchio||'—')}</td>
+              <td style="text-align:center">${_bool3(p.assortment_cremona)}</td>
+              <td style="text-align:center">${_bool3(p.assortment_casalmaggiore)}</td>
+              <td style="text-align:center">${_bool3(p.assortment_viadana)}</td>
+              <td>${att}</td>
+              <td style="white-space:nowrap">
+                <button class="prod-row-btn" onclick="apriModalFornituraProd(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button>
+                <button class="prod-row-btn del" onclick="eliminaProdFornitura(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ── MODAL FRONTALINI ──────────────────────────────────────────
+    function apriModalFrontalinoProd(id) {
+        _prodEditFrId = id;
+        const p = id != null ? _prodFrontalini.find(x => x.id === id) : null;
+        document.getElementById('modal-fr-prod-titolo').textContent = p ? 'Modifica prodotto' : 'Nuovo prodotto';
+        document.getElementById('pfr-codice').value       = p?.codice       || '';
+        document.getElementById('pfr-descrizione').value  = p?.descrizione  || '';
+        document.getElementById('pfr-prezzo').value       = p?.prezzo       ?? '';
+        document.getElementById('pfr-fornitore').value    = p?.fornitore    || '';
+        document.getElementById('pfr-marchio').value      = p?.marchio      || '';
+        document.getElementById('pfr-peso').value         = p?.peso         ?? '';
+        document.getElementById('pfr-unita').value        = p?.unita        || '';
+        document.getElementById('pfr-bio').checked        = !!p?.bio;
+        document.getElementById('pfr-sg').checked         = !!p?.senza_glutine;
+        document.getElementById('pfr-veg').checked        = !!p?.vegano;
+        document.getElementById('pfr-sol').checked        = !!p?.solidale_italiano;
+        document.getElementById('pfr-note').value         = p?.note         || '';
+        document.getElementById('modal-fr-prod-msg').className = 'modal-op-msg';
+        document.getElementById('modal-fr-prod-msg').textContent = '';
+        document.getElementById('modal-frontalino-prod').style.display = 'flex';
+    }
+    function chiudiModalFrontalinoProd() {
+        document.getElementById('modal-frontalino-prod').style.display = 'none';
+        _prodEditFrId = null;
+    }
+    async function salvaProdFrontalino() {
+        const desc = document.getElementById('pfr-descrizione').value.trim().toUpperCase();
+        if (!desc) { _showProdMsg('fr', 'La descrizione è obbligatoria', 'error'); return; }
+        const btn = document.getElementById('modal-fr-prod-save');
+        btn.disabled = true; btn.textContent = 'Salvataggio…';
+        const payload = {
+            codice:            document.getElementById('pfr-codice').value.trim() || null,
+            descrizione:       desc,
+            prezzo:            parseFloat(document.getElementById('pfr-prezzo').value) || null,
+            fornitore:         document.getElementById('pfr-fornitore').value.trim() || null,
+            marchio:           document.getElementById('pfr-marchio').value.trim() || null,
+            peso:              parseFloat(document.getElementById('pfr-peso').value) || null,
+            unita:             document.getElementById('pfr-unita').value || null,
+            bio:               document.getElementById('pfr-bio').checked,
+            senza_glutine:     document.getElementById('pfr-sg').checked,
+            vegano:            document.getElementById('pfr-veg').checked,
+            solidale_italiano: document.getElementById('pfr-sol').checked,
+            note:              document.getElementById('pfr-note').value.trim() || null,
+        };
+        const { error } = _prodEditFrId != null
+            ? await db.from('frontalini_catalogo').update(payload).eq('id', _prodEditFrId)
+            : await db.from('frontalini_catalogo').insert(payload);
+        btn.disabled = false; btn.textContent = 'Salva';
+        if (error) { _showProdMsg('fr', error.message, 'error'); return; }
+        chiudiModalFrontalinoProd();
+        showToast(_prodEditFrId ? 'Prodotto aggiornato' : 'Prodotto aggiunto', 'ok');
+        await caricaProdotti();
+    }
+    async function eliminaProdFrontalino(id) {
+        if (!confirm('Eliminare questo prodotto dal catalogo frontalini?')) return;
+        const { error } = await db.from('frontalini_catalogo').delete().eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        showToast('Prodotto eliminato', 'ok');
+        await caricaProdotti();
+    }
+
+    // ── MODAL FORNITURA ───────────────────────────────────────────
+    function apriModalFornituraProd(id) {
+        _prodEditRifId = id;
+        const p = id != null ? _prodFornitura.find(x => x.id === id) : null;
+        document.getElementById('modal-rif-prod-titolo').textContent = p ? 'Modifica prodotto' : 'Nuovo prodotto';
+        document.getElementById('prif-code').value    = p?.product_code  || '';
+        document.getElementById('prif-sheet').value   = p?.source_sheet  || '';
+        document.getElementById('prif-desc').value    = p?.description   || '';
+        document.getElementById('prif-forn').value    = p?.fornitore     || '';
+        document.getElementById('prif-cat').value     = p?.category      || '';
+        document.getElementById('prif-marchio').value = p?.marchio       || '';
+        document.getElementById('prif-linea').value   = p?.linea         || '';
+        document.getElementById('prif-pvp').value     = p?.pvp           ?? '';
+        document.getElementById('prif-pack').value    = p?.pack_size     ?? '';
+        document.getElementById('prif-qty').value     = p?.quantita      ?? '';
+        document.getElementById('prif-um').value      = p?.unita_misura  || '';
+        document.getElementById('prif-cr').checked    = !!p?.assortment_cremona;
+        document.getElementById('prif-ca').checked    = !!p?.assortment_casalmaggiore;
+        document.getElementById('prif-vi').checked    = !!p?.assortment_viadana;
+        document.getElementById('prif-active').checked = p?.active !== false;
+        document.getElementById('modal-rif-prod-msg').className = 'modal-op-msg';
+        document.getElementById('modal-rif-prod-msg').textContent = '';
+        document.getElementById('modal-fornitura-prod').style.display = 'flex';
+    }
+    function chiudiModalFornituraProd() {
+        document.getElementById('modal-fornitura-prod').style.display = 'none';
+        _prodEditRifId = null;
+    }
+    async function salvaProdFornitura() {
+        const code = document.getElementById('prif-code').value.trim();
+        const desc = document.getElementById('prif-desc').value.trim();
+        if (!code || !desc) { _showProdMsg('rif', 'Codice e descrizione sono obbligatori', 'error'); return; }
+        const btn = document.getElementById('modal-rif-prod-save');
+        btn.disabled = true; btn.textContent = 'Salvataggio…';
+        const payload = {
+            product_code:            code,
+            source_sheet:            document.getElementById('prif-sheet').value.trim() || '',
+            description:             desc,
+            fornitore:               document.getElementById('prif-forn').value.trim() || '',
+            category:                document.getElementById('prif-cat').value.trim() || '',
+            marchio:                 document.getElementById('prif-marchio').value.trim() || null,
+            linea:                   document.getElementById('prif-linea').value.trim() || null,
+            pvp:                     parseFloat(document.getElementById('prif-pvp').value) || null,
+            pack_size:               parseInt(document.getElementById('prif-pack').value) || null,
+            quantita:                parseFloat(document.getElementById('prif-qty').value) || null,
+            unita_misura:            document.getElementById('prif-um').value.trim() || null,
+            assortment_cremona:      document.getElementById('prif-cr').checked,
+            assortment_casalmaggiore:document.getElementById('prif-ca').checked,
+            assortment_viadana:      document.getElementById('prif-vi').checked,
+            active:                  document.getElementById('prif-active').checked,
+        };
+        const { error } = _prodEditRifId != null
+            ? await db.from('rifornimento_catalogo').update(payload).eq('id', _prodEditRifId)
+            : await db.from('rifornimento_catalogo').insert(payload);
+        btn.disabled = false; btn.textContent = 'Salva';
+        if (error) { _showProdMsg('rif', error.message, 'error'); return; }
+        chiudiModalFornituraProd();
+        showToast(_prodEditRifId ? 'Prodotto aggiornato' : 'Prodotto aggiunto', 'ok');
+        await caricaProdotti();
+    }
+    async function eliminaProdFornitura(id) {
+        if (!confirm('Eliminare questo prodotto dal catalogo fornitura?')) return;
+        const { error } = await db.from('rifornimento_catalogo').delete().eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        showToast('Prodotto eliminato', 'ok');
+        await caricaProdotti();
+    }
+
+    function _showProdMsg(which, msg, tipo) {
+        const id = which === 'fr' ? 'modal-fr-prod-msg' : 'modal-rif-prod-msg';
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'modal-op-msg ' + (tipo === 'error' ? 'modal-op-msg-error' : 'modal-op-msg-success');
+        el.style.display = 'block';
+    }
     </script>
 </body>
 </html>
