@@ -1293,15 +1293,22 @@
               <button class="btn-primary" style="padding:7px 14px;font-size:12px;white-space:nowrap" onclick="apriModalFrontalinoProd(null)"><i class="fas fa-tag" style="margin-right:4px"></i>+ Frontalino</button>
               <button class="btn-secondary" style="padding:7px 14px;font-size:12px;white-space:nowrap" onclick="apriModalFornituraProd(null)"><i class="fas fa-boxes-stacked" style="margin-right:4px"></i>+ Fornitura</button>
             </div>
+            <div id="prod-sel-bar" style="display:none;align-items:center;gap:10px;padding:8px 14px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;margin-bottom:8px;font-size:13px;font-weight:700;color:#92400e">
+              <i class="fas fa-check-square"></i>
+              <span id="prod-sel-count"></span>
+              <button onclick="eliminaSelezionati()" style="margin-left:4px;background:#dc2626;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer"><i class="fas fa-trash" style="margin-right:5px"></i>Elimina selezionati</button>
+              <button onclick="_deselTutti()" style="background:#fff;color:#92400e;border:1.5px solid #f59e0b;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">Deseleziona tutto</button>
+            </div>
             <div class="s-card" style="overflow:auto">
               <table class="prod-tbl">
                 <thead><tr>
+                  <th style="width:32px;text-align:center"><input type="checkbox" id="prod-sel-all" onchange="_selTutti(this.checked)" style="accent-color:#3b82f6;cursor:pointer"></th>
                   <th>Fonte</th><th>Codice</th><th>Descrizione</th><th>PVP</th><th>Pack</th>
                   <th>Fornitore</th><th>Marchio</th><th>Categoria</th>
                   <th title="Cremona">CR</th><th title="Casalmaggiore">CA</th><th title="Viadana">VI</th>
                   <th>Attivo</th><th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th></th>
                 </tr></thead>
-                <tbody id="prod-all-tbody"><tr><td colspan="16" class="prod-empty">Caricamento…</td></tr></tbody>
+                <tbody id="prod-all-tbody"><tr><td colspan="17" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -5589,7 +5596,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
         const tbody = document.getElementById('prod-all-tbody');
         if (!tbody) return;
-        if (!items.length) { tbody.innerHTML = `<tr><td colspan="16" class="prod-empty">Nessun prodotto trovato</td></tr>`; return; }
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="17" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
 
         const srcBadge = s => s === 'frontalini'
             ? `<span style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FRO</span>`
@@ -5600,6 +5607,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const fmtPeso = p => p.peso != null ? p.peso + (p.unita ? ' ' + p.unita : '') : '<span style="color:#cbd5e1">—</span>';
 
         tbody.innerHTML = items.map(p => {
+            const selKey = `${p._src}:${p._id}`;
+            const checked = _selProd.has(selKey) ? 'checked' : '';
             const attrBadges = [
                 p.bio ? '<span class="prod-attr bio">BIO</span>' : '',
                 p.sg  ? '<span class="prod-attr sg">S.G.</span>'  : '',
@@ -5613,7 +5622,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 : '<span class="prod-attr dis">No</span>';
             const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : p._src === 'fornitura' ? `apriModalFornituraProd(${p._id})` : `apriModalProdUnif(${p._id})`;
             const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : p._src === 'fornitura' ? `eliminaProdFornitura(${p._id})`  : `eliminaProdUnif(${p._id})`;
-            return `<tr>
+            return `<tr data-sel-key="${selKey}" style="${_selProd.has(selKey)?'background:#eff6ff':''}" >
+              <td style="text-align:center"><input type="checkbox" ${checked} onchange="_toggleSelProd('${selKey}',this.checked)" style="accent-color:#3b82f6;cursor:pointer"></td>
               <td>${srcBadge(p._src)}</td>
               <td style="color:#94a3b8;font-size:11px;font-family:monospace">${escHtml(p.codice||'—')}</td>
               <td style="font-weight:700;color:#1e293b;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.descrizione)}">${escHtml(p.descrizione)}</td>
@@ -5635,6 +5645,72 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               </td>
             </tr>`;
         }).join('');
+        _aggiornaSelBar();
+    }
+
+    // ── SELEZIONE MULTIPLA ────────────────────────────────────────
+    let _selProd = new Set();
+
+    function _toggleSelProd(key, checked) {
+        if (checked) _selProd.add(key); else _selProd.delete(key);
+        _aggiornaSelBar();
+        const tr = document.querySelector(`tr[data-sel-key="${CSS.escape(key)}"]`);
+        if (tr) tr.style.background = checked ? '#eff6ff' : '';
+    }
+    function _selTutti(checked) {
+        document.querySelectorAll('#prod-all-tbody tr[data-sel-key]').forEach(tr => {
+            const k = tr.dataset.selKey;
+            if (checked) _selProd.add(k); else _selProd.delete(k);
+            tr.style.background = checked ? '#eff6ff' : '';
+            const cb = tr.querySelector('input[type=checkbox]');
+            if (cb) cb.checked = checked;
+        });
+        _aggiornaSelBar();
+    }
+    function _deselTutti() {
+        _selProd.clear();
+        document.querySelectorAll('#prod-all-tbody tr[data-sel-key]').forEach(tr => {
+            tr.style.background = '';
+            const cb = tr.querySelector('input[type=checkbox]');
+            if (cb) cb.checked = false;
+        });
+        const selAll = document.getElementById('prod-sel-all');
+        if (selAll) selAll.checked = false;
+        _aggiornaSelBar();
+    }
+    function _aggiornaSelBar() {
+        const bar = document.getElementById('prod-sel-bar');
+        const cnt = document.getElementById('prod-sel-count');
+        if (!bar) return;
+        const n = _selProd.size;
+        bar.style.display = n > 0 ? 'flex' : 'none';
+        if (cnt) cnt.textContent = `${n} prodott${n === 1 ? 'o' : 'i'} selezionat${n === 1 ? 'o' : 'i'}`;
+        // aggiorna checkbox "seleziona tutto"
+        const rows = document.querySelectorAll('#prod-all-tbody tr[data-sel-key]');
+        const selAll = document.getElementById('prod-sel-all');
+        if (selAll && rows.length) selAll.checked = rows.length > 0 && [...rows].every(r => _selProd.has(r.dataset.selKey));
+    }
+    async function eliminaSelezionati() {
+        const n = _selProd.size;
+        if (!n) return;
+        if (!confirm(`Eliminare ${n} prodott${n===1?'o':'i'} selezionat${n===1?'o':'i'}? L'operazione non è reversibile.`)) return;
+        const frIds = [], rfIds = [], puIds = [];
+        _selProd.forEach(key => {
+            const [src, id] = key.split(':');
+            if (src === 'frontalini') frIds.push(Number(id));
+            else if (src === 'fornitura') rfIds.push(Number(id));
+            else puIds.push(Number(id));
+        });
+        const ops = [];
+        if (frIds.length) ops.push(db.from('frontalini_catalogo').delete().in('id', frIds));
+        if (rfIds.length) ops.push(db.from('rifornimento_catalogo').delete().in('id', rfIds));
+        if (puIds.length) ops.push(db.from('prodotti_catalogo').delete().in('id', puIds));
+        const results = await Promise.all(ops);
+        const err = results.find(r => r.error);
+        if (err) { showToast('Errore: ' + err.error.message, 'err'); return; }
+        _selProd.clear();
+        showToast(`${n} prodott${n===1?'o':'i'} eliminat${n===1?'o':'i'}`, 'ok');
+        await caricaProdotti();
     }
 
     // ── MODAL FRONTALINI ──────────────────────────────────────────
