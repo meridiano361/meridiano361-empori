@@ -1552,6 +1552,23 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <div style="margin-top:14px">
                 <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-active" checked> Prodotto attivo</label>
               </div>
+              <div style="margin-top:14px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:6px">Foto prodotto</label>
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div id="prif-foto-wrap" style="width:72px;height:72px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                    <i class="fas fa-image" style="color:#cbd5e1;font-size:22px" id="prif-foto-icon"></i>
+                    <img id="prif-foto-img" style="display:none;width:100%;height:100%;object-fit:cover">
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#475569">
+                      <i class="fas fa-upload"></i> Carica foto
+                      <input type="file" id="prif-foto-input" accept="image/*" style="display:none" onchange="onPrifFotoChange(this)">
+                    </label>
+                    <button type="button" id="prif-foto-del" onclick="rimuoviFotoFornitura()" style="display:none;font-size:12px;font-weight:700;color:#B5453A;background:none;border:none;cursor:pointer;text-align:left;padding:0"><i class="fas fa-trash" style="margin-right:4px"></i>Rimuovi foto</button>
+                    <div id="prif-foto-progress" style="font-size:11px;color:#64748b;display:none">Caricamento…</div>
+                  </div>
+                </div>
+              </div>
               <div id="modal-rif-prod-msg" class="modal-op-msg" style="margin-top:10px"></div>
             </div>
             <div class="modal-footer">
@@ -5437,7 +5454,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             _src:'fornitura', _id:p.id, codice:p.product_code||'', descrizione:p.description||'',
             pvp:p.pvp, pack:p.pack_size, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
-            peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:null,
+            peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:p.foto_url||null,
         }));
         let items = [...frItems, ...rfItems];
         if (forn) items = items.filter(p => p.fornitore === forn);
@@ -5600,6 +5617,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     // ── MODAL FORNITURA ───────────────────────────────────────────
+    let _prifFotoUrl = null;
     function apriModalFornituraProd(id) {
         _prodEditRifId = id;
         const p = id != null ? _prodFornitura.find(x => x.id === id) : null;
@@ -5619,13 +5637,48 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         document.getElementById('prif-ca').checked    = !!p?.assortment_casalmaggiore;
         document.getElementById('prif-vi').checked    = !!p?.assortment_viadana;
         document.getElementById('prif-active').checked = p?.active !== false;
+        // foto
+        _prifFotoUrl = p?.foto_url || null;
+        const fImg = document.getElementById('prif-foto-img');
+        const fIco = document.getElementById('prif-foto-icon');
+        const fDel = document.getElementById('prif-foto-del');
+        if (_prifFotoUrl) {
+            fImg.src = _prifFotoUrl; fImg.style.display = ''; fIco.style.display = 'none'; fDel.style.display = '';
+        } else {
+            fImg.src = ''; fImg.style.display = 'none'; fIco.style.display = ''; fDel.style.display = 'none';
+        }
+        document.getElementById('prif-foto-progress').style.display = 'none';
+        document.getElementById('prif-foto-input').value = '';
         document.getElementById('modal-rif-prod-msg').className = 'modal-op-msg';
         document.getElementById('modal-rif-prod-msg').textContent = '';
         document.getElementById('modal-fornitura-prod').style.display = 'flex';
     }
+    async function onPrifFotoChange(input) {
+        const file = input.files?.[0]; if (!file) return;
+        const prog = document.getElementById('prif-foto-progress');
+        prog.style.display = ''; prog.textContent = 'Caricamento…';
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `fornitura/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await db.storage.from('prodotti-foto').upload(path, file, { upsert: true });
+        if (error) { prog.textContent = 'Errore: ' + error.message; return; }
+        const { data: urlData } = db.storage.from('prodotti-foto').getPublicUrl(path);
+        _prifFotoUrl = urlData.publicUrl;
+        const fImg = document.getElementById('prif-foto-img');
+        fImg.src = _prifFotoUrl; fImg.style.display = '';
+        document.getElementById('prif-foto-icon').style.display = 'none';
+        document.getElementById('prif-foto-del').style.display = '';
+        prog.style.display = 'none';
+    }
+    function rimuoviFotoFornitura() {
+        _prifFotoUrl = null;
+        document.getElementById('prif-foto-img').src = ''; document.getElementById('prif-foto-img').style.display = 'none';
+        document.getElementById('prif-foto-icon').style.display = '';
+        document.getElementById('prif-foto-del').style.display = 'none';
+        document.getElementById('prif-foto-input').value = '';
+    }
     function chiudiModalFornituraProd() {
         document.getElementById('modal-fornitura-prod').style.display = 'none';
-        _prodEditRifId = null;
+        _prodEditRifId = null; _prifFotoUrl = null;
     }
     async function salvaProdFornitura() {
         const code = document.getElementById('prif-code').value.trim();
@@ -5649,6 +5702,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             assortment_casalmaggiore:document.getElementById('prif-ca').checked,
             assortment_viadana:      document.getElementById('prif-vi').checked,
             active:                  document.getElementById('prif-active').checked,
+            foto_url:                _prifFotoUrl || null,
         };
         const { error } = _prodEditRifId != null
             ? await db.from('rifornimento_catalogo').update(payload).eq('id', _prodEditRifId)
@@ -5886,33 +5940,62 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             }
         });
 
-        // Campi solo frontalini — attributi boolean su una riga, note separata
+        // Attributi booleani — click per toggle
         const attrBools = [
-            { k:'bio',               label:'BIO',         bg:'#dcfce7', tx:'#15803d' },
-            { k:'senza_glutine',     label:'Senza Glutine', bg:'#fef3c7', tx:'#92400e' },
-            { k:'vegano',            label:'Vegano',      bg:'#ede9fe', tx:'#6d28d9' },
+            { k:'bio',           label:'BIO',           bg:'#dcfce7', tx:'#15803d' },
+            { k:'senza_glutine', label:'Senza Glutine', bg:'#fef3c7', tx:'#92400e' },
+            { k:'vegano',        label:'Vegano',        bg:'#ede9fe', tx:'#6d28d9' },
         ];
-        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Attributi (da Frontalini)</div>`;
+        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Attributi</div>`;
         html += `<div style="display:flex;gap:7px;flex-wrap:wrap;padding:4px 0 8px">`;
         attrBools.forEach(a => {
-            const on = !!fr[a.k];
-            html += `<span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1.5px solid ${on ? a.tx : '#e2e8f0'};background:${on ? a.bg : '#f8fafc'};color:${on ? a.tx : '#94a3b8'}">${a.label}: ${on ? 'Sì' : 'No'}</span>`;
+            const on = _mergeProdOver[a.k] !== undefined ? !!_mergeProdOver[a.k] : !!fr[a.k];
+            html += `<span onclick="_toggleMergeBool('${a.k}')" title="Clicca per modificare" style="cursor:pointer;user-select:none;font-size:11px;font-weight:800;padding:3px 10px;border-radius:6px;border:1.5px solid ${on ? a.tx : '#e2e8f0'};background:${on ? a.bg : '#f8fafc'};color:${on ? a.tx : '#94a3b8'}">${a.label}: ${on ? 'Sì' : 'No'}</span>`;
         });
         html += `</div>`;
-        if (fr.note) {
-            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:12px"><span style="color:#64748b;font-weight:600">Note</span><span style="color:#1e293b">${_escU(fr.note)}</span></div>`;
-        }
 
-        // Campi solo fornitura
-        const rifOnlyLabels = {category:'Categoria',linea:'Linea',pack_size:'Pack size',assortment_cremona:'Cremona',assortment_casalmaggiore:'Casalmaggiore',assortment_viadana:'Viadana',active:'Attivo',source_sheet:'Source sheet'};
-        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Dati fornitura (da Fornitura)</div>`;
-        MERGE_ONLY_RIF.forEach(k => {
-            const v = rif[k];
-            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:12px">
-              <span style="color:#64748b;font-weight:600">${rifOnlyLabels[k]||k}</span>
-              <span style="color:#1e293b">${_fmtMergeVal(k, v) || '<span style="color:#cbd5e1">—</span>'}</span>
-            </div>`;
+        // Note — modificabile
+        const noteVal = _mergeProdOver['note'] !== undefined ? _mergeProdOver['note'] : (fr.note || '');
+        html += `<div style="${style};grid-template-columns:120px 1fr">
+          <div style="font-size:11px;font-weight:700;color:#64748b">Note</div>
+          <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(noteVal)}" oninput="_onMergeProdEdit('note',this.value)">
+        </div>`;
+
+        // Dati fornitura — modificabili
+        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Dati fornitura</div>`;
+
+        const catVal = _mergeProdOver['category'] !== undefined ? _mergeProdOver['category'] : (rif.category || '');
+        html += `<div style="${style};grid-template-columns:120px 1fr">
+          <div style="font-size:11px;font-weight:700;color:#64748b">Categoria</div>
+          <input list="pfr-cat-list" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(catVal)}" oninput="_onMergeProdEdit('category',this.value)">
+        </div>`;
+
+        const lineaVal = _mergeProdOver['linea'] !== undefined ? _mergeProdOver['linea'] : (rif.linea || '');
+        html += `<div style="${style};grid-template-columns:120px 1fr">
+          <div style="font-size:11px;font-weight:700;color:#64748b">Linea</div>
+          <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(lineaVal)}" oninput="_onMergeProdEdit('linea',this.value)">
+        </div>`;
+
+        const packVal = _mergeProdOver['pack_size'] !== undefined ? _mergeProdOver['pack_size'] : (rif.pack_size || '');
+        html += `<div style="${style};grid-template-columns:120px 1fr">
+          <div style="font-size:11px;font-weight:700;color:#64748b">Pack size</div>
+          <input type="number" min="1" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(String(packVal))}" oninput="_onMergeProdEdit('pack_size',this.value)">
+        </div>`;
+
+        const asmFields = [
+            { k:'assortment_cremona',       label:'Cremona' },
+            { k:'assortment_casalmaggiore', label:'Casalmaggiore' },
+            { k:'assortment_viadana',       label:'Viadana' },
+            { k:'active',                   label:'Attivo' },
+        ];
+        html += `<div style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0">`;
+        asmFields.forEach(af => {
+            const on = _mergeProdOver[af.k] !== undefined ? !!_mergeProdOver[af.k] : (af.k === 'active' ? rif.active !== false : !!rif[af.k]);
+            html += `<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#475569;font-weight:600">
+              <input type="checkbox" ${on ? 'checked' : ''} onchange="_onMergeProdEdit('${af.k}',this.checked)" style="accent-color:#3b82f6"> ${af.label}
+            </label>`;
         });
+        html += `</div>`;
 
         document.getElementById('merge-prod-body').innerHTML = html;
     }
@@ -5935,6 +6018,13 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         _mergeProdOver[field] = value;
     }
 
+    function _toggleMergeBool(key) {
+        const { fr } = _mergeTarget;
+        const cur = _mergeProdOver[key] !== undefined ? !!_mergeProdOver[key] : !!fr[key];
+        _mergeProdOver[key] = !cur;
+        _renderMergeProdBody();
+    }
+
     function confirmMergeProd() {
         if (!_mergeTarget) return;
         const { fr, rif } = _mergeTarget;
@@ -5951,19 +6041,20 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 payload[f.key] = valFinal || null;
             }
         });
-        // Campi solo frontalini
-        payload.bio               = !!fr.bio;
-        payload.senza_glutine     = !!fr.senza_glutine;
-        payload.vegano            = !!fr.vegano;
-        payload.note              = fr.note || null;
-        // Campi solo fornitura
-        payload.category                 = rif.category || null;
-        payload.linea                    = rif.linea || null;
-        payload.pack_size                = rif.pack_size || null;
-        payload.assortment_cremona       = !!rif.assortment_cremona;
-        payload.assortment_casalmaggiore = !!rif.assortment_casalmaggiore;
-        payload.assortment_viadana       = !!rif.assortment_viadana;
-        payload.active                   = rif.active !== false;
+        // Attributi booleani — usa override se impostato
+        ['bio','senza_glutine','vegano'].forEach(k => {
+            payload[k] = _mergeProdOver[k] !== undefined ? !!_mergeProdOver[k] : !!fr[k];
+        });
+        payload.note = _mergeProdOver['note'] !== undefined ? (_mergeProdOver['note'] || null) : (fr.note || null);
+        payload.iva  = fr.iva ?? null;
+        // Dati fornitura — usa override se impostato
+        payload.category                 = (_mergeProdOver['category']  !== undefined ? _mergeProdOver['category']  : rif.category)  || null;
+        payload.linea                    = (_mergeProdOver['linea']     !== undefined ? _mergeProdOver['linea']     : rif.linea)     || null;
+        payload.pack_size                = (_mergeProdOver['pack_size'] !== undefined ? parseInt(_mergeProdOver['pack_size'])||null : rif.pack_size) || null;
+        payload.assortment_cremona       = _mergeProdOver['assortment_cremona']       !== undefined ? !!_mergeProdOver['assortment_cremona']       : !!rif.assortment_cremona;
+        payload.assortment_casalmaggiore = _mergeProdOver['assortment_casalmaggiore'] !== undefined ? !!_mergeProdOver['assortment_casalmaggiore'] : !!rif.assortment_casalmaggiore;
+        payload.assortment_viadana       = _mergeProdOver['assortment_viadana']       !== undefined ? !!_mergeProdOver['assortment_viadana']       : !!rif.assortment_viadana;
+        payload.active                   = _mergeProdOver['active']                   !== undefined ? !!_mergeProdOver['active']                   : rif.active !== false;
         payload.source_sheet             = rif.source_sheet || null;
 
         const k = fr.id + ':' + rif.id;
