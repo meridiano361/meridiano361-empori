@@ -1323,6 +1323,9 @@
                 <strong>Unificazione database prodotti</strong> — Questa operazione crea una nuova tabella <code>prodotti_catalogo</code> che sostituisce <code>frontalini_catalogo</code> e <code>rifornimento_catalogo</code>. Esegui prima l'SQL, poi avvia l'analisi e risolvi i doppioni.
               </div>
 
+              <!-- STEP 1 + 2 collassabili dopo analisi -->
+              <div id="unif-setup-steps">
+
               <!-- STEP 1: SQL -->
               <div style="margin-bottom:20px">
                 <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">1</span>Crea la nuova tabella in Supabase SQL Editor</div>
@@ -1363,6 +1366,15 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <div style="margin-bottom:16px">
                 <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:middle;font-size:9px;margin-right:5px">2</span>Analizza doppioni tra i due cataloghi</div>
                 <button class="btn-primary" onclick="avviaAnalisiDoppioni()" style="padding:9px 20px;font-size:13px"><i class="fas fa-search" style="margin-right:5px"></i>Avvia analisi</button>
+              </div>
+
+              </div><!-- /unif-setup-steps -->
+
+              <!-- toggle setup (visibile solo dopo analisi) -->
+              <div id="unif-setup-toggle" style="display:none;margin-bottom:12px">
+                <button type="button" onclick="toggleUnifSetup()" style="font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:5px 12px;cursor:pointer">
+                  <i class="fas fa-chevron-down" id="unif-setup-chevron" style="font-size:9px;margin-right:4px"></i>Mostra SQL e configurazione
+                </button>
               </div>
 
               <!-- STEP 3: lista doppioni -->
@@ -5594,6 +5606,16 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         navigator.clipboard.writeText(sql).then(() => showToast('SQL copiato', 'ok'));
     }
 
+    function toggleUnifSetup() {
+        const steps = document.getElementById('unif-setup-steps');
+        const chev  = document.getElementById('unif-setup-chevron');
+        const btn   = document.getElementById('unif-setup-toggle').querySelector('button');
+        const open  = steps.style.display !== 'none';
+        steps.style.display = open ? 'none' : '';
+        chev.className = open ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+        btn.innerHTML = `<i class="${chev.className}" style="font-size:9px;margin-right:4px" id="unif-setup-chevron"></i>${open ? 'Mostra' : 'Nascondi'} SQL e configurazione`;
+    }
+
     let _doppioni       = [];   // [{fr, rif}]
     let _doppSearch     = '';
     let _doppRisolti    = {};   // key='fr_id:rif_id' → payload
@@ -5625,6 +5647,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         _doppRisolti = {};
         _doppSearch = '';
         const si = document.getElementById('unif-search'); if (si) si.value = '';
+        document.getElementById('unif-setup-steps').style.display = 'none';
+        document.getElementById('unif-setup-toggle').style.display = '';
         document.getElementById('unif-doppioni-wrap').style.display = '';
         document.getElementById('unif-migra-wrap').style.display = '';
         renderDoppioni();
@@ -5664,35 +5688,40 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             return;
         }
         const q = _doppSearch;
-        const filtered = q ? _doppioni.filter(d =>
+        const risolti   = _doppioni.filter(d => !!_doppRisolti[d.fr.id + ':' + d.rif.id]);
+        const daRisolvere = _doppioni.filter(d => !_doppRisolti[d.fr.id + ':' + d.rif.id]);
+        const base = q ? daRisolvere.filter(d =>
             (d.fr.descrizione||'').toLowerCase().includes(q) ||
             (d.fr.codice||'').toLowerCase().includes(q) ||
             (d.rif.description||'').toLowerCase().includes(q) ||
             (d.rif.product_code||'').toLowerCase().includes(q)
-        ) : _doppioni;
-        const countInfo = q ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${filtered.length} di ${_doppioni.length} doppioni</div>` : '';
-        if (!filtered.length) {
-            wrap.innerHTML = countInfo + '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Nessun risultato per la ricerca</div>';
+        ) : daRisolvere;
+
+        const risoltiNote = risolti.length
+            ? `<div style="font-size:11px;color:#16a34a;margin-bottom:6px"><i class="fas fa-check-circle" style="margin-right:4px"></i>${risolti.length} doppion${risolti.length===1?'e':'i'} risolto${risolti.length===1?'':'i'} (nascost${risolti.length===1?'o':'i'})</div>`
+            : '';
+        const countInfo = q ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px">${base.length} di ${daRisolvere.length} da risolvere</div>` : '';
+
+        if (!base.length && !q) {
+            wrap.innerHTML = risoltiNote + '<div style="text-align:center;padding:20px;color:#16a34a;font-size:13px"><i class="fas fa-check-circle" style="margin-right:5px"></i>Tutti i doppioni sono stati risolti</div>';
             return;
         }
-        wrap.innerHTML = countInfo + `<div class="s-card" style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        if (!base.length) {
+            wrap.innerHTML = risoltiNote + countInfo + '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Nessun risultato per la ricerca</div>';
+            return;
+        }
+        wrap.innerHTML = risoltiNote + countInfo + `<div class="s-card" style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr style="background:#f8fafc">
             <th style="padding:8px 10px;text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Frontalini</th>
             <th style="padding:8px 10px;text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Fornitura</th>
-            <th style="padding:8px 10px;text-align:center;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Stato</th>
             <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0"></th>
           </tr></thead>
           <tbody>
-          ${filtered.map(d => {
-              const k = d.fr.id + ':' + d.rif.id;
-              const risolto = !!_doppRisolti[k];
-              return `<tr style="border-bottom:1px solid #f1f5f9">
+          ${base.map(d => `<tr style="border-bottom:1px solid #f1f5f9">
                 <td style="padding:8px 10px"><div style="font-weight:600;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_escU(d.fr.descrizione)}</div><div style="font-size:10px;color:#94a3b8">${_escU(d.fr.codice||'')}</div></td>
                 <td style="padding:8px 10px"><div style="font-weight:600;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_escU(d.rif.description)}</div><div style="font-size:10px;color:#94a3b8">${_escU(d.rif.product_code||'')}</div></td>
-                <td style="padding:8px 10px;text-align:center">${risolto ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;border-radius:5px;padding:2px 7px;font-weight:700">Risolto</span>' : '<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:5px;padding:2px 7px;font-weight:700">Da risolvere</span>'}</td>
-                <td style="padding:8px 10px;text-align:right"><button class="btn-primary" style="padding:5px 12px;font-size:11px" onclick="openMergeProdModal('${d.fr.id}','${d.rif.id}')"><i class="fas fa-code-merge" style="margin-right:4px"></i>${risolto ? 'Rivedi' : 'Unisci'}</button></td>
-              </tr>`;
-          }).join('')}
+                <td style="padding:8px 10px;text-align:right"><button class="btn-primary" style="padding:5px 12px;font-size:11px" onclick="openMergeProdModal('${d.fr.id}','${d.rif.id}')"><i class="fas fa-code-merge" style="margin-right:4px"></i>Unisci</button></td>
+              </tr>`).join('')}
           </tbody>
         </table></div>`;
     }
