@@ -1267,6 +1267,7 @@
           <div class="prod-tabs">
             <button class="prod-tab-btn active" data-tab="frontalini" onclick="showProdTab('frontalini')"><i class="fas fa-tag" style="margin-right:5px"></i>Frontalini</button>
             <button class="prod-tab-btn" data-tab="fornitura" onclick="showProdTab('fornitura')"><i class="fas fa-boxes-stacked" style="margin-right:5px"></i>Fornitura</button>
+            <button class="prod-tab-btn" data-tab="unifica" onclick="showProdTab('unifica')"><i class="fas fa-code-merge" style="margin-right:5px"></i>Unifica</button>
           </div>
 
           <!-- ── Tab Frontalini ── -->
@@ -1308,6 +1309,70 @@
               </table>
             </div>
           </div>
+          <!-- ── Tab Unifica ── -->
+          <div id="prod-tab-unifica" style="display:none">
+            <div style="padding:16px 0 10px">
+              <div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:12px;padding:12px 16px;font-size:13px;color:#92400e;margin-bottom:16px">
+                <strong>Unificazione database prodotti</strong> — Questa operazione crea una nuova tabella <code>prodotti_catalogo</code> che sostituisce <code>frontalini_catalogo</code> e <code>rifornimento_catalogo</code>. Esegui prima l'SQL, poi avvia l'analisi e risolvi i doppioni.
+              </div>
+
+              <!-- STEP 1: SQL -->
+              <div style="margin-bottom:20px">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">1</span>Crea la nuova tabella in Supabase SQL Editor</div>
+                <div style="position:relative">
+                  <pre id="unif-sql" style="background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px;font-size:11px;overflow-x:auto;line-height:1.5;white-space:pre">create table prodotti_catalogo (
+  id              bigint generated always as identity primary key,
+  codice          text,
+  descrizione     text not null,
+  peso            float8,
+  unita           text,
+  prezzo          float8,
+  fornitore       text,
+  marchio         text,
+  bio             boolean not null default false,
+  senza_glutine   boolean not null default false,
+  vegano          boolean not null default false,
+  solidale_italiano boolean not null default false,
+  note            text,
+  category        text,
+  linea           text,
+  pack_size       int,
+  assortment_cremona          boolean,
+  assortment_casalmaggiore    boolean,
+  assortment_viadana          boolean,
+  active          boolean not null default true,
+  source_sheet    text,
+  created_at      timestamptz not null default now()
+);
+alter table prodotti_catalogo enable row level security;
+create policy "public read"  on prodotti_catalogo for select using (true);
+create policy "auth write"   on prodotti_catalogo for all using (auth.role() = 'authenticated');</pre>
+                  <button onclick="copiaSQL()" style="position:absolute;top:10px;right:10px;background:#334155;color:#cbd5e1;border:none;border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit"><i class="fas fa-copy" style="margin-right:4px"></i>Copia</button>
+                </div>
+              </div>
+
+              <!-- STEP 2: analisi -->
+              <div style="margin-bottom:16px">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:middle;font-size:9px;margin-right:5px">2</span>Analizza doppioni tra i due cataloghi</div>
+                <button class="btn-primary" onclick="avviaAnalisiDoppioni()" style="padding:9px 20px;font-size:13px"><i class="fas fa-search" style="margin-right:5px"></i>Avvia analisi</button>
+              </div>
+
+              <!-- STEP 3: lista doppioni -->
+              <div id="unif-doppioni-wrap" style="display:none;margin-bottom:20px">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">3</span>Doppioni rilevati — clicca "Unisci" per scegliere cosa tenere</div>
+                <div id="unif-doppioni-list"></div>
+              </div>
+
+              <!-- STEP 4: migra -->
+              <div id="unif-migra-wrap" style="display:none">
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px"><span style="background:#1e293b;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">4</span>Esegui la migrazione</div>
+                <div id="unif-riepilogo" style="font-size:12px;color:#64748b;margin-bottom:10px"></div>
+                <button class="btn-primary" onclick="eseguiMigrazione()" style="padding:9px 20px;font-size:13px;background:#15803d"><i class="fas fa-database" style="margin-right:5px"></i>Migra tutti i prodotti in <code style="background:rgba(255,255,255,.2);border-radius:4px;padding:1px 5px">prodotti_catalogo</code></button>
+                <div id="unif-progresso" style="margin-top:10px;font-size:12px;color:#64748b"></div>
+              </div>
+            </div>
+          </div>
+
         </div><!-- end section-prodotti -->
 
         <!-- MODAL: prodotto frontalini -->
@@ -1449,6 +1514,28 @@
             </div>
           </div>
         </div>
+
+      <!-- MODAL: merge prodotto doppione -->
+      <div id="modal-merge-prod" class="modal-overlay" onclick="if(event.target===this)closeMergeProdModal()" style="display:none">
+        <div class="modal-box" style="max-width:700px">
+          <div class="modal-header">
+            <h3>Unisci prodotto doppio</h3>
+            <button onclick="closeMergeProdModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:12px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;text-align:center">
+              <div style="background:#dbeafe;color:#1d4ed8;border-radius:6px;padding:4px">Frontalini</div>
+              <div style="background:#f0fdf4;color:#15803d;border-radius:6px;padding:4px">Fornitura</div>
+              <div style="background:#f1f5f9;border-radius:6px;padding:4px">Risultato</div>
+            </div>
+            <div id="merge-prod-body" style="overflow-y:auto;max-height:420px"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeMergeProdModal()">Annulla</button>
+            <button class="btn-primary" onclick="confirmMergeProd()"><i class="fas fa-check" style="margin-right:5px"></i>Conferma unione</button>
+          </div>
+        </div>
+      </div>
 
       </div><!-- end adm-main -->
 
@@ -5198,6 +5285,7 @@
     function showProdTab(tab) {
         document.getElementById('prod-tab-frontalini').style.display = tab === 'frontalini' ? '' : 'none';
         document.getElementById('prod-tab-fornitura').style.display  = tab === 'fornitura'  ? '' : 'none';
+        document.getElementById('prod-tab-unifica').style.display    = tab === 'unifica'    ? '' : 'none';
         document.querySelectorAll('.prod-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     }
 
@@ -5413,6 +5501,357 @@
         el.textContent = msg;
         el.className = 'modal-op-msg ' + (tipo === 'error' ? 'modal-op-msg-error' : 'modal-op-msg-success');
         el.style.display = 'block';
+    }
+
+    // ── PRODOTTI UNIFICA ──────────────────────────────────────────────────────
+    const _escU = s => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    function copiaSQL() {
+        const sql = document.getElementById('unif-sql')?.textContent || '';
+        navigator.clipboard.writeText(sql).then(() => showToast('SQL copiato', 'ok'));
+    }
+
+    let _doppioni       = [];   // [{fr, rif}]
+    let _doppRisolti    = {};   // key='fr_id:rif_id' → payload
+    let _mergeTarget    = null; // {fr, rif} corrente
+    let _mergeProdSels  = {};   // field → 'fr'|'rif'
+    let _mergeProdOver  = {};   // field → valore manuale
+
+    // Campi condivisi (da confrontare)
+    const MERGE_PROD_FIELDS = [
+        { key:'codice',      label:'Codice',      frKey:'codice',       rifKey:'product_code'  },
+        { key:'descrizione', label:'Descrizione', frKey:'descrizione',  rifKey:'description'   },
+        { key:'peso',        label:'Peso/Qtà',    frKey:'peso',         rifKey:'quantita'      },
+        { key:'unita',       label:'Unità',       frKey:'unita',        rifKey:'unita_misura'  },
+        { key:'prezzo',      label:'Prezzo €',    frKey:'prezzo',       rifKey:'pvp'           },
+        { key:'fornitore',   label:'Fornitore',   frKey:'fornitore',    rifKey:'fornitore'     },
+        { key:'marchio',     label:'Marchio',     frKey:'marchio',      rifKey:'marchio'       },
+    ];
+    // Campi solo frontalini (default preso sempre da frontalini)
+    const MERGE_ONLY_FR  = ['bio','senza_glutine','vegano','solidale_italiano','note'];
+    // Campi solo rifornimento (default preso sempre da rifornimento)
+    const MERGE_ONLY_RIF = ['category','linea','pack_size','assortment_cremona','assortment_casalmaggiore','assortment_viadana','active','source_sheet'];
+
+    function avviaAnalisiDoppioni() {
+        if (!_prodFrontalini.length && !_prodFornitura.length) {
+            showToast('Prodotti non ancora caricati, ricarica la pagina', 'err');
+            return;
+        }
+        _doppioni = _buildDoppioni();
+        _doppRisolti = {};
+        document.getElementById('unif-doppioni-wrap').style.display = '';
+        document.getElementById('unif-migra-wrap').style.display = '';
+        renderDoppioni();
+        _aggiornaRiepilogo();
+    }
+
+    function _normStr(s) {
+        return (s || '').trim().toLowerCase().replace(/\s+/g,' ');
+    }
+
+    function _buildDoppioni() {
+        const usedRif = new Set();
+        const result = [];
+        for (const fr of _prodFrontalini) {
+            const frCod  = _normStr(fr.codice);
+            const frDesc = _normStr(fr.descrizione);
+            for (const rif of _prodFornitura) {
+                if (usedRif.has(rif.id)) continue;
+                const rifCod  = _normStr(rif.product_code);
+                const rifDesc = _normStr(rif.description);
+                const sameCod  = frCod  && rifCod  && frCod  === rifCod;
+                const sameDesc = frDesc && rifDesc && frDesc === rifDesc;
+                if (sameCod || sameDesc) {
+                    result.push({ fr, rif });
+                    usedRif.add(rif.id);
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    function renderDoppioni() {
+        const wrap = document.getElementById('unif-doppioni-list');
+        if (!_doppioni.length) {
+            wrap.innerHTML = '<div style="text-align:center;padding:24px;color:#16a34a;font-size:13px"><i class="fas fa-check-circle" style="margin-right:5px"></i>Nessun doppione trovato tra i due cataloghi</div>';
+            return;
+        }
+        wrap.innerHTML = `<div class="s-card" style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#f8fafc">
+            <th style="padding:8px 10px;text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Frontalini</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Fornitura</th>
+            <th style="padding:8px 10px;text-align:center;font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#64748b;border-bottom:1px solid #e2e8f0">Stato</th>
+            <th style="padding:8px 10px;border-bottom:1px solid #e2e8f0"></th>
+          </tr></thead>
+          <tbody>
+          ${_doppioni.map(d => {
+              const k = d.fr.id + ':' + d.rif.id;
+              const risolto = !!_doppRisolti[k];
+              return `<tr style="border-bottom:1px solid #f1f5f9">
+                <td style="padding:8px 10px"><div style="font-weight:600;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_escU(d.fr.descrizione)}</div><div style="font-size:10px;color:#94a3b8">${_escU(d.fr.codice||'')}</div></td>
+                <td style="padding:8px 10px"><div style="font-weight:600;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_escU(d.rif.description)}</div><div style="font-size:10px;color:#94a3b8">${_escU(d.rif.product_code||'')}</div></td>
+                <td style="padding:8px 10px;text-align:center">${risolto ? '<span style="font-size:10px;background:#dcfce7;color:#15803d;border-radius:5px;padding:2px 7px;font-weight:700">Risolto</span>' : '<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:5px;padding:2px 7px;font-weight:700">Da risolvere</span>'}</td>
+                <td style="padding:8px 10px;text-align:right"><button class="btn-primary" style="padding:5px 12px;font-size:11px" onclick="openMergeProdModal('${d.fr.id}','${d.rif.id}')"><i class="fas fa-code-merge" style="margin-right:4px"></i>${risolto ? 'Rivedi' : 'Unisci'}</button></td>
+              </tr>`;
+          }).join('')}
+          </tbody>
+        </table></div>`;
+    }
+
+    function _aggiornaRiepilogo() {
+        const doppNonRisolti = _doppioni.filter(d => !_doppRisolti[d.fr.id + ':' + d.rif.id]).length;
+        const frSoli = _prodFrontalini.filter(fr => !_doppioni.find(d => d.fr.id === fr.id)).length;
+        const rifSoli = _prodFornitura.filter(rif => !_doppioni.find(d => d.rif.id === rif.id)).length;
+        const doppRis = _doppioni.length - doppNonRisolti;
+        const el = document.getElementById('unif-riepilogo');
+        if (el) el.innerHTML = `
+          Prodotti solo Frontalini: <strong>${frSoli}</strong> ·
+          Prodotti solo Fornitura: <strong>${rifSoli}</strong> ·
+          Doppioni: <strong>${_doppioni.length}</strong> (${doppRis} risolti${doppNonRisolti > 0 ? `, <span style="color:#dc2626">${doppNonRisolti} da risolvere</span>` : ''}) ·
+          Totale prodotti nel nuovo DB: <strong>${frSoli + rifSoli + _doppioni.length}</strong>`;
+    }
+
+    function openMergeProdModal(frId, rifId) {
+        const fr  = _prodFrontalini.find(x => String(x.id) === String(frId));
+        const rif = _prodFornitura.find(x => String(x.id) === String(rifId));
+        if (!fr || !rif) return;
+        _mergeTarget = { fr, rif };
+        _mergeProdSels = {};
+        _mergeProdOver = {};
+        // Pre-seleziona: se frontalini ha un valore, prende frontalini; altrimenti fornitura
+        MERGE_PROD_FIELDS.forEach(f => {
+            const vFr  = fr[f.frKey];
+            const vRif = rif[f.rifKey];
+            _mergeProdSels[f.key] = (vFr != null && vFr !== '') ? 'fr' : 'rif';
+        });
+        _renderMergeProdBody();
+        document.getElementById('modal-merge-prod').style.display = 'flex';
+    }
+
+    function closeMergeProdModal() {
+        document.getElementById('modal-merge-prod').style.display = 'none';
+        _mergeTarget = null;
+    }
+
+    function _fmtMergeVal(key, v) {
+        if (v === null || v === undefined || v === '') return '';
+        if (typeof v === 'boolean') return v ? 'Sì' : 'No';
+        return String(v);
+    }
+
+    function _renderMergeProdBody() {
+        if (!_mergeTarget) return;
+        const { fr, rif } = _mergeTarget;
+        const style = `border-bottom:1px solid #f1f5f9;display:grid;grid-template-columns:120px 1fr 1fr 1fr;gap:6px;align-items:center;padding:6px 0`;
+
+        let html = `<div style="${style.replace('display:grid','display:grid')}">
+          <div></div>
+          <div style="font-size:10px;font-weight:800;color:#1d4ed8;text-align:center;background:#dbeafe;border-radius:5px;padding:3px">Frontalini</div>
+          <div style="font-size:10px;font-weight:800;color:#15803d;text-align:center;background:#f0fdf4;border-radius:5px;padding:3px">Fornitura</div>
+          <div style="font-size:10px;font-weight:800;color:#475569;text-align:center;background:#f1f5f9;border-radius:5px;padding:3px">Risultato</div>
+        </div>`;
+
+        MERGE_PROD_FIELDS.forEach(f => {
+            const vFr  = fr[f.frKey];
+            const vRif = rif[f.rifKey];
+            const dFr  = _fmtMergeVal(f.key, vFr);
+            const dRif = _fmtMergeVal(f.key, vRif);
+            const selFr = _mergeProdSels[f.key] !== 'rif';
+            const selVal = selFr ? dFr : dRif;
+            const resultVal = _mergeProdOver[f.key] !== undefined ? _mergeProdOver[f.key] : selVal;
+            const same = dFr !== '' && dRif !== '' && dFr.toLowerCase() === dRif.toLowerCase();
+
+            if (same) {
+                html += `<div style="${style}">
+                  <div style="font-size:11px;font-weight:700;color:#64748b">${_escU(f.label)}</div>
+                  <div colspan="2" style="font-size:12px;color:#475569;grid-column:span 2;text-align:center;background:#f8fafc;border-radius:5px;padding:3px 6px"><i class="fas fa-equals" style="font-size:9px;opacity:.5;margin-right:3px"></i>${_escU(dFr)}</div>
+                  <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(resultVal)}" oninput="_onMergeProdEdit('${f.key}',this.value)">
+                </div>`;
+            } else {
+                html += `<div style="${style}">
+                  <div style="font-size:11px;font-weight:700;color:#64748b">${_escU(f.label)}</div>
+                  <div onclick="setMergeProdSel('${f.key}','fr')" style="cursor:pointer;border-radius:6px;padding:4px 7px;border:2px solid ${selFr?'#3b82f6':'#e2e8f0'};background:${selFr?'#dbeafe':'#fff'};font-size:12px;min-height:28px">
+                    <input type="radio" name="mpf-${f.key}" value="fr" ${selFr?'checked':''} style="margin-right:4px;accent-color:#3b82f6">${dFr ? _escU(dFr) : '<span style="color:#cbd5e1">—</span>'}
+                  </div>
+                  <div onclick="setMergeProdSel('${f.key}','rif')" style="cursor:pointer;border-radius:6px;padding:4px 7px;border:2px solid ${!selFr?'#16a34a':'#e2e8f0'};background:${!selFr?'#f0fdf4':'#fff'};font-size:12px;min-height:28px">
+                    <input type="radio" name="mpf-${f.key}" value="rif" ${!selFr?'checked':''} style="margin-right:4px;accent-color:#16a34a">${dRif ? _escU(dRif) : '<span style="color:#cbd5e1">—</span>'}
+                  </div>
+                  <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(resultVal)}" oninput="_onMergeProdEdit('${f.key}',this.value)">
+                </div>`;
+            }
+        });
+
+        // Campi solo frontalini
+        const frOnlyLabels = {bio:'BIO',senza_glutine:'Senza Glutine',vegano:'Vegano',solidale_italiano:'Solidale IT.',note:'Note'};
+        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Attributi (da Frontalini)</div>`;
+        MERGE_ONLY_FR.forEach(k => {
+            const v = fr[k];
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:12px">
+              <span style="color:#64748b;font-weight:600">${frOnlyLabels[k]||k}</span>
+              <span style="color:#1e293b">${_fmtMergeVal(k, v) || '<span style="color:#cbd5e1">—</span>'}</span>
+            </div>`;
+        });
+
+        // Campi solo fornitura
+        const rifOnlyLabels = {category:'Categoria',linea:'Linea',pack_size:'Pack size',assortment_cremona:'Cremona',assortment_casalmaggiore:'Casalmaggiore',assortment_viadana:'Viadana',active:'Attivo',source_sheet:'Source sheet'};
+        html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Dati fornitura (da Fornitura)</div>`;
+        MERGE_ONLY_RIF.forEach(k => {
+            const v = rif[k];
+            html += `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f8fafc;font-size:12px">
+              <span style="color:#64748b;font-weight:600">${rifOnlyLabels[k]||k}</span>
+              <span style="color:#1e293b">${_fmtMergeVal(k, v) || '<span style="color:#cbd5e1">—</span>'}</span>
+            </div>`;
+        });
+
+        document.getElementById('merge-prod-body').innerHTML = html;
+    }
+
+    function setMergeProdSel(field, source) {
+        _mergeProdSels[field] = source;
+        // Aggiorna il risultato se non è stato modificato manualmente
+        if (_mergeProdOver[field] === undefined) {
+            const f = MERGE_PROD_FIELDS.find(x => x.key === field);
+            if (f) {
+                const val = source === 'fr' ? _mergeTarget.fr[f.frKey] : _mergeTarget.rif[f.rifKey];
+                const inp = document.querySelector(`input[oninput*="_onMergeProdEdit('${field}'"]`);
+                if (inp) inp.value = val ?? '';
+            }
+        }
+        _renderMergeProdBody();
+    }
+
+    function _onMergeProdEdit(field, value) {
+        _mergeProdOver[field] = value;
+    }
+
+    function confirmMergeProd() {
+        if (!_mergeTarget) return;
+        const { fr, rif } = _mergeTarget;
+        const payload = {};
+
+        MERGE_PROD_FIELDS.forEach(f => {
+            const selFr = _mergeProdSels[f.key] !== 'rif';
+            const valSrc = selFr ? fr[f.frKey] : rif[f.rifKey];
+            const valFinal = _mergeProdOver[f.key] !== undefined ? _mergeProdOver[f.key] : (valSrc ?? '');
+            // Converti al tipo giusto
+            if (f.key === 'peso' || f.key === 'prezzo') {
+                payload[f.key] = valFinal !== '' ? parseFloat(valFinal) || null : null;
+            } else {
+                payload[f.key] = valFinal || null;
+            }
+        });
+        // Campi solo frontalini
+        payload.bio               = !!fr.bio;
+        payload.senza_glutine     = !!fr.senza_glutine;
+        payload.vegano            = !!fr.vegano;
+        payload.solidale_italiano = !!fr.solidale_italiano;
+        payload.note              = fr.note || null;
+        // Campi solo fornitura
+        payload.category                 = rif.category || null;
+        payload.linea                    = rif.linea || null;
+        payload.pack_size                = rif.pack_size || null;
+        payload.assortment_cremona       = !!rif.assortment_cremona;
+        payload.assortment_casalmaggiore = !!rif.assortment_casalmaggiore;
+        payload.assortment_viadana       = !!rif.assortment_viadana;
+        payload.active                   = rif.active !== false;
+        payload.source_sheet             = rif.source_sheet || null;
+
+        const k = fr.id + ':' + rif.id;
+        _doppRisolti[k] = payload;
+        closeMergeProdModal();
+        renderDoppioni();
+        _aggiornaRiepilogo();
+        showToast('Doppione risolto', 'ok');
+    }
+
+    async function eseguiMigrazione() {
+        const doppNonRisolti = _doppioni.filter(d => !_doppRisolti[d.fr.id + ':' + d.rif.id]);
+        if (doppNonRisolti.length > 0) {
+            if (!confirm(`Ci sono ancora ${doppNonRisolti.length} doppioni da risolvere. I doppioni non risolti verranno importati dalla versione Frontalini. Continuare?`)) return;
+        }
+
+        const progEl = document.getElementById('unif-progresso');
+        progEl.textContent = 'Migrazione in corso…';
+
+        const usedRifIds = new Set(_doppioni.map(d => d.rif.id));
+        const usedFrIds  = new Set(_doppioni.map(d => d.fr.id));
+
+        const records = [];
+
+        // 1. Prodotti solo frontalini (non doppioni)
+        for (const fr of _prodFrontalini) {
+            if (usedFrIds.has(fr.id)) continue;
+            records.push({
+                codice: fr.codice || null, descrizione: (fr.descrizione || '').toUpperCase(),
+                peso: fr.peso ?? null, unita: fr.unita || null, prezzo: fr.prezzo ?? null,
+                fornitore: fr.fornitore || null, marchio: fr.marchio || null,
+                bio: !!fr.bio, senza_glutine: !!fr.senza_glutine, vegano: !!fr.vegano,
+                solidale_italiano: !!fr.solidale_italiano, note: fr.note || null,
+                active: true,
+            });
+        }
+
+        // 2. Prodotti solo fornitura (non doppioni)
+        for (const rif of _prodFornitura) {
+            if (usedRifIds.has(rif.id)) continue;
+            records.push({
+                codice: rif.product_code || null, descrizione: (rif.description || '').toUpperCase(),
+                peso: rif.quantita ?? null, unita: rif.unita_misura || null, prezzo: rif.pvp ?? null,
+                fornitore: rif.fornitore || null, marchio: rif.marchio || null,
+                bio: false, senza_glutine: false, vegano: false, solidale_italiano: false,
+                category: rif.category || null, linea: rif.linea || null,
+                pack_size: rif.pack_size || null,
+                assortment_cremona: !!rif.assortment_cremona,
+                assortment_casalmaggiore: !!rif.assortment_casalmaggiore,
+                assortment_viadana: !!rif.assortment_viadana,
+                active: rif.active !== false, source_sheet: rif.source_sheet || null,
+            });
+        }
+
+        // 3. Doppioni risolti
+        for (const d of _doppioni) {
+            const k = d.fr.id + ':' + d.rif.id;
+            if (_doppRisolti[k]) {
+                records.push({ ...(_doppRisolti[k]), descrizione: (_doppRisolti[k].descrizione || '').toUpperCase() });
+            } else {
+                // Non risolto: usa frontalini come base + dati fornitura
+                const fr = d.fr, rif = d.rif;
+                records.push({
+                    codice: fr.codice || rif.product_code || null,
+                    descrizione: (fr.descrizione || rif.description || '').toUpperCase(),
+                    peso: fr.peso ?? rif.quantita ?? null, unita: fr.unita || rif.unita_misura || null,
+                    prezzo: fr.prezzo ?? rif.pvp ?? null,
+                    fornitore: fr.fornitore || rif.fornitore || null,
+                    marchio: fr.marchio || rif.marchio || null,
+                    bio: !!fr.bio, senza_glutine: !!fr.senza_glutine, vegano: !!fr.vegano,
+                    solidale_italiano: !!fr.solidale_italiano, note: fr.note || null,
+                    category: rif.category || null, linea: rif.linea || null,
+                    pack_size: rif.pack_size || null,
+                    assortment_cremona: !!rif.assortment_cremona,
+                    assortment_casalmaggiore: !!rif.assortment_casalmaggiore,
+                    assortment_viadana: !!rif.assortment_viadana,
+                    active: rif.active !== false, source_sheet: rif.source_sheet || null,
+                });
+            }
+        }
+
+        // Inserimento a blocchi
+        const CHUNK = 100;
+        let n = 0;
+        for (let i = 0; i < records.length; i += CHUNK) {
+            const chunk = records.slice(i, i + CHUNK);
+            const { error } = await db.from('prodotti_catalogo').insert(chunk);
+            if (error) {
+                progEl.innerHTML = `<span style="color:#dc2626">Errore al blocco ${i/CHUNK+1}: ${_escU(error.message)}</span>`;
+                return;
+            }
+            n += chunk.length;
+            progEl.textContent = `Inseriti ${n} / ${records.length} prodotti…`;
+        }
+
+        progEl.innerHTML = `<span style="color:#15803d;font-weight:700"><i class="fas fa-check-circle" style="margin-right:5px"></i>Migrazione completata! ${n} prodotti inseriti in <code>prodotti_catalogo</code>.</span>`;
+        showToast(`Migrazione completata: ${n} prodotti`, 'ok');
     }
     </script>
 </body>
