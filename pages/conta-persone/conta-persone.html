@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conta Persone</title>
+  <style>
+    :root {
+      --red:#B5453A; --red-dark:#8c362d; --red-light:#fdf1f0;
+      --s50:#f8fafc; --s100:#f1f5f9; --s200:#e2e8f0; --s300:#cbd5e1;
+      --s400:#94a3b8; --s500:#64748b; --s600:#475569; --s700:#334155; --s800:#1e293b;
+      --green:#059669; --green-lt:#dcfce7;
+      --amber:#d97706; --amber-lt:#fef3c7;
+      --blue:#2563eb; --blue-lt:#dbeafe;
+      --violet:#7c3aed; --violet-lt:#ede9fe;
+    }
+
+    /* ── VISTE ── */
+    .view { display:none }
+    .view.active { display:block }
+
+    /* Vista conteggio: flex colonna a tutta altezza */
+    #v-conteggio.active {
+      display:flex; flex-direction:column;
+      min-height:calc(100vh - 132px);
+      margin:-16px; /* esce dal padding #app */
+      background:#fff;
+    }
+
+    /* ── BASE ── */
+    .cp-card {
+      background:#fff; border-radius:20px;
+      border:1px solid var(--s200);
+      box-shadow:0 1px 4px rgba(0,0,0,.05);
+      overflow:hidden;
+    }
+    .cp-p { padding:20px }
+    .sec-t {
+      font-size:11px; font-weight:900; letter-spacing:.14em;
+      text-transform:uppercase; color:var(--s400);
+      display:flex; align-items:center; gap:10px; margin-bottom:14px;
+    }
+    .sec-t::before { content:''; width:3px; height:16px; background:var(--red); border-radius:2px; flex-shrink:0 }
+    .bk { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:800;
+          color:var(--s500); background:none; border:none; cursor:pointer; padding:0;
+          margin-bottom:18px; transition:color .15s; touch-action:manipulation }
+    .bk:hover { color:var(--red) }
+
+    /* ── BOTTONI ── */
+    .btn {
+      border:none; cursor:pointer; border-radius:14px; font-family:inherit; font-weight:800;
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      transition:all .12s; touch-action:manipulation; user-select:none;
+      -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+    }
+    .btn-red   { background:var(--red);   color:#fff }
+    .btn-red:hover, .btn-red:active   { background:var(--red-dark) }
+    .btn-out   { background:#fff;   color:var(--s700); border:1.5px solid var(--s200) }
+    .btn-out:hover { border-color:var(--s400) }
+    .btn-dark  { background:var(--s800); color:#fff }
+    .btn-dark:hover, .btn-dark:active { background:var(--s700) }
+    .btn-green { background:var(--green); color:#fff }
+    .btn-green:hover { background:#047857 }
+    .btn-sm  { padding:8px 16px;  font-size:13px }
+    .btn-lg  { padding:14px 24px; font-size:16px }
+    .btn-xl  { padding:16px;      font-size:16px }
+    .btn-fw  { width:100% }
+    .btn:disabled { opacity:.45; pointer-events:none }
+
+    /* ── INPUT ── */
+    .inp {
+      border:1.5px solid var(--s200); border-radius:12px;
+      padding:11px 14px; font-size:15px; font-family:inherit;
+      outline:none; width:100%; transition:border .15s; background:#fff;
+    }
+    .inp:focus { border-color:var(--red) }
+    .lbl { font-size:11px; font-weight:800; text-transform:uppercase;
+           letter-spacing:.08em; color:var(--s400); display:block; margin-bottom:5px }
+    .fld { display:flex; flex-direction:column; gap:4px; margin-bottom:16px }
+
+    /* ── HOME ── */
+    .hero {
+      background:var(--red); border-radius:24px; padding:28px 24px;
+      cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+      transition:transform .15s; margin-bottom:12px;
+    }
+    .hero:active { transform:scale(.98) }
+    .hero-icon {
+      width:56px; height:56px; background:rgba(255,255,255,.2);
+      border-radius:18px; display:flex; align-items:center; justify-content:center;
+      font-size:26px; color:#fff; margin-bottom:16px;
+    }
+    .hero-title { font-size:22px; font-weight:900; color:#fff; margin-bottom:6px }
+    .hero-sub   { font-size:14px; color:rgba(255,255,255,.8); line-height:1.4 }
+
+    .nav-card {
+      display:flex; align-items:center; gap:16px;
+      padding:18px 20px; background:#fff; border-radius:20px;
+      border:1px solid var(--s200); cursor:pointer;
+      transition:transform .12s, border-color .12s;
+      touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+      text-decoration:none;
+    }
+    .nav-card:active { transform:scale(.98); border-color:var(--s300) }
+    .nav-card-icon { width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0 }
+
+    .session-banner {
+      background:var(--amber-lt); border:1.5px solid #fcd34d; border-radius:16px;
+      padding:14px 16px; display:flex; align-items:center; gap:12px;
+      cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+      margin-bottom:16px;
+    }
+    .session-banner:active { opacity:.85 }
+
+    /* ── SETUP ── */
+    .info-pill {
+      background:var(--s50); border-radius:12px; padding:10px 14px;
+      font-size:13px; text-align:center; flex:1;
+    }
+    .info-pill-n { font-weight:900; color:var(--s800) }
+    .info-pill-l { color:var(--s400); font-size:11px; margin-top:1px }
+
+    /* ── CONTEGGIO ── */
+    .cnt-top { background:var(--s800); color:#fff; padding:14px 16px; flex-shrink:0 }
+    .cnt-via  { font-size:17px; font-weight:900; color:#fff }
+    .cnt-meta { font-size:12px; color:rgba(255,255,255,.65); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap }
+    .cnt-meta strong { color:rgba(255,255,255,.9) }
+
+    .cnt-pausa-banner {
+      background:var(--amber-lt); border-bottom:1px solid #fcd34d;
+      padding:8px 16px; text-align:center;
+      font-size:13px; font-weight:800; color:var(--amber);
+      display:none; flex-shrink:0;
+    }
+
+    .cnt-body {
+      flex:1; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:16px 16px 0;
+    }
+
+    .cnt-timer { font-size:15px; font-weight:700; color:var(--s400); margin-bottom:6px; font-variant-numeric:tabular-nums }
+
+    .cnt-numero {
+      font-size:clamp(72px, 20vw, 108px); font-weight:900; color:var(--s800);
+      line-height:1; margin-bottom:4px; font-variant-numeric:tabular-nums;
+      transition:transform .08s;
+    }
+    .cnt-numero.bump { transform:scale(1.1) }
+    .cnt-persone-lbl {
+      font-size:12px; font-weight:800; text-transform:uppercase;
+      letter-spacing:.15em; color:var(--s400); margin-bottom:20px;
+    }
+
+    /* Pulsante +1 circolare, raggiungibile col pollice */
+    .tap-btn {
+      width:min(240px, 68vw); height:min(240px, 68vw);
+      border-radius:50%; background:var(--red); color:#fff;
+      border:none; cursor:pointer; flex-shrink:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+      touch-action:manipulation; user-select:none;
+      -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+      transition:transform .07s, background .07s;
+      box-shadow:0 8px 32px rgba(181,69,58,.35);
+    }
+    .tap-btn:active, .tap-btn.pressed { transform:scale(.92); background:var(--red-dark); box-shadow:0 4px 16px rgba(181,69,58,.2) }
+    .tap-btn.in-pausa { background:var(--s300); box-shadow:none; cursor:default }
+    .tap-plus   { font-size:clamp(32px,10vw,44px); font-weight:900; line-height:1 }
+    .tap-sublbl { font-size:13px; font-weight:800; letter-spacing:.05em; opacity:.9 }
+
+    .cnt-sec-row {
+      display:flex; gap:10px; padding:14px 16px 0; width:100%; max-width:400px; flex-shrink:0;
+    }
+
+    .cnt-footer {
+      display:flex; gap:10px; padding:14px 16px;
+      border-top:1px solid var(--s100); background:#fff; flex-shrink:0;
+    }
+
+    /* ── RIEPILOGO ── */
+    .ril-big { text-align:center; padding:20px 16px; border-bottom:1px solid var(--s100) }
+    .ril-big-n { font-size:72px; font-weight:900; color:var(--red); line-height:1 }
+    .ril-big-l { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--s400); margin-top:4px }
+    .ril-row { display:flex; justify-content:space-between; align-items:center; padding:11px 16px; border-bottom:1px solid var(--s100); font-size:14px }
+    .ril-row:last-child { border-bottom:none }
+    .ril-lbl  { color:var(--s500); font-weight:600 }
+    .ril-val  { font-weight:800; color:var(--s800) }
+    .ril-val-big { font-size:17px; font-weight:900; color:var(--red) }
+
+    /* ── STORICO ── */
+    .st-item {
+      display:flex; align-items:center; gap:14px; padding:14px 16px;
+      border-bottom:1px solid var(--s100); cursor:pointer; transition:background .1s;
+      touch-action:manipulation;
+    }
+    .st-item:last-child { border-bottom:none }
+    .st-item:active { background:var(--s50) }
+    .st-num { width:44px; height:44px; border-radius:12px; background:var(--red-light); color:var(--red); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; flex-shrink:0 }
+    .st-via  { font-size:15px; font-weight:800; color:var(--s800) }
+    .st-meta { font-size:12px; color:var(--s400); margin-top:2px }
+
+    /* ── FILTRI ── */
+    .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px }
+    .fsel { border:1.5px solid var(--s200); border-radius:10px; padding:8px 11px; font-size:13px; font-family:inherit; background:#fff; outline:none; flex:1; min-width:120px }
+    .fsel:focus { border-color:var(--red) }
+    .fsearch { position:relative; flex:2; min-width:150px }
+    .fsearch i { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--s400); font-size:13px; pointer-events:none }
+    .fsearch .inp { padding-left:32px }
+
+    /* ── REPORT ── */
+    .rpt-tabs { display:flex; gap:4px; background:var(--s100); border-radius:12px; padding:4px; margin-bottom:16px }
+    .rpt-tab {
+      flex:1; padding:8px; border:none; background:transparent; border-radius:9px;
+      font-size:12px; font-weight:800; color:var(--s500); cursor:pointer;
+      transition:all .15s; font-family:inherit; touch-action:manipulation;
+    }
+    .rpt-tab.active { background:#fff; color:var(--s800); box-shadow:0 1px 4px rgba(0,0,0,.08) }
+
+    .bar-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--s100) }
+    .bar-row:last-child { border-bottom:none }
+    .bar-rank { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; flex-shrink:0 }
+    .bar-wrap  { flex:1; min-width:0 }
+    .bar-label { font-size:13px; font-weight:800; color:var(--s800) }
+    .bar-sub   { font-size:11px; color:var(--s400) }
+    .bar-track { height:6px; background:var(--s100); border-radius:3px; overflow:hidden; margin-top:5px }
+    .bar-fill  { height:100%; border-radius:3px; transition:width .4s }
+    .bar-val   { font-size:15px; font-weight:900; color:var(--s800); white-space:nowrap; flex-shrink:0; text-align:right }
+    .bar-val-s { font-size:10px; color:var(--s400); text-align:right }
+
+    .stat-pill { background:var(--s50); border:1px solid var(--s200); border-radius:12px; padding:10px 14px; text-align:center; flex:1 }
+    .stat-pill-n { font-size:20px; font-weight:900; color:var(--s800) }
+    .stat-pill-l { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--s400); margin-top:2px }
+
+    /* ── MODAL DETTAGLIO ── */
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; display:none; align-items:flex-end; justify-content:center; padding:0 }
+    .modal-bg.open { display:flex }
+    .modal-sheet { background:#fff; border-radius:24px 24px 0 0; width:100%; max-width:560px; max-height:88vh; overflow-y:auto; animation:slideUp .2s ease-out }
+    @keyframes slideUp { from { transform:translateY(40px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+    .modal-drag { width:36px; height:4px; background:var(--s200); border-radius:2px; margin:10px auto 0 }
+    .modal-p { padding:16px 20px 32px }
+
+    /* ── BADGE ── */
+    .badge { font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; text-transform:uppercase }
+    .b-ok  { background:var(--green-lt); color:#15803d }
+    .b-wip { background:var(--amber-lt); color:var(--amber) }
+    .b-pau { background:#fef3c7; color:#92400e }
+
+    /* ── EMPTY ── */
+    .empty { text-align:center; padding:48px 20px; color:var(--s400) }
+    .empty i { font-size:36px; display:block; margin-bottom:12px }
+    .empty-t  { font-size:15px; font-weight:800; color:var(--s600); margin-bottom:6px }
+    .empty-s  { font-size:13px; line-height:1.5 }
+
+    /* ── TOAST ── */
+    .cp-toast { position:fixed; bottom:76px; left:50%; transform:translateX(-50%); background:var(--s800); color:#fff; border-radius:12px; padding:9px 18px; font-size:13px; font-weight:700; z-index:3000; opacity:0; transition:opacity .2s; white-space:nowrap; pointer-events:none }
+    .cp-toast.show { opacity:1 }
+  </style>
+</head>
+<body>
+<script src="../../scripts/nav-script.js"></script>
+
+<div id="app" style="max-width:600px;margin:0 auto;padding:16px">
+
+  <!-- ══════════════ VIEW: HOME ══════════════ -->
+  <div id="v-home" class="view active">
+    <div class="sec-t">Conta Persone</div>
+
+    <!-- Banner sessione in corso -->
+    <div id="session-banner" class="session-banner" onclick="riprendiSessione()" style="display:none">
+      <i class="fas fa-circle-pause" style="font-size:22px;color:var(--amber);flex-shrink:0"></i>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:900;color:#92400e">Rilevamento in corso</div>
+        <div id="session-banner-sub" style="font-size:12px;color:#b45309;margin-top:2px"></div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:var(--amber);font-size:14px;flex-shrink:0"></i>
+    </div>
+
+    <!-- Card principale -->
+    <div class="hero" onclick="goSetup()">
+      <div class="hero-icon"><i class="fas fa-person-walking"></i></div>
+      <div class="hero-title">Nuovo rilevamento</div>
+      <div class="hero-sub">Avvia un nuovo conteggio di passaggi pedonali</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="nav-card" onclick="goView('v-storico');loadStorico()">
+        <div class="nav-card-icon" style="background:var(--violet-lt);color:var(--violet)"><i class="fas fa-clock-rotate-left"></i></div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:var(--s800)">Storico rilevamenti</div>
+          <div style="font-size:12px;color:var(--s400);margin-top:2px">Consulta i rilevamenti passati</div>
+        </div>
+        <i class="fas fa-chevron-right" style="color:var(--s300);margin-left:auto;font-size:13px"></i>
+      </div>
+      <div class="nav-card" onclick="goView('v-report');loadReport()">
+        <div class="nav-card-icon" style="background:var(--blue-lt);color:var(--blue)"><i class="fas fa-chart-bar"></i></div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:var(--s800)">Report e analisi</div>
+          <div style="font-size:12px;color:var(--s400);margin-top:2px">Confronta vie e fasce orarie</div>
+        </div>
+        <i class="fas fa-chevron-right" style="color:var(--s300);margin-left:auto;font-size:13px"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ VIEW: SETUP ══════════════ -->
+  <div id="v-setup" class="view">
+    <button class="bk" onclick="goView('v-home')"><i class="fas fa-arrow-left"></i> Indietro</button>
+    <div class="sec-t">Nuovo rilevamento</div>
+
+    <div class="cp-card cp-p" style="margin-bottom:16px">
+      <!-- Data/ora automatici -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <div class="info-pill">
+          <div class="info-pill-n" id="setup-data"></div>
+          <div class="info-pill-l">data</div>
+        </div>
+        <div class="info-pill">
+          <div class="info-pill-n" id="setup-giorno"></div>
+          <div class="info-pill-l">giorno</div>
+        </div>
+        <div class="info-pill">
+          <div class="info-pill-n" id="setup-ora"></div>
+          <div class="info-pill-l">ora inizio</div>
+        </div>
+      </div>
+
+      <div class="fld">
+        <label class="lbl" for="setup-citta">Città *</label>
+        <input class="inp" id="setup-citta" list="list-citta" placeholder="Es: Cremona" autocomplete="off">
+        <datalist id="list-citta"></datalist>
+      </div>
+      <div class="fld">
+        <label class="lbl" for="setup-via">Via / Località *</label>
+        <input class="inp" id="setup-via" list="list-via" placeholder="Es: Via Roma" autocomplete="off">
+        <datalist id="list-via"></datalist>
+      </div>
+      <div class="fld" style="margin-bottom:0">
+        <label class="lbl" for="setup-nota">Nota (facoltativa)</label>
+        <input class="inp" id="setup-nota" placeholder="Es: lato supermercato, mattina feriale">
+      </div>
+    </div>
+
+    <button class="btn btn-red btn-fw btn-xl" style="border-radius:16px" onclick="avviaConteggio()">
+      <i class="fas fa-play"></i> Avvia conteggio
+    </button>
+  </div>
+
+  <!-- ══════════════ VIEW: CONTEGGIO ══════════════ -->
+  <div id="v-conteggio" class="view">
+
+    <!-- Intestazione rilevamento -->
+    <div class="cnt-top">
+      <div class="cnt-via" id="cnt-via"></div>
+      <div class="cnt-meta">
+        <span id="cnt-meta-data"></span>
+        <span>·</span>
+        <span>Inizio: <strong id="cnt-meta-ora"></strong></span>
+        <span>·</span>
+        <span>Durata: <strong id="cnt-meta-dur" style="font-variant-numeric:tabular-nums">0:00</strong></span>
+      </div>
+    </div>
+
+    <!-- Banner pausa -->
+    <div class="cnt-pausa-banner" id="cnt-pausa-banner">
+      <i class="fas fa-pause-circle" style="margin-right:5px"></i> PAUSA IN CORSO — il tempo è sospeso
+    </div>
+
+    <!-- Corpo: numero + pulsante -->
+    <div class="cnt-body">
+      <div class="cnt-timer" id="cnt-ora-live"></div>
+      <div class="cnt-numero" id="cnt-numero">0</div>
+      <div class="cnt-persone-lbl">persone</div>
+
+      <button class="tap-btn" id="tap-btn" onclick="tapPersona()">
+        <span class="tap-plus">+1</span>
+        <span class="tap-sublbl">PERSONA</span>
+      </button>
+    </div>
+
+    <!-- Azioni secondarie -->
+    <div class="cnt-sec-row">
+      <button class="btn btn-out btn-fw" style="padding:12px;font-size:13px" onclick="annullaUltimo()">
+        <i class="fas fa-rotate-left"></i> Annulla
+      </button>
+      <button class="btn btn-dark btn-fw" style="padding:12px;font-size:16px" onclick="tapCinque()">
+        +5
+      </button>
+    </div>
+
+    <!-- Footer pausa / termina -->
+    <div class="cnt-footer">
+      <button class="btn btn-out btn-fw" style="padding:13px;font-size:14px" id="btn-pausa" onclick="togglePausa()">
+        <i class="fas fa-pause" id="ico-pausa"></i>
+        <span id="lbl-pausa">Pausa</span>
+      </button>
+      <button class="btn btn-red btn-fw" style="padding:13px;font-size:14px" onclick="terminaConteggio()">
+        <i class="fas fa-stop-circle"></i> Termina
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════ VIEW: RIEPILOGO ══════════════ -->
+  <div id="v-riepilogo" class="view">
+    <div class="sec-t">Riepilogo rilevamento</div>
+
+    <div class="cp-card" style="margin-bottom:16px">
+      <div class="ril-big">
+        <div class="ril-big-n" id="rl-tot">0</div>
+        <div class="ril-big-l">persone conteggiate</div>
+      </div>
+      <div class="ril-row"><span class="ril-lbl">Media / ora</span><span class="ril-val ril-val-big" id="rl-mora"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Media / min</span><span class="ril-val" id="rl-mmin"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Via</span><span class="ril-val" id="rl-via"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Città</span><span class="ril-val" id="rl-citta"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Data</span><span class="ril-val" id="rl-data"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Giorno</span><span class="ril-val" id="rl-giorno"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Ora inizio</span><span class="ril-val" id="rl-orainizio"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Ora fine</span><span class="ril-val" id="rl-orafine"></span></div>
+      <div class="ril-row"><span class="ril-lbl">Durata effettiva</span><span class="ril-val" id="rl-durata"></span></div>
+    </div>
+
+    <div class="cp-card cp-p" style="margin-bottom:16px">
+      <div class="fld" style="margin-bottom:0">
+        <label class="lbl" for="rl-nota">Nota finale (facoltativa)</label>
+        <textarea class="inp" id="rl-nota" rows="3" placeholder="Es: molto traffico, bel tempo, mercato settimanale…" style="resize:vertical"></textarea>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-out" style="padding:14px;font-size:14px;border-radius:14px;flex:1;border-color:#fecaca;color:#dc2626" onclick="scartaRilevamento()">
+        <i class="fas fa-trash"></i> Scarta
+      </button>
+      <button class="btn btn-green" style="padding:14px;font-size:14px;border-radius:14px;flex:2" id="btn-salva" onclick="salvaRilevamento()">
+        <i class="fas fa-check"></i> Salva rilevamento
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════ VIEW: STORICO ══════════════ -->
+  <div id="v-storico" class="view">
+    <button class="bk" onclick="goView('v-home')"><i class="fas fa-arrow-left"></i> Indietro</button>
+    <div class="sec-t">Storico rilevamenti</div>
+
+    <div class="filters">
+      <div class="fsearch" style="flex:2">
+        <i class="fas fa-search"></i>
+        <input class="inp" id="st-q" placeholder="Cerca via, città…" oninput="renderStorico()" style="padding-left:32px">
+      </div>
+      <select class="fsel" id="st-citta" onchange="aggiornaViaFilter();renderStorico()">
+        <option value="">Tutte le città</option>
+      </select>
+      <select class="fsel" id="st-via" onchange="renderStorico()">
+        <option value="">Tutte le vie</option>
+      </select>
+      <select class="fsel" id="st-giorno" onchange="renderStorico()">
+        <option value="">Tutti i giorni</option>
+        <option>Lunedì</option><option>Martedì</option><option>Mercoledì</option>
+        <option>Giovedì</option><option>Venerdì</option><option>Sabato</option><option>Domenica</option>
+      </select>
+    </div>
+
+    <div class="cp-card" id="storico-list">
+      <div class="empty"><i class="fas fa-spinner fa-spin"></i><div class="empty-t">Caricamento…</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ VIEW: REPORT ══════════════ -->
+  <div id="v-report" class="view">
+    <button class="bk" onclick="goView('v-home')"><i class="fas fa-arrow-left"></i> Indietro</button>
+    <div class="sec-t">Report e analisi</div>
+
+    <div class="filters">
+      <select class="fsel" id="rp-citta" onchange="renderReport()"><option value="">Tutte le città</option></select>
+    </div>
+
+    <div class="rpt-tabs">
+      <button class="rpt-tab active" onclick="switchRptTab('classifica',this)">Classifica vie</button>
+      <button class="rpt-tab" onclick="switchRptTab('fasce',this)">Fasce orarie</button>
+      <button class="rpt-tab" onclick="switchRptTab('giorni',this)">Giorni</button>
+    </div>
+
+    <div id="rpt-classifica">
+      <div id="rpt-stats" style="display:flex;gap:8px;margin-bottom:16px"></div>
+      <div class="cp-card" id="rpt-classifica-list"></div>
+    </div>
+    <div id="rpt-fasce"  style="display:none"><div class="cp-card" id="rpt-fasce-list"></div></div>
+    <div id="rpt-giorni" style="display:none"><div class="cp-card" id="rpt-giorni-list"></div></div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- Modal dettaglio -->
+<div class="modal-bg" id="modal-det" onclick="if(event.target===this)chiudiModal()">
+  <div class="modal-sheet">
+    <div class="modal-drag"></div>
+    <div class="modal-p" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="cp-toast" id="cp-toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ════════════════════════════════════════════════
+// SETUP
+// ════════════════════════════════════════════════
+const { createClient } = supabase;
+const db = createClient(
+  'https://hsalynvxazxqtmsvjrzc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+);
+
+const SK = 'm361_conta_sessione';
+const GIORNI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+const FASCE  = ['06:00–08:00','08:00–10:00','10:00–12:00','12:00–14:00','14:00–16:00','16:00–18:00','18:00–20:00','20:00–22:00'];
+
+let _sess    = null;
+let _tInt    = null;  // timer tick
+let _asInt   = null;  // auto-save
+let _rilev   = [];    // cache DB
+let _rptTab  = 'classifica';
+
+const eid = id => document.getElementById(id);
+const esc = s  => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// ════════════════════════════════════════════════
+// DATE / TIME
+// ════════════════════════════════════════════════
+const oggi = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0') };
+const ita  = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+y };
+const ora  = () => { const d = new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0') };
+const giorno = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-').map(Number); return GIORNI[new Date(y,m-1,d).getDay()] };
+
+function fmtDurata(ms) {
+  if (!ms || ms < 0) return '0:00';
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+function fmtMin(ms) {
+  if (!ms || ms < 0) return '0 min';
+  const m = Math.round(ms/60000);
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m/60), rm = m%60;
+  return rm > 0 ? `${h}h ${rm}min` : `${h}h`;
+}
+function tempoAttivo(s) {
+  if (!s) return 0;
+  let ms = s.tempo_ms || 0;
+  if (s.stato === 'attivo') ms += Date.now() - s.avvio_ms;
+  return Math.max(0, ms);
+}
+function mediaOra(pers, ms) {
+  if (!ms || ms < 5000) return null;
+  return pers / (ms / 3600000);
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+let _tt = null;
+function toast(msg, dur=2500) {
+  const el = eid('cp-toast'); if(!el) return;
+  el.textContent = msg; el.classList.add('show');
+  if(_tt) clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ════════════════════════════════════════════════
+// NAVIGAZIONE
+// ════════════════════════════════════════════════
+function goView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  eid(id)?.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function goSetup() {
+  const now = new Date();
+  eid('setup-data').textContent   = ita(oggi());
+  eid('setup-giorno').textContent = GIORNI[now.getDay()];
+  eid('setup-ora').textContent    = ora();
+  // Datalist dalle città/vie già usate
+  const citta = [...new Set(_rilev.map(r=>r.citta).filter(Boolean))].sort();
+  const vie   = [...new Set(_rilev.map(r=>r.via).filter(Boolean))].sort();
+  eid('list-citta').innerHTML = citta.map(c=>`<option value="${esc(c)}">`).join('');
+  eid('list-via').innerHTML   = vie.map(v=>`<option value="${esc(v)}">`).join('');
+  goView('v-setup');
+  setTimeout(() => eid('setup-citta')?.focus(), 100);
+}
+
+// ════════════════════════════════════════════════
+// SESSIONE (localStorage)
+// ════════════════════════════════════════════════
+function loadSess()  { try { const s=localStorage.getItem(SK); if(s) _sess=JSON.parse(s); } catch{} }
+function saveSess()  { if(_sess) localStorage.setItem(SK, JSON.stringify(_sess)); else localStorage.removeItem(SK) }
+function clearSess() { _sess=null; localStorage.removeItem(SK) }
+
+function aggBanner() {
+  const el  = eid('session-banner');
+  const sub = eid('session-banner-sub');
+  if (!el) return;
+  if (_sess && _sess.stato !== 'terminato') {
+    el.style.display = 'flex';
+    if (sub) sub.textContent = `${esc(_sess.via)} · ${esc(_sess.citta)} · ${_sess.totale} persone`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function riprendiSessione() { if (_sess) _startConteggio(false) }
+
+// ════════════════════════════════════════════════
+// AVVIO
+// ════════════════════════════════════════════════
+function avviaConteggio() {
+  const citta = eid('setup-citta').value.trim();
+  const via   = eid('setup-via').value.trim();
+  if (!citta) { toast('Inserisci la città'); eid('setup-citta').focus(); return }
+  if (!via)   { toast('Inserisci la via o località'); eid('setup-via').focus(); return }
+
+  const now = new Date();
+  _sess = {
+    id:       null,
+    citta, via,
+    nota:     eid('setup-nota').value.trim(),
+    data:     oggi(),
+    giorno:   GIORNI[now.getDay()],
+    ora_inizio: ora(),
+    totale:   0,
+    stato:    'attivo',
+    tempo_ms: 0,
+    avvio_ms: Date.now(),
+    storia:   [],
+  };
+  saveSess();
+  _startConteggio(true);
+}
+
+function _startConteggio(isNuovo) {
+  if (!_sess) return;
+  if (!isNuovo && _sess.stato === 'pausa') {
+    _sess.stato    = 'attivo';
+    _sess.avvio_ms = Date.now();
+    saveSess();
+  }
+
+  eid('cnt-via').textContent       = _sess.via + ' — ' + _sess.citta;
+  eid('cnt-meta-data').textContent = ita(_sess.data) + ' ' + _sess.giorno;
+  eid('cnt-meta-ora').textContent  = _sess.ora_inizio;
+  eid('cnt-numero').textContent    = _sess.totale;
+  _aggPausaUI();
+  goView('v-conteggio');
+
+  _stopTimer(); _tInt  = setInterval(_tick, 1000); _tick();
+  _stopAuto();  _asInt = setInterval(_autoSave, 15000);
+  _autoSave();
+}
+
+// ════════════════════════════════════════════════
+// TIMER
+// ════════════════════════════════════════════════
+function _tick() {
+  if (_sess) eid('cnt-meta-dur').textContent = fmtDurata(tempoAttivo(_sess));
+  const n = new Date();
+  eid('cnt-ora-live').textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+}
+function _stopTimer() { if(_tInt)  { clearInterval(_tInt);  _tInt=null  } }
+function _stopAuto()  { if(_asInt) { clearInterval(_asInt); _asInt=null } }
+
+// ════════════════════════════════════════════════
+// TAP
+// ════════════════════════════════════════════════
+function tapPersona() {
+  if (!_sess || _sess.stato === 'pausa') return;
+  _sess.totale++;
+  _sess.storia.push(1);
+  if (_sess.storia.length > 50) _sess.storia.shift();
+  saveSess();
+  const el = eid('cnt-numero');
+  el.textContent = _sess.totale;
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 120);
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+function tapCinque() {
+  if (!_sess || _sess.stato === 'pausa') return;
+  _sess.totale += 5;
+  _sess.storia.push(5);
+  if (_sess.storia.length > 50) _sess.storia.shift();
+  saveSess();
+  eid('cnt-numero').textContent = _sess.totale;
+  if (navigator.vibrate) navigator.vibrate([15,30,15]);
+  toast('+5 persone');
+}
+
+function annullaUltimo() {
+  if (!_sess || !_sess.storia.length) { toast('Nulla da annullare'); return }
+  const n = _sess.storia.pop();
+  _sess.totale = Math.max(0, _sess.totale - n);
+  saveSess();
+  eid('cnt-numero').textContent = _sess.totale;
+  toast('Annullato: −' + n);
+}
+
+// ════════════════════════════════════════════════
+// PAUSA / RIPRENDI
+// ════════════════════════════════════════════════
+function togglePausa() {
+  if (!_sess) return;
+  if (_sess.stato === 'attivo') {
+    _sess.tempo_ms = tempoAttivo(_sess);
+    _sess.stato    = 'pausa';
+    _sess.avvio_ms = null;
+  } else {
+    _sess.stato    = 'attivo';
+    _sess.avvio_ms = Date.now();
+  }
+  saveSess(); _aggPausaUI(); _autoSave();
+}
+
+function _aggPausaUI() {
+  const p = _sess?.stato === 'pausa';
+  eid('cnt-pausa-banner').style.display = p ? 'block' : 'none';
+  eid('ico-pausa').className = p ? 'fas fa-play' : 'fas fa-pause';
+  eid('lbl-pausa').textContent = p ? 'Riprendi' : 'Pausa';
+  eid('tap-btn').classList.toggle('in-pausa', p);
+}
+
+// ════════════════════════════════════════════════
+// TERMINA
+// ════════════════════════════════════════════════
+function terminaConteggio() {
+  if (!_sess) return;
+  if (!confirm('Terminare il rilevamento?')) return;
+  if (_sess.stato === 'attivo') _sess.tempo_ms = tempoAttivo(_sess);
+  _sess.stato    = 'terminato';
+  _sess.ora_fine = ora();
+  saveSess(); _stopTimer(); _stopAuto();
+  _mostraRiepilogo();
+}
+
+function _mostraRiepilogo() {
+  const s  = _sess;
+  const ms = s.tempo_ms || 0;
+  const mo = mediaOra(s.totale, ms);
+  const mm = ms > 0 ? s.totale / (ms / 60000) : null;
+
+  eid('rl-tot').textContent      = s.totale;
+  eid('rl-mora').textContent     = mo ? Math.round(mo) + ' p/ora' : '—';
+  eid('rl-mmin').textContent     = mm ? mm.toFixed(1) + ' p/min' : '—';
+  eid('rl-via').textContent      = s.via;
+  eid('rl-citta').textContent    = s.citta;
+  eid('rl-data').textContent     = ita(s.data);
+  eid('rl-giorno').textContent   = s.giorno;
+  eid('rl-orainizio').textContent = s.ora_inizio;
+  eid('rl-orafine').textContent  = s.ora_fine || '—';
+  eid('rl-durata').textContent   = fmtMin(ms);
+  eid('rl-nota').value = '';
+  goView('v-riepilogo');
+}
+
+// ════════════════════════════════════════════════
+// SALVA / SCARTA
+// ════════════════════════════════════════════════
+async function salvaRilevamento() {
+  const btn = eid('btn-salva');
+  if (btn) { btn.disabled=true; btn.textContent='Salvataggio…' }
+
+  const s    = _sess;
+  const user = typeof getUserProfile === 'function' ? getUserProfile() : null;
+  const ms   = s.tempo_ms || 0;
+
+  const payload = {
+    operatore_id:    user?.id    || null,
+    operatore_nome:  user ? (user.nome+' '+(user.cognome||'')).trim() : null,
+    citta:           s.citta,
+    via:             s.via,
+    nota:            s.nota || null,
+    data_rilevamento: s.data,
+    giorno_settimana: s.giorno,
+    ora_inizio:      s.ora_inizio,
+    ora_fine:        s.ora_fine || ora(),
+    durata_secondi:  Math.round(ms / 1000),
+    pausa_secondi:   0,
+    totale_persone:  s.totale,
+    stato:           'completato',
+    nota_finale:     eid('rl-nota').value.trim() || null,
+  };
+
+  let err;
+  if (s.id) {
+    ({ error: err } = await db.from('conta_persone_rilevamenti').update(payload).eq('id', s.id));
+  } else {
+    ({ error: err } = await db.from('conta_persone_rilevamenti').insert(payload));
+  }
+
+  if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> Salva rilevamento' }
+  if (err) { toast('Errore: ' + err.message); return }
+
+  clearSess(); aggBanner();
+  toast('Rilevamento salvato!', 3000);
+  await loadAllRilev();
+  goView('v-home');
+}
+
+function scartaRilevamento() {
+  if (!confirm('Scartare il rilevamento? I dati non verranno salvati.')) return;
+  if (_sess?.id) db.from('conta_persone_rilevamenti').delete().eq('id', _sess.id);
+  clearSess(); aggBanner(); goView('v-home');
+}
+
+// ════════════════════════════════════════════════
+// AUTO-SAVE SUPABASE
+// ════════════════════════════════════════════════
+async function _autoSave() {
+  if (!_sess || _sess.stato === 'terminato') return;
+  const user = typeof getUserProfile === 'function' ? getUserProfile() : null;
+  const payload = {
+    operatore_id:    user?.id    || null,
+    operatore_nome:  user ? (user.nome+' '+(user.cognome||'')).trim() : null,
+    citta:           _sess.citta,
+    via:             _sess.via,
+    nota:            _sess.nota || null,
+    data_rilevamento: _sess.data,
+    giorno_settimana: _sess.giorno,
+    ora_inizio:      _sess.ora_inizio,
+    durata_secondi:  Math.round(tempoAttivo(_sess) / 1000),
+    totale_persone:  _sess.totale,
+    stato:           _sess.stato === 'pausa' ? 'in_pausa' : 'in_corso',
+  };
+  if (_sess.id) {
+    await db.from('conta_persone_rilevamenti').update(payload).eq('id', _sess.id);
+  } else {
+    const { data, error } = await db.from('conta_persone_rilevamenti').insert(payload).select('id').single();
+    if (!error && data) { _sess.id = data.id; saveSess() }
+  }
+}
+
+// ════════════════════════════════════════════════
+// CARICA DATI
+// ════════════════════════════════════════════════
+async function loadAllRilev() {
+  const { data, error } = await db
+    .from('conta_persone_rilevamenti')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (!error) _rilev = data || [];
+}
+
+// ════════════════════════════════════════════════
+// STORICO
+// ════════════════════════════════════════════════
+async function loadStorico() {
+  eid('storico-list').innerHTML = '<div class="empty"><i class="fas fa-spinner fa-spin"></i><div class="empty-t">Caricamento…</div></div>';
+  await loadAllRilev();
+
+  const citta = [...new Set(_rilev.map(r=>r.citta).filter(Boolean))].sort();
+  const selC  = eid('st-citta');
+  const curC  = selC.value;
+  selC.innerHTML = '<option value="">Tutte le città</option>' + citta.map(c=>`<option${c===curC?' selected':''}>${esc(c)}</option>`).join('');
+
+  aggiornaViaFilter();
+  renderStorico();
+}
+
+function aggiornaViaFilter() {
+  const cf  = eid('st-citta')?.value || '';
+  const vie = [...new Set(_rilev.filter(r=>!cf||r.citta===cf).map(r=>r.via).filter(Boolean))].sort();
+  const sel = eid('st-via'); if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Tutte le vie</option>' + vie.map(v=>`<option${v===cur?' selected':''}>${esc(v)}</option>`).join('');
+}
+
+function renderStorico() {
+  const q   = (eid('st-q')?.value||'').toLowerCase();
+  const cf  = eid('st-citta')?.value  || '';
+  const vf  = eid('st-via')?.value    || '';
+  const gf  = eid('st-giorno')?.value || '';
+
+  const list = _rilev.filter(r => {
+    if (cf && r.citta !== cf) return false;
+    if (vf && r.via   !== vf) return false;
+    if (gf && r.giorno_settimana !== gf) return false;
+    if (q && ![(r.via||''),(r.citta||''),(r.nota||''),(r.nota_finale||'')]
+              .some(s => s.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const wrap = eid('storico-list');
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty"><i class="fas fa-search"></i><div class="empty-t">Nessun rilevamento trovato</div><div class="empty-s">Prova a cambiare i filtri</div></div>';
+    return;
+  }
+
+  wrap.innerHTML = list.map(r => {
+    const bc = r.stato==='completato'?'b-ok':r.stato==='in_corso'?'b-wip':'b-pau';
+    const bl = r.stato==='completato'?'Completato':r.stato==='in_corso'?'In corso':'In pausa';
+    return `<div class="st-item" onclick="apriDettaglio(${r.id})">
+      <div class="st-num">${r.totale_persone??0}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <div class="st-via">${esc(r.via)}</div>
+          <span class="badge ${bc}">${bl}</span>
+        </div>
+        <div class="st-meta">${esc(r.citta)} · ${ita(r.data_rilevamento)} ${r.giorno_settimana||''} · ${r.ora_inizio||''} · ${r.durata_secondi?fmtMin(r.durata_secondi*1000):'—'}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:var(--s300);font-size:13px;flex-shrink:0"></i>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════
+// DETTAGLIO MODAL
+// ════════════════════════════════════════════════
+function apriDettaglio(id) {
+  const r = _rilev.find(x => x.id === id); if(!r) return;
+  const ms = (r.durata_secondi||0)*1000;
+  const mo = mediaOra(r.totale_persone, ms);
+  const mm = ms > 0 ? r.totale_persone/(ms/60000) : null;
+
+  eid('modal-body').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:19px;font-weight:900;color:var(--s800)">${esc(r.via)}</div>
+        <div style="font-size:13px;color:var(--s400)">${esc(r.citta)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:40px;font-weight:900;color:var(--red);line-height:1">${r.totale_persone??0}</div>
+        <div style="font-size:10px;color:var(--s400);text-transform:uppercase;letter-spacing:.07em">persone</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <div class="stat-pill"><div class="stat-pill-n">${mo?Math.round(mo):'—'}</div><div class="stat-pill-l">p/ora</div></div>
+      <div class="stat-pill"><div class="stat-pill-n">${mm?mm.toFixed(1):'—'}</div><div class="stat-pill-l">p/min</div></div>
+      <div class="stat-pill"><div class="stat-pill-n">${r.durata_secondi?fmtMin(r.durata_secondi*1000):'—'}</div><div class="stat-pill-l">durata</div></div>
+    </div>
+    ${_dr('Data', ita(r.data_rilevamento))}
+    ${_dr('Giorno', r.giorno_settimana||'—')}
+    ${_dr('Ora inizio', r.ora_inizio||'—')}
+    ${_dr('Ora fine', r.ora_fine||'—')}
+    ${r.nota        ? _dr('Nota',         r.nota)         : ''}
+    ${r.nota_finale ? _dr('Nota finale',  r.nota_finale)  : ''}
+    ${r.operatore_nome ? _dr('Operatore', r.operatore_nome) : ''}
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-out btn-fw" style="padding:12px;font-size:13px" onclick="chiudiModal()">Chiudi</button>
+      <button class="btn btn-out btn-fw" style="padding:12px;font-size:13px;border-color:#fecaca;color:#dc2626" onclick="eliminaRilev(${r.id})">
+        <i class="fas fa-trash"></i> Elimina
+      </button>
+    </div>`;
+
+  eid('modal-det').classList.add('open');
+}
+function _dr(l, v) { return `<div class="ril-row"><span class="ril-lbl">${esc(l)}</span><span class="ril-val">${esc(String(v))}</span></div>` }
+function chiudiModal() { eid('modal-det').classList.remove('open') }
+
+async function eliminaRilev(id) {
+  if (!confirm('Eliminare questo rilevamento? L\'azione non può essere annullata.')) return;
+  const { error } = await db.from('conta_persone_rilevamenti').delete().eq('id', id);
+  if (error) { toast('Errore: '+error.message); return }
+  chiudiModal(); toast('Rilevamento eliminato');
+  await loadAllRilev(); renderStorico();
+}
+
+// ════════════════════════════════════════════════
+// REPORT
+// ════════════════════════════════════════════════
+async function loadReport() {
+  await loadAllRilev();
+  const citta = [...new Set(_rilev.map(r=>r.citta).filter(Boolean))].sort();
+  const sel   = eid('rp-citta');
+  const cur   = sel.value;
+  sel.innerHTML = '<option value="">Tutte le città</option>' + citta.map(c=>`<option${c===cur?' selected':''}>${esc(c)}</option>`).join('');
+  renderReport();
+}
+
+function switchRptTab(tab, btn) {
+  _rptTab = tab;
+  document.querySelectorAll('.rpt-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['classifica','fasce','giorni'].forEach(t => eid('rpt-'+t).style.display = t===tab?'':'none');
+  renderReport();
+}
+
+function renderReport() {
+  const cf   = eid('rp-citta')?.value || '';
+  const data = _rilev.filter(r => r.stato==='completato' && (!cf||r.citta===cf));
+  if (_rptTab==='classifica') _rptClassifica(data);
+  else if (_rptTab==='fasce') _rptFasce(data);
+  else                        _rptGiorni(data);
+}
+
+function _rptClassifica(data) {
+  if (!data.length) {
+    eid('rpt-classifica-list').innerHTML = '<div class="empty"><i class="fas fa-chart-bar"></i><div class="empty-t">Nessun dato</div><div class="empty-s">Completa dei rilevamenti per vedere la classifica</div></div>';
+    eid('rpt-stats').innerHTML = '';
+    return;
+  }
+
+  const byVia = {};
+  data.forEach(r => {
+    const k = r.via+'||'+r.citta;
+    if (!byVia[k]) byVia[k] = { via:r.via, citta:r.citta, count:0, tot:0, ms:0 };
+    byVia[k].count++;
+    byVia[k].tot += r.totale_persone||0;
+    byVia[k].ms  += (r.durata_secondi||0)*1000;
+  });
+
+  const vie = Object.values(byVia).map(v => ({...v, mo: mediaOra(v.tot,v.ms)||0}))
+                .sort((a,b) => b.mo - a.mo);
+  const maxMo = vie[0]?.mo || 1;
+
+  eid('rpt-stats').innerHTML = `
+    <div class="stat-pill"><div class="stat-pill-n">${vie.length}</div><div class="stat-pill-l">Vie</div></div>
+    <div class="stat-pill"><div class="stat-pill-n">${data.length}</div><div class="stat-pill-l">Rilevamenti</div></div>
+    <div class="stat-pill"><div class="stat-pill-n">${data.reduce((s,r)=>s+(r.totale_persone||0),0)}</div><div class="stat-pill-l">Persone tot.</div></div>`;
+
+  const rk = ['#f59e0b','#94a3b8','#b45309'];
+  eid('rpt-classifica-list').innerHTML = '<div style="padding:8px 16px">' + vie.map((v,i) => {
+    const pct = Math.round(v.mo/maxMo*100);
+    return `<div class="bar-row">
+      <div class="bar-rank" style="background:${rk[i]||'var(--s100)'};color:${i<3?'#fff':'var(--s600)'}">
+        ${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label">${esc(v.via)}</div>
+        <div class="bar-sub">${esc(v.citta)} · ${v.count} rilevament${v.count===1?'o':'i'} · ${fmtMin(v.ms)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--red)"></div></div>
+      </div>
+      <div>
+        <div class="bar-val">${Math.round(v.mo)}</div>
+        <div class="bar-val-s">p/ora</div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function _rptFasce(data) {
+  const fasce = {};
+  FASCE.forEach(f => fasce[f] = { tot:0, ms:0, count:0 });
+  data.forEach(r => {
+    if (!r.ora_inizio) return;
+    const h = parseInt(r.ora_inizio);
+    for (const f of FASCE) {
+      const pts = f.split('–');
+      const h1 = parseInt(pts[0]), h2 = parseInt(pts[1]);
+      if (h >= h1 && h < h2) {
+        fasce[f].tot   += r.totale_persone||0;
+        fasce[f].ms    += (r.durata_secondi||0)*1000;
+        fasce[f].count++;
+        break;
+      }
+    }
+  });
+  const list = FASCE.map(f => ({fascia:f, ...fasce[f], mo: mediaOra(fasce[f].tot, fasce[f].ms)||0}))
+                    .filter(x => x.count > 0);
+  if (!list.length) { eid('rpt-fasce-list').innerHTML='<div class="empty"><i class="fas fa-clock"></i><div class="empty-t">Nessun dato</div></div>'; return }
+  const maxMo = Math.max(...list.map(x=>x.mo), 1);
+  eid('rpt-fasce-list').innerHTML = '<div style="padding:8px 16px">' + list.map(x => {
+    const pct = Math.round(x.mo/maxMo*100);
+    return `<div class="bar-row">
+      <div class="bar-wrap">
+        <div class="bar-label">${esc(x.fascia)}</div>
+        <div class="bar-sub">${x.count} rilevament${x.count===1?'o':'i'} · ${x.tot} persone tot.</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--blue)"></div></div>
+      </div>
+      <div>
+        <div class="bar-val">${Math.round(x.mo)}</div>
+        <div class="bar-val-s">p/ora</div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function _rptGiorni(data) {
+  const giorni = {};
+  GIORNI.forEach(g => giorni[g] = { tot:0, ms:0, count:0 });
+  data.forEach(r => {
+    const gn = r.giorno_settimana;
+    if (giorni[gn]) {
+      giorni[gn].tot   += r.totale_persone||0;
+      giorni[gn].ms    += (r.durata_secondi||0)*1000;
+      giorni[gn].count++;
+    }
+  });
+  const list = GIORNI.map(gn => ({giorno:gn, ...giorni[gn], mo: mediaOra(giorni[gn].tot, giorni[gn].ms)||0}))
+                     .filter(x => x.count > 0).sort((a,b) => b.mo-a.mo);
+  if (!list.length) { eid('rpt-giorni-list').innerHTML='<div class="empty"><i class="fas fa-calendar"></i><div class="empty-t">Nessun dato</div></div>'; return }
+  const maxMo = Math.max(...list.map(x=>x.mo), 1);
+  eid('rpt-giorni-list').innerHTML = '<div style="padding:8px 16px">' + list.map(x => {
+    const pct = Math.round(x.mo/maxMo*100);
+    const we  = x.giorno==='Sabato'||x.giorno==='Domenica';
+    return `<div class="bar-row">
+      <div style="width:30px;text-align:center;font-size:11px;font-weight:900;color:${we?'var(--red)':'var(--s500)'};flex-shrink:0">${x.giorno.slice(0,3).toUpperCase()}</div>
+      <div class="bar-wrap">
+        <div class="bar-label">${esc(x.giorno)}</div>
+        <div class="bar-sub">${x.count} rilevament${x.count===1?'o':'i'} · ${x.tot} persone tot.</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--green)"></div></div>
+      </div>
+      <div>
+        <div class="bar-val">${Math.round(x.mo)}</div>
+        <div class="bar-val-s">p/ora</div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+(async function init() {
+  loadSess();
+  aggBanner();
+  loadAllRilev().catch(()=>{});
+})();
+</script>
+</body>
+</html>

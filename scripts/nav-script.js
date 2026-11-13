@@ -170,6 +170,9 @@
       { id: 'saldi',      label: 'Saldi',       icon: 'fa-percent',           href: 'pages/saldi/index.html',                        section: null, active: true },
       { id: 'inventario', label: 'Inventario',  icon: 'fa-barcode',           href: 'pages/inventario/index.html',                   section: null, active: true },
     ]},
+    { group: 'Extra', items: [
+      { id: 'conta-persone', label: 'Conta', icon: 'fa-person-walking', href: 'pages/conta-persone/conta-persone.html', section: null, active: true },
+    ]},
     { group: null, items: [
       { id: 'guida', label: 'Aiuto', icon: 'fa-circle-question', href: 'pages/guida/guida.html', section: null, active: true },
       { id: 'logout', label: 'Esci', icon: 'fa-right-from-bracket', href: '#', section: null, active: true, isLogout: true },
