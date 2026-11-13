@@ -1332,7 +1332,6 @@
   bio             boolean not null default false,
   senza_glutine   boolean not null default false,
   vegano          boolean not null default false,
-  solidale_italiano boolean not null default false,
   note            text,
   category        text,
   linea           text,
@@ -1424,7 +1423,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-bio"> BIO</label>
                 <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-sg"> Senza Glutine</label>
                 <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-veg"> Vegano</label>
-                <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="pfr-sol"> Solidale/Italiano</label>
               </div>
               <div style="margin-top:14px;display:flex;flex-direction:column;gap:4px">
                 <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">Note</label>
@@ -5309,7 +5307,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 p.bio             ? '<span class="prod-attr bio">BIO</span>'  : '',
                 p.senza_glutine   ? '<span class="prod-attr sg">S.G.</span>'  : '',
                 p.vegano          ? '<span class="prod-attr veg">VEG</span>'  : '',
-                p.solidale_italiano ? '<span class="prod-attr sol">SOL</span>' : '',
             ].join('');
             return `<tr>
               <td style="color:#94a3b8;font-size:11px">${escHtml(p.codice||'—')}</td>
@@ -5381,7 +5378,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         document.getElementById('pfr-bio').checked        = !!p?.bio;
         document.getElementById('pfr-sg').checked         = !!p?.senza_glutine;
         document.getElementById('pfr-veg').checked        = !!p?.vegano;
-        document.getElementById('pfr-sol').checked        = !!p?.solidale_italiano;
         document.getElementById('pfr-note').value         = p?.note         || '';
         document.getElementById('modal-fr-prod-msg').className = 'modal-op-msg';
         document.getElementById('modal-fr-prod-msg').textContent = '';
@@ -5407,7 +5403,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             bio:               document.getElementById('pfr-bio').checked,
             senza_glutine:     document.getElementById('pfr-sg').checked,
             vegano:            document.getElementById('pfr-veg').checked,
-            solidale_italiano: document.getElementById('pfr-sol').checked,
             note:              document.getElementById('pfr-note').value.trim() || null,
         };
         const { error } = _prodEditFrId != null
@@ -5528,7 +5523,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         { key:'marchio',     label:'Marchio',     frKey:'marchio',      rifKey:'marchio'       },
     ];
     // Campi solo frontalini (default preso sempre da frontalini)
-    const MERGE_ONLY_FR  = ['bio','senza_glutine','vegano','solidale_italiano','note'];
+    const MERGE_ONLY_FR  = ['bio','senza_glutine','vegano','note'];
     // Campi solo rifornimento (default preso sempre da rifornimento)
     const MERGE_ONLY_RIF = ['category','linea','pack_size','assortment_cremona','assortment_casalmaggiore','assortment_viadana','active','source_sheet'];
 
@@ -5687,7 +5682,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             { k:'bio',               label:'BIO',         bg:'#dcfce7', tx:'#15803d' },
             { k:'senza_glutine',     label:'Senza Glutine', bg:'#fef3c7', tx:'#92400e' },
             { k:'vegano',            label:'Vegano',      bg:'#ede9fe', tx:'#6d28d9' },
-            { k:'solidale_italiano', label:'Solidale IT.',bg:'#dbeafe', tx:'#1d4ed8' },
         ];
         html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Attributi (da Frontalini)</div>`;
         html += `<div style="display:flex;gap:7px;flex-wrap:wrap;padding:4px 0 8px">`;
@@ -5752,7 +5746,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         payload.bio               = !!fr.bio;
         payload.senza_glutine     = !!fr.senza_glutine;
         payload.vegano            = !!fr.vegano;
-        payload.solidale_italiano = !!fr.solidale_italiano;
         payload.note              = fr.note || null;
         // Campi solo fornitura
         payload.category                 = rif.category || null;
@@ -5794,7 +5787,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 peso: fr.peso ?? null, unita: fr.unita || null, prezzo: fr.prezzo ?? null,
                 fornitore: fr.fornitore || null, marchio: fr.marchio || null,
                 bio: !!fr.bio, senza_glutine: !!fr.senza_glutine, vegano: !!fr.vegano,
-                solidale_italiano: !!fr.solidale_italiano, note: fr.note || null,
+                note: fr.note || null,
                 active: true,
             });
         }
@@ -5806,7 +5799,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 codice: rif.product_code || null, descrizione: (rif.description || '').toUpperCase(),
                 peso: rif.quantita ?? null, unita: rif.unita_misura || null, prezzo: rif.pvp ?? null,
                 fornitore: rif.fornitore || null, marchio: rif.marchio || null,
-                bio: false, senza_glutine: false, vegano: false, solidale_italiano: false,
+                bio: false, senza_glutine: false, vegano: false,
                 category: rif.category || null, linea: rif.linea || null,
                 pack_size: rif.pack_size || null,
                 assortment_cremona: !!rif.assortment_cremona,
@@ -5832,7 +5825,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     fornitore: fr.fornitore || rif.fornitore || null,
                     marchio: fr.marchio || rif.marchio || null,
                     bio: !!fr.bio, senza_glutine: !!fr.senza_glutine, vegano: !!fr.vegano,
-                    solidale_italiano: !!fr.solidale_italiano, note: fr.note || null,
+                    note: fr.note || null,
                     category: rif.category || null, linea: rif.linea || null,
                     pack_size: rif.pack_size || null,
                     assortment_cremona: !!rif.assortment_cremona,
