@@ -1615,6 +1615,8 @@ function addRow(gid) {
         lbl.classList.remove('has-foto');
     });
     row.querySelector('.desc-input').addEventListener('input', function() { if (this.value) this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1); });
+    _acWire(row.querySelector('.codice-input'), row);
+    _acWire(row.querySelector('.desc-input'), row);
     internalRow.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
     internalRow.querySelector('.costo-ii-input').addEventListener('blur',  function() { formatCurrency(this); });
     internalRow.querySelector('.costo-ii-input').addEventListener('input', () => { syncCostoFromII(rowId); calcRow(rowId, gid); });
@@ -2765,7 +2767,34 @@ function chiudiLightbox() {
   document.getElementById('lightbox-img').src = '';
   _lbInput = null;
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') chiudiLightbox(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { chiudiLightbox(); _acHide(); } });
+
+// ── AUTOCOMPLETE PRODOTTI ─────────────────────────────────────
+let _acProd=[], _acDropEl=null;
+(function _injectAcCss(){
+    if(document.getElementById('ac-prod-style')) return;
+    const s=document.createElement('style'); s.id='ac-prod-style';
+    s.textContent=`.ac-prod-drop{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.13);overflow:hidden;overflow-y:auto;max-height:260px}.ac-prod-item{padding:8px 12px;cursor:pointer;transition:background .1s;border-bottom:1px solid #f1f5f9}.ac-prod-item:last-child{border-bottom:none}.ac-prod-item:hover{background:#f8fafc}.ac-prod-top{display:flex;align-items:center;gap:6px;margin-bottom:2px}.ac-prod-code{font-family:monospace;font-size:10px;color:#94a3b8}.ac-prod-src{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:3px;background:#f1f5f9;color:#64748b}.ac-prod-name{font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ac-prod-price{font-size:11px;font-weight:600;color:#B5453A;margin-top:2px}`;
+    document.head.appendChild(s);
+})();
+(async function _loadAcProd(){
+    try {
+        const [{data:fr},{data:rf}] = await Promise.all([
+            _supabase.from('frontalini_catalogo').select('codice,descrizione,prezzo'),
+            _supabase.from('rifornimento_catalogo').select('product_code,description,pvp').eq('active',true),
+        ]);
+        _acProd = [
+            ...(fr||[]).map(p=>({c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'frontalini'})),
+            ...(rf||[]).map(p=>({c:p.product_code||'',n:p.description,p:p.pvp,src:'fornitura'})),
+        ];
+    } catch(e){}
+})();
+function _acEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _acSearch(q){q=q.trim().toLowerCase();if(q.length<2)return [];return _acProd.filter(p=>p.n.toLowerCase().includes(q)||p.c.toLowerCase().includes(q)).slice(0,10);}
+function _acShow(inp,results,row){_acHide();if(!results.length)return;const d=document.createElement('div');d.className='ac-prod-drop';d.innerHTML=results.map((p,i)=>`<div class="ac-prod-item" data-i="${i}"><div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)||'—'}</span><span class="ac-prod-src">${p.src}</span></div><div class="ac-prod-name">${_acEsc(p.n)}</div>${p.p!=null?`<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.',',')}</div>`:''}</div>`).join('');const rect=inp.getBoundingClientRect();d.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,240)}px;z-index:99999`;d.querySelectorAll('.ac-prod-item').forEach((el,i)=>{el.addEventListener('mousedown',e=>{e.preventDefault();_acApply(row,results[i]);_acHide();});});document.body.appendChild(d);_acDropEl=d;}
+function _acHide(){_acDropEl?.remove();_acDropEl=null;}
+function _acApply(row,prod){row.querySelector('.codice-input').value=prod.c;row.querySelector('.desc-input').value=prod.n;if(prod.p!=null){const pi=row.querySelector('.price-input');if(pi){pi.value='€ '+Number(prod.p).toFixed(2).replace('.',',');pi.dispatchEvent(new Event('input'));}}}
+function _acWire(inp,row){inp.addEventListener('input',function(){_acShow(inp,_acSearch(this.value),row);});inp.addEventListener('blur',()=>setTimeout(_acHide,200));inp.addEventListener('focus',function(){if(this.value.length>=2)_acShow(inp,_acSearch(this.value),row);});}
 </script>
 <script src="../../scripts/ui-helpers.js"></script>
 <script src="../../scripts/nav-script.js"></script>
