@@ -2752,9 +2752,12 @@ function stampaPDFConColonne() {
                 (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '');
             const _altTr = (sel.has('alternative') && alts.filter(a => a.desc).length) ? (() => {
                 const hdr = `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:4px 8px 1px 8px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#b8c0cc;border-bottom:none">Alternative:</td></tr>`;
-                const altRows = alts.filter(a => a.desc).map(a => {
+                const filteredAlts = alts.filter(a => a.desc);
+                const altRows = filteredAlts.map((a, ai) => {
+                    const isLastAlt = ai === filteredAlts.length - 1;
                     const sitoA = a.sito ? ` <a href="${a.sito}" style="color:#94a3b8;text-decoration:none;font-style:normal">↗</a>` : '';
-                    const bs = `font-size:8.5px;color:#94a3b8;border-bottom:none;background:#f8fafc;vertical-align:middle;padding:2px 5px`;
+                    const sep = isLastAlt ? '2px solid #cbd5e1' : 'none';
+                    const bs = `font-size:8.5px;color:#94a3b8;border-bottom:${sep};background:#f8fafc;vertical-align:middle;padding:2px 5px`;
                     const tds = colDefs.map(c => {
                         switch(c.key) {
                             case 'foto':   return `<td style="${bs}"></td>`;
@@ -2822,7 +2825,7 @@ function stampaPDFConColonne() {
     ].filter(Boolean);
 
     const thRow = colDefs.map(c => `<th style="text-align:${c.align}${c.width?';width:'+c.width+';min-width:'+c.width:''}">${c.label}</th>`).join('');
-    const tdRows = rows.map(r => `<tr>${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
+    const tdRows = rows.map(r => `<tr class="${r._altTr ? '' : 'row-sep'}">${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
     const hasGroupPhotos = groupsForPdf.some(g => g.groupFotoSrc);
     const useGroupLayout = groupsForPdf.length > 1 || hasGroupPhotos;
 
@@ -2853,7 +2856,7 @@ function stampaPDFConColonne() {
                     ${gLabel ? `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">${gLabel}</div>` : ''}
                 </div>
             </div>` : '';
-        const gTdRows = g.productRows.map(r => `<tr>${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
+        const gTdRows = g.productRows.map(r => `<tr class="${r._altTr ? '' : 'row-sep'}">${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
         return `${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>${_grpSubtotalDiv(g.productRows)}`;
     }).join('') : '';
 
@@ -2876,11 +2879,10 @@ function stampaPDFConColonne() {
         th{padding:${colDefs.length > 9 ? '4px 5px' : '6px 8px'};color:#fff;font-size:${colDefs.length > 9 ? '7.5' : '9'}px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;white-space:nowrap}
         td{padding:${colDefs.length > 9 ? '5px 5px' : '6px 8px'};border-bottom:1px solid #f1f5f9}
         td.num{white-space:nowrap;text-align:right}
-        tr:nth-child(even) td{background:#f8fafc}
-        .cc{background:#fdf8f7;border:1px solid #f5dbd8;border-radius:6px;padding:10px 14px;position:fixed;bottom:16px;left:28px;right:28px}
+        tr.row-sep td{border-bottom:2px solid #cbd5e1}
+        .cc{background:#fdf8f7;border:1px solid #f5dbd8;border-radius:6px;padding:10px 14px;margin-top:20px}
         .cc-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#B5453A;margin-bottom:4px}
         .cc-row{font-size:9px;color:#475569;margin:1px 0;display:inline-block;margin-right:16px}
-        @media print{.cc{bottom:8mm;left:16px;right:16px}}
         .totali{display:flex;justify-content:flex-end;gap:16px;margin-top:8px}
         .tot-box{text-align:center;padding:10px 16px;border-radius:8px;min-width:130px}
         .tot-box.ii{background:#f1f5f9}
