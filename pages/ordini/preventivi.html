@@ -1264,6 +1264,10 @@ async function apriPreventivo(id) {
                 }
                 if (r.prod_id)  row.dataset.prodId  = r.prod_id;
                 if (r.prod_src) row.dataset.prodSrc = r.prod_src;
+                if (!row.dataset.sito && r.prod_id) {
+                    const cached = _acProd.find(p => p.id != null && String(p.id) === String(r.prod_id));
+                    if (cached?.sito) row.dataset.sito = cached.sito;
+                }
                 const rowId = row.id.replace('row-', '');
                 calcRow(rowId, curGid);
             });
@@ -2575,7 +2579,11 @@ function stampaPDFConColonne() {
             const desc   = row.querySelector('.desc-input')?.value || '';
             if (!codice && !desc) return;
             const fotoSrc = row.querySelector('.foto-input')?.dataset.foto || '';
-            const sitoUrl = row.dataset.sito || '';
+            const sitoUrl = row.dataset.sito || (() => {
+                const pid = row.dataset.prodId;
+                if (!pid) return '';
+                return _acProd.find(p => p.id != null && String(p.id) === pid)?.sito || '';
+            })();
             const _parseE = s => s && s !== '—' ? itParse(s) : 0;
             const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
             const _pii    = _parseE(row.querySelector('.price-input')?.value);
