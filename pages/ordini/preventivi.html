@@ -2707,7 +2707,8 @@ function stampaPDFConColonne() {
     const showGrpIE   = sel.has('grp_ie');
     const showGrpIISc = sel.has('grp_ii_sc');
     const showGrpIESc = sel.has('grp_ie_sc');
-    const showAnyGrp  = showGrpII || showGrpIE || showGrpIISc || showGrpIESc;
+    const showUnitGrp = document.getElementById('pdf-show-unit-grp')?.checked;
+    const showAnyGrp  = showGrpII || showGrpIE || showGrpIISc || showGrpIESc || showUnitGrp;
 
     const colDefs = [
         { key:'foto',      label:'',               align:'center', width:'52px' },
@@ -2790,6 +2791,7 @@ function stampaPDFConColonne() {
                 tot:       '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
                 _altTr,
                 // internal numerics for subtotals
+                _qty,
                 _n_pii:   _pii * _qty,
                 _n_pie:   _pie * _qty,
                 _n_effII: _effII * _qty,
@@ -2835,11 +2837,22 @@ function stampaPDFConColonne() {
         const gIE   = productRows.reduce((s,r) => s + r._n_pie,   0);
         const gIISc = productRows.reduce((s,r) => s + r._n_effII, 0);
         const gIESc = productRows.reduce((s,r) => s + r._n_effIE, 0);
+        // Costo per 1 set: valido solo se tutti i prodotti hanno la stessa quantità
+        const activeQtys = productRows.map(r => r._qty).filter(q => q > 0);
+        const commonQty  = activeQtys.length > 0 && activeQtys.every(q => q === activeQtys[0]) ? activeQtys[0] : null;
+        const unitII   = commonQty ? gII   / commonQty : null;
+        const unitIE   = commonQty ? gIE   / commonQty : null;
+        const unitIISc = commonQty ? gIISc / commonQty : null;
+        const unitIESc = commonQty ? gIESc / commonQty : null;
         const parts = [
             showGrpII   && gII   > 0 ? `<span>Gruppo i.i.: <strong style="color:#1e293b">€ ${itFmt(gII)}</strong></span>`   : '',
             showGrpIE   && gIE   > 0 ? `<span>Gruppo i.e.: <strong style="color:#1e293b">€ ${itFmt(gIE)}</strong></span>`   : '',
             showGrpIISc && gIISc > 0 ? `<span>Gruppo i.i. sc.: <strong style="color:#B5453A">€ ${itFmt(gIISc)}</strong></span>` : '',
             showGrpIESc && gIESc > 0 ? `<span>Gruppo i.e. sc.: <strong style="color:#B5453A">€ ${itFmt(gIESc)}</strong></span>` : '',
+            showUnitGrp && commonQty && unitII  > 0 ? `<span style="border-left:2px solid #e2e8f0;padding-left:12px;margin-left:4px">1 set i.i.: <strong style="color:#1e293b">€ ${itFmt(unitII)}</strong></span>`   : '',
+            showUnitGrp && commonQty && unitIE  > 0 ? `<span>1 set i.e.: <strong style="color:#1e293b">€ ${itFmt(unitIE)}</strong></span>`   : '',
+            showUnitGrp && commonQty && unitIISc > 0 ? `<span>1 set i.i. sc.: <strong style="color:#B5453A">€ ${itFmt(unitIISc)}</strong></span>` : '',
+            showUnitGrp && commonQty && unitIESc > 0 ? `<span>1 set i.e. sc.: <strong style="color:#B5453A">€ ${itFmt(unitIESc)}</strong></span>` : '',
         ].filter(Boolean);
         if (!parts.length) return '';
         return `<div style="display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;padding:7px 8px;margin-top:-12px;margin-bottom:10px;background:#f8fafc;border-radius:0 0 6px 6px;border-top:1.5px solid #e2e8f0;font-size:10px;color:#475569">${parts.join('')}</div>`;
@@ -3087,6 +3100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ie"> Gruppo i.e.</label>
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ii_sc"> Gruppo i.i. sc.</label>
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ie_sc"> Gruppo i.e. sc.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer col-span-2" style="margin-top:4px;border-top:1px solid #f1f5f9;padding-top:6px"><input type="checkbox" id="pdf-show-unit-grp"> Costo per 1 set <span style="font-size:11px;color:#94a3b8;margin-left:4px">(se tutti i prodotti hanno la stessa qtà)</span></label>
       </div>
     </div>
 
