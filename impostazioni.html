@@ -227,7 +227,13 @@
 
         /* === RESPONSIVE === */
         /* ── Sezioni view ── */
-        .sezioni-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:24px; }
+        .sezioni-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+        .sez-group-toggle { display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:9px 12px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:12px; user-select:none; transition:background .12s; }
+        .sez-group-toggle:hover { background:#f1f5f9; }
+        .sez-group-toggle span { font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.08em; }
+        .sez-group-chev { color:#94a3b8; font-size:11px; transition:transform .22s; }
+        .sez-group-chev.closed { transform:rotate(-90deg); }
+        .sez-group-body { overflow:hidden; transition:height .22s ease; }
         .sez-mgmt-card { background:#fff; border:1.5px solid #e2e8f0; border-radius:14px; padding:14px 16px; cursor:pointer; transition:all .15s; }
         .sez-mgmt-card:hover { border-color:#94a3b8; box-shadow:0 2px 10px rgba(0,0,0,.07); transform:translateY(-1px); }
         .sez-mgmt-bar { height:4px; background:#f1f5f9; border-radius:2px; margin-top:10px; overflow:hidden; }
@@ -930,13 +936,26 @@
             </div>
             <div class="impostazioni-container">
                 <div id="sezioni-grid-wrap">
-                    <div id="sezioni-grid-clienti" style="margin-bottom:24px">
-                        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">GESTIONE CLIENTI</div>
+                    <div id="sezioni-grid-clienti" style="margin-bottom:16px">
+                        <div class="sez-group-toggle" onclick="toggleSezGruppo('clienti')">
+                            <span>GESTIONE CLIENTI</span>
+                            <i class="fas fa-chevron-down sez-group-chev" id="sez-chev-clienti"></i>
+                        </div>
                         <div class="sezioni-grid" id="sez-cards-clienti"></div>
                     </div>
-                    <div id="sezioni-grid-emporio">
-                        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">GESTIONE EMPORIO</div>
+                    <div id="sezioni-grid-emporio" style="margin-bottom:16px">
+                        <div class="sez-group-toggle" onclick="toggleSezGruppo('emporio')">
+                            <span>GESTIONE EMPORIO</span>
+                            <i class="fas fa-chevron-down sez-group-chev" id="sez-chev-emporio"></i>
+                        </div>
                         <div class="sezioni-grid" id="sez-cards-emporio"></div>
+                    </div>
+                    <div id="sezioni-grid-extra" style="margin-bottom:16px">
+                        <div class="sez-group-toggle" onclick="toggleSezGruppo('extra')">
+                            <span>EXTRA</span>
+                            <i class="fas fa-chevron-down sez-group-chev" id="sez-chev-extra"></i>
+                        </div>
+                        <div class="sezioni-grid" id="sez-cards-extra"></div>
                     </div>
                 </div>
                 <div id="sezioni-detail-wrap" style="display:none"></div>
@@ -2095,6 +2114,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         { id: 'lista-spesa',         nome: 'Lista Spesa',         icon: 'fa-cart-shopping',     gruppo: 'emporio' },
         { id: 'eventi',              nome: 'Eventi',              icon: 'fa-calendar-star',     gruppo: 'emporio', sistLabel: 'Solo Emilio' },
         { id: 'analisi-commerciale', nome: 'Analisi Commerciale', icon: 'fa-chart-pie',         gruppo: 'emporio', sistLabel: 'Richiede resp. acquisti' },
+        // Extra
+        { id: 'conta-persone',       nome: 'Conta Persone',       icon: 'fa-person-walking',    gruppo: 'extra' },
     ];
 
     // Fonte: window.EMPORI_CONF (iniettato da nav-script.js); fallback per compatibilità
@@ -3697,7 +3718,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             const opera   = sistema ? false : (forzata ? operaDb : (vedeDb ? operaDb : false));
 
             const gruppoLabel = s.gruppo !== prevGruppo
-                ? `<div class="sez-group-label">${s.gruppo === 'clienti' ? 'Gestione Clienti' : 'Gestione Emporio'}</div>`
+                ? `<div class="sez-group-label">${s.gruppo === 'clienti' ? 'Gestione Clienti' : s.gruppo === 'emporio' ? 'Gestione Emporio' : 'Extra'}</div>`
                 : '';
             prevGruppo = s.gruppo;
             const etichettaSist = s.sistLabel || 'Restrizione di sistema';
@@ -5108,13 +5129,23 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         renderSezioniGrid();
     }
 
+    function toggleSezGruppo(gruppo) {
+        const grid = document.getElementById('sez-cards-' + gruppo);
+        const chev = document.getElementById('sez-chev-' + gruppo);
+        if (!grid) return;
+        const closing = grid.style.display !== 'none';
+        grid.style.display = closing ? 'none' : '';
+        chev?.classList.toggle('closed', closing);
+    }
+
     function renderSezioniGrid() {
         const clientiSez = SEZIONI_APP.filter(s => s.gruppo === 'clienti');
         const emporioSez = SEZIONI_APP.filter(s => s.gruppo === 'emporio');
-        ['clienti', 'emporio'].forEach(gruppo => {
+        const extraSez   = SEZIONI_APP.filter(s => s.gruppo === 'extra');
+        ['clienti', 'emporio', 'extra'].forEach(gruppo => {
             const container = document.getElementById('sez-cards-' + gruppo);
             if (!container) return;
-            const sezList = (gruppo === 'clienti' ? clientiSez : emporioSez)
+            const sezList = (gruppo === 'clienti' ? clientiSez : gruppo === 'emporio' ? emporioSez : extraSez)
               .slice().sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
             container.innerHTML = sezList.map(s => {
                 const ops = (utentiCache || []);
