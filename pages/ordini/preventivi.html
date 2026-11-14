@@ -2721,14 +2721,23 @@ function stampaPDFConColonne() {
             const descCell = (sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:none">${desc}</a>` : desc) +
                 (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '');
             const _altTr = (sel.has('alternative') && alts.filter(a => a.desc).length) ? (() => {
-                const lines = alts.filter(a => a.desc).map(a => {
-                    const cod = a.codice ? `<span style="font-family:monospace;background:#ececec;padding:0 3px;border-radius:2px;margin-right:4px">${a.codice}</span>` : '';
-                    const pr  = a.prezzo ? ` · ${a.prezzo}` : '';
-                    const iv  = a.iva    ? ` (${a.iva})` : '';
-                    const lnk = a.sito   ? ` <a href="${a.sito}" style="color:#94a3b8;text-decoration:none">↗</a>` : '';
-                    return `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0;line-height:1.5">${cod}${a.desc}${pr}${iv}${lnk}</div>`;
+                const hdr = `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:4px 8px 1px 8px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#b8c0cc;border-bottom:none">Alternative:</td></tr>`;
+                const altRows = alts.filter(a => a.desc).map(a => {
+                    const sitoA = a.sito ? ` <a href="${a.sito}" style="color:#94a3b8;text-decoration:none;font-style:normal">↗</a>` : '';
+                    const bs = `font-size:8.5px;color:#94a3b8;border-bottom:none;background:#f8fafc;vertical-align:middle;padding:2px 5px`;
+                    const tds = colDefs.map(c => {
+                        switch(c.key) {
+                            case 'foto':   return `<td style="${bs}"></td>`;
+                            case 'codice': return `<td style="${bs};font-family:monospace;text-align:left"><span style="background:#ececec;padding:0 3px;border-radius:2px">${a.codice||''}</span></td>`;
+                            case 'desc':   return `<td style="${bs};text-align:left;font-style:italic">${a.desc}${sitoA}</td>`;
+                            case 'iva':    return `<td style="${bs};text-align:center">${a.iva||''}</td>`;
+                            case 'pii':    return `<td style="${bs};text-align:right;white-space:nowrap">${a.prezzo||''}</td>`;
+                            default:       return `<td style="${bs};text-align:${c.align}"></td>`;
+                        }
+                    }).join('');
+                    return `<tr style="background:#f8fafc">${tds}</tr>`;
                 }).join('');
-                return `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:2px 8px 5px 52px;font-size:8px;color:#94a3b8;border-top:none"><span style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:2px;color:#b8c0cc">Alternative:</span>${lines}</td></tr>`;
+                return hdr + altRows;
             })() : '';
             out.push({
                 foto:      fotoSrc ? (sitoLink ? `<a href="${sitoUrl}"><img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;display:block"></a>` : `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">`) : '',
