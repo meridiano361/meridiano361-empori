@@ -1296,6 +1296,9 @@
               <select id="prod-all-cat" onchange="renderProdAll()" style="max-width:140px"><option value="">Tutte le categorie</option></select>
               <span class="prod-count" id="prod-all-count"></span>
             </div>
+            <div style="margin-bottom:10px">
+              <button id="btn-deduplica" onclick="deduplicaProdotti()" class="btn-secondary" style="font-size:12px;padding:6px 14px"><i class="fas fa-broom" style="margin-right:5px"></i>Deduplicazione + backfill dati fornitura</button>
+            </div>
             <div id="prod-sel-bar" style="display:none;align-items:center;gap:10px;padding:8px 14px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;margin-bottom:8px;font-size:13px;font-weight:700;color:#92400e">
               <i class="fas fa-check-square"></i>
               <span id="prod-sel-count"></span>
@@ -5463,6 +5466,59 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     const _fmtP = n => n != null ? '€ ' + Number(n).toFixed(2).replace('.', ',') : '—';
     const _bool3 = v => v === true ? '✓' : v === false ? '✗' : '—';
 
+    async function deduplicaProdotti() {
+        const btn = document.getElementById('btn-deduplica');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:5px"></i>Pulizia in corso…'; }
+
+        const [{ data: all, error: e1 }, { data: rif, error: e2 }] = await Promise.all([
+            db.from('prodotti_catalogo').select('id,codice,descrizione,category,pack_size,assortment_cremona,assortment_casalmaggiore,assortment_viadana').order('id'),
+            db.from('rifornimento_catalogo').select('product_code,description,category,pack_size,assortment_cremona,assortment_casalmaggiore,assortment_viadana')
+        ]);
+        if (e1 || e2 || !all) {
+            showToast('Errore caricamento dati: ' + (e1||e2)?.message, 'err');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-broom" style="margin-right:5px"></i>Deduplicazione + backfill dati fornitura'; }
+            return;
+        }
+
+        // Trova duplicati (stesso codice o stessa descrizione) → tieni il primo (id più basso)
+        const seen = new Map();
+        const toDelete = [];
+        for (const p of all) {
+            const key = p.codice ? `cod:${p.codice}` : `desc:${(p.descrizione||'').toUpperCase()}`;
+            if (seen.has(key)) { toDelete.push(p.id); }
+            else { seen.set(key, p); }
+        }
+
+        // Backfill category/pack/assortment per prodotti che li hanno a null
+        const toUpdate = [];
+        for (const [, p] of seen) {
+            if (p.category && p.pack_size != null && p.assortment_cremona != null) continue;
+            const match = rif?.find(r =>
+                (p.codice && r.product_code && String(p.codice) === String(r.product_code)) ||
+                (p.descrizione && r.description && p.descrizione.toUpperCase() === r.description.toUpperCase())
+            );
+            if (match) toUpdate.push({ id: p.id, category: match.category ?? p.category, pack_size: match.pack_size ?? p.pack_size, assortment_cremona: match.assortment_cremona ?? p.assortment_cremona ?? false, assortment_casalmaggiore: match.assortment_casalmaggiore ?? p.assortment_casalmaggiore ?? false, assortment_viadana: match.assortment_viadana ?? p.assortment_viadana ?? false });
+        }
+
+        const ops = [];
+        if (toDelete.length) ops.push(db.from('prodotti_catalogo').delete().in('id', toDelete));
+        for (const { id, ...fields } of toUpdate) ops.push(db.from('prodotti_catalogo').update(fields).eq('id', id));
+
+        if (!ops.length) {
+            showToast('Nessun duplicato né dati mancanti trovati', 'ok');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-broom" style="margin-right:5px"></i>Deduplicazione + backfill dati fornitura'; }
+            return;
+        }
+
+        const results = await Promise.all(ops);
+        const errors  = results.filter(r => r.error);
+        if (errors.length) { showToast('Errori parziali: ' + errors[0].error.message, 'err'); }
+        else { showToast(`${toDelete.length ? toDelete.length + ' duplicati rimossi' : ''}${toDelete.length && toUpdate.length ? ' · ' : ''}${toUpdate.length ? toUpdate.length + ' prodotti aggiornati con dati fornitura' : ''}`, 'ok'); }
+
+        await caricaProdotti();
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-broom" style="margin-right:5px"></i>Deduplicazione + backfill dati fornitura'; }
+    }
+
     async function caricaProdotti() {
         const [{ data: fr }, { data: rf }, { data: pu }] = await Promise.all([
             db.from('frontalini_catalogo').select('*').order('descrizione'),
@@ -6576,15 +6632,24 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         renderDoppioni();
         _aggiornaRiepilogo();
 
-        // Auto-migrazione immediata del doppione appena risolto
+        // Auto-migrazione immediata del doppione appena risolto (upsert: aggiorna se esiste già)
         const record = { ...payload, descrizione: (payload.descrizione || '').toUpperCase(), active: payload.active !== false, unita: _unitaPerCat(payload.category) || payload.unita };
-        const { error } = await db.from('prodotti_catalogo').insert(record);
-        if (error) {
-            showToast('Doppione risolto ma errore migrazione: ' + error.message, 'err');
+        let existQ = db.from('prodotti_catalogo').select('id');
+        if (record.codice) existQ = existQ.eq('codice', record.codice);
+        else               existQ = existQ.eq('descrizione', record.descrizione);
+        const { data: existing } = await existQ.limit(1).maybeSingle();
+        let mergeErr;
+        if (existing) {
+            ({ error: mergeErr } = await db.from('prodotti_catalogo').update(record).eq('id', existing.id));
+        } else {
+            ({ error: mergeErr } = await db.from('prodotti_catalogo').insert(record));
+        }
+        if (mergeErr) {
+            showToast('Doppione risolto ma errore migrazione: ' + mergeErr.message, 'err');
         } else {
             _doppMigrati.add(k);
             await caricaProdotti();
-            showToast('Doppione risolto e migrato in prodotti_catalogo', 'ok');
+            showToast(existing ? 'Doppione risolto e prodotto aggiornato' : 'Doppione risolto e migrato in prodotti_catalogo', 'ok');
         }
     }
 
