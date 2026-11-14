@@ -2634,7 +2634,37 @@ function resetCondizioniCommerciali() {
 function esportaPDF() {
     document.getElementById('pdf-data-stampa').value = new Date().toISOString().slice(0,10);
     document.getElementById('pdf-col-modal').classList.remove('hidden');
+    _pdfUpdateOrientHint();
 }
+function _pdfOrient() {
+    return document.querySelector('input[name="pdf-orient"]:checked')?.value || 'portrait';
+}
+function _pdfSetOrient(val) {
+    document.getElementById('pdf-orient-v').checked = val === 'portrait';
+    document.getElementById('pdf-orient-h').checked = val === 'landscape';
+    _pdfOrientStyle();
+}
+function _pdfOrientStyle() {
+    const h = _pdfOrient() === 'landscape';
+    document.getElementById('pdf-orient-v-lbl').style.cssText = `flex:1;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border-radius:12px;border:2px solid;padding:8px;font-size:14px;font-weight:600;transition:all .15s;border-color:${!h?'#B5453A':'#e2e8f0'};color:${!h?'#B5453A':'#94a3b8'};background:${!h?'#fdf8f7':'#fff'}`;
+    document.getElementById('pdf-orient-h-lbl').style.cssText = `flex:1;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border-radius:12px;border:2px solid;padding:8px;font-size:14px;font-weight:600;transition:all .15s;border-color:${h?'#B5453A':'#e2e8f0'};color:${h?'#B5453A':'#94a3b8'};background:${h?'#fdf8f7':'#fff'}`;
+}
+function _pdfUpdateOrientHint() {
+    const cols = document.querySelectorAll('.pdf-col:checked').length;
+    const hint = document.getElementById('pdf-orient-hint');
+    if (cols > 7) {
+        hint.classList.remove('hidden');
+        if (_pdfOrient() === 'portrait') _pdfSetOrient('landscape');
+    } else {
+        hint.classList.add('hidden');
+        if (_pdfOrient() === 'landscape') _pdfSetOrient('portrait');
+    }
+    _pdfOrientStyle();
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[name="pdf-orient"]').forEach(r => r.addEventListener('change', _pdfOrientStyle));
+    document.querySelectorAll('.pdf-col').forEach(cb => cb.addEventListener('change', _pdfUpdateOrientHint));
+});
 function _pdfGrpBoxes(grp) {
     if (grp === 'riq_tot')
         return ['pdf-show-tot-ii','pdf-show-tot-ie','pdf-show-tot-ii-sc','pdf-show-tot-ie-sc'].map(id => document.getElementById(id)).filter(Boolean);
@@ -2857,7 +2887,7 @@ function stampaPDFConColonne() {
         .tot-box.ie{background:#e0f2fe}
         .tot-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;display:block;margin-bottom:4px}
         .tot-val{font-size:16px;font-weight:900;color:#B5453A}
-        @media print{body{padding:12px 16px}@page{margin:8mm}}
+        @media print{body{padding:12px 16px}@page{margin:8mm;size:A4 ${_pdfOrient()}}}
     </style></head><body>
     <div class="header">
         <div class="azienda">
@@ -3070,6 +3100,20 @@ document.addEventListener('DOMContentLoaded', () => {
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ii-sc"> Tot. i.i. sc.</label>
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ie-sc"> Tot. i.e. sc.</label>
       </div>
+    </div>
+
+    <!-- ── Orientamento ── -->
+    <div class="border-t border-slate-100 pt-3 mb-3">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Orientamento pagina</div>
+      <div class="flex gap-3">
+        <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-xl border-2 py-2 text-sm font-semibold transition-all" id="pdf-orient-v-lbl" style="border-color:#B5453A;color:#B5453A;background:#fdf8f7">
+          <input type="radio" name="pdf-orient" id="pdf-orient-v" value="portrait" checked class="hidden"> ▯ Verticale
+        </label>
+        <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-xl border-2 py-2 text-sm font-semibold transition-all" id="pdf-orient-h-lbl" style="border-color:#e2e8f0;color:#94a3b8">
+          <input type="radio" name="pdf-orient" id="pdf-orient-h" value="landscape" class="hidden"> ▭ Orizzontale
+        </label>
+      </div>
+      <div id="pdf-orient-hint" class="text-xs text-blue-500 mt-1 hidden">💡 Con molte colonne l'orizzontale è consigliato</div>
     </div>
 
     <!-- ── Data ── -->
