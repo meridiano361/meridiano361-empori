@@ -2037,15 +2037,15 @@ function _calcAltRow(tr) {
     const iva    = parseFloat(tr.querySelector('.alt-iva')?.value)    || 0;
     const sconto = parseFloat(tr.querySelector('.alt-sconto')?.value) || 0;
     const pie    = iva > 0 && pii > 0 ? pii / (1 + iva / 100) : null;
-    const piisc  = sconto > 0 && pii > 0 ? pii  * (1 - sconto / 100) : null;
-    const piesc  = sconto > 0 && pie      ? pie  * (1 - sconto / 100) : null;
+    const piisc  = sconto > 0 ? pii * (1 - sconto / 100) : null;
+    const piesc  = sconto > 0 && pie !== null ? pie * (1 - sconto / 100) : null;
     const fmt = v => v != null ? '€ ' + itFmt(v) : '—';
     const pieEl   = tr.querySelector('.alt-pie-val');
     const piiscEl = tr.querySelector('.alt-piisc-val');
     const piescEl = tr.querySelector('.alt-piesc-val');
     if (pieEl)   pieEl.textContent   = fmt(pie);
-    if (piiscEl) { piiscEl.textContent = fmt(piisc); piiscEl.style.color = piisc ? '#B5453A' : '#94a3b8'; }
-    if (piescEl) { piescEl.textContent = fmt(piesc); piescEl.style.color = piesc ? '#B5453A' : '#94a3b8'; }
+    if (piiscEl) { piiscEl.textContent = fmt(piisc); piiscEl.style.color = piisc !== null ? '#B5453A' : '#94a3b8'; }
+    if (piescEl) { piescEl.textContent = fmt(piesc); piescEl.style.color = piesc !== null ? '#B5453A' : '#94a3b8'; }
 }
 function _altSetBtn(rowId, active) {
     const btn = document.querySelector(`[data-alt-btn="${rowId}"]`);
@@ -2780,10 +2780,11 @@ function stampaPDFConColonne() {
             const _qty    = parseInt(row.querySelector('.qty-input')?.value) || 0;
             const _pii    = _parseE(row.querySelector('.price-input')?.value);
             const _pie    = _parseE(row.querySelector('.ie-input')?.value);
-            const _piisc  = _parseE(row.querySelector('.ii-sc-value')?.textContent);
-            const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
-            const _effII  = _piisc || _pii;
-            const _effIE  = _piesc || _pie || _effII;
+            const _sconto = parseFloat(row.querySelector('.sconto-input')?.value) || 0;
+            const _piisc  = _sconto > 0 ? _pii  * (1 - _sconto / 100) : null;
+            const _piesc  = _sconto > 0 && _pie > 0 ? _pie * (1 - _sconto / 100) : null;
+            const _effII  = _piisc !== null ? _piisc : _pii;
+            const _effIE  = _piesc !== null ? _piesc : (_pie || _effII);
             const sitoLink = sel.has('sito') && sitoUrl;
             const alts = row.dataset.alternative ? JSON.parse(row.dataset.alternative) : [];
             const descCell = (sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:none">${desc}</a>` : desc) +
@@ -2800,9 +2801,9 @@ function stampaPDFConColonne() {
                     const aIva       = parseFloat(a.iva) || 0;
                     const aSconto    = parseFloat(a.sconto) || 0;
                     const aPriceIE   = aIva > 0 && aPriceII > 0 ? aPriceII / (1 + aIva / 100) : null;
-                    const aPriceIISc = aSconto > 0 && aPriceII > 0 ? aPriceII * (1 - aSconto / 100) : null;
-                    const aPriceIESc = aSconto > 0 && aPriceIE    ? aPriceIE  * (1 - aSconto / 100) : null;
-                    const aEffII = aPriceIISc || aPriceII;
+                    const aPriceIISc = aSconto > 0 ? aPriceII  * (1 - aSconto / 100) : null;
+                    const aPriceIESc = aSconto > 0 && aPriceIE !== null ? aPriceIE * (1 - aSconto / 100) : null;
+                    const aEffII = aPriceIISc !== null ? aPriceIISc : aPriceII;
                     const tds = colDefs.map(c => {
                         switch(c.key) {
                             case 'foto':     return `<td style="${bs}"></td>`;
@@ -2810,16 +2811,16 @@ function stampaPDFConColonne() {
                             case 'desc':     return `<td style="${bs};text-align:left;font-style:italic">${a.desc}${sitoA}</td>`;
                             case 'iva':      return `<td style="${bs};text-align:center">${a.iva||''}</td>`;
                             case 'pii':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceII > 0 ? '€ '+itFmt(aPriceII) : (a.prezzo||'')}</td>`;
-                            case 'pie':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIE  ? '€ '+itFmt(aPriceIE)  : '—'}</td>`;
+                            case 'pie':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIE !== null  ? '€ '+itFmt(aPriceIE)  : '—'}</td>`;
                             case 'sconto':   return `<td style="${bs};text-align:center">${aSconto > 0 ? aSconto+'%' : '—'}</td>`;
-                            case 'piisc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIISc ? '€ '+itFmt(aPriceIISc) : '—'}</td>`;
-                            case 'piesc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIESc ? '€ '+itFmt(aPriceIESc) : '—'}</td>`;
+                            case 'piisc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIISc !== null ? '€ '+itFmt(aPriceIISc) : '—'}</td>`;
+                            case 'piesc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIESc !== null ? '€ '+itFmt(aPriceIESc) : '—'}</td>`;
                             case 'qty':      return `<td style="${bs};text-align:center">${_qty||''}</td>`;
-                            case 'tot_ii':   return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceII > 0  ? '€ '+itFmt(aPriceII *_qty) : '—'}</td>`;
-                            case 'tot_ie':   return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIE      ? '€ '+itFmt(aPriceIE *_qty) : '—'}</td>`;
-                            case 'tot_ii_sc':return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIISc    ? '€ '+itFmt(aPriceIISc*_qty): '—'}</td>`;
-                            case 'tot_ie_sc':return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIESc    ? '€ '+itFmt(aPriceIESc*_qty): '—'}</td>`;
-                            case 'tot':      return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aEffII > 0     ? '€ '+itFmt(aEffII  *_qty) : '—'}</td>`;
+                            case 'tot_ii':   return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceII > 0       ? '€ '+itFmt(aPriceII *_qty) : '—'}</td>`;
+                            case 'tot_ie':   return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIE !== null   ? '€ '+itFmt(aPriceIE *_qty) : '—'}</td>`;
+                            case 'tot_ii_sc':return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIISc !== null ? '€ '+itFmt(aPriceIISc*_qty): '—'}</td>`;
+                            case 'tot_ie_sc':return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIESc !== null ? '€ '+itFmt(aPriceIESc*_qty): '—'}</td>`;
+                            case 'tot':      return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0                        ? '€ '+itFmt(aEffII  *_qty) : '—'}</td>`;
                             default:         return `<td style="${bs};text-align:${c.align}"></td>`;
                         }
                     }).join('');
@@ -2834,13 +2835,13 @@ function stampaPDFConColonne() {
                 pii:       row.querySelector('.price-input')?.value || '—',
                 iva:       row.querySelector('.iva-input')?.value || '—',
                 pie:       row.querySelector('.ie-input')?.value || '—',
-                sconto:    row.querySelector('.sconto-input')?.value ? row.querySelector('.sconto-input').value + '%' : '—',
-                piisc:     row.querySelector('.ii-sc-value')?.textContent || '—',
-                piesc:     row.querySelector('.ie-sc-value')?.textContent || '—',
-                tot_ii:    _qty > 0 && _pii > 0   ? '€ ' + itFmt(_pii   * _qty) : '—',
-                tot_ie:    _qty > 0 && _pie > 0   ? '€ ' + itFmt(_pie   * _qty) : '—',
-                tot_ii_sc: _qty > 0 && _piisc > 0 ? '€ ' + itFmt(_piisc * _qty) : '—',
-                tot_ie_sc: _qty > 0 && _piesc > 0 ? '€ ' + itFmt(_piesc * _qty) : '—',
+                sconto:    _sconto > 0 ? _sconto + '%' : '—',
+                piisc:     _piisc !== null ? '€ ' + itFmt(_piisc) : '—',
+                piesc:     _piesc !== null ? '€ ' + itFmt(_piesc) : '—',
+                tot_ii:    _qty > 0 && _pii > 0        ? '€ ' + itFmt(_pii   * _qty) : '—',
+                tot_ie:    _qty > 0 && _pie > 0        ? '€ ' + itFmt(_pie   * _qty) : '—',
+                tot_ii_sc: _qty > 0 && _piisc !== null ? '€ ' + itFmt(_piisc * _qty) : '—',
+                tot_ie_sc: _qty > 0 && _piesc !== null ? '€ ' + itFmt(_piesc * _qty) : '—',
                 qty:       row.querySelector('.qty-input')?.value || '',
                 tot:       '€ ' + (row.querySelector('.row-total')?.textContent || '0,00'),
                 _altTr,
