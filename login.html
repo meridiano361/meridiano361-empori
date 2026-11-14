@@ -613,6 +613,9 @@
 
       const { data: op, error: opErr } = await _supabase.from('operatori').select('*').ilike('email', email).single();
       if (opErr || !op) throw new Error('Utente non autorizzato.');
+      if (!op.auth_id && authData?.user?.id) {
+        try { await _supabase.from('operatori').update({ auth_id: authData.user.id }).eq('id', op.id); } catch (_) {}
+      }
       localStorage.setItem('m361_user', JSON.stringify(op));
       _redirectAfterLogin();
     } catch (err) {
@@ -839,6 +842,7 @@
         const loginNow = new Date().toISOString();
         const payload  = { last_login_at: loginNow };
         if (!operatore.first_login_at) payload.first_login_at = loginNow;
+        if (!operatore.auth_id && authData?.user?.id) payload.auth_id = authData.user.id;
         await _supabase.from('operatori').update(payload).eq('id', operatore.id);
       } catch (_) {}
 
