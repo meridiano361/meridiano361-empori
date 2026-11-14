@@ -5841,6 +5841,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 : '<span class="prod-attr dis">No</span>';
             const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : p._src === 'fornitura' ? `apriModalFornituraProd(${p._id})` : `apriModalProdUnif(${p._id})`;
             const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : p._src === 'fornitura' ? `eliminaProdFornitura(${p._id})`  : `eliminaProdUnif(${p._id})`;
+            const copyBtn = _isAdmin ? `<button class="prod-row-btn" onclick="copiaProdUnif('${p._src}',${p._id})" title="Copia prodotto"><i class="fas fa-copy"></i></button>` : '';
             return `<tr data-sel-key="${selKey}" style="${_selProd.has(selKey)?'background:#eff6ff':''}" >
               <td style="text-align:center"><input type="checkbox" ${checked} onchange="_toggleSelProd('${selKey}',this.checked)" style="accent-color:#3b82f6;cursor:pointer"></td>
               <td>${srcBadge(p._src)}</td>
@@ -5861,6 +5862,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <td style="text-align:center">${p.sito ? `<a href="${escHtml(p.sito)}" target="_blank" rel="noopener" title="${escHtml(p.sito)}" style="color:#2563eb;font-size:13px"><i class="fas fa-external-link-alt"></i></a>` : '<span style="color:#cbd5e1">—</span>'}</td>
               <td style="white-space:nowrap">
                 <button class="prod-row-btn" onclick="${editFn}" title="Modifica"><i class="fas fa-pencil"></i></button>
+                ${copyBtn}
                 <button class="prod-row-btn del" onclick="${delFn}" title="Elimina"><i class="fas fa-trash"></i></button>
               </td>
             </tr>`;
@@ -6351,6 +6353,52 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         showToast('Prodotto eliminato', 'ok');
         await caricaProdotti();
+    }
+
+    function copiaProdUnif(src, id) {
+        // Recupera i dati grezzi dalla fonte corretta e normalizza
+        let p = null;
+        if (src === 'prodotti') {
+            const r = _prodUnificati.find(x => x.id === id);
+            if (r) p = { codice:r.codice, descrizione:r.descrizione, prezzo:r.prezzo, iva:r.iva, pack_size:r.pack_size, fornitore:r.fornitore, marchio:r.marchio, category:r.category, linea:r.linea, peso:r.peso, unita:r.unita, bio:r.bio, senza_glutine:r.senza_glutine, vegano:r.vegano, note:r.note, sito_url:r.sito_url, foto_url:r.foto_url, assortment_cremona:r.assortment_cremona, assortment_casalmaggiore:r.assortment_casalmaggiore, assortment_viadana:r.assortment_viadana, active:r.active !== false };
+        } else if (src === 'frontalini') {
+            const r = _prodFrontalini.find(x => x.id === id);
+            if (r) p = { codice:r.codice, descrizione:r.descrizione, prezzo:r.prezzo, iva:r.iva, pack_size:r.pack_size, fornitore:r.fornitore, marchio:r.marchio, category:r.category, linea:r.linea, peso:r.peso, unita:r.unita, bio:r.bio, senza_glutine:r.senza_glutine, vegano:r.vegano, note:r.note, sito_url:r.sito_url, foto_url:r.foto_url, assortment_cremona:null, assortment_casalmaggiore:null, assortment_viadana:null, active:true };
+        } else if (src === 'fornitura') {
+            const r = _prodFornitura.find(x => x.id === id);
+            if (r) p = { codice:r.product_code, descrizione:r.description, prezzo:r.pvp, iva:null, pack_size:r.pack_size, fornitore:r.fornitore, marchio:r.marchio, category:r.category, linea:r.linea, peso:r.quantita, unita:r.unita_misura, bio:false, senza_glutine:false, vegano:false, note:null, sito_url:null, foto_url:r.foto_url, assortment_cremona:r.assortment_cremona, assortment_casalmaggiore:r.assortment_casalmaggiore, assortment_viadana:r.assortment_viadana, active:true };
+        }
+        if (!p) return;
+        // Apri il modal come nuovo prodotto (id=null) pre-compilato
+        apriModalProdUnif(null);
+        document.getElementById('prun-codice').value    = p.codice    || '';
+        document.getElementById('prun-desc').value      = p.descrizione || '';
+        document.getElementById('prun-iva').value       = p.iva != null ? String(p.iva) : '';
+        document.getElementById('prun-prezzo').value    = p.prezzo    ?? '';
+        document.getElementById('prun-pack').value      = p.pack_size ?? '';
+        document.getElementById('prun-fornitore').value = p.fornitore || '';
+        document.getElementById('prun-marchio').value   = p.marchio   || '';
+        document.getElementById('prun-categoria').value = p.category  || '';
+        document.getElementById('prun-linea').value     = p.linea     || '';
+        document.getElementById('prun-peso').value      = p.peso      ?? '';
+        document.getElementById('prun-unita').value     = p.unita     || '';
+        document.getElementById('prun-bio').checked     = !!p.bio;
+        document.getElementById('prun-sg').checked      = !!p.senza_glutine;
+        document.getElementById('prun-veg').checked     = !!p.vegano;
+        document.getElementById('prun-note').value      = p.note      || '';
+        document.getElementById('prun-sito').value      = p.sito_url  || '';
+        document.getElementById('prun-cr').checked      = !!p.assortment_cremona;
+        document.getElementById('prun-ca').checked      = !!p.assortment_casalmaggiore;
+        document.getElementById('prun-vi').checked      = !!p.assortment_viadana;
+        document.getElementById('prun-active').checked  = p.active !== false;
+        if (p.foto_url) {
+            _prunFotoUrl = p.foto_url;
+            const fImg = document.getElementById('prun-foto-img');
+            fImg.src = p.foto_url; fImg.style.display = '';
+            document.getElementById('prun-foto-icon').style.display = 'none';
+            document.getElementById('prun-foto-del').style.display = '';
+        }
+        document.getElementById('modal-prun-titolo').textContent = 'Copia prodotto';
     }
 
     function _showProdMsg(which, msg, tipo) {
