@@ -228,6 +228,9 @@
         /* === RESPONSIVE === */
         /* ── Sezioni view ── */
         .sezioni-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+        .sez-op-chip { border:1.5px solid #e2e8f0; border-radius:8px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; background:#fff; color:#64748b; transition:all .12s; }
+        .sez-op-chip:hover { border-color:#94a3b8; color:#1e293b; }
+        .sez-op-chip-sel { background:#1e293b; color:#fff !important; border-color:#1e293b !important; }
         .sez-group-toggle { display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:9px 12px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:12px; user-select:none; transition:background .12s; }
         .sez-group-toggle:hover { background:#f1f5f9; }
         .sez-group-toggle span { font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.08em; }
@@ -5200,6 +5203,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
     function apriSezioneDetail(sezId) {
         _sezDetailCurrent = sezId;
+        _sezFiltroAccesso = 'tutti';
         const s = SEZIONI_APP.find(x => x.id === sezId);
         if (!s) return;
         document.getElementById('sezioni-grid-wrap').style.display = 'none';
@@ -5236,7 +5240,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     const opera     = isSist ? false : (vede ? perm?.opera !== false : false);
                     const ruoloNorm = (op.ruolo || '').toLowerCase().replace(/\s+/g, '');
                     return `
-                    <tr data-nome="${(op.nome||'').toLowerCase()}">
+                    <tr data-nome="${(op.nome||'').toLowerCase()}" data-vede="${vede}" data-opera="${opera}">
                         <td>
                             <div class="op-nome-cella">
                                 <div class="op-avatar-small">${avatarIniziali(op.nome)}</div>
@@ -5364,24 +5368,44 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     <button onclick="sezDetailBulk('${sezId}',false,false)" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;cursor:pointer;color:#dc2626;font-family:inherit">✕ Nascondi tutti</button>
                 </div>
             </div>
-            <div style="position:sticky;top:0;z-index:10;background:#f8fafc;padding:10px 0 8px;margin-bottom:4px">
-                <div style="position:relative;max-width:320px">
+            <div style="position:sticky;top:0;z-index:10;background:#f8fafc;padding:10px 0 8px;margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div style="position:relative;flex:0 0 260px">
                     <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none"></i>
-                    <input id="sez-op-search" type="text" placeholder="Cerca operatore…" oninput="filtraSezOp(this.value)"
+                    <input id="sez-op-search" type="text" placeholder="Cerca operatore…" oninput="filtraSezOp()"
                         autocomplete="off"
                         style="width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 10px 8px 30px;font-size:13px;font-family:inherit;color:#1e293b;outline:none;background:#fff"
                         onfocus="this.style.borderColor='#B5453A'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap" id="sez-op-filtri">
+                    <button class="sez-op-chip sez-op-chip-sel" data-filtro="tutti"      onclick="setSezFiltro('tutti')">Tutti</button>
+                    <button class="sez-op-chip" data-filtro="operativi"  onclick="setSezFiltro('operativi')">✓✓ Operativi</button>
+                    <button class="sez-op-chip" data-filtro="visibili"   onclick="setSezFiltro('visibili')">✓ Solo lettura</button>
+                    <button class="sez-op-chip" data-filtro="nascosti"   onclick="setSezFiltro('nascosti')">✕ Nascosti</button>
                 </div>
             </div>
             ${tabelle}${tabellaNoAttivi}`;
     }
 
-    function filtraSezOp(q) {
-        q = (q || '').trim().toLowerCase();
+    let _sezFiltroAccesso = 'tutti';
+
+    function setSezFiltro(filtro) {
+        _sezFiltroAccesso = filtro;
+        document.querySelectorAll('.sez-op-chip').forEach(b => b.classList.toggle('sez-op-chip-sel', b.dataset.filtro === filtro));
+        filtraSezOp();
+    }
+
+    function filtraSezOp() {
+        const q = (document.getElementById('sez-op-search')?.value || '').trim().toLowerCase();
         document.querySelectorAll('#sezioni-detail-wrap tr[data-nome]').forEach(tr => {
-            tr.style.display = (!q || tr.dataset.nome.includes(q)) ? '' : 'none';
+            const nomeOk  = !q || tr.dataset.nome.includes(q);
+            const vede  = tr.dataset.vede  === 'true';
+            const opera = tr.dataset.opera === 'true';
+            let accOk = true;
+            if (_sezFiltroAccesso === 'operativi') accOk = vede && opera;
+            else if (_sezFiltroAccesso === 'visibili')  accOk = vede && !opera;
+            else if (_sezFiltroAccesso === 'nascosti')  accOk = !vede;
+            tr.style.display = (nomeOk && accOk) ? '' : 'none';
         });
-        // mostra/nascondi sezioni emporio vuote
         document.querySelectorAll('#sezioni-detail-wrap .sez-detail-section').forEach(sec => {
             const righeVisibili = [...sec.querySelectorAll('tr[data-nome]')].some(tr => tr.style.display !== 'none');
             sec.style.display = righeVisibili ? '' : 'none';
