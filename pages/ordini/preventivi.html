@@ -2710,7 +2710,7 @@ function stampaPDFConColonne() {
     const showAnyGrp  = showGrpII || showGrpIE || showGrpIISc || showGrpIESc;
 
     const colDefs = [
-        { key:'foto',      label:'',               align:'center' },
+        { key:'foto',      label:'',               align:'center', width:'52px' },
         { key:'codice',    label:'Codice',         align:'left'   },
         { key:'desc',      label:'Descrizione',    align:'left'   },
         { key:'iva',       label:'IVA %',          align:'center', num:true },
@@ -2770,7 +2770,7 @@ function stampaPDFConColonne() {
                 return hdr + altRows;
             })() : '';
             out.push({
-                foto:      fotoSrc ? (sitoLink ? `<a href="${sitoUrl}"><img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;display:block"></a>` : `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">`) : '',
+                foto:      fotoSrc ? (sitoLink ? `<a href="${sitoUrl}"><img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;display:inline-block;vertical-align:middle"></a>` : `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;display:inline-block;vertical-align:middle">`) : '',
                 codice:    sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:underline;text-decoration-style:dotted">${codice}</a>` : codice,
                 desc: descCell,
                 pii:       row.querySelector('.price-input')?.value || '—',
@@ -2821,8 +2821,8 @@ function stampaPDFConColonne() {
         cc.note              ? `Note: ${cc.note}` : '',
     ].filter(Boolean);
 
-    const thRow = colDefs.map(c => `<th style="text-align:${c.align}">${c.label}</th>`).join('');
-    const tdRows = rows.map(r => `<tr>${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
+    const thRow = colDefs.map(c => `<th style="text-align:${c.align}${c.width?';width:'+c.width+';min-width:'+c.width:''}">${c.label}</th>`).join('');
+    const tdRows = rows.map(r => `<tr>${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
     const hasGroupPhotos = groupsForPdf.some(g => g.groupFotoSrc);
     const useGroupLayout = groupsForPdf.length > 1 || hasGroupPhotos;
 
@@ -2853,7 +2853,7 @@ function stampaPDFConColonne() {
                     ${gLabel ? `<div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">${gLabel}</div>` : ''}
                 </div>
             </div>` : '';
-        const gTdRows = g.productRows.map(r => `<tr>${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
+        const gTdRows = g.productRows.map(r => `<tr>${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
         return `${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>${_grpSubtotalDiv(g.productRows)}`;
     }).join('') : '';
 
