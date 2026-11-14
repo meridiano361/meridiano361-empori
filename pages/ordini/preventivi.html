@@ -1696,10 +1696,9 @@ function addRow(gid) {
     _acWire(row.querySelector('.codice-input'), row);
     _acWire(row.querySelector('.desc-input'), row);
     ['.desc-input','.codice-input'].forEach(sel => {
-        row.querySelector(sel)?.addEventListener('dblclick', () => {
-            const c = row.querySelector('.codice-input')?.value?.trim();
-            const d = row.querySelector('.desc-input')?.value?.trim();
-            if (c || d) apriSchedaProd(c, d);
+        row.querySelector(sel)?.addEventListener('dblclick', e => {
+            e.preventDefault();
+            apriBrowser(row);
         });
     });
     internalRow.querySelector('.costo-ii-input').addEventListener('focus', function() { clearCurrency(this); });
@@ -2961,7 +2960,18 @@ let _acProd=[], _acDropEl=null, _catalogTable='frontalini_catalogo';
     } catch(e){}
 })();
 function _acEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function _acSearch(q){q=q.trim().toLowerCase();if(q.length<2)return [];return _acProd.filter(p=>p.n.toLowerCase().includes(q)||p.c.toLowerCase().includes(q)).slice(0,10);}
+function _acSearch(q){
+    q=q.trim().toLowerCase();if(q.length<2)return [];
+    const sw=new Set(['di','del','della','dello','dei','degli','delle','il','lo','la','i','gli','le','un','uno','una','e','a','in','da','su','per','con','tra','fra','al','allo','alla','ai','agli','alle']);
+    const qw=q.split(/\s+/).filter(w=>w.length>1&&!sw.has(w));
+    return _acProd.filter(p=>{
+        const pn=p.n.toLowerCase(),pc=(p.c||'').toLowerCase();
+        if(pc&&(pc===q||pc.includes(q)))return true;
+        if(pn.includes(q))return true;
+        if(qw.length>0&&qw.every(w=>pn.includes(w)))return true;
+        return false;
+    }).slice(0,12);
+}
 function _acShow(inp,results,row){_acHide();const isAdm=typeof isPreventiviAdmin==='function'?isPreventiviAdmin():false;const q=inp.value.trim();if(!results.length&&(!isAdm||q.length<1))return;const d=document.createElement('div');d.className='ac-prod-drop';let html=results.map((p,i)=>`<div class="ac-prod-item" data-i="${i}"><div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)||'—'}</span><span class="ac-prod-src">${p.src}</span></div><div class="ac-prod-name">${_acEsc(p.n)}</div>${p.p!=null?`<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.',',')}</div>`:''}</div>`).join('');if(isAdm)html+=`<div class="ac-prod-item" data-new="1" style="border-top:${results.length?'1':'0'}px solid #e2e8f0;color:#B5453A;font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px"><i class="fas fa-plus-circle" style="font-size:11px"></i> Crea nuova anagrafica${q?` per &ldquo;${_acEsc(q)}&rdquo;`:''}</div>`;d.innerHTML=html;const rect=inp.getBoundingClientRect();d.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,240)}px;z-index:99999`;d.querySelectorAll('.ac-prod-item:not([data-new])').forEach((el,i)=>{el.addEventListener('mousedown',e=>{e.preventDefault();_acApply(row,results[i]);_acHide();});});d.querySelector('[data-new]')?.addEventListener('mousedown',e=>{e.preventDefault();_acHide();nuovaSchedaProd(row,q);});document.body.appendChild(d);_acDropEl=d;}
 function _acHide(){_acDropEl?.remove();_acDropEl=null;}
 function _acApply(row,prod){
@@ -2984,6 +2994,86 @@ function _acApply(row,prod){
 }
 function _acWire(inp,row){inp.addEventListener('input',function(){_acShow(inp,_acSearch(this.value),row);});inp.addEventListener('blur',()=>setTimeout(_acHide,200));inp.addEventListener('focus',function(){if(this.value.length>=2)_acShow(inp,_acSearch(this.value),row);});}
 
+/* ══ BROWSER CATALOGO COMPLETO ══ */
+let _catBrowseRow=null, _catBrowseList=[];
+const _catSW=new Set(['di','del','della','dello','dei','degli','delle','il','lo','la','i','gli','le','un','uno','una','e','a','in','da','su','per','con','tra','fra','al','allo','alla','ai','agli','alle']);
+
+function apriBrowser(row){
+    _catBrowseRow=row;
+    const q=row.querySelector('.desc-input')?.value?.trim()||'';
+    const inp=document.getElementById('cat-search');
+    if(inp){inp.value=q;_renderBrowser(q);}
+    document.getElementById('modal-catalogo').style.display='flex';
+    setTimeout(()=>inp?.focus(),80);
+}
+function chiudiBrowser(){
+    document.getElementById('modal-catalogo').style.display='none';
+    _catBrowseRow=null;
+}
+function _renderBrowser(q){
+    q=(q||'').trim().toLowerCase();
+    const isAdm=typeof isPreventiviAdmin==='function'?isPreventiviAdmin():false;
+    const qw=q.split(/\s+/).filter(w=>w.length>1&&!_catSW.has(w));
+    _catBrowseList=q.length<2
+        ? [..._acProd].sort((a,b)=>a.n.localeCompare(b.n))
+        : _acProd.filter(p=>{
+            const pn=p.n.toLowerCase(),pc=(p.c||'').toLowerCase();
+            if(pc&&pc.includes(q))return true;
+            if(pn.includes(q))return true;
+            if(qw.length>0&&qw.every(w=>pn.includes(w)))return true;
+            return false;
+          });
+    const el=document.getElementById('cat-list');
+    if(!el)return;
+    document.getElementById('cat-count').textContent=_catBrowseList.length+' prodotti';
+    if(!_catBrowseList.length){el.innerHTML='<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">Nessun prodotto trovato</div>';return;}
+    const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const fmtP=v=>v!=null?'€ '+Number(v).toFixed(2).replace('.',','):'—';
+    const pill=(bg,tc,lbl)=>`<span style="background:${bg};color:${tc};font-size:9px;font-weight:800;border-radius:3px;padding:1px 5px">${lbl}</span>`;
+    el.innerHTML=_catBrowseList.map((p,i)=>{
+        const attrs=[p.bio?pill('#dcfce7','#15803d','BIO'):'',p.sg?pill('#fef3c7','#92400e','S.G.'):'',p.veg?pill('#ede9fe','#6d28d9','VEG'):''].filter(Boolean).join('');
+        const canEdit=isAdm&&p.id!=null;
+        const foto=p.foto
+            ?`<img src="${esc(p.foto)}" style="width:42px;height:42px;object-fit:cover;border-radius:7px;flex-shrink:0" onerror="this.style.display='none'">`
+            :`<div style="width:42px;height:42px;border-radius:7px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-box" style="color:#cbd5e1;font-size:13px"></i></div>`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f8fafc;transition:background .08s" onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background=''">
+            ${foto}
+            <div style="flex:1;min-width:0;cursor:pointer" onclick="_catSel(${i})">
+                ${p.c?`<div style="font-family:monospace;font-size:10px;color:#94a3b8;margin-bottom:1px">${esc(p.c)}</div>`:''}
+                <div style="font-size:13px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.n)}</div>
+                <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+                    ${p.p!=null?`<span style="font-size:12px;font-weight:800;color:#B5453A">${fmtP(p.p)}</span>`:''}
+                    ${attrs}
+                </div>
+            </div>
+            <div style="display:flex;gap:5px;flex-shrink:0">
+                <button onclick="event.stopPropagation();_catInfo(${i})" style="width:30px;height:30px;border-radius:7px;background:#f1f5f9;border:none;cursor:pointer;color:#64748b;font-size:11px" title="Vedi scheda"><i class="fas fa-eye"></i></button>
+                ${canEdit?`<button onclick="event.stopPropagation();_catEdit(${i})" style="width:30px;height:30px;border-radius:7px;background:#fff8e1;border:none;cursor:pointer;color:#b45309;font-size:11px" title="Modifica"><i class="fas fa-pencil-alt"></i></button>`:''}
+            </div>
+        </div>`;
+    }).join('');
+}
+function _catSel(i){
+    const prod=_catBrowseList[i];
+    if(!prod||!_catBrowseRow)return;
+    _acApply(_catBrowseRow,prod);
+    chiudiBrowser();
+}
+function _catInfo(i){
+    const prod=_catBrowseList[i];
+    if(!prod)return;
+    _schedaProdId=prod.id||null;
+    _schedaProdRow=_catBrowseRow;
+    apriSchedaProd(prod.c,prod.n);
+}
+function _catEdit(i){
+    const prod=_catBrowseList[i];
+    if(!prod||!prod.id)return;
+    _schedaProdId=prod.id;
+    _schedaProdRow=_catBrowseRow;
+    apriSchedaProd(prod.c,prod.n);
+}
+
 let _schedaProdId = null, _schedaProdRow = null;
 
 function apriSchedaProd(codice, desc) {
@@ -2994,10 +3084,9 @@ function apriSchedaProd(codice, desc) {
     if (!prod) { showToast('Prodotto non trovato nel catalogo','warning'); return; }
 
     _schedaProdId = prod.id || null;
-    const isAdm = prod.src === 'frontalini' && (typeof isPreventiviAdmin === 'function' ? isPreventiviAdmin() : false);
-    const src = prod.src === 'frontalini' ? 'Frontalini' : 'Fornitura';
+    const isAdm = prod.id != null && (typeof isPreventiviAdmin === 'function' ? isPreventiviAdmin() : false);
 
-    document.getElementById('sprod-src').textContent = src;
+    document.getElementById('sprod-src').textContent = 'Anagrafica prodotto';
     document.getElementById('sprod-nome').textContent = prod.n || '—';
 
     const fotoWrap = document.getElementById('sprod-foto-wrap');
@@ -3065,7 +3154,7 @@ function nuovaSchedaProd(row, preVal) {
     _schedaProdRow = row;
     const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const opt = (v,lbl) => `<option value="${v}">${lbl}</option>`;
-    document.getElementById('sprod-src').textContent = 'Nuovo prodotto';
+    document.getElementById('sprod-src').textContent = 'Anagrafica prodotto';
     document.getElementById('sprod-nome').textContent = preVal || 'Nuovo prodotto';
     document.getElementById('sprod-foto-wrap').style.display = 'none';
     document.getElementById('sprod-body').innerHTML = `
@@ -3142,6 +3231,23 @@ async function salvaSchedaProd() {
 
 function chiudiSchedaProd() { document.getElementById('modal-scheda-prod').style.display = 'none'; _schedaProdRow = null; }
 </script>
+
+<!-- ══ BROWSER CATALOGO COMPLETO ══ -->
+<div id="modal-catalogo" onclick="if(event.target===this)chiudiBrowser()" style="display:none;position:fixed;inset:0;z-index:99997;background:rgba(15,23,42,.55);align-items:flex-end;justify-content:center;padding:0 12px 24px">
+  <div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22)">
+    <div style="padding:12px 14px 10px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;flex-shrink:0">
+      <div style="flex:1;position:relative">
+        <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none"></i>
+        <input id="cat-search" placeholder="Cerca per nome, codice, fornitore…" oninput="_renderBrowser(this.value)" autocomplete="off"
+          style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 10px 9px 30px;font-size:14px;font-family:inherit;color:#1e293b;outline:none;box-sizing:border-box"
+          onfocus="this.style.borderColor='#B5453A'" onblur="this.style.borderColor='#e2e8f0'">
+      </div>
+      <span id="cat-count" style="font-size:11px;color:#94a3b8;white-space:nowrap;flex-shrink:0"></span>
+      <button onclick="chiudiBrowser()" style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:none;font-size:17px;cursor:pointer;color:#64748b;flex-shrink:0">×</button>
+    </div>
+    <div id="cat-list" style="overflow-y:auto;flex:1"></div>
+  </div>
+</div>
 
 <div id="modal-scheda-prod" onclick="if(event.target===this)chiudiSchedaProd()" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(15,23,42,.55);align-items:flex-end;justify-content:center;padding:0 12px 24px">
   <div style="background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22)">
