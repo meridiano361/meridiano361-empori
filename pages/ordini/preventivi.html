@@ -2758,6 +2758,7 @@ function stampaPDFConColonne() {
             const alts = row.dataset.alternative ? JSON.parse(row.dataset.alternative) : [];
             const descCell = (sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:none">${desc}</a>` : desc) +
                 (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '');
+            const _mainSconto = parseFloat(row.querySelector('.sconto-input')?.value) || 0;
             const _altTr = (sel.has('alternative') && alts.filter(a => a.desc).length) ? (() => {
                 const hdr = `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:4px 8px 1px 8px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#b8c0cc;border-bottom:none">Alternative:</td></tr>`;
                 const filteredAlts = alts.filter(a => a.desc);
@@ -2766,14 +2767,30 @@ function stampaPDFConColonne() {
                     const sitoA = a.sito ? ` <a href="${a.sito}" style="color:#94a3b8;text-decoration:none;font-style:normal">↗</a>` : '';
                     const sep = isLastAlt ? '2px solid #cbd5e1' : 'none';
                     const bs = `font-size:8.5px;color:#94a3b8;border-bottom:${sep};background:#f8fafc;vertical-align:middle;padding:2px 5px`;
+                    const aPriceII  = itParse(a.prezzo);
+                    const aIva      = parseFloat(a.iva) || 0;
+                    const aPriceIE  = aIva > 0 && aPriceII > 0 ? aPriceII / (1 + aIva / 100) : null;
+                    const aPriceIISc = _mainSconto > 0 && aPriceII > 0 ? aPriceII * (1 - _mainSconto / 100) : null;
+                    const aPriceIESc = _mainSconto > 0 && aPriceIE  ? aPriceIE  * (1 - _mainSconto / 100) : null;
+                    const aEffII = aPriceIISc || aPriceII;
                     const tds = colDefs.map(c => {
                         switch(c.key) {
-                            case 'foto':   return `<td style="${bs}"></td>`;
-                            case 'codice': return `<td style="${bs};font-family:monospace;text-align:left"><span style="background:#ececec;padding:0 3px;border-radius:2px">${a.codice||''}</span></td>`;
-                            case 'desc':   return `<td style="${bs};text-align:left;font-style:italic">${a.desc}${sitoA}</td>`;
-                            case 'iva':    return `<td style="${bs};text-align:center">${a.iva||''}</td>`;
-                            case 'pii':    return `<td style="${bs};text-align:right;white-space:nowrap">${a.prezzo||''}</td>`;
-                            default:       return `<td style="${bs};text-align:${c.align}"></td>`;
+                            case 'foto':     return `<td style="${bs}"></td>`;
+                            case 'codice':   return `<td style="${bs};font-family:monospace;text-align:left"><span style="background:#ececec;padding:0 3px;border-radius:2px">${a.codice||''}</span></td>`;
+                            case 'desc':     return `<td style="${bs};text-align:left;font-style:italic">${a.desc}${sitoA}</td>`;
+                            case 'iva':      return `<td style="${bs};text-align:center">${a.iva||''}</td>`;
+                            case 'pii':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceII > 0 ? '€ '+itFmt(aPriceII) : (a.prezzo||'')}</td>`;
+                            case 'pie':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIE  ? '€ '+itFmt(aPriceIE)  : '—'}</td>`;
+                            case 'sconto':   return `<td style="${bs};text-align:center">${_mainSconto > 0 ? _mainSconto+'%' : '—'}</td>`;
+                            case 'piisc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIISc ? '€ '+itFmt(aPriceIISc) : '—'}</td>`;
+                            case 'piesc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIESc ? '€ '+itFmt(aPriceIESc) : '—'}</td>`;
+                            case 'qty':      return `<td style="${bs};text-align:center">${_qty||''}</td>`;
+                            case 'tot_ii':   return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceII > 0  ? '€ '+itFmt(aPriceII *_qty) : '—'}</td>`;
+                            case 'tot_ie':   return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIE      ? '€ '+itFmt(aPriceIE *_qty) : '—'}</td>`;
+                            case 'tot_ii_sc':return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIISc    ? '€ '+itFmt(aPriceIISc*_qty): '—'}</td>`;
+                            case 'tot_ie_sc':return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aPriceIESc    ? '€ '+itFmt(aPriceIESc*_qty): '—'}</td>`;
+                            case 'tot':      return `<td style="${bs};text-align:right;white-space:nowrap">${_qty > 0 && aEffII > 0     ? '€ '+itFmt(aEffII  *_qty) : '—'}</td>`;
+                            default:         return `<td style="${bs};text-align:${c.align}"></td>`;
                         }
                     }).join('');
                     return `<tr style="background:#f8fafc">${tds}</tr>`;
