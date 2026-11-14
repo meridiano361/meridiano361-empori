@@ -1288,6 +1288,11 @@
             .be-row .be-val{flex:1;font-size:12px;padding:5px 8px}
             .be-row .be-val:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed}
             .prod-count{font-size:11px;color:#94a3b8;margin-left:auto;white-space:nowrap}
+            .prod-tbl th.sortable{cursor:pointer;user-select:none}
+            .prod-tbl th.sortable:hover{color:#334155;background:#f1f5f9}
+            .prod-tbl th.sort-active{color:#1e293b}
+            .sort-arrow{margin-left:3px;opacity:.4;font-style:normal}
+            .sort-active .sort-arrow{opacity:1}
           </style>
 
           <div class="prod-tabs">
@@ -1322,12 +1327,19 @@
             </div>
             <div class="s-card" style="overflow:auto">
               <table class="prod-tbl">
-                <thead><tr>
+                <thead><tr id="prod-all-thead">
                   <th style="width:32px;text-align:center"><input type="checkbox" id="prod-sel-all" onchange="_selTutti(this.checked)" style="accent-color:#3b82f6;cursor:pointer"></th>
-                  <th>Fonte</th><th>Codice</th><th>Descrizione</th><th>PVP</th><th>Pack</th>
-                  <th>Fornitore</th><th>Marchio</th><th>Categoria</th>
+                  <th>Fonte</th>
+                  <th class="sortable" onclick="sortProdAll('codice')">Codice<i class="sort-arrow" id="sa-codice">↕</i></th>
+                  <th class="sortable" onclick="sortProdAll('descrizione')">Descrizione<i class="sort-arrow" id="sa-descrizione">↕</i></th>
+                  <th class="sortable" onclick="sortProdAll('pvp')">PVP<i class="sort-arrow" id="sa-pvp">↕</i></th>
+                  <th class="sortable" onclick="sortProdAll('pack')">Pack<i class="sort-arrow" id="sa-pack">↕</i></th>
+                  <th class="sortable" onclick="sortProdAll('fornitore')">Fornitore<i class="sort-arrow" id="sa-fornitore">↕</i></th>
+                  <th class="sortable" onclick="sortProdAll('marchio')">Marchio<i class="sort-arrow" id="sa-marchio">↕</i></th>
+                  <th class="sortable" onclick="sortProdAll('categoria')">Categoria<i class="sort-arrow" id="sa-categoria">↕</i></th>
                   <th title="Cremona">CR</th><th title="Casalmaggiore">CA</th><th title="Viadana">VI</th>
-                  <th>Attivo</th><th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th title="Link sito prodotto">🔗</th><th></th>
+                  <th class="sortable" onclick="sortProdAll('attivo')">Attivo<i class="sort-arrow" id="sa-attivo">↕</i></th>
+                  <th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th title="Link sito prodotto">🔗</th><th></th>
                 </tr></thead>
                 <tbody id="prod-all-tbody"><tr><td colspan="17" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
@@ -5783,6 +5795,18 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (cat)  items = items.filter(p => p.categoria === cat);
         if (q)    items = items.filter(p => [p.codice,p.descrizione,p.fornitore,p.marchio,p.categoria].some(s => s.toLowerCase().includes(q)));
 
+        if (_prodSortKey) {
+            const dir = _prodSortDir === 'asc' ? 1 : -1;
+            items.sort((a, b) => {
+                let va = a[_prodSortKey], vb = b[_prodSortKey];
+                if (_prodSortKey === 'attivo') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+                if (typeof va === 'number' || typeof vb === 'number') {
+                    return dir * ((va ?? -Infinity) - (vb ?? -Infinity));
+                }
+                return dir * (va || '').toString().localeCompare((vb || '').toString(), 'it', { sensitivity: 'base' });
+            });
+        }
+
         const total = _prodFrontalini.length + _prodFornitura.length + _prodUnificati.length;
         const count = document.getElementById('prod-all-count');
         if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
@@ -5839,6 +5863,27 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             </tr>`;
         }).join('');
         _aggiornaSelBar();
+    }
+
+    // ── ORDINAMENTO ANAGRAFICA ────────────────────────────────────
+    let _prodSortKey = '';
+    let _prodSortDir = 'asc';
+
+    function sortProdAll(key) {
+        if (_prodSortKey === key) {
+            _prodSortDir = _prodSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            _prodSortKey = key;
+            _prodSortDir = 'asc';
+        }
+        document.querySelectorAll('.prod-tbl th.sortable').forEach(th => th.classList.remove('sort-active'));
+        document.querySelectorAll('.sort-arrow').forEach(el => el.textContent = '↕');
+        const arrowEl = document.getElementById('sa-' + key);
+        if (arrowEl) {
+            arrowEl.textContent = _prodSortDir === 'asc' ? '↑' : '↓';
+            arrowEl.closest('th')?.classList.add('sort-active');
+        }
+        renderProdAll();
     }
 
     // ── SELEZIONE MULTIPLA ────────────────────────────────────────
