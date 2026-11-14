@@ -2004,13 +2004,17 @@ function _addAlt(rowId) {
     if (container.querySelectorAll('.alt-item').length >= 3) return;
     const div = document.createElement('div');
     div.className = 'alt-item';
-    div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px';
+    div.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap';
     div.innerHTML = `
         <span style="font-size:10px;color:#94a3b8;font-weight:700;white-space:nowrap;min-width:44px">oppure</span>
-        <input type="text" class="alt-desc" placeholder="Descrizione…" style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit" oninput="_syncAltDataset('${rowId}')">
+        <input type="text" class="alt-desc" placeholder="Descrizione…" style="flex:1;min-width:120px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit" oninput="_syncAltDataset('${rowId}')">
+        <input type="text" class="alt-codice" placeholder="Cod." style="width:68px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:11px;font-family:monospace" oninput="_syncAltDataset('${rowId}')">
         <input type="text" class="alt-prezzo" placeholder="Prezzo" style="width:72px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;text-align:right" oninput="_syncAltDataset('${rowId}')">
+        <input type="text" class="alt-iva" placeholder="IVA%" style="width:46px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 5px;font-size:11px;font-family:inherit;text-align:center" oninput="_syncAltDataset('${rowId}')">
+        <a class="alt-sito-btn" href="#" target="_blank" rel="noopener" style="display:none;color:#2563eb;font-size:13px;padding:0 2px;line-height:1" title="Apri sito prodotto">↗</a>
         <button onclick="_removeAlt(this,'${rowId}')" style="color:#fca5a5;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" type="button">×</button>`;
     container.appendChild(div);
+    _acAltWire(div.querySelector('.alt-desc'), div, rowId);
     div.querySelector('.alt-desc').focus();
 }
 function _removeAlt(btn, rowId) {
@@ -2024,7 +2028,10 @@ function _syncAltDataset(rowId) {
     if (!container) return;
     const alts = [...container.querySelectorAll('.alt-item')].map(item => ({
         desc:   item.querySelector('.alt-desc')?.value.trim()   || '',
+        codice: item.querySelector('.alt-codice')?.value.trim() || '',
         prezzo: item.querySelector('.alt-prezzo')?.value.trim() || '',
+        iva:    item.querySelector('.alt-iva')?.value.trim()    || '',
+        sito:   item.dataset.sito || '',
     })).filter(a => a.desc);
     row.dataset.alternative = JSON.stringify(alts);
 }
@@ -2035,17 +2042,21 @@ function _restoreAlts(rowId, alts) {
     alts.forEach(a => {
         const div = document.createElement('div');
         div.className = 'alt-item';
-        div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px';
+        div.style.cssText = 'display:flex;align-items:center;gap:5px;margin-bottom:5px;flex-wrap:wrap';
+        if (a.sito) div.dataset.sito = a.sito;
         div.innerHTML = `
             <span style="font-size:10px;color:#94a3b8;font-weight:700;white-space:nowrap;min-width:44px">oppure</span>
-            <input type="text" class="alt-desc" placeholder="Descrizione…" value="${escHtml(a.desc||'')}" style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit" oninput="_syncAltDataset('${rowId}')">
+            <input type="text" class="alt-desc" placeholder="Descrizione…" value="${escHtml(a.desc||'')}" style="flex:1;min-width:120px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit" oninput="_syncAltDataset('${rowId}')">
+            <input type="text" class="alt-codice" placeholder="Cod." value="${escHtml(a.codice||'')}" style="width:68px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 6px;font-size:11px;font-family:monospace" oninput="_syncAltDataset('${rowId}')">
             <input type="text" class="alt-prezzo" placeholder="Prezzo" value="${escHtml(a.prezzo||'')}" style="width:72px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;text-align:right" oninput="_syncAltDataset('${rowId}')">
+            <input type="text" class="alt-iva" placeholder="IVA%" value="${escHtml(a.iva||'')}" style="width:46px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 5px;font-size:11px;font-family:inherit;text-align:center" oninput="_syncAltDataset('${rowId}')">
+            <a class="alt-sito-btn" href="${escHtml(a.sito||'#')}" target="_blank" rel="noopener" style="display:${a.sito?'':'none'};color:#2563eb;font-size:13px;padding:0 2px;line-height:1" title="Apri sito prodotto">↗</a>
             <button onclick="_removeAlt(this,'${rowId}')" style="color:#fca5a5;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" type="button">×</button>`;
+        _acAltWire(div.querySelector('.alt-desc'), div, rowId);
         container.appendChild(div);
     });
     const row = document.getElementById(`row-${rowId}`);
     if (row) row.dataset.alternative = JSON.stringify(alts);
-    // show alt section if has alternatives
     const sec = document.getElementById(`alt-${rowId}`);
     if (sec) { sec.style.display = ''; }
     const btn = document.querySelector(`[data-alt-btn="${rowId}"]`);
@@ -2676,9 +2687,15 @@ function stampaPDFConColonne() {
             const _effIE  = _piesc || _pie || _effII;
             const sitoLink = sel.has('sito') && sitoUrl;
             const alts = row.dataset.alternative ? JSON.parse(row.dataset.alternative) : [];
-            const altHtml = alts.filter(a => a.desc).map(a =>
-                `<div style="font-size:9px;color:#64748b;font-style:italic;margin-top:2px">• oppure: ${a.desc}${a.prezzo ? ' · ' + a.prezzo : ''}</div>`
-            ).join('');
+            const altHtml = sel.has('alternative') ? alts.filter(a => a.desc).map(a => {
+                let line = '';
+                if (a.codice) line += `<span style="font-family:monospace;font-size:8px;color:#94a3b8">${a.codice}</span> `;
+                line += a.desc;
+                if (a.prezzo) line += ` · <b>${a.prezzo}</b>`;
+                if (a.iva)    line += ` <span style="color:#94a3b8">(${a.iva})</span>`;
+                const sitoA = a.sito ? ` <a href="${a.sito}" style="color:#2563eb;text-decoration:none;font-style:normal">↗</a>` : '';
+                return `<div style="font-size:9px;color:#475569;font-style:italic;margin-top:3px;padding-left:4px;border-left:2px solid #e2e8f0">• opp. ${line}${sitoA}</div>`;
+            }).join('') : '';
             const descCell = (sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:none">${desc}</a>` : desc) +
                 (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '') +
                 altHtml;
@@ -2963,6 +2980,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piisc"> Prezzo i.i. sc.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piesc"> Prezzo i.e. sc.</label>
       <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="sito" checked> Link sito prodotto</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="alternative" checked> Alternative prodotto</label>
     </div>
 
     <!-- ── Tot. riga ── -->
@@ -3029,6 +3047,52 @@ function chiudiLightbox() {
   _lbInput = null;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { chiudiLightbox(); _acHide(); } });
+
+// ── AUTOCOMPLETE ALTERNATIVE ──────────────────────────────────
+function _acAltApply(altItem, prod, rowId) {
+    const descInp   = altItem.querySelector('.alt-desc');
+    const codiceInp = altItem.querySelector('.alt-codice');
+    const prInp     = altItem.querySelector('.alt-prezzo');
+    const ivaInp    = altItem.querySelector('.alt-iva');
+    const sitoBtn   = altItem.querySelector('.alt-sito-btn');
+    if (descInp)   descInp.value   = prod.n || '';
+    if (codiceInp) codiceInp.value = prod.c || '';
+    if (prInp && prod.p != null) prInp.value = '€ ' + Number(prod.p).toFixed(2).replace('.', ',');
+    if (ivaInp && prod.iva != null) ivaInp.value = prod.iva + '%';
+    if (prod.sito) {
+        altItem.dataset.sito = prod.sito;
+        if (sitoBtn) { sitoBtn.href = prod.sito; sitoBtn.style.display = ''; }
+    } else {
+        delete altItem.dataset.sito;
+        if (sitoBtn) sitoBtn.style.display = 'none';
+    }
+    _syncAltDataset(rowId);
+}
+function _acAltShow(inp, results, altItem, rowId) {
+    _acHide();
+    if (!results.length) return;
+    const d = document.createElement('div');
+    d.className = 'ac-prod-drop';
+    d.innerHTML = results.map((p, i) =>
+        `<div class="ac-prod-item" data-i="${i}">` +
+        (p.c ? `<div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)}</span></div>` : '') +
+        `<div class="ac-prod-name">${_acEsc(p.n)}</div>` +
+        (p.p != null ? `<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.', ',')}</div>` : '') +
+        `</div>`
+    ).join('');
+    const rect = inp.getBoundingClientRect();
+    d.style.cssText = `position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,220)}px;z-index:99999`;
+    d.querySelectorAll('.ac-prod-item').forEach((el, i) => {
+        el.addEventListener('mousedown', e => { e.preventDefault(); _acAltApply(altItem, results[i], rowId); _acHide(); });
+    });
+    document.body.appendChild(d);
+    _acDropEl = d;
+}
+function _acAltWire(inp, altItem, rowId) {
+    inp.addEventListener('input', function() { _acAltShow(inp, _acSearch(this.value).slice(0, 8), altItem, rowId); });
+    inp.addEventListener('blur',  () => setTimeout(_acHide, 200));
+    inp.addEventListener('focus', function() { if (this.value.length >= 2) _acAltShow(inp, _acSearch(this.value).slice(0, 8), altItem, rowId); });
+}
 
 // ── AUTOCOMPLETE PRODOTTI ─────────────────────────────────────
 let _acProd=[], _acDropEl=null, _catalogTable='frontalini_catalogo';
