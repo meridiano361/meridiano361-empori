@@ -2622,6 +2622,24 @@ function esportaPDF() {
     document.getElementById('pdf-data-stampa').value = new Date().toISOString().slice(0,10);
     document.getElementById('pdf-col-modal').classList.remove('hidden');
 }
+function _pdfGrpBoxes(grp) {
+    if (grp === 'riq_tot')
+        return ['pdf-show-tot-ii','pdf-show-tot-ie','pdf-show-tot-ii-sc','pdf-show-tot-ie-sc'].map(id => document.getElementById(id)).filter(Boolean);
+    return [...document.querySelectorAll(`.pdf-col[data-grp="${grp}"]`)];
+}
+function _pdfToggleGroup(btn, grp) {
+    const boxes  = _pdfGrpBoxes(grp);
+    const toCheck = !boxes.some(b => b.checked);
+    boxes.forEach(b => b.checked = toCheck);
+    btn.textContent = toCheck ? 'nessuno' : 'tutti';
+}
+function _pdfToggleAll() {
+    const all = [...document.querySelectorAll('.pdf-col'), ..._pdfGrpBoxes('riq_tot')];
+    const toCheck = !all.some(b => b.checked);
+    all.forEach(b => b.checked = toCheck);
+    document.getElementById('pdf-toggle-all-btn').textContent = toCheck ? 'Deseleziona tutto' : 'Seleziona tutto';
+    document.querySelectorAll('[data-pdf-grp-btn]').forEach(btn => btn.textContent = toCheck ? 'nessuno' : 'tutti');
+}
 
 function stampaPDFConColonne() {
     document.getElementById('pdf-col-modal').classList.add('hidden');
@@ -2691,13 +2709,13 @@ function stampaPDFConColonne() {
                 (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '');
             const _altTr = (sel.has('alternative') && alts.filter(a => a.desc).length) ? (() => {
                 const lines = alts.filter(a => a.desc).map(a => {
-                    const cod = a.codice ? `<span style="font-family:monospace;font-size:8px;background:#e2e8f0;padding:1px 4px;border-radius:3px;margin-right:5px">${a.codice}</span>` : '';
-                    const pr  = a.prezzo ? `<span style="font-weight:700;margin-left:6px">${a.prezzo}</span>` : '';
-                    const iv  = a.iva    ? `<span style="color:#94a3b8;font-size:8px;margin-left:4px">(${a.iva})</span>` : '';
-                    const lnk = a.sito   ? ` <a href="${a.sito}" style="color:#2563eb;text-decoration:none;margin-left:4px">↗</a>` : '';
-                    return `<div style="display:flex;align-items:center;padding:2px 0;gap:2px"><span style="font-size:8px;color:#94a3b8;white-space:nowrap;margin-right:6px">• opp.</span>${cod}${a.desc}${pr}${iv}${lnk}</div>`;
+                    const cod = a.codice ? `<span style="font-family:monospace;background:#ececec;padding:0 3px;border-radius:2px;margin-right:4px">${a.codice}</span>` : '';
+                    const pr  = a.prezzo ? ` · ${a.prezzo}` : '';
+                    const iv  = a.iva    ? ` (${a.iva})` : '';
+                    const lnk = a.sito   ? ` <a href="${a.sito}" style="color:#94a3b8;text-decoration:none">↗</a>` : '';
+                    return `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0;line-height:1.5">${cod}${a.desc}${pr}${iv}${lnk}</div>`;
                 }).join('');
-                return `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:2px 8px 5px 56px;font-size:9px;color:#475569;font-style:italic">${lines}</td></tr>`;
+                return `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:2px 8px 5px 52px;font-size:8px;color:#94a3b8;border-top:none"><span style="font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:2px;color:#b8c0cc">Alternative:</span>${lines}</td></tr>`;
             })() : '';
             out.push({
                 foto:      fotoSrc ? (sitoLink ? `<a href="${sitoUrl}"><img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;display:block"></a>` : `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">`) : '',
@@ -2847,6 +2865,7 @@ function stampaPDFConColonne() {
         ${showTotIISc ? `<div class="tot-box" style="background:#fef3c7"><span class="tot-lbl">Totale i.i. sc.</span><span class="tot-val" style="color:#92400e">€ ${itFmt(grandTotIISc)}</span></div>` : ''}
         ${showTotIESc ? `<div class="tot-box" style="background:#d1fae5"><span class="tot-lbl">Totale i.e. sc.</span><span class="tot-val" style="color:#065f46">€ ${itFmt(grandTotIESc)}</span></div>` : ''}
     </div>
+    ${sel.has('alternative') && rows.some(r => r._altTr) ? `<div style="margin-top:8px;font-size:8px;color:#94a3b8;font-style:italic">* I totali sono calcolati sul prodotto primario e non includono eventuali variazioni di prezzo delle alternative proposte.</div>` : ''}
     ${ccRows.length ? `<div class="cc"><div class="cc-title">Condizioni commerciali</div><div>${ccRows.map(r=>`<span class="cc-row">• ${r}</span>`).join('')}</div></div>` : ''}
     <script>window.onload=()=>{window.print();}<\/script></body></html>`;
 
@@ -2965,48 +2984,63 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- ═══════ MODALE COLONNE PDF ═══════ -->
 <div id="pdf-col-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,.5)">
   <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4" style="max-height:90vh;overflow-y:auto">
-    <div class="section-title mb-4">Seleziona colonne per il PDF</div>
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-title" style="margin-bottom:0">Seleziona colonne per il PDF</div>
+      <button id="pdf-toggle-all-btn" onclick="_pdfToggleAll()" class="text-xs font-semibold text-blue-500 hover:text-blue-700 hover:underline ml-4 flex-shrink-0">Seleziona tutto</button>
+    </div>
 
     <!-- ── Colonne prodotto ── -->
-    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Colonne prodotto</div>
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Colonne prodotto</div>
+      <button data-pdf-grp-btn="prodotto" onclick="_pdfToggleGroup(this,'prodotto')" class="text-xs text-blue-400 hover:underline flex-shrink-0 ml-2">nessuno</button>
+    </div>
     <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4">
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="foto" checked> Foto prodotto</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="codice" checked> Codice</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="desc" checked> Descrizione</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="iva"> IVA %</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="qty" checked> Qtà</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="sconto"> Sconto %</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="pii" checked> Prezzo i.i.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="pie"> Prezzo i.e.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piisc"> Prezzo i.i. sc.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="piesc"> Prezzo i.e. sc.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="sito" checked> Link sito prodotto</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="alternative" checked> Alternative prodotto</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="foto" checked> Foto prodotto</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="codice" checked> Codice</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="desc" checked> Descrizione</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="iva"> IVA %</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="qty" checked> Qtà</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="sconto"> Sconto %</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="pii" checked> Prezzo i.i.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="pie"> Prezzo i.e.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="piisc"> Prezzo i.i. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="piesc"> Prezzo i.e. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="sito" checked> Link sito prodotto</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="prodotto" value="alternative" checked> Alternative prodotto</label>
     </div>
 
     <!-- ── Tot. riga ── -->
-    <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Totale riga</div>
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Totale riga</div>
+      <button data-pdf-grp-btn="tot_riga" onclick="_pdfToggleGroup(this,'tot_riga')" class="text-xs text-blue-400 hover:underline flex-shrink-0 ml-2">tutti</button>
+    </div>
     <div class="grid grid-cols-2 gap-x-6 gap-y-2 mb-4">
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ii"> Tot. riga i.i.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ie"> Tot. riga i.e.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ii_sc"> Tot. riga i.i. sc.</label>
-      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="tot_ie_sc"> Tot. riga i.e. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="tot_riga" value="tot_ii"> Tot. riga i.i.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="tot_riga" value="tot_ie"> Tot. riga i.e.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="tot_riga" value="tot_ii_sc"> Tot. riga i.i. sc.</label>
+      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="tot_riga" value="tot_ie_sc"> Tot. riga i.e. sc.</label>
     </div>
 
     <!-- ── Subtotale gruppo ── -->
     <div class="border-t border-slate-100 pt-3 mb-3">
-      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Subtotale gruppo <span class="font-normal normal-case text-slate-300">(riga riassuntiva sotto ogni gruppo)</span></div>
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Subtotale gruppo <span class="font-normal normal-case text-slate-300">(riga riassuntiva sotto ogni gruppo)</span></div>
+        <button data-pdf-grp-btn="subtot_grp" onclick="_pdfToggleGroup(this,'subtot_grp')" class="text-xs text-blue-400 hover:underline flex-shrink-0 ml-2">tutti</button>
+      </div>
       <div class="grid grid-cols-2 gap-x-6 gap-y-2">
-        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ii"> Gruppo i.i.</label>
-        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ie"> Gruppo i.e.</label>
-        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ii_sc"> Gruppo i.i. sc.</label>
-        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" value="grp_ie_sc"> Gruppo i.e. sc.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ii"> Gruppo i.i.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ie"> Gruppo i.e.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ii_sc"> Gruppo i.i. sc.</label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" class="pdf-col" data-grp="subtot_grp" value="grp_ie_sc"> Gruppo i.e. sc.</label>
       </div>
     </div>
 
     <!-- ── Riquadri totale ── -->
     <div class="border-t border-slate-100 pt-3 mb-3">
-      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Riquadri totale</div>
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-widest">Riquadri totale</div>
+        <button data-pdf-grp-btn="riq_tot" onclick="_pdfToggleGroup(this,'riq_tot')" class="text-xs text-blue-400 hover:underline flex-shrink-0 ml-2">nessuno</button>
+      </div>
       <div class="grid grid-cols-2 gap-x-6 gap-y-2">
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ii" checked> Tot. i.i.</label>
         <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pdf-show-tot-ie"> Tot. i.e.</label>
