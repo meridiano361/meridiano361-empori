@@ -6298,6 +6298,10 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     function _buildDoppioni() {
+        // Costruisce set di codici/descrizioni già presenti in prodotti_catalogo
+        const giaMigratiCod  = new Set((_prodUnificati || []).map(p => _normStr(p.codice)).filter(Boolean));
+        const giaMigratiDesc = new Set((_prodUnificati || []).map(p => _normStr(p.descrizione)).filter(Boolean));
+
         const usedRif = new Set();
         const result = [];
         for (const fr of _prodFrontalini) {
@@ -6310,6 +6314,11 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 const sameCod  = frCod  && rifCod  && frCod  === rifCod;
                 const sameDesc = frDesc && rifDesc && frDesc === rifDesc;
                 if (sameCod || sameDesc) {
+                    // Già migrato in prodotti_catalogo → salta
+                    if ((frCod && giaMigratiCod.has(frCod)) || (frDesc && giaMigratiDesc.has(frDesc))) {
+                        usedRif.add(rif.id);
+                        break;
+                    }
                     result.push({ fr, rif });
                     usedRif.add(rif.id);
                     break;
@@ -6648,6 +6657,11 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             showToast('Doppione risolto ma errore migrazione: ' + mergeErr.message, 'err');
         } else {
             _doppMigrati.add(k);
+            // Rimuovi dalla lista doppioni e da _doppRisolti (completamente fatto)
+            _doppioni = _doppioni.filter(d => !(d.fr.id === fr.id && d.rif.id === rif.id));
+            delete _doppRisolti[k];
+            renderDoppioni();
+            _aggiornaRiepilogo();
             await caricaProdotti();
             showToast(existing ? 'Doppione risolto e prodotto aggiornato' : 'Doppione risolto e migrato in prodotti_catalogo', 'ok');
         }
