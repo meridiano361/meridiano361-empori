@@ -1905,7 +1905,7 @@ function updateBreakdown() {
     const bc = document.getElementById('breakdown-container');
     if (!bc) return;
     const gcont = document.getElementById('groups-container');
-    const groups = gcont ? [...gcont.querySelectorAll('[id^="group-"]')] : [];
+    const groups = gcont ? [...gcont.querySelectorAll(':scope > [id^="group-"]')] : [];
     if (groups.length <= 1) { bc.classList.add('hidden'); return; }
     if (currentType === 'bomboniere') return; // bomboniere has its own breakdown
     bc.classList.remove('hidden');
@@ -2012,7 +2012,10 @@ function _makeAltItemTr(rowId, a={}) {
         <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none">
             <input type="text" class="alt-iva" placeholder="%" value="${escHtml(a.iva||'')}" style="${iS};font-size:11px;text-align:center" oninput="_syncAltDataset('${rowId}')">
         </td>
-        <td colspan="6" style="padding:3px 8px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right;white-space:nowrap">
+        <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none">
+            <input type="number" class="alt-sconto" placeholder="Sc.%" value="${escHtml(a.sconto||'')}" min="0" max="100" step="0.1" style="${iS};font-size:11px;text-align:center;width:58px" oninput="_syncAltDataset('${rowId}')">
+        </td>
+        <td colspan="5" style="padding:3px 8px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right;white-space:nowrap">
             <a class="alt-sito-btn" href="${escHtml(a.sito||'#')}" target="_blank" rel="noopener" style="display:${a.sito?'':'none'};color:#2563eb;font-size:13px;padding:0 4px;line-height:1" title="Apri sito prodotto">↗</a>
             <button onclick="_removeAlt(this,'${rowId}')" style="color:#fca5a5;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" type="button">×</button>
         </td>`;
@@ -2057,6 +2060,7 @@ function _syncAltDataset(rowId) {
         codice: tr.querySelector('.alt-codice')?.value.trim() || '',
         prezzo: tr.querySelector('.alt-prezzo')?.value.trim() || '',
         iva:    tr.querySelector('.alt-iva')?.value.trim()    || '',
+        sconto: tr.querySelector('.alt-sconto')?.value.trim() || '',
         sito:   tr.dataset.sito || '',
     })).filter(a => a.desc);
     row.dataset.alternative = JSON.stringify(alts);
@@ -2758,7 +2762,6 @@ function stampaPDFConColonne() {
             const alts = row.dataset.alternative ? JSON.parse(row.dataset.alternative) : [];
             const descCell = (sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:none">${desc}</a>` : desc) +
                 (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '');
-            const _mainSconto = parseFloat(row.querySelector('.sconto-input')?.value) || 0;
             const _altTr = (sel.has('alternative') && alts.filter(a => a.desc).length) ? (() => {
                 const hdr = `<tr style="background:#f8fafc"><td colspan="${colDefs.length}" style="padding:4px 8px 1px 8px;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#b8c0cc;border-bottom:none">Alternative:</td></tr>`;
                 const filteredAlts = alts.filter(a => a.desc);
@@ -2767,11 +2770,12 @@ function stampaPDFConColonne() {
                     const sitoA = a.sito ? ` <a href="${a.sito}" style="color:#94a3b8;text-decoration:none;font-style:normal">↗</a>` : '';
                     const sep = isLastAlt ? '2px solid #cbd5e1' : 'none';
                     const bs = `font-size:8.5px;color:#94a3b8;border-bottom:${sep};background:#f8fafc;vertical-align:middle;padding:2px 5px`;
-                    const aPriceII  = itParse(a.prezzo);
-                    const aIva      = parseFloat(a.iva) || 0;
-                    const aPriceIE  = aIva > 0 && aPriceII > 0 ? aPriceII / (1 + aIva / 100) : null;
-                    const aPriceIISc = _mainSconto > 0 && aPriceII > 0 ? aPriceII * (1 - _mainSconto / 100) : null;
-                    const aPriceIESc = _mainSconto > 0 && aPriceIE  ? aPriceIE  * (1 - _mainSconto / 100) : null;
+                    const aPriceII   = itParse(a.prezzo);
+                    const aIva       = parseFloat(a.iva) || 0;
+                    const aSconto    = parseFloat(a.sconto) || 0;
+                    const aPriceIE   = aIva > 0 && aPriceII > 0 ? aPriceII / (1 + aIva / 100) : null;
+                    const aPriceIISc = aSconto > 0 && aPriceII > 0 ? aPriceII * (1 - aSconto / 100) : null;
+                    const aPriceIESc = aSconto > 0 && aPriceIE    ? aPriceIE  * (1 - aSconto / 100) : null;
                     const aEffII = aPriceIISc || aPriceII;
                     const tds = colDefs.map(c => {
                         switch(c.key) {
@@ -2781,7 +2785,7 @@ function stampaPDFConColonne() {
                             case 'iva':      return `<td style="${bs};text-align:center">${a.iva||''}</td>`;
                             case 'pii':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceII > 0 ? '€ '+itFmt(aPriceII) : (a.prezzo||'')}</td>`;
                             case 'pie':      return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIE  ? '€ '+itFmt(aPriceIE)  : '—'}</td>`;
-                            case 'sconto':   return `<td style="${bs};text-align:center">${_mainSconto > 0 ? _mainSconto+'%' : '—'}</td>`;
+                            case 'sconto':   return `<td style="${bs};text-align:center">${aSconto > 0 ? aSconto+'%' : '—'}</td>`;
                             case 'piisc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIISc ? '€ '+itFmt(aPriceIISc) : '—'}</td>`;
                             case 'piesc':    return `<td style="${bs};text-align:right;white-space:nowrap">${aPriceIESc ? '€ '+itFmt(aPriceIESc) : '—'}</td>`;
                             case 'qty':      return `<td style="${bs};text-align:center">${_qty||''}</td>`;
