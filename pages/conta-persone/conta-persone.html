@@ -328,6 +328,10 @@
         </div>
       </div>
 
+      <button type="button" id="btn-geolocate" onclick="rilevaPosizione()" style="width:100%;margin-bottom:14px;padding:11px 16px;border-radius:12px;border:1.5px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s">
+        <i class="fas fa-location-crosshairs"></i> Rileva posizione automaticamente
+      </button>
+
       <div class="fld">
         <label class="lbl" for="setup-citta">Città *</label>
         <input class="inp" id="setup-citta" list="list-citta" placeholder="Es: Cremona" autocomplete="off">
@@ -617,6 +621,44 @@ function riprendiSessione() { if (_sess) _startConteggio(false) }
 // ════════════════════════════════════════════════
 // AVVIO
 // ════════════════════════════════════════════════
+function rilevaPosizione() {
+  const btn = eid('btn-geolocate');
+  if (!navigator.geolocation) { toast('Geolocalizzazione non supportata dal browser'); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rilevamento in corso…';
+  navigator.geolocation.getCurrentPosition(async pos => {
+    try {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=it`);
+      const d = await r.json();
+      const a = d.address || {};
+      const citta = a.city || a.town || a.village || a.municipality || a.county || '';
+      const via   = a.road || a.pedestrian || a.footway || a.path || a.suburb || '';
+      eid('setup-citta').value = citta;
+      eid('setup-via').value   = via;
+      btn.innerHTML = '<i class="fas fa-check"></i> Posizione rilevata';
+      btn.style.cssText += ';border-color:#86efac;background:#dcfce7;color:#15803d';
+      toast('Città e via compilate automaticamente', 2500);
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Rileva posizione automaticamente';
+        btn.style.borderColor = '';
+        btn.style.background = '';
+        btn.style.color = '';
+      }, 3500);
+    } catch(e) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Rileva posizione automaticamente';
+      toast('Errore nel recupero della posizione');
+    }
+  }, err => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-location-crosshairs"></i> Rileva posizione automaticamente';
+    const msg = { 1: 'Permesso negato — abilita la posizione nelle impostazioni', 2: 'Posizione non disponibile', 3: 'Timeout rilevamento' };
+    toast(msg[err.code] || 'Errore geolocalizzazione');
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+}
+
 function avviaConteggio() {
   const citta = eid('setup-citta').value.trim();
   const via   = eid('setup-via').value.trim();
