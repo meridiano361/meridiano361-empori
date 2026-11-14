@@ -1995,7 +1995,8 @@ function _makeAltItemTr(rowId, a={}) {
     tr.className = 'alt-item-row alt-item no-print';
     tr.dataset.rowid = rowId;
     if (a.sito) tr.dataset.sito = a.sito;
-    const iS = 'border:1px solid #e2e8f0;border-radius:5px;width:100%;font-family:inherit;padding:3px 5px;background:#fff';
+    const iS  = 'border:1px solid #e2e8f0;border-radius:5px;width:100%;font-family:inherit;padding:3px 5px;background:#fff';
+    const dS  = 'font-size:11px;color:#94a3b8;text-align:right;white-space:nowrap';
     tr.innerHTML = `
         <td colspan="2" style="padding:3px 0 3px 8px;background:#f8fafc;vertical-align:middle;border-bottom:none">
             <span style="font-size:10px;color:#94a3b8;font-weight:700;white-space:nowrap">oppure</span>
@@ -2007,19 +2008,44 @@ function _makeAltItemTr(rowId, a={}) {
             <input type="text" class="alt-desc" placeholder="Descrizione…" value="${escHtml(a.desc||'')}" style="${iS};font-size:12px" oninput="_syncAltDataset('${rowId}')">
         </td>
         <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none">
-            <input type="text" class="alt-prezzo" placeholder="€" value="${escHtml(a.prezzo||'')}" style="${iS};font-size:12px;text-align:right" oninput="_syncAltDataset('${rowId}')">
+            <input type="text" class="alt-prezzo" placeholder="€" value="${escHtml(a.prezzo||'')}" style="${iS};font-size:12px;text-align:right" oninput="_syncAltDataset('${rowId}');_calcAltRow(this.closest('tr'),'${rowId}')">
         </td>
         <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none">
-            <input type="text" class="alt-iva" placeholder="%" value="${escHtml(a.iva||'')}" style="${iS};font-size:11px;text-align:center" oninput="_syncAltDataset('${rowId}')">
+            <input type="text" class="alt-iva" placeholder="%" value="${escHtml(a.iva||'')}" style="${iS};font-size:11px;text-align:center" oninput="_syncAltDataset('${rowId}');_calcAltRow(this.closest('tr'),'${rowId}')">
+        </td>
+        <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right">
+            <span class="alt-pie-val" style="${dS}">—</span>
         </td>
         <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none">
-            <input type="number" class="alt-sconto" placeholder="Sc.%" value="${escHtml(a.sconto||'')}" min="0" max="100" step="0.1" style="${iS};font-size:11px;text-align:center;width:58px" oninput="_syncAltDataset('${rowId}')">
+            <input type="number" class="alt-sconto" placeholder="%" value="${escHtml(a.sconto||'')}" min="0" max="100" step="0.1" style="${iS};font-size:11px;text-align:center" oninput="_syncAltDataset('${rowId}');_calcAltRow(this.closest('tr'),'${rowId}')">
         </td>
-        <td colspan="5" style="padding:3px 8px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right;white-space:nowrap">
+        <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right">
+            <span class="alt-piisc-val" style="${dS}">—</span>
+        </td>
+        <td style="padding:3px 4px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right">
+            <span class="alt-piesc-val" style="${dS}">—</span>
+        </td>
+        <td colspan="3" style="padding:3px 8px;background:#f8fafc;vertical-align:middle;border-bottom:none;text-align:right;white-space:nowrap">
             <a class="alt-sito-btn" href="${escHtml(a.sito||'#')}" target="_blank" rel="noopener" style="display:${a.sito?'':'none'};color:#2563eb;font-size:13px;padding:0 4px;line-height:1" title="Apri sito prodotto">↗</a>
             <button onclick="_removeAlt(this,'${rowId}')" style="color:#fca5a5;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" type="button">×</button>
         </td>`;
+    setTimeout(() => _calcAltRow(tr, rowId), 0);
     return tr;
+}
+function _calcAltRow(tr) {
+    const pii    = itParse(tr.querySelector('.alt-prezzo')?.value);
+    const iva    = parseFloat(tr.querySelector('.alt-iva')?.value)    || 0;
+    const sconto = parseFloat(tr.querySelector('.alt-sconto')?.value) || 0;
+    const pie    = iva > 0 && pii > 0 ? pii / (1 + iva / 100) : null;
+    const piisc  = sconto > 0 && pii > 0 ? pii  * (1 - sconto / 100) : null;
+    const piesc  = sconto > 0 && pie      ? pie  * (1 - sconto / 100) : null;
+    const fmt = v => v != null ? '€ ' + itFmt(v) : '—';
+    const pieEl   = tr.querySelector('.alt-pie-val');
+    const piiscEl = tr.querySelector('.alt-piisc-val');
+    const piescEl = tr.querySelector('.alt-piesc-val');
+    if (pieEl)   pieEl.textContent   = fmt(pie);
+    if (piiscEl) { piiscEl.textContent = fmt(piisc); piiscEl.style.color = piisc ? '#B5453A' : '#94a3b8'; }
+    if (piescEl) { piescEl.textContent = fmt(piesc); piescEl.style.color = piesc ? '#B5453A' : '#94a3b8'; }
 }
 function _altSetBtn(rowId, active) {
     const btn = document.querySelector(`[data-alt-btn="${rowId}"]`);
