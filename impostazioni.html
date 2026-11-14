@@ -5244,11 +5244,16 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                         <td style="text-align:center">
                             ${(isSist && !SIST_SBLOCCABILE.has(sezId)) || op.attivo === false || !op.auth_id ? '<span style="color:#e2e8f0;font-size:16px">—</span>' : (() => {
                                 const entrambi = vede && opera;
+                                const soloVede = vede && !opera;
+                                const bg    = entrambi ? '#dcfce7' : '#f1f5f9';
+                                const col   = entrambi ? '#166534' : '#64748b';
+                                const label = entrambi ? '✓✓' : soloVede ? '✓' : '＋';
+                                const title = entrambi ? 'Disabilita entrambi' : 'Abilita visibile + operativo';
                                 return `<button onclick="toggleEntrambi('${op.id}','${sezId}')"
                                     style="border:none;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .12s;
-                                    background:${entrambi?'#dcfce7':'#f1f5f9'};color:${entrambi?'#166534':'#64748b'}"
-                                    title="${entrambi?'Disabilita entrambi':'Abilita visibile + operativo'}" data-entrambi="${op.id}-${sezId}">
-                                    ${entrambi ? '✓✓' : '＋'}
+                                    background:${bg};color:${col}"
+                                    title="${title}" data-entrambi="${op.id}-${sezId}">
+                                    ${label}
                                 </button>`;
                             })()}
                         </td>
@@ -5266,7 +5271,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                             <label class="sez-toggle" style="margin:0 auto;${!op.auth_id ? 'opacity:0.35;pointer-events:none' : ''}">
                                 <input type="checkbox" class="sez-detail-opera" data-op="${op.id}" data-sez="${sezId}"
                                     ${opera ? 'checked' : ''} ${!vede || !op.auth_id ? 'disabled' : ''}
-                                    onchange="salvaSezDetail('${op.id}','${sezId}')">
+                                    onchange="_aggVOBtn('${op.id}','${sezId}');salvaSezDetail('${op.id}','${sezId}')">
                                 <span class="sez-toggle-slider"></span>
                             </label>`}
                         </td>
@@ -5365,19 +5370,28 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (utentiCache?.length) renderSezioniGrid();
     }
 
+    function _aggVOBtn(opId, sezId) {
+        const vedeCb  = document.querySelector(`.sez-detail-vede[data-op="${opId}"][data-sez="${sezId}"]`);
+        const operaCb = document.querySelector(`.sez-detail-opera[data-op="${opId}"][data-sez="${sezId}"]`);
+        const vede  = vedeCb  ? vedeCb.checked  : false;
+        const opera = operaCb ? operaCb.checked : false;
+        const btn   = document.querySelector(`[data-entrambi="${opId}-${sezId}"]`);
+        if (!btn) return;
+        const entrambi = vede && opera;
+        const soloV    = vede && !opera;
+        btn.textContent      = entrambi ? '✓✓' : soloV ? '✓' : '＋';
+        btn.style.background = entrambi ? '#dcfce7' : '#f1f5f9';
+        btn.style.color      = entrambi ? '#166534' : '#64748b';
+        btn.title            = entrambi ? 'Disabilita entrambi' : 'Abilita visibile + operativo';
+    }
+
     function onSezDetailVedeChange(opId, sezId, vede) {
         const operaCb = document.querySelector(`.sez-detail-opera[data-op="${opId}"][data-sez="${sezId}"]`);
         if (operaCb) {
             if (vede) { operaCb.checked = true; operaCb.disabled = false; }
             else      { operaCb.checked = false; operaCb.disabled = true; }
         }
-        // aggiorna visuale bottone V+O
-        const btn = document.querySelector(`[data-entrambi="${opId}-${sezId}"]`);
-        if (btn) {
-            btn.textContent = vede ? '✓✓' : '＋';
-            btn.style.background = vede ? '#dcfce7' : '#f1f5f9';
-            btn.style.color      = vede ? '#166634' : '#64748b';
-        }
+        _aggVOBtn(opId, sezId);
         salvaSezDetail(opId, sezId);
     }
 
@@ -5409,14 +5423,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (vedeCb)  { vedeCb.checked  = nuovoStato; vedeCb.disabled  = false; }
         if (operaCb) { operaCb.checked = nuovoStato; operaCb.disabled = !nuovoStato; }
         await salvaSezDetail(opId, sezId);
-        // aggiorna visuale bottone V+O
-        const btn = document.querySelector(`[data-entrambi="${opId}-${sezId}"]`);
-        if (btn) {
-            btn.textContent = nuovoStato ? '✓✓' : '＋';
-            btn.style.background = nuovoStato ? '#dcfce7' : '#f1f5f9';
-            btn.style.color      = nuovoStato ? '#166534' : '#64748b';
-            btn.title = nuovoStato ? 'Disabilita entrambi' : 'Abilita visibile + operativo';
-        }
+        _aggVOBtn(opId, sezId);
     }
 
     async function attivaEmporioEntrambi(emporioKey, sezId) {
