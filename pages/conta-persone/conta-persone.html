@@ -932,13 +932,24 @@ async function salvaRilevamento() {
 
   let err;
   if (s.id) {
-    ({ error: err } = await db.from('conta_persone_rilevamenti').update(payload).eq('id', s.id));
+    const { error: upErr, data: upData } = await db.from('conta_persone_rilevamenti').update(payload).eq('id', s.id).select();
+    if (!upErr && (!upData || upData.length === 0)) {
+      // UPDATE bloccato da RLS (0 righe aggiornate) → prova INSERT
+      ({ error: err } = await db.from('conta_persone_rilevamenti').insert(payload));
+    } else {
+      err = upErr;
+    }
   } else {
     ({ error: err } = await db.from('conta_persone_rilevamenti').insert(payload));
   }
 
   if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> Salva rilevamento' }
-  if (err) { console.error('[conta-persone] salva error:', err); toast('Errore: ' + err.message); return }
+  if (err) {
+    const detail = [err.message, err.code ? `(${err.code})` : '', err.details || '', err.hint || ''].filter(Boolean).join(' ');
+    console.error('[conta-persone] salva error:', err);
+    toast('Errore: ' + detail);
+    return;
+  }
 
   clearSess(); aggBanner();
   toast('Rilevamento salvato!', 3000);
