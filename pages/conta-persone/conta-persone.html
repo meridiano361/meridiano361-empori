@@ -124,6 +124,31 @@
     .info-pill-n { font-weight:900; color:var(--s800) }
     .info-pill-l { color:var(--s400); font-size:11px; margin-top:1px }
 
+    /* ── DURATA QUICK CHIPS ── */
+    .dur-chip {
+      padding:9px 16px; border-radius:10px; border:1.5px solid var(--s200);
+      background:#fff; color:var(--s600); font-size:13px; font-weight:800;
+      cursor:pointer; font-family:inherit; transition:all .12s; touch-action:manipulation;
+    }
+    .dur-chip.sel { background:var(--red); color:#fff; border-color:var(--red); }
+
+    /* ── COUNTDOWN ── */
+    .cnt-countdown {
+      padding:7px 16px; text-align:center; font-size:14px; font-weight:800;
+      background:#1a2b3c; color:rgba(255,255,255,.85);
+      flex-shrink:0; display:none; letter-spacing:.03em;
+    }
+    .cnt-countdown.urgent { background:#7f1d1d; color:#fca5a5; }
+    .cnt-countdown.scaduto { background:var(--red); color:#fff; animation:pulseBg 1s infinite; }
+    @keyframes pulseBg { 0%,100%{background:var(--red)} 50%{background:var(--red-dark)} }
+
+    .cnt-timesup-banner {
+      background:var(--red); color:#fff; padding:14px 16px;
+      flex-direction:column; align-items:center; gap:8px; text-align:center;
+      flex-shrink:0; display:none;
+    }
+    .cnt-timesup-banner.show { display:flex; }
+
     /* ── CONTEGGIO ── */
     .cnt-top { background:var(--s800); color:#fff; padding:14px 16px; flex-shrink:0 }
     .cnt-via  { font-size:17px; font-weight:900; color:#fff }
@@ -342,9 +367,20 @@
         <input class="inp" id="setup-via" list="list-via" placeholder="Es: Via Roma" autocomplete="off">
         <datalist id="list-via"></datalist>
       </div>
-      <div class="fld" style="margin-bottom:0">
+      <div class="fld">
         <label class="lbl" for="setup-nota">Nota (facoltativa)</label>
         <input class="inp" id="setup-nota" placeholder="Es: lato supermercato, mattina feriale">
+      </div>
+      <div class="fld" style="margin-bottom:0">
+        <label class="lbl">Durata sosta</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" class="dur-chip" data-min="15" onclick="setDurata(15)">15 min</button>
+          <button type="button" class="dur-chip" data-min="20" onclick="setDurata(20)">20 min</button>
+          <button type="button" class="dur-chip" data-min="30" onclick="setDurata(30)">30 min</button>
+          <button type="button" class="dur-chip" data-min="45" onclick="setDurata(45)">45 min</button>
+          <button type="button" class="dur-chip" data-min="60" onclick="setDurata(60)">1 ora</button>
+        </div>
+        <input class="inp" id="setup-durata" type="number" min="1" max="480" placeholder="Personalizzata (minuti)…" oninput="aggiornaDurataBtn()">
       </div>
     </div>
 
@@ -366,6 +402,20 @@
         <span>·</span>
         <span>Durata: <strong id="cnt-meta-dur" style="font-variant-numeric:tabular-nums">0:00</strong></span>
       </div>
+    </div>
+
+    <!-- Countdown durata pianificata -->
+    <div class="cnt-countdown" id="cnt-countdown">
+      <i class="fas fa-hourglass-half" style="margin-right:5px;opacity:.7"></i><span id="cnt-countdown-txt"></span>
+    </div>
+
+    <!-- Banner scadenza -->
+    <div class="cnt-timesup-banner" id="cnt-timesup-banner">
+      <div style="font-size:16px;font-weight:900"><i class="fas fa-bell" style="margin-right:7px"></i>TEMPO SCADUTO!</div>
+      <div style="font-size:13px;opacity:.9">Hai raggiunto i <strong id="cnt-timesup-min"></strong> minuti pianificati.</div>
+      <button class="btn" style="margin-top:4px;background:#fff;color:var(--red);font-size:14px;padding:10px 24px;border-radius:12px" onclick="terminaConteggio()">
+        <i class="fas fa-stop-circle"></i> Termina ora
+      </button>
     </div>
 
     <!-- Banner pausa -->
@@ -621,6 +671,63 @@ function riprendiSessione() { if (_sess) _startConteggio(false) }
 // ════════════════════════════════════════════════
 // AVVIO
 // ════════════════════════════════════════════════
+let _alertFired = false;
+
+function setDurata(min) {
+  eid('setup-durata').value = min;
+  document.querySelectorAll('.dur-chip').forEach(b => b.classList.toggle('sel', +b.dataset.min === min));
+}
+function aggiornaDurataBtn() {
+  document.querySelectorAll('.dur-chip').forEach(b => b.classList.remove('sel'));
+}
+
+function _suonaCampanello() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 300, 600].forEach(offset => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.6, ctx.currentTime + offset/1000);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset/1000 + 0.4);
+      osc.start(ctx.currentTime + offset/1000);
+      osc.stop(ctx.currentTime + offset/1000 + 0.4);
+    });
+  } catch(e) {}
+  if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+}
+
+function _aggiornaCountdown() {
+  if (!_sess?.durata_min) return;
+  const totMs = _sess.durata_min * 60 * 1000;
+  const elapMs = tempoAttivo(_sess);
+  const rimMs = totMs - elapMs;
+  const el = eid('cnt-countdown');
+  const txt = eid('cnt-countdown-txt');
+  if (!el) return;
+
+  if (rimMs <= 0) {
+    // SCADUTO
+    txt.textContent = 'TEMPO SCADUTO';
+    el.className = 'cnt-countdown scaduto';
+    if (!_alertFired) {
+      _alertFired = true;
+      eid('cnt-timesup-min').textContent = _sess.durata_min;
+      eid('cnt-timesup-banner').classList.add('show');
+      _suonaCampanello();
+      toast('⏰ Tempo scaduto! ' + _sess.durata_min + ' minuti raggiuti.', 5000);
+    }
+  } else {
+    const rimS = Math.ceil(rimMs / 1000);
+    const m = Math.floor(rimS / 60), s = rimS % 60;
+    const fmtRim = m + ':' + String(s).padStart(2, '0');
+    const urgent = rimMs <= 5 * 60 * 1000;
+    txt.textContent = 'Tempo rimanente: ' + fmtRim + (urgent ? ' ⚠️' : '');
+    el.className = 'cnt-countdown' + (urgent ? ' urgent' : '');
+  }
+}
+
 function rilevaPosizione() {
   const btn = eid('btn-geolocate');
   if (!navigator.geolocation) { toast('Geolocalizzazione non supportata dal browser'); return; }
@@ -666,6 +773,7 @@ function avviaConteggio() {
   if (!via)   { toast('Inserisci la via o località'); eid('setup-via').focus(); return }
 
   const now = new Date();
+  const durVal = parseInt(eid('setup-durata').value) || 0;
   _sess = {
     id:       null,
     citta, via,
@@ -678,6 +786,7 @@ function avviaConteggio() {
     tempo_ms: 0,
     avvio_ms: Date.now(),
     storia:   [],
+    durata_min: durVal > 0 ? durVal : null,
   };
   saveSess();
   _startConteggio(true);
@@ -696,6 +805,11 @@ function _startConteggio(isNuovo) {
   eid('cnt-meta-ora').textContent  = _sess.ora_inizio;
   eid('cnt-numero').textContent    = _sess.totale;
   _aggPausaUI();
+  // Countdown
+  const cdEl = eid('cnt-countdown');
+  if (_sess.durata_min) { cdEl.style.display = ''; _alertFired = false; _aggiornaCountdown(); }
+  else { cdEl.style.display = 'none'; }
+  eid('cnt-timesup-banner').classList.remove('show');
   goView('v-conteggio');
 
   _stopTimer(); _tInt  = setInterval(_tick, 1000); _tick();
@@ -707,7 +821,10 @@ function _startConteggio(isNuovo) {
 // TIMER
 // ════════════════════════════════════════════════
 function _tick() {
-  if (_sess) eid('cnt-meta-dur').textContent = fmtDurata(tempoAttivo(_sess));
+  if (_sess) {
+    eid('cnt-meta-dur').textContent = fmtDurata(tempoAttivo(_sess));
+    if (_sess.durata_min) _aggiornaCountdown();
+  }
   const n = new Date();
   eid('cnt-ora-live').textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
 }
