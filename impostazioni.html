@@ -2098,7 +2098,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         { id: 'prenotazioni',        nome: 'Prenotazioni',        icon: 'fa-calendar-check',    gruppo: 'clienti' },
         { id: 'info',                nome: 'Richieste Info',      icon: 'fa-message',           gruppo: 'clienti' },
         { id: 'preventivi',          nome: 'Preventivi',          icon: 'fa-file-invoice',      gruppo: 'clienti' },
-        { id: 'tessere',             nome: 'Tessere fedeltà',     icon: 'fa-id-card',           gruppo: 'clienti', sistLabel: 'Solo Emilio / Chiara M.' },
+        { id: 'tessere',             nome: 'Tessere fedeltà',     icon: 'fa-id-card',           gruppo: 'clienti' },
         { id: 'rubrica',             nome: 'Rubrica',             icon: 'fa-address-book',      gruppo: 'clienti' },
         // Gestione Emporio
         { id: 'cassa',               nome: 'Controllo Cassa',     icon: 'fa-cash-register',     gruppo: 'emporio', sistLabel: 'Solo Cremona / admin' },
@@ -3622,7 +3622,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     // Sezioni bloccate dal sistema MA sbloccabili dall'admin via utenti_permessi
-    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento', 'cassa', 'analisi-commerciale', 'tessere', 'eventi']);
+    const SIST_SBLOCCABILE = new Set(['preordini', 'rifornimento', 'cassa', 'analisi-commerciale', 'eventi']);
 
     // ── RESTRIZIONI DI SISTEMA ────────────────────────────────────────────
     function _sistemaSezioniNascoste(op) {
@@ -3634,9 +3634,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const isAdminOp = ruolo === 'admin' || ruolo === 'dipendente';
         const isRespAcq = !!(op.is_resp_acquisti);
         const hidden = new Set();
-        // Tessere: solo Emilio e Chiara Monteverdi — sbloccabile
-        const isChiara = (op.nome || '').toLowerCase().includes('chiara monteverdi');
-        if (!isEmilio && !isChiara) hidden.add('tessere');
+        // Tessere: gestita dall'admin tramite permessi (non più restrizione hardcoded)
         // Analisi Commerciale, Cassa: solo Emilio per default — sbloccabili dall'admin
         if (!isEmilio) { hidden.add('analisi-commerciale'); }
         if (!isEmilio && emporio !== 'cremona') hidden.add('cassa');
