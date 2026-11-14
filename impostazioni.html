@@ -5236,7 +5236,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     const opera     = isSist ? false : (vede ? perm?.opera !== false : false);
                     const ruoloNorm = (op.ruolo || '').toLowerCase().replace(/\s+/g, '');
                     return `
-                    <tr>
+                    <tr data-nome="${(op.nome||'').toLowerCase()}">
                         <td>
                             <div class="op-nome-cella">
                                 <div class="op-avatar-small">${avatarIniziali(op.nome)}</div>
@@ -5364,7 +5364,28 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     <button onclick="sezDetailBulk('${sezId}',false,false)" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;border:1px solid #fecaca;background:#fef2f2;cursor:pointer;color:#dc2626;font-family:inherit">✕ Nascondi tutti</button>
                 </div>
             </div>
+            <div style="position:sticky;top:0;z-index:10;background:#f8fafc;padding:10px 0 8px;margin-bottom:4px">
+                <div style="position:relative;max-width:320px">
+                    <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none"></i>
+                    <input id="sez-op-search" type="text" placeholder="Cerca operatore…" oninput="filtraSezOp(this.value)"
+                        autocomplete="off"
+                        style="width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 10px 8px 30px;font-size:13px;font-family:inherit;color:#1e293b;outline:none;background:#fff"
+                        onfocus="this.style.borderColor='#B5453A'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+            </div>
             ${tabelle}${tabellaNoAttivi}`;
+    }
+
+    function filtraSezOp(q) {
+        q = (q || '').trim().toLowerCase();
+        document.querySelectorAll('#sezioni-detail-wrap tr[data-nome]').forEach(tr => {
+            tr.style.display = (!q || tr.dataset.nome.includes(q)) ? '' : 'none';
+        });
+        // mostra/nascondi sezioni emporio vuote
+        document.querySelectorAll('#sezioni-detail-wrap .sez-detail-section').forEach(sec => {
+            const righeVisibili = [...sec.querySelectorAll('tr[data-nome]')].some(tr => tr.style.display !== 'none');
+            sec.style.display = righeVisibili ? '' : 'none';
+        });
     }
 
     function tornaASezioniGrid() {
