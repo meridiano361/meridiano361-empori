@@ -228,6 +228,7 @@
         /* === RESPONSIVE === */
         /* ── Sezioni view ── */
         .sezioni-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:16px; }
+        .sez-group-label-hd { font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:14px; padding-bottom:10px; border-bottom:1.5px solid #e2e8f0; }
         .sez-op-chip { border:1.5px solid #e2e8f0; border-radius:8px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; background:#fff; color:#64748b; transition:all .12s; }
         .sez-op-chip:hover { border-color:#94a3b8; color:#1e293b; }
         .sez-op-chip-sel { background:#1e293b; color:#fff !important; border-color:#1e293b !important; }
@@ -939,25 +940,16 @@
             </div>
             <div class="impostazioni-container">
                 <div id="sezioni-grid-wrap">
-                    <div id="sezioni-grid-clienti" style="margin-bottom:16px">
-                        <div class="sez-group-toggle" onclick="toggleSezGruppo('clienti')">
-                            <span>GESTIONE CLIENTI</span>
-                            <i class="fas fa-chevron-down sez-group-chev" id="sez-chev-clienti"></i>
-                        </div>
+                    <div id="sezioni-grid-clienti" style="margin-bottom:32px">
+                        <div class="sez-group-label-hd">GESTIONE CLIENTI</div>
                         <div class="sezioni-grid" id="sez-cards-clienti"></div>
                     </div>
-                    <div id="sezioni-grid-emporio" style="margin-bottom:16px">
-                        <div class="sez-group-toggle" onclick="toggleSezGruppo('emporio')">
-                            <span>GESTIONE EMPORIO</span>
-                            <i class="fas fa-chevron-down sez-group-chev" id="sez-chev-emporio"></i>
-                        </div>
+                    <div id="sezioni-grid-emporio" style="margin-bottom:32px">
+                        <div class="sez-group-label-hd">GESTIONE EMPORIO</div>
                         <div class="sezioni-grid" id="sez-cards-emporio"></div>
                     </div>
-                    <div id="sezioni-grid-extra" style="margin-bottom:16px">
-                        <div class="sez-group-toggle" onclick="toggleSezGruppo('extra')">
-                            <span>EXTRA</span>
-                            <i class="fas fa-chevron-down sez-group-chev" id="sez-chev-extra"></i>
-                        </div>
+                    <div id="sezioni-grid-extra" style="margin-bottom:32px">
+                        <div class="sez-group-label-hd">EXTRA</div>
                         <div class="sezioni-grid" id="sez-cards-extra"></div>
                     </div>
                 </div>
@@ -5140,12 +5132,10 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     function renderSezioniGrid() {
-        // sempre espansi all'apertura
+        // assicura visibilità griglia
         ['clienti', 'emporio', 'extra'].forEach(g => {
             const grid = document.getElementById('sez-cards-' + g);
-            const chev = document.getElementById('sez-chev-' + g);
             if (grid) grid.style.display = '';
-            chev?.classList.remove('closed');
         });
         const clientiSez = SEZIONI_APP.filter(s => s.gruppo === 'clienti');
         const emporioSez = SEZIONI_APP.filter(s => s.gruppo === 'emporio');
@@ -5240,7 +5230,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                     const opera     = isSist ? false : (vede ? perm?.opera !== false : false);
                     const ruoloNorm = (op.ruolo || '').toLowerCase().replace(/\s+/g, '');
                     return `
-                    <tr data-nome="${(op.nome||'').toLowerCase()}" data-vede="${vede}" data-opera="${opera}">
+                    <tr data-nome="${(op.nome||'').toLowerCase()}" data-vede="${op.auth_id ? vede : 'na'}" data-opera="${op.auth_id ? opera : 'na'}">
                         <td>
                             <div class="op-nome-cella">
                                 <div class="op-avatar-small">${avatarIniziali(op.nome)}</div>
@@ -5397,13 +5387,17 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     function filtraSezOp() {
         const q = (document.getElementById('sez-op-search')?.value || '').trim().toLowerCase();
         document.querySelectorAll('#sezioni-detail-wrap tr[data-nome]').forEach(tr => {
-            const nomeOk  = !q || tr.dataset.nome.includes(q);
-            const vede  = tr.dataset.vede  === 'true';
-            const opera = tr.dataset.opera === 'true';
+            const nomeOk = !q || tr.dataset.nome.includes(q);
+            const isNa   = tr.dataset.vede === 'na';
+            const vede   = tr.dataset.vede  === 'true';
+            const opera  = tr.dataset.opera === 'true';
             let accOk = true;
-            if (_sezFiltroAccesso === 'operativi') accOk = vede && opera;
-            else if (_sezFiltroAccesso === 'visibili')  accOk = vede && !opera;
-            else if (_sezFiltroAccesso === 'nascosti')  accOk = !vede;
+            if (_sezFiltroAccesso !== 'tutti') {
+                if (isNa) accOk = false;
+                else if (_sezFiltroAccesso === 'operativi') accOk = vede && opera;
+                else if (_sezFiltroAccesso === 'visibili')  accOk = vede && !opera;
+                else if (_sezFiltroAccesso === 'nascosti')  accOk = !vede;
+            }
             tr.style.display = (nomeOk && accOk) ? '' : 'none';
         });
         document.querySelectorAll('#sezioni-detail-wrap .sez-detail-section').forEach(sec => {
@@ -5425,6 +5419,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const operaCb = document.querySelector(`.sez-detail-opera[data-op="${opId}"][data-sez="${sezId}"]`);
         const vede  = vedeCb  ? vedeCb.checked  : false;
         const opera = operaCb ? operaCb.checked : false;
+        const tr = vedeCb?.closest('tr');
+        if (tr && tr.dataset.vede !== 'na') { tr.dataset.vede = String(vede); tr.dataset.opera = String(opera); }
         const btn   = document.querySelector(`[data-entrambi="${opId}-${sezId}"]`);
         if (!btn) return;
         const entrambi = vede && opera;
@@ -6572,6 +6568,16 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
           <input style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;width:100%;font-family:inherit" value="${_escU(noteVal)}" oninput="_onMergeProdEdit('note',this.value)">
         </div>`;
 
+        // Sito web
+        const sitoVal = _mergeProdOver['sito_url'] !== undefined ? _mergeProdOver['sito_url'] : (fr.sito_url || rif.sito_url || '');
+        html += `<div style="${style};grid-template-columns:120px 1fr">
+          <div style="font-size:11px;font-weight:700;color:#64748b">Sito web</div>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="url" placeholder="https://…" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 7px;flex:1;font-family:inherit" value="${_escU(sitoVal)}" oninput="_onMergeProdEdit('sito_url',this.value)" id="merge-sito-input">
+            <button type="button" onclick="const u=document.getElementById('merge-sito-input').value.trim();if(u)window.open(u,'_blank')" style="height:28px;padding:0 8px;border-radius:6px;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;color:#2563eb;font-size:11px;white-space:nowrap" title="Apri link"><i class="fas fa-external-link-alt"></i></button>
+          </div>
+        </div>`;
+
         // Dati fornitura
         html += `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Dati fornitura</div>`;
 
@@ -6713,6 +6719,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             payload[k] = _mergeProdOver[k] !== undefined ? !!_mergeProdOver[k] : !!fr[k];
         });
         payload.note     = _mergeProdOver['note']     !== undefined ? (_mergeProdOver['note']     || null) : (fr.note     || null);
+        payload.sito_url = _mergeProdOver['sito_url'] !== undefined ? (_mergeProdOver['sito_url'] || null) : (fr.sito_url || rif.sito_url || null);
         payload.iva      = _mergeProdOver['iva'] !== undefined ? (_mergeProdOver['iva'] !== null && _mergeProdOver['iva'] !== '' ? parseFloat(_mergeProdOver['iva']) || null : null) : (fr.iva ?? null);
         payload.foto_url = _mergeProdOver['foto_url'] !== undefined ? (_mergeProdOver['foto_url'] || null) : (fr.foto_url || rif.foto_url || null);
         payload.category                 = (_mergeProdOver['category']  !== undefined ? _mergeProdOver['category']  : rif.category)  || null;

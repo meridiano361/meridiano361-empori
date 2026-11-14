@@ -1269,6 +1269,7 @@ async function apriPreventivo(id) {
                     if (cached?.sito) row.dataset.sito = cached.sito;
                 }
                 const rowId = row.id.replace('row-', '');
+                if (r.alternative?.length) _restoreAlts(rowId, r.alternative);
                 calcRow(rowId, curGid);
             });
         });
@@ -1640,7 +1641,10 @@ function addRow(gid) {
         <td class="p-1 text-right text-xs pr-1 text-slate-500 whitespace-nowrap ie-sc-value">—</td>
         <td class="p-1"><input type="number" class="qty-input w-full border-gray-200 border rounded-lg p-2 text-center" value="${parseInt(document.getElementById('group-qty-'+gid)?.value)||1}" min="1"></td>
         <td class="p-1 text-right pr-4 font-bold">€ <span class="row-total">0,00</span></td>
-        <td class="p-1 text-center"><button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button></td>`;
+        <td class="p-1 text-center" style="white-space:nowrap">
+          <button type="button" data-alt-btn="${rowId}" onclick="_toggleAlt('${rowId}')" title="Alternative prodotto" style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8;cursor:pointer;margin-right:3px;line-height:1.4">ALT</button>
+          <button type="button" class="delete-row-btn text-gray-300 hover:text-red-500">✕</button>
+        </td>`;
 
     // Sotto-riga interna (costi/margine) — non visibile nel PDF cliente
     const internalRow = document.createElement('tr');
@@ -1663,9 +1667,19 @@ function addRow(gid) {
         </td>
         <td colspan="2"></td>`;
 
+    const altRow = document.createElement('tr');
+    altRow.className = 'alt-section-row no-print';
+    altRow.id = `alt-${rowId}`;
+    altRow.style.display = 'none';
+    altRow.innerHTML = `
+        <td colspan="13" style="padding:4px 12px 8px 60px;background:#f8fafc;border-bottom:1px solid #f1f5f9">
+          <div id="alt-items-${rowId}"></div>
+          <button type="button" onclick="_addAlt('${rowId}')" style="font-size:11px;color:#2563eb;background:none;border:none;cursor:pointer;padding:2px 0;margin-top:2px">+ Aggiungi alternativa</button>
+        </td>`;
+
     const confezRow = document.getElementById(`confez-${gid}`);
-    if (confezRow) { tbody.insertBefore(row, confezRow); tbody.insertBefore(internalRow, confezRow); }
-    else { tbody.appendChild(row); tbody.appendChild(internalRow); }
+    if (confezRow) { tbody.insertBefore(row, confezRow); tbody.insertBefore(internalRow, confezRow); tbody.insertBefore(altRow, confezRow); }
+    else { tbody.appendChild(row); tbody.appendChild(internalRow); tbody.appendChild(altRow); }
 
     row.querySelector('.price-input').addEventListener('focus', function() { clearCurrency(this); });
     row.querySelector('.price-input').addEventListener('blur',  function() { formatCurrency(this); });
@@ -1956,7 +1970,7 @@ function removeRow(rowId, gid) {
 function getRowBlock(productRow) {
     const rowId = productRow.id.replace('row-','');
     const res = [productRow];
-    ['confez','cartoncino','omaggio'].forEach(p => { const el = document.getElementById(`${p}-${rowId}`); if (el) res.push(el); });
+    ['internal','alt','confez','cartoncino','omaggio'].forEach(p => { const el = document.getElementById(`${p}-${rowId}`); if (el) res.push(el); });
     return res;
 }
 function spostaRiga(btn, dir) {
@@ -1969,6 +1983,73 @@ function spostaRiga(btn, dir) {
     const bC = getRowBlock(riga), bT = getRowBlock(righe[nidx]);
     if (dir === -1) bC.forEach(el => cont.insertBefore(el, bT[0]));
     else            bT.forEach(el => cont.insertBefore(el, bC[0]));
+}
+
+/* ────────────────── ALTERNATIVE PRODOTTO ────────────────── */
+function _toggleAlt(rowId) {
+    const sec = document.getElementById(`alt-${rowId}`);
+    if (!sec) return;
+    const show = sec.style.display === 'none';
+    sec.style.display = show ? '' : 'none';
+    const btn = document.querySelector(`[data-alt-btn="${rowId}"]`);
+    if (btn) {
+        btn.style.background = show ? '#dbeafe' : '#f8fafc';
+        btn.style.color      = show ? '#2563eb' : '#94a3b8';
+        btn.style.borderColor= show ? '#93c5fd' : '#e2e8f0';
+    }
+}
+function _addAlt(rowId) {
+    const container = document.getElementById(`alt-items-${rowId}`);
+    if (!container) return;
+    if (container.querySelectorAll('.alt-item').length >= 3) return;
+    const div = document.createElement('div');
+    div.className = 'alt-item';
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px';
+    div.innerHTML = `
+        <span style="font-size:10px;color:#94a3b8;font-weight:700;white-space:nowrap;min-width:44px">oppure</span>
+        <input type="text" class="alt-desc" placeholder="Descrizione…" style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit" oninput="_syncAltDataset('${rowId}')">
+        <input type="text" class="alt-prezzo" placeholder="Prezzo" style="width:72px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;text-align:right" oninput="_syncAltDataset('${rowId}')">
+        <button onclick="_removeAlt(this,'${rowId}')" style="color:#fca5a5;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" type="button">×</button>`;
+    container.appendChild(div);
+    div.querySelector('.alt-desc').focus();
+}
+function _removeAlt(btn, rowId) {
+    btn.closest('.alt-item')?.remove();
+    _syncAltDataset(rowId);
+}
+function _syncAltDataset(rowId) {
+    const row = document.getElementById(`row-${rowId}`);
+    if (!row) return;
+    const container = document.getElementById(`alt-items-${rowId}`);
+    if (!container) return;
+    const alts = [...container.querySelectorAll('.alt-item')].map(item => ({
+        desc:   item.querySelector('.alt-desc')?.value.trim()   || '',
+        prezzo: item.querySelector('.alt-prezzo')?.value.trim() || '',
+    })).filter(a => a.desc);
+    row.dataset.alternative = JSON.stringify(alts);
+}
+function _restoreAlts(rowId, alts) {
+    if (!alts?.length) return;
+    const container = document.getElementById(`alt-items-${rowId}`);
+    if (!container) return;
+    alts.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'alt-item';
+        div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px';
+        div.innerHTML = `
+            <span style="font-size:10px;color:#94a3b8;font-weight:700;white-space:nowrap;min-width:44px">oppure</span>
+            <input type="text" class="alt-desc" placeholder="Descrizione…" value="${escHtml(a.desc||'')}" style="flex:1;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit" oninput="_syncAltDataset('${rowId}')">
+            <input type="text" class="alt-prezzo" placeholder="Prezzo" value="${escHtml(a.prezzo||'')}" style="width:72px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;text-align:right" oninput="_syncAltDataset('${rowId}')">
+            <button onclick="_removeAlt(this,'${rowId}')" style="color:#fca5a5;background:none;border:none;cursor:pointer;font-size:14px;padding:0 2px;line-height:1" type="button">×</button>`;
+        container.appendChild(div);
+    });
+    const row = document.getElementById(`row-${rowId}`);
+    if (row) row.dataset.alternative = JSON.stringify(alts);
+    // show alt section if has alternatives
+    const sec = document.getElementById(`alt-${rowId}`);
+    if (sec) { sec.style.display = ''; }
+    const btn = document.querySelector(`[data-alt-btn="${rowId}"]`);
+    if (btn) { btn.style.background='#dbeafe'; btn.style.color='#2563eb'; btn.style.borderColor='#93c5fd'; }
 }
 
 function autoGenerateTitolo() {
@@ -2417,6 +2498,7 @@ async function savePreventivo(event) {
                 foto_url:   row.querySelector('.foto-input')?.dataset.foto || null,
                 prod_id:    row.dataset.prodId  || null,
                 prod_src:   row.dataset.prodSrc || null,
+                alternative: row.dataset.alternative ? JSON.parse(row.dataset.alternative) : [],
                 group_foto_url: document.getElementById(`group-foto-input-${gid}`)?.dataset.foto || null,
                 group_note: document.getElementById(`group-note-${gid}`)?.value.trim() || null,
                 qta,
@@ -2592,10 +2674,18 @@ function stampaPDFConColonne() {
             const _piesc  = _parseE(row.querySelector('.ie-sc-value')?.textContent);
             const _effII  = _piisc || _pii;
             const _effIE  = _piesc || _pie || _effII;
-            const descCell = desc + (sel.has('sito') && sitoUrl ? `<br><a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:underline">Scheda prodotto ↗</a>` : '');
+            const sitoLink = sel.has('sito') && sitoUrl;
+            const alts = row.dataset.alternative ? JSON.parse(row.dataset.alternative) : [];
+            const altHtml = alts.filter(a => a.desc).map(a =>
+                `<div style="font-size:9px;color:#64748b;font-style:italic;margin-top:2px">• oppure: ${a.desc}${a.prezzo ? ' · ' + a.prezzo : ''}</div>`
+            ).join('');
+            const descCell = (sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:none">${desc}</a>` : desc) +
+                (sitoLink ? ` <a href="${sitoUrl}" style="font-size:9px;color:#2563eb;text-decoration:none" title="Apri sito prodotto">↗</a>` : '') +
+                altHtml;
             out.push({
-                foto:      fotoSrc ? `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '',
-                codice, desc: descCell,
+                foto:      fotoSrc ? (sitoLink ? `<a href="${sitoUrl}"><img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;display:block"></a>` : `<img src="${fotoSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">`) : '',
+                codice:    sitoLink ? `<a href="${sitoUrl}" style="color:inherit;text-decoration:underline;text-decoration-style:dotted">${codice}</a>` : codice,
+                desc: descCell,
                 pii:       row.querySelector('.price-input')?.value || '—',
                 iva:       row.querySelector('.iva-input')?.value || '—',
                 pie:       row.querySelector('.ie-input')?.value || '—',
@@ -3275,7 +3365,7 @@ function chiudiSchedaProd() { document.getElementById('modal-scheda-prod').style
     </div>
     <!-- body scrollabile -->
     <div style="overflow-y:auto;flex:1">
-      <div id="sprod-foto-wrap" style="display:none"><img id="sprod-foto" style="width:100%;max-height:180px;object-fit:cover"></div>
+      <div id="sprod-foto-wrap" style="display:none;text-align:center;padding:12px 20px 0"><img id="sprod-foto" style="max-width:52%;max-height:140px;object-fit:contain;border-radius:8px"></div>
       <div id="sprod-body" style="padding:16px 20px"></div>
     </div>
     <!-- footer con salva (solo admin) -->
