@@ -6566,10 +6566,19 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     async function eseguiMigrazione(soloRisolti = false) {
         const doppRisoltiList = _doppioni.filter(d => _doppRisolti[d.fr.id + ':' + d.rif.id]);
         const doppNonRisolti  = _doppioni.filter(d => !_doppRisolti[d.fr.id + ':' + d.rif.id]);
+        const usedFrIds  = new Set(_doppioni.map(d => d.fr.id));
+        const usedRifIds = new Set(_doppioni.map(d => d.rif.id));
+        const frSoli  = _prodFrontalini.filter(fr  => !usedFrIds.has(fr.id));
+        const rifSoli = _prodFornitura.filter(rif => !usedRifIds.has(rif.id));
 
         if (soloRisolti) {
-            if (!doppRisoltiList.length) { showToast('Nessun doppione risolto da migrare', 'err'); return; }
-            if (!confirm(`Verranno inseriti in prodotti_catalogo solo i ${doppRisoltiList.length} doppioni già risolti. I prodotti non coinvolti rimarranno nelle tabelle originali. Continuare?`)) return;
+            const totale = doppRisoltiList.length + frSoli.length + rifSoli.length;
+            if (!totale) { showToast('Nessun prodotto da migrare', 'err'); return; }
+            const parti = [
+                doppRisoltiList.length ? `${doppRisoltiList.length} doppioni risolti` : '',
+                (frSoli.length + rifSoli.length) ? `${frSoli.length + rifSoli.length} prodotti senza doppione` : '',
+            ].filter(Boolean).join(' + ');
+            if (!confirm(`Verranno inseriti in prodotti_catalogo: ${parti}. I ${doppNonRisolti.length} doppioni non risolti rimarranno nelle tabelle originali. Continuare?`)) return;
         } else {
             if (doppNonRisolti.length > 0) {
                 if (!confirm(`Ci sono ancora ${doppNonRisolti.length} doppioni da risolvere. I doppioni non risolti verranno importati dalla versione Frontalini. Continuare?`)) return;
@@ -6579,15 +6588,10 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const progEl = document.getElementById('unif-progresso');
         progEl.textContent = 'Migrazione in corso…';
 
-        const usedRifIds = new Set(_doppioni.map(d => d.rif.id));
-        const usedFrIds  = new Set(_doppioni.map(d => d.fr.id));
-
         const records = [];
 
-        if (!soloRisolti) {
-        // 1. Prodotti solo frontalini (non doppioni)
-        for (const fr of _prodFrontalini) {
-            if (usedFrIds.has(fr.id)) continue;
+        // 1. Prodotti solo frontalini (non coinvolti in nessun doppione)
+        for (const fr of frSoli) {
             records.push({
                 codice: fr.codice || null, descrizione: (fr.descrizione || '').toUpperCase(),
                 peso: fr.peso ?? null, unita: fr.unita || null, prezzo: fr.prezzo ?? null,
@@ -6598,9 +6602,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             });
         }
 
-        // 2. Prodotti solo fornitura (non doppioni)
-        for (const rif of _prodFornitura) {
-            if (usedRifIds.has(rif.id)) continue;
+        // 2. Prodotti solo fornitura (non coinvolti in nessun doppione)
+        for (const rif of rifSoli) {
             records.push({
                 codice: rif.product_code || null, descrizione: (rif.description || '').toUpperCase(),
                 peso: rif.quantita ?? null, unita: rif.unita_misura || null, prezzo: rif.pvp ?? null,
@@ -6614,7 +6617,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 active: rif.active !== false, source_sheet: rif.source_sheet || null,
             });
         }
-        } // fine if (!soloRisolti)
 
         // 3. Doppioni
         for (const d of _doppioni) {
@@ -6657,7 +6659,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             progEl.textContent = `Inseriti ${n} / ${records.length} prodotti…`;
         }
 
-        const modeLabel = soloRisolti ? 'doppioni risolti migrati' : 'prodotti inseriti';
+        const modeLabel = soloRisolti ? 'prodotti migrati (senza doppione + doppioni risolti)' : 'prodotti inseriti';
         progEl.innerHTML = `<span style="color:#15803d;font-weight:700"><i class="fas fa-check-circle" style="margin-right:5px"></i>Migrazione completata! ${n} ${modeLabel} in <code>prodotti_catalogo</code>.</span>`;
         showToast(`Migrazione completata: ${n} ${modeLabel}`, 'ok');
         await caricaProdotti();
