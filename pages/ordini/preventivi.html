@@ -2661,8 +2661,15 @@ function _pdfUpdateOrientHint() {
     }
     _pdfOrientStyle();
 }
+function _pdfLayoutStyle() {
+    const pag = document.getElementById('pdf-layout-pag')?.checked;
+    const lS = `flex:1;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border-radius:12px;border:2px solid;padding:8px;font-size:14px;font-weight:600;transition:all .15s;`;
+    document.getElementById('pdf-layout-cont-lbl').style.cssText = lS + `border-color:${!pag?'#B5453A':'#e2e8f0'};color:${!pag?'#B5453A':'#94a3b8'};background:${!pag?'#fdf8f7':'#fff'}`;
+    document.getElementById('pdf-layout-pag-lbl').style.cssText  = lS + `border-color:${pag?'#B5453A':'#e2e8f0'};color:${pag?'#B5453A':'#94a3b8'};background:${pag?'#fdf8f7':'#fff'}`;
+}
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[name="pdf-orient"]').forEach(r => r.addEventListener('change', _pdfOrientStyle));
+    document.querySelectorAll('input[name="pdf-layout"]').forEach(r => r.addEventListener('change', _pdfLayoutStyle));
     document.querySelectorAll('.pdf-col').forEach(cb => cb.addEventListener('change', _pdfUpdateOrientHint));
 });
 function _pdfGrpBoxes(grp) {
@@ -2858,7 +2865,9 @@ function stampaPDFConColonne() {
         return `<div style="display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;padding:7px 8px;margin-top:-12px;margin-bottom:10px;background:#f8fafc;border-radius:0 0 6px 6px;border-top:1.5px solid #e2e8f0;font-size:10px;color:#475569">${parts.join('')}</div>`;
     };
 
-    const groupTablesHtml = useGroupLayout ? groupsForPdf.map(g => {
+    const oneGroupPerPage = document.getElementById('pdf-layout-pag')?.checked;
+    const groupTablesHtml = useGroupLayout ? groupsForPdf.map((g, gi, arr) => {
+        const isLast = gi === arr.length - 1;
         const typeLabel = TIPI_GRUPPO[g.groupType] || g.groupType;
         const gLabel = [typeLabel, g.groupName].filter(Boolean).join(' — ');
         const groupHeader = (g.groupFotoSrc || g.groupName || groupsForPdf.length > 1) ? `
@@ -2870,7 +2879,8 @@ function stampaPDFConColonne() {
                 </div>
             </div>` : '';
         const gTdRows = g.productRows.map(r => `<tr class="${r._altTr ? '' : 'row-sep'}">${colDefs.map(c => `<td class="${c.num?'num':''}" style="text-align:${c.align};vertical-align:middle${c.width?';width:'+c.width+';min-width:'+c.width:''}">${r[c.key]}</td>`).join('')}</tr>${r._altTr||''}`).join('');
-        return `${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>${_grpSubtotalDiv(g.productRows)}`;
+        const pageBreakStyle = oneGroupPerPage && !isLast ? 'page-break-after:always;break-after:page' : '';
+        return `<div style="${pageBreakStyle}">${groupHeader}<table><thead><tr>${thRow}</tr></thead><tbody>${gTdRows}</tbody></table>${_grpSubtotalDiv(g.productRows)}</div>`;
     }).join('') : '';
 
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
@@ -3130,6 +3140,19 @@ document.addEventListener('DOMContentLoaded', () => {
         </label>
       </div>
       <div id="pdf-orient-hint" class="text-xs text-blue-500 mt-1 hidden">💡 Con molte colonne l'orizzontale è consigliato</div>
+    </div>
+
+    <!-- ── Layout gruppi ── -->
+    <div class="border-t border-slate-100 pt-3 mb-3">
+      <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Layout gruppi</div>
+      <div class="flex gap-3">
+        <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-xl border-2 py-2 text-sm font-semibold transition-all" id="pdf-layout-cont-lbl" style="border-color:#B5453A;color:#B5453A;background:#fdf8f7">
+          <input type="radio" name="pdf-layout" id="pdf-layout-cont" value="continuo" checked class="hidden"> ☰ Uno dopo l'altro
+        </label>
+        <label class="flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-xl border-2 py-2 text-sm font-semibold transition-all" id="pdf-layout-pag-lbl" style="border-color:#e2e8f0;color:#94a3b8">
+          <input type="radio" name="pdf-layout" id="pdf-layout-pag" value="pagina" class="hidden"> ▤ Un gruppo per pagina
+        </label>
+      </div>
     </div>
 
     <!-- ── Data ── -->
