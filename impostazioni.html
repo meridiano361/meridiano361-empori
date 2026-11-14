@@ -1327,7 +1327,7 @@
                   <th>Fonte</th><th>Codice</th><th>Descrizione</th><th>PVP</th><th>Pack</th>
                   <th>Fornitore</th><th>Marchio</th><th>Categoria</th>
                   <th title="Cremona">CR</th><th title="Casalmaggiore">CA</th><th title="Viadana">VI</th>
-                  <th>Attivo</th><th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th></th>
+                  <th>Attivo</th><th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th title="Link sito prodotto">🔗</th><th></th>
                 </tr></thead>
                 <tbody id="prod-all-tbody"><tr><td colspan="17" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
@@ -5763,19 +5763,19 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             _src:'frontalini', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:null, ca:null, vi:null, attivo:true,
-            peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null,
+            peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null, sito:p.sito_url||null,
         }));
         const rfItems = !showFor ? [] : _prodFornitura.filter(p => !giaMigrato(p.product_code, p.description)).map(p => ({
             _src:'fornitura', _id:p.id, codice:p.product_code||'', descrizione:p.description||'',
             pvp:p.pvp, pack:p.pack_size, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
-            peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:p.foto_url||null,
+            peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:p.foto_url||null, sito:null,
         }));
         const puItems = !showPro ? [] : _prodUnificati.map(p => ({
             _src:'prodotti', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
-            peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null,
+            peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null, sito:p.sito_url||null,
         }));
         let items = [...frItems, ...rfItems, ...puItems];
         if (forn) items = items.filter(p => p.fornitore === forn);
@@ -5788,7 +5788,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
         const tbody = document.getElementById('prod-all-tbody');
         if (!tbody) return;
-        if (!items.length) { tbody.innerHTML = `<tr><td colspan="17" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="18" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
 
         const srcBadge = s => s === 'frontalini'
             ? `<span style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FRO</span>`
@@ -5831,6 +5831,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <td style="font-size:12px;white-space:nowrap">${fmtPeso(p)}</td>
               <td>${attrBadges}</td>
               <td>${fotoCell}</td>
+              <td style="text-align:center">${p.sito ? `<a href="${escHtml(p.sito)}" target="_blank" rel="noopener" title="${escHtml(p.sito)}" style="color:#2563eb;font-size:13px"><i class="fas fa-external-link-alt"></i></a>` : '<span style="color:#cbd5e1">—</span>'}</td>
               <td style="white-space:nowrap">
                 <button class="prod-row-btn" onclick="${editFn}" title="Modifica"><i class="fas fa-pencil"></i></button>
                 <button class="prod-row-btn del" onclick="${delFn}" title="Elimina"><i class="fas fa-trash"></i></button>
