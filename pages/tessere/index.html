@@ -1066,6 +1066,26 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
   </div>
 </div>
 
+<!-- USA SCONTO MODAL -->
+<div class="spesa-modal" id="sconto-modal" onclick="if(event.target===this)chiudiScontoModal()">
+  <div class="spesa-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3 id="sconto-modal-nome">Usa Sconto</h3>
+      <button onclick="chiudiScontoModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
+    </div>
+    <p id="sconto-modal-sub" style="margin-bottom:12px"></p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <label style="font-size:12px;font-weight:700;color:#64748b;white-space:nowrap">Data:</label>
+      <input type="date" id="sconto-data" style="font-size:13px;font-weight:700;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-family:inherit;flex:1" onchange="aggiornaLabelDataSconto()">
+      <span id="sconto-data-label" style="font-size:11px;color:#94a3b8;white-space:nowrap">oggi</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="chiudiScontoModal()">Annulla</button>
+      <button class="btn btn-sm" style="flex:2;background:#f59e0b;color:#fff;font-weight:800" onclick="confermaScontoModal()"><i class="fas fa-check"></i> Conferma</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONVERTI CARTACEA → DIGITALE MODAL -->
 <div class="spesa-modal" id="converti-modal" onclick="if(event.target===this)chiudiConvertiModal()">
   <div class="spesa-sheet">
@@ -5977,6 +5997,8 @@ function digSconto(tipo)     { return _tesseraConfig[tipo]?.sconto_ciclo    ?? (
 
 let _digSpesaTesseraId = null;
 let _digSpesaTipo      = 'standard';
+let _scontoModalTesseraId = null;
+let _scontoModalTipo      = 'tessera'; // 'tessera' | 'compleanno'
 let _scontoSubitoData  = null;
 let _trasferisciTesseraId = null;
 
@@ -6173,29 +6195,92 @@ function renderDigitale() {
 }
 
 // ── Usa sconto: l'operatore certifica che il cliente ha usato lo sconto in cassa ──
-async function usaSconto(tesseraId) {
+function usaSconto(tesseraId) {
   const t = allTessere.find(x => x.id === tesseraId);
   if (!t || !(t.saldo_sconto > 0)) return;
   const saldo = t.saldo_sconto;
   const c = allClienti.find(x => x.id === t.cliente_id);
   const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
-  if (!confirm(`Confermi che ${nome} ha usato lo sconto di €${saldo.toFixed(0)} in cassa oggi?`)) return;
+  _apriScontoModal(tesseraId, 'tessera', nome, `${nome} usa lo sconto di €${saldo.toFixed(0)} in cassa`);
+}
 
+function _apriScontoModal(tesseraId, tipo, nome, sottotitolo) {
+  _scontoModalTesseraId = tesseraId;
+  _scontoModalTipo      = tipo;
   const today = new Date().toISOString().split('T')[0];
-  const { error: errSc } = await _sb.from('tessere_sconti').insert({
-    tessera_id:    tesseraId,
-    data_utilizzo: today,
-    valore_sconto: `€${saldo.toFixed(0)}`,
-    tipo:          'tessera',
-  });
-  if (errSc) { alert('Errore registrazione sconto: ' + errSc.message); return; }
+  document.getElementById('sconto-modal-nome').textContent = nome;
+  document.getElementById('sconto-modal-sub').textContent  = sottotitolo;
+  document.getElementById('sconto-data').value             = today;
+  document.getElementById('sconto-data-label').textContent = 'oggi';
+  document.getElementById('sconto-modal').classList.add('open');
+}
 
-  const { error: errUpd } = await _sb.from('tessere').update({ saldo_sconto: 0 }).eq('id', tesseraId);
-  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+function chiudiScontoModal() {
+  document.getElementById('sconto-modal').classList.remove('open');
+  _scontoModalTesseraId = null;
+}
 
-  const idx = allTessere.findIndex(x => x.id === tesseraId);
-  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
-  showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
+function aggiornaLabelDataSconto() {
+  const val   = document.getElementById('sconto-data').value;
+  const today = new Date().toISOString().split('T')[0];
+  const lbl   = document.getElementById('sconto-data-label');
+  if (!val || val === today) { lbl.textContent = 'oggi'; return; }
+  const d = new Date(val + 'T12:00:00');
+  lbl.textContent = d.toLocaleDateString('it-IT', { day:'numeric', month:'short' });
+}
+
+async function confermaScontoModal() {
+  if (!_scontoModalTesseraId) return;
+  const tesseraId = _scontoModalTesseraId;
+  const tipo      = _scontoModalTipo;
+  const dataVal   = document.getElementById('sconto-data').value;
+  const today     = new Date().toISOString().split('T')[0];
+  const dataUtilizzo = dataVal || today;
+  chiudiScontoModal();
+
+  const t = allTessere.find(x => x.id === tesseraId);
+  if (!t) return;
+  const c = allClienti.find(x => x.id === t.cliente_id);
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : 'il cliente';
+
+  if (tipo === 'tessera') {
+    const saldo = t.saldo_sconto;
+    const { error: errSc } = await _sb.from('tessere_sconti').insert({
+      tessera_id:    tesseraId,
+      data_utilizzo: dataUtilizzo,
+      valore_sconto: `€${saldo.toFixed(0)}`,
+      tipo:          'tessera',
+    });
+    if (errSc) { alert('Errore registrazione sconto: ' + errSc.message); return; }
+    const { error: errUpd } = await _sb.from('tessere').update({ saldo_sconto: 0 }).eq('id', tesseraId);
+    if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+    const idx = allTessere.findIndex(x => x.id === tesseraId);
+    if (idx >= 0) allTessere[idx] = { ...allTessere[idx], saldo_sconto: 0 };
+    showToast(`✓ Sconto €${saldo.toFixed(0)} registrato per ${nome}`);
+
+  } else if (tipo === 'compleanno') {
+    const currentYear = new Date().getFullYear();
+    const { error: errSc } = await _sb.from('tessere_sconti').insert({
+      tessera_id:    tesseraId,
+      data_utilizzo: dataUtilizzo,
+      valore_sconto: '10%',
+      tipo:          'compleanno',
+    });
+    if (errSc) { alert('Errore: ' + errSc.message); return; }
+    const nuoviTotali = (t.sconti_compleanno_totali || 0) + 1;
+    const { error: errUpd } = await _sb.from('tessere').update({
+      sconto_compleanno_anno:   currentYear,
+      sconti_compleanno_totali: nuoviTotali,
+    }).eq('id', tesseraId);
+    if (errUpd) { alert('Errore: ' + errUpd.message); return; }
+    const idx = allTessere.findIndex(x => x.id === tesseraId);
+    if (idx >= 0) allTessere[idx] = {
+      ...allTessere[idx],
+      sconto_compleanno_anno:   currentYear,
+      sconti_compleanno_totali: nuoviTotali,
+    };
+    showToast(`🎂 Sconto compleanno registrato per ${nome}`);
+  }
   renderDigitale();
 }
 
@@ -6816,7 +6901,7 @@ async function usaScontoSubito(useNow) {
 }
 
 // ── Usa sconto compleanno Ambassador (1 volta all'anno) ──────────────────────
-async function usaScontoCompleanno(tesseraId) {
+function usaScontoCompleanno(tesseraId) {
   const t = allTessere.find(x => x.id === tesseraId);
   if (!t || t.tipo !== 'ambassador') return;
   const currentYear = new Date().getFullYear();
@@ -6829,7 +6914,7 @@ async function usaScontoCompleanno(tesseraId) {
 
   // Controllo mese di compleanno
   if (c?.data_nascita) {
-    const meseNascita = new Date(c.data_nascita).getMonth() + 1; // 1-12
+    const meseNascita  = new Date(c.data_nascita).getMonth() + 1;
     const meseCorrente = new Date().getMonth() + 1;
     const nomiMesi = ['','gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
     if (meseNascita !== meseCorrente) {
@@ -6840,32 +6925,7 @@ async function usaScontoCompleanno(tesseraId) {
     }
   }
 
-  if (!confirm(`Confermi che ${nome} ha usato lo sconto compleanno 10% oggi?\n\nRicorda: può usarlo una sola volta per anno.`)) return;
-
-  const today = new Date().toISOString().split('T')[0];
-  const { error: errSc } = await _sb.from('tessere_sconti').insert({
-    tessera_id:    tesseraId,
-    data_utilizzo: today,
-    valore_sconto: '10%',
-    tipo:          'compleanno',
-  });
-  if (errSc) { alert('Errore: ' + errSc.message); return; }
-
-  const nuoviTotali = (t.sconti_compleanno_totali || 0) + 1;
-  const { error: errUpd } = await _sb.from('tessere').update({
-    sconto_compleanno_anno:   currentYear,
-    sconti_compleanno_totali: nuoviTotali,
-  }).eq('id', tesseraId);
-  if (errUpd) { alert('Errore: ' + errUpd.message); return; }
-
-  const idx = allTessere.findIndex(x => x.id === tesseraId);
-  if (idx >= 0) allTessere[idx] = {
-    ...allTessere[idx],
-    sconto_compleanno_anno:   currentYear,
-    sconti_compleanno_totali: nuoviTotali,
-  };
-  showToast(`🎂 Sconto compleanno registrato per ${nome}`);
-  renderDigitale();
+  _apriScontoModal(tesseraId, 'compleanno', nome, `${nome} usa lo sconto compleanno 10% — può usarlo una volta per anno`);
 }
 
 // ── Trasferisci timbri da cartacea → digitale ────────────────────────────────
