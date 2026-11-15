@@ -227,10 +227,10 @@ const propId = parseInt(params.get('id'));
 
 let proposta = null;     // header proposta
 let catalogo = [];       // tutti i prodotti
-let righe    = {};       // { product_code: { qty, notes, id } }
+let righe    = {};       // { codice: { qty, notes, id } }
 let isEditable = false;
 let saveTimer  = null;
-let pendingSave = {};    // { product_code: true } prodotti da salvare
+let pendingSave = {};    // { codice: true } prodotti da salvare
 let sortState  = { field: null, dir: 'asc' };  // field: null | 'code' | 'desc' | 'pvp'
 
 // ── INIT ──────────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ async function init() {
   const [{ data: prop, error: e1 }, { data: cat, error: e2 }, { data: rig, error: e3 }] =
     await Promise.all([
       db.from('rifornimento_proposte').select('*').eq('id', propId).single(),
-      db.from('rifornimento_catalogo').select('*').eq('active', true).order('sort_order'),
+      db.from('prodotti_catalogo').select('*').eq('active', true).order('sort_order'),
       db.from('rifornimento_proposte_righe').select('*').eq('proposal_id', propId),
     ]);
 
@@ -250,7 +250,7 @@ async function init() {
   proposta = prop;
   catalogo = cat || [];
   (rig || []).forEach(r => {
-    righe[r.product_code] = { qty: r.quantity, notes: r.notes || '', id: r.id };
+    righe[r.codice] = { qty: r.quantity, notes: r.notes || '', id: r.id };
   });
 
   isEditable = (proposta.status === 'bozza' || proposta.status === 'inviata') &&
@@ -462,9 +462,9 @@ function sortProds(arr) {
   if (!sortState.field) return arr;
   return [...arr].sort((a, b) => {
     let va, vb;
-    if (sortState.field === 'code') { va = a.product_code || ''; vb = b.product_code || ''; }
-    else if (sortState.field === 'desc') { va = a.description || '';  vb = b.description || ''; }
-    else if (sortState.field === 'pvp')  { va = Number(a.pvp) || 0;   vb = Number(b.pvp) || 0; }
+    if (sortState.field === 'code') { va = a.codice || ''; vb = b.codice || ''; }
+    else if (sortState.field === 'desc') { va = a.descrizione || '';  vb = b.description || ''; }
+    else if (sortState.field === 'pvp')  { va = Number(a.prezzo) || 0;   vb = Number(b.prezzo) || 0; }
     if (typeof va === 'string') return sortState.dir === 'asc'
       ? va.localeCompare(vb, 'it', { sensitivity: 'base' })
       : vb.localeCompare(va, 'it', { sensitivity: 'base' });
@@ -484,9 +484,9 @@ function getFilteredProducts() {
     if (forn && p.fornitore !== forn) return false;
     if (cat && p.category !== cat) return false;
     if (soloAss && getAss(p) === false) return false;
-    if (soloQty && !righe[p.product_code]?.qty) return false;
+    if (soloQty && !righe[p.codice]?.qty) return false;
     if (cerca) {
-      const hay = (p.product_code + ' ' + p.description + ' ' + p.category).toLowerCase();
+      const hay = (p.codice + ' ' + p.descrizione + ' ' + p.category).toLowerCase();
       if (!hay.includes(cerca)) return false;
     }
     return true;
@@ -537,7 +537,7 @@ function renderTable() {
   Object.entries(byForn).forEach(([forn, byCat]) => {
     const fornSlug      = slugify(forn);
     const allFornProds  = Object.values(byCat).flat();
-    const qtyInForn     = allFornProds.filter(p => righe[p.product_code]?.qty > 0).length;
+    const qtyInForn     = allFornProds.filter(p => righe[p.codice]?.qty > 0).length;
 
     html += `<tr onclick="toggleForn('${fornSlug}')">
       <td colspan="8" style="padding:0">
@@ -556,7 +556,7 @@ function renderTable() {
 
     Object.entries(byCat).forEach(([cat, catProds]) => {
       const catSlug  = slugCat(cat);
-      const qtyInCat = catProds.filter(p => righe[p.product_code]?.qty > 0).length;
+      const qtyInCat = catProds.filter(p => righe[p.codice]?.qty > 0).length;
 
       html += `<tr class="forn-rows-${fornSlug} forn-cat-row-${fornSlug}" style="display:none">
         <td colspan="8" style="padding:0">
@@ -571,19 +571,19 @@ function renderTable() {
       </tr>`;
 
       sortProds(catProds).forEach(p => {
-        const r      = righe[p.product_code] || { qty: 0, notes: '' };
+        const r      = righe[p.codice] || { qty: 0, notes: '' };
         const hasQty = r.qty > 0;
         const ass    = getAss(p);
         const pack   = p.pack_size && p.pack_size > 1 ? p.pack_size : 1;
         const rowCls = ['cat-prod-' + catSlug, 'forn-rows-' + fornSlug, hasQty ? 'has-qty' : '', ass === false ? 'no-assort' : ''].filter(Boolean).join(' ');
-        const pvp    = p.pvp != null ? `€ ${Number(p.pvp).toFixed(2)}` : '—';
+        const pvp    = p.prezzo != null ? `€ ${Number(p.prezzo).toFixed(2)}` : '—';
         const conf   = pack > 1 ? `×${pack}` : '—';
 
         const qtyField = readonly
           ? `<span class="font-bold ${hasQty ? 'text-amber-600' : 'text-slate-300'}">${hasQty ? r.qty : '—'}</span>`
           : `<input type="number" min="0" step="${pack}"
                class="qty-input${hasQty ? ' filled' : ''}"
-               data-code="${p.product_code}"
+               data-code="${p.codice}"
                data-catslug="${catSlug}"
                data-forn="${fornSlug}"
                data-pack="${pack}"
@@ -595,15 +595,15 @@ function renderTable() {
         const noteField = readonly
           ? `<span class="text-xs text-slate-500">${r.notes || ''}</span>`
           : `<input type="text" class="note-input"
-               data-code="${p.product_code}"
+               data-code="${p.codice}"
                value="${escHtml(r.notes || '')}"
                placeholder="—"
                oninput="onNoteChange(this)">`;
 
         const marchioLabel = p.marchio ? escHtml(p.marchio) + (p.linea ? ` <span style="color:#7c3aed;font-size:10px">${escHtml(p.linea)}</span>` : '') : '—';
-        html += `<tr class="${rowCls}" id="row-${p.product_code}" style="display:none">
-          <td class="td-code">${p.product_code}</td>
-          <td class="td-desc">${escHtml(p.description)}</td>
+        html += `<tr class="${rowCls}" id="row-${p.codice}" style="display:none">
+          <td class="td-code">${p.codice}</td>
+          <td class="td-desc">${escHtml(p.descrizione)}</td>
           <td style="font-size:11px;color:#2563eb;font-weight:600">${marchioLabel}</td>
           <td class="td-pvp">${pvp}</td>
           <td class="td-conf">${conf}</td>
@@ -744,14 +744,14 @@ async function salva(manual = false) {
 
   showBadge('saving', 'Salvataggio...');
 
-  // Salva solo le righe toccate (upsert per product_code)
+  // Salva solo le righe toccate (upsert per codice)
   const toUpsert = codes
     .filter(code => righe[code] !== undefined)
     .map(code => ({
       proposal_id:       propId,
-      catalog_product_id: catalogo.find(p => p.product_code === code)?.id || null,
-      product_code:      code,
-      description:       catalogo.find(p => p.product_code === code)?.description || code,
+      catalog_product_id: catalogo.find(p => p.codice === code)?.id || null,
+      codice:      code,
+      description:       catalogo.find(p => p.codice === code)?.descrizione || code,
       quantity:          righe[code].qty || 0,
       notes:             righe[code].notes || '',
     }));
@@ -760,7 +760,7 @@ async function salva(manual = false) {
 
   const { error } = await db
     .from('rifornimento_proposte_righe')
-    .upsert(toUpsert, { onConflict: 'proposal_id,product_code' });
+    .upsert(toUpsert, { onConflict: 'proposal_id,codice' });
 
   if (error) { showBadge('err', 'Errore: ' + error.message.slice(0,60)); return; }
 
@@ -895,16 +895,16 @@ async function _notificaEvasa(nota) {
 
 // ── STAMPA ────────────────────────────────────────────────────────
 function stampa() {
-  const filled = catalogo.filter(p => righe[p.product_code]?.qty > 0);
+  const filled = catalogo.filter(p => righe[p.codice]?.qty > 0);
   if (!filled.length) { alert('Nessuna quantità compilata da stampare.'); return; }
 
   const rows = filled.map(p => {
-    const r = righe[p.product_code];
+    const r = righe[p.codice];
     return `<tr>
-      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;color:#64748b">${p.product_code}</td>
-      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:12px">${p.description}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-family:monospace;font-size:11px;color:#64748b">${p.codice}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:12px">${p.descrizione}</td>
       <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:11px;color:#64748b">${p.category || '—'}</td>
-      <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right;font-size:12px">${p.pvp != null ? '€ ' + Number(p.pvp).toFixed(2) : '—'}</td>
+      <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right;font-size:12px">${p.prezzo != null ? '€ ' + Number(p.prezzo).toFixed(2) : '—'}</td>
       <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:center;font-size:12px;font-weight:700;color:#d97706">${r.qty}</td>
       <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:11px;color:#64748b">${r.notes || ''}</td>
     </tr>`;
@@ -942,14 +942,14 @@ function getExportData() {
   const flat = [];
   const byForn = {};
   catalogo.forEach(p => {
-    const r = righe[p.product_code];
+    const r = righe[p.codice];
     if (!r?.qty || r.qty <= 0) return;
     const forn = p.fornitore || 'Altro';
     const cat  = p.category  || 'Altro';
     if (!byForn[forn]) byForn[forn] = {};
     if (!byForn[forn][cat]) byForn[forn][cat] = [];
-    const row = { fornitore: forn, categoria: cat, codice: p.product_code || '',
-      descrizione: p.description || '', pvp: p.pvp != null ? Number(p.pvp) : null,
+    const row = { fornitore: forn, categoria: cat, codice: p.codice || '',
+      descrizione: p.descrizione || '', prezzo: p.prezzo != null ? Number(p.prezzo) : null,
       confezione: p.pack_size || null, qty: r.qty, note: r.notes || '' };
     byForn[forn][cat].push(row);
     flat.push(row);
@@ -983,7 +983,7 @@ function exportTxt() {
       prods.forEach(p => {
         const code = p.codice.padEnd(8);
         const desc = p.descrizione.substring(0, 38).padEnd(39);
-        const pvp  = (p.pvp != null ? `€${p.pvp.toFixed(2)}` : '—').padEnd(9);
+        const pvp  = (p.prezzo != null ? `€${p.prezzo.toFixed(2)}` : '—').padEnd(9);
         const conf = (p.confezione ? `×${p.confezione}` : '—').padEnd(5);
         t += `  ${code}${desc}${pvp}${conf}qtà: ${p.qty}${p.note ? '  [' + p.note + ']' : ''}\n`;
         totConf += p.qty;
@@ -1001,7 +1001,7 @@ function exportCsv() {
   let csv = 'Fornitore,Categoria,Codice,Descrizione,"PVP (€)",Confezione,Quantità,Note\r\n';
   flat.forEach(p => {
     csv += [q(p.fornitore), q(p.categoria), q(p.codice), q(p.descrizione),
-      p.pvp != null ? p.pvp.toFixed(2) : '', p.confezione ?? '', p.qty, q(p.note)].join(',') + '\r\n';
+      p.prezzo != null ? p.prezzo.toFixed(2) : '', p.confezione ?? '', p.qty, q(p.note)].join(',') + '\r\n';
   });
   downloadBlob('﻿' + csv, exportFilename('csv'), 'text/csv;charset=utf-8');
 }
@@ -1012,7 +1012,7 @@ function exportXls() {
     if (!flat.length) { alert('Nessuna quantità compilata.'); return; }
     const wsData = [['Fornitore','Categoria','Codice','Descrizione','PVP (€)','Confezione','Quantità','Note']];
     flat.forEach(p => wsData.push([p.fornitore, p.categoria, p.codice, p.descrizione,
-      p.pvp ?? '', p.confezione ?? '', p.qty, p.note]));
+      p.prezzo ?? '', p.confezione ?? '', p.qty, p.note]));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [{wch:20},{wch:25},{wch:10},{wch:40},{wch:10},{wch:12},{wch:10},{wch:25}];

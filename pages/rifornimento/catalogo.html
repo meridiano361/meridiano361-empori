@@ -478,15 +478,15 @@ async function undoLastAction() {
   const a = lastAction;
   clearUndo();
   if (a.type === 'edit') {
-    const { error } = await db.from('rifornimento_catalogo').update(a.prev).eq('id', a.id);
+    const { error } = await db.from('prodotti_catalogo').update(a.prev).eq('id', a.id);
     if (error) { alert('Errore ripristino: ' + error.message); return; }
     await load();
   } else if (a.type === 'insert') {
-    const { error } = await db.from('rifornimento_catalogo').delete().eq('id', a.id);
+    const { error } = await db.from('prodotti_catalogo').delete().eq('id', a.id);
     if (error) { alert('Errore ripristino: ' + error.message); return; }
     await load();
   } else if (a.type === 'toggle_active') {
-    const { error } = await db.from('rifornimento_catalogo').update({ active: a.prevActive }).eq('id', a.id);
+    const { error } = await db.from('prodotti_catalogo').update({ active: a.prevActive }).eq('id', a.id);
     if (error) { alert('Errore ripristino: ' + error.message); return; }
     const p = catalogo.find(x => x.id === a.id);
     if (p) p.active = a.prevActive;
@@ -517,9 +517,9 @@ function sortProds(arr) {
   if (!sortState.field) return arr;
   return [...arr].sort((a, b) => {
     let va, vb;
-    if      (sortState.field === 'codice') { va = a.product_code || ''; vb = b.product_code || ''; }
-    else if (sortState.field === 'desc')   { va = a.description  || ''; vb = b.description  || ''; }
-    else if (sortState.field === 'pvp')    { va = a.pvp ?? 0;           vb = b.pvp ?? 0; }
+    if      (sortState.field === 'codice') { va = a.codice || ''; vb = b.codice || ''; }
+    else if (sortState.field === 'desc')   { va = a.descrizione  || ''; vb = b.descrizione  || ''; }
+    else if (sortState.field === 'pvp')    { va = a.prezzo ?? 0;           vb = b.pvp ?? 0; }
     const cmp = typeof va === 'string' ? va.localeCompare(vb, 'it', { numeric: true }) : va - vb;
     return sortState.dir === 'asc' ? cmp : -cmp;
   });
@@ -528,7 +528,7 @@ function sortProds(arr) {
 // ── LOAD ──────────────────────────────────────────────────────────
 async function load() {
   const { data, error } = await db
-    .from('rifornimento_catalogo')
+    .from('prodotti_catalogo')
     .select('*')
     .order('fornitore').order('category').order('sort_order');
   if (error) {
@@ -600,7 +600,7 @@ function renderAll() {
     if (cat     && p.category  !== cat)     return false;
     if (marchio && p.marchio   !== marchio) return false;
     if (linea   && p.linea     !== linea)   return false;
-    if (cerca && !(p.product_code + ' ' + p.description + ' ' + p.category + ' ' + p.fornitore + ' ' + (p.marchio||'') + ' ' + (p.linea||''))
+    if (cerca && !(p.codice + ' ' + p.descrizione + ' ' + p.category + ' ' + p.fornitore + ' ' + (p.marchio||'') + ' ' + (p.linea||''))
       .toLowerCase().includes(cerca)) return false;
     return true;
   });
@@ -662,7 +662,7 @@ function renderAll() {
 }
 
 function renderProdRow(p) {
-  const pvp  = p.pvp  != null ? `€ ${Number(p.pvp).toFixed(2)}`  : '—';
+  const pvp  = p.prezzo  != null ? `€ ${Number(p.prezzo).toFixed(2)}`  : '—';
   const conf = p.pack_size != null ? `×${p.pack_size}` : '—';
 
   const assHtml = `<div class="ass-dots">
@@ -694,11 +694,11 @@ function renderProdRow(p) {
   return `<div class="prod-row${isSel ? ' selected' : ''}${!isActive ? ' inactive' : ''}">
     <input type="checkbox" data-id="${p.id}" ${isSel ? 'checked' : ''}
       onchange="toggleSelect(${p.id},this.checked)" style="cursor:pointer;accent-color:#f59e0b">
-    <span class="prod-code">${escH(p.product_code)}</span>
-    <span class="prod-desc" title="${escH(p.description)}">${escH(p.description)}</span>
+    <span class="prod-code">${escH(p.codice)}</span>
+    <span class="prod-desc" title="${escH(p.descrizione)}">${escH(p.descrizione)}</span>
     <span class="prod-marchio col-marchio" title="${escH(p.marchio||'')}">${escH(p.marchio||'—')}</span>
     <span class="prod-linea col-linea"     title="${escH(p.linea||'')}">${escH(p.linea||'—')}</span>
-    <span class="prod-formato col-formato">${p.quantita != null ? escH(String(p.quantita)) + (p.unita_misura ? '&nbsp;' + escH(p.unita_misura) : '') : '—'}</span>
+    <span class="prod-formato col-formato">${p.peso != null ? escH(String(p.peso)) + (p.unita ? '&nbsp;' + escH(p.unita) : '') : '—'}</span>
     <span class="prod-pvp">${pvp}</span>
     <span class="prod-conf col-conf">${conf}</span>
     <span class="col-ass">${assHtml}</span>
@@ -773,15 +773,15 @@ function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
     title.textContent = 'Modifica prodotto';
     document.getElementById('m-fornitore').value = p.fornitore || '';
     document.getElementById('m-categoria').value = p.category  || '';
-    document.getElementById('m-codice').value    = p.product_code || '';
-    document.getElementById('m-desc').value      = p.description  || '';
-    document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
+    document.getElementById('m-codice').value    = p.codice || '';
+    document.getElementById('m-desc').value      = p.descrizione  || '';
+    document.getElementById('m-pvp').value       = p.prezzo  != null ? p.prezzo  : '';
     document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
     document.getElementById('m-sort').value      = p.sort_order ?? '';
     document.getElementById('m-marchio').value   = p.marchio       || '';
     document.getElementById('m-linea').value     = p.linea         || '';
-    document.getElementById('m-quantita').value  = p.quantita != null ? p.quantita : '';
-    document.getElementById('m-unita').value     = p.unita_misura  || '';
+    document.getElementById('m-quantita').value  = p.peso != null ? p.peso : '';
+    document.getElementById('m-unita').value     = p.unita  || '';
     setAssValue('cr',  p.assortment_cremona);
     setAssValue('cas', p.assortment_casalmaggiore);
     setAssValue('via', p.assortment_viadana);
@@ -867,13 +867,13 @@ async function salvaProdotto() {
   const marchio      = document.getElementById('m-marchio').value.trim()  || null;
   const linea        = document.getElementById('m-linea').value.trim()    || null;
   const quantitaRaw  = document.getElementById('m-quantita').value.trim();
-  const quantita     = quantitaRaw !== '' ? parseFloat(quantitaRaw) : null;
-  const unita_misura = document.getElementById('m-unita').value           || null;
+  const peso         = quantitaRaw !== '' ? parseFloat(quantitaRaw) : null;
+  const unita        = document.getElementById('m-unita').value           || null;
 
   const payload = {
-    fornitore, category, product_code: code, description: desc,
-    pvp, pack_size: conf, sort_order: sort,
-    marchio, linea, quantita, unita_misura,
+    fornitore, category, codice: code, descrizione: desc,
+    prezzo: pvp, pack_size: conf, sort_order: sort,
+    marchio, linea, peso, unita,
     assortment_cremona: ass_cr,
     assortment_casalmaggiore: ass_cas,
     assortment_viadana: ass_via,
@@ -882,10 +882,10 @@ async function salvaProdotto() {
 
   let error, newId;
   if (editingId) {
-    ({ error } = await db.from('rifornimento_catalogo').update(payload).eq('id', editingId));
+    ({ error } = await db.from('prodotti_catalogo').update(payload).eq('id', editingId));
   } else {
     let newRow;
-    ({ data: newRow, error } = await db.from('rifornimento_catalogo').insert(payload).select('id').single());
+    ({ data: newRow, error } = await db.from('prodotti_catalogo').insert(payload).select('id').single());
     if (!error) newId = newRow?.id;
   }
 
@@ -899,7 +899,7 @@ async function salvaProdotto() {
 
   if (editingId && prevData) {
     const { id: _id, ...prev } = prevData;
-    setUndoAction({ type: 'edit', id: editingId, prev, msg: `"${prevData.description || 'Prodotto'}" modificato.` });
+    setUndoAction({ type: 'edit', id: editingId, prev, msg: `"${prevData.descrizione || 'Prodotto'}" modificato.` });
   } else if (newId) {
     setUndoAction({ type: 'insert', id: newId, msg: `Prodotto aggiunto. Puoi annullare l'inserimento.` });
   }
@@ -916,14 +916,14 @@ function duplicaProdotto(id) {
   document.getElementById('modal-title').textContent = 'Duplica prodotto';
   document.getElementById('m-fornitore').value = p.fornitore || '';
   document.getElementById('m-categoria').value = p.category  || '';
-  document.getElementById('m-codice').value    = p.product_code || '';
-  document.getElementById('m-desc').value      = p.description  || '';
-  document.getElementById('m-pvp').value       = p.pvp  != null ? p.pvp  : '';
+  document.getElementById('m-codice').value    = p.codice || '';
+  document.getElementById('m-desc').value      = p.descrizione  || '';
+  document.getElementById('m-pvp').value       = p.prezzo  != null ? p.prezzo  : '';
   document.getElementById('m-conf').value      = p.pack_size != null ? p.pack_size : '';
   document.getElementById('m-marchio').value   = p.marchio      || '';
   document.getElementById('m-linea').value     = p.linea        || '';
-  document.getElementById('m-quantita').value  = p.quantita != null ? p.quantita : '';
-  document.getElementById('m-unita').value     = p.unita_misura || '';
+  document.getElementById('m-quantita').value  = p.peso != null ? p.peso : '';
+  document.getElementById('m-unita').value     = p.unita || '';
   setAssValue('cr',  p.assortment_cremona);
   setAssValue('cas', p.assortment_casalmaggiore);
   setAssValue('via', p.assortment_viadana);
@@ -932,13 +932,13 @@ function duplicaProdotto(id) {
 // ── ATTIVA / NASCONDI ─────────────────────────────────────────────
 async function toggleActive(id, currentlyActive) {
   const newVal = !currentlyActive;
-  const { error } = await db.from('rifornimento_catalogo').update({ active: newVal }).eq('id', id);
+  const { error } = await db.from('prodotti_catalogo').update({ active: newVal }).eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
   const p = catalogo.find(x => x.id === id);
   if (p) p.active = newVal;
   setUndoAction({
     type: 'toggle_active', id, prevActive: currentlyActive,
-    msg: `"${p?.description || 'Prodotto'}" ${newVal ? 'ripristinato' : 'nascosto'}.`,
+    msg: `"${p?.descrizione || 'Prodotto'}" ${newVal ? 'ripristinato' : 'nascosto'}.`,
   });
   renderAll();
 }
@@ -946,9 +946,9 @@ async function toggleActive(id, currentlyActive) {
 // ── ELIMINA ───────────────────────────────────────────────────────
 async function eliminaProdotto(id) {
   const prod = catalogo.find(p => p.id === id);
-  const desc = prod?.description || `prodotto #${id}`;
+  const desc = prod?.descrizione || `prodotto #${id}`;
   if (!confirm(`Eliminare "${desc}"?`)) return;
-  const { error } = await db.from('rifornimento_catalogo').delete().eq('id', id);
+  const { error } = await db.from('prodotti_catalogo').delete().eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
   await load();
 }
@@ -1032,7 +1032,7 @@ async function saveBulkEdit() {
   if (cat)     patch.category  = cat;
   if (marchio) patch.marchio   = marchio;
   if (linea)   patch.linea     = linea;
-  if (pvp)     patch.pvp       = parseFloat(pvp);
+  if (pvp)     patch.prezzo    = parseFloat(pvp);
   if (conf)    patch.pack_size = parseInt(conf);
   const assMap = { si: true, no: false, nat: null };
   if (cr)  patch.assortment_cremona       = assMap[cr];
@@ -1049,7 +1049,7 @@ async function saveBulkEdit() {
   const btn = document.getElementById('bulk-save');
   btn.disabled = true; btn.textContent = 'Salvataggio…';
 
-  const { error } = await db.from('rifornimento_catalogo').update(patch).in('id', [...selectedIds]);
+  const { error } = await db.from('prodotti_catalogo').update(patch).in('id', [...selectedIds]);
 
   btn.disabled = false; btn.textContent = 'Applica modifiche';
   if (error) { errEl.textContent = 'Errore: ' + error.message; errEl.classList.remove('hidden'); return; }
@@ -1062,7 +1062,7 @@ async function saveBulkEdit() {
 async function deleteSelected() {
   const n = selectedIds.size;
   if (!confirm(`Eliminare ${n} prodott${n === 1 ? 'o' : 'i'} selezionat${n === 1 ? 'o' : 'i'}?`)) return;
-  const { error } = await db.from('rifornimento_catalogo').delete().in('id', [...selectedIds]);
+  const { error } = await db.from('prodotti_catalogo').delete().in('id', [...selectedIds]);
   if (error) { alert('Errore: ' + error.message); return; }
   selectedIds.clear();
   updateBulkBar();
