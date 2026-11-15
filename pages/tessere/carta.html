@@ -484,9 +484,34 @@ async function loadCard() {
       ${(t.timbri_cartacea || 0) > 0 ? `<div class="info-row"><span>${_t('label_timbri_cartacea','Timbri da cartacea')}</span><strong>${t.timbri_cartacea}</strong></div>` : ''}
       ${(t.timbri_omaggio || 0) > 0 ? `<div class="info-row"><span>${_t('label_timbri_omaggio','Timbri omaggio ricevuti')}</span><strong>${t.timbri_omaggio}</strong></div>` : ''}
       ${isAmb && t.data_nascita ? `<div class="info-row info-row-click" onclick="mostraInfoCompleanno()"><span>${_t('label_mese_compleanno','Mese compleanno')} <span style="font-size:11px;font-weight:600">(10% sconto)</span> <span style="font-size:10px;color:#bbb">ⓘ</span></span><strong>${new Date(t.data_nascita).toLocaleDateString('it-IT',{month:'long'})}</strong></div>` : ''}
-      ${isAmb ? `<div class="info-row"><span>${_t('label_sconto_compleanno','Sconto compleanno')} ${new Date().getFullYear()}</span><strong style="color:${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? '#059669' : '#aaa'}">${(t.sconto_compleanno_anno||0) === new Date().getFullYear() ? 'Utilizzato' : 'Non ancora usato'}</strong></div>` : ''}
-      ${isAmb ? `<div class="info-row"><span>${_t('label_sconti_compleanno_usati','Sconti compleanno usati')}</span><strong>${t.sconti_compleanno_totali || 0}</strong></div>` : ''}
-      <div class="info-row"><span>${_t('label_sconti_tessera','Sconti tessera utilizzati')}</span><strong>${t.sconti_tessera_usati || 0}</strong></div>
+      ${(() => {
+        if (!isAmb) return '';
+        const currentYear = new Date().getFullYear();
+        const compUsed    = (t.sconto_compleanno_anno || 0) === currentYear;
+        const compList    = t.sconti_compleanno_list || [];
+        const compThisYear = compList.find(s => s.data && String(s.data).slice(0,4) === String(currentYear));
+        const compLabel   = compUsed
+          ? (compThisYear?.data ? `Usato il ${fmtDate(compThisYear.data)}` : 'Utilizzato')
+          : 'Non ancora usato';
+        const compColor   = compUsed ? '#059669' : '#aaa';
+        const compHistRows = compList.length > 1
+          ? compList.filter(s => String(s.data||'').slice(0,4) !== String(currentYear)).map(s =>
+              `<div style="display:flex;justify-content:space-between;padding:2px 0 0 8px;font-size:11px;color:#94a3b8"><span>${String(s.data||'').slice(0,4)}</span><span>${fmtDate(s.data)}</span></div>`
+            ).join('')
+          : '';
+        return `
+          <div class="info-row"><span>${_t('label_sconto_compleanno','Sconto compleanno')} ${currentYear}</span><strong style="color:${compColor}">${compLabel}</strong></div>
+          <div class="info-row"><span>${_t('label_sconti_compleanno_usati','Sconti compleanno usati')}</span><strong>${t.sconti_compleanno_totali || 0}</strong></div>
+          ${compHistRows}`;
+      })()}
+      ${(() => {
+        const tessList = t.sconti_tessera_list || [];
+        const tessCount = t.sconti_tessera_usati || 0;
+        const tessDateRows = tessList.map(s =>
+          `<div style="display:flex;justify-content:space-between;padding:2px 0 0 8px;font-size:11px;color:#94a3b8"><span>${s.valore||''}</span><span>${fmtDate(s.data)}</span></div>`
+        ).join('');
+        return `<div class="info-row"><span>${_t('label_sconti_tessera','Sconti tessera utilizzati')}</span><strong>${tessCount}</strong></div>${tessDateRows}`;
+      })()}
 
       <div class="save-actions">
         <button class="btn-copy" data-tip="${_t('btn_salva_tip','Salva il link della tessera sul telefono')}" onclick="copyLink()">${_t('btn_salva','Salva tessera')}</button>
