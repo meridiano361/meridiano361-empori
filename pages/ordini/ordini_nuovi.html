@@ -607,9 +607,20 @@
                     <div id="azienda-ref-section" style="display:none" class="mt-3 pt-3 border-t border-dashed border-slate-200">
                         <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fas fa-user-tie" style="margin-right:4px"></i> Persona di riferimento</div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                            <input type="text" id="cust-ref-nome" placeholder="Nome *" class="form-input">
+                            <div class="relative">
+                                <input type="text" id="cust-ref-nome" placeholder="Nome *" class="form-input" autocomplete="off" oninput="searchRefCliente(this.value)">
+                                <div id="ref-ac-dropdown" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto text-sm"></div>
+                            </div>
                             <input type="text" id="cust-ref-cognome" placeholder="Cognome" class="form-input">
+                            <div class="relative">
+                                <input type="cel" id="cust-ref-cel" placeholder="Cellulare/Tel." class="form-input pr-10">
+                                <button type="button" id="btn-ref-wa" class="absolute right-3 top-3 transition-colors" style="color:#94a3b8" onclick="toggleRefWa()">
+                                    <i class="fab fa-whatsapp fa-lg"></i>
+                                </button>
+                            </div>
+                            <input type="email" id="cust-ref-email" placeholder="Email" class="form-input">
                         </div>
+                        <div id="ref-contact-err" style="display:none;font-size:11px;color:#B5453A;font-weight:700;margin-top:6px"><i class="fas fa-exclamation-circle"></i> Inserire cellulare/tel. o email della persona di riferimento</div>
                     </div>
                     <!-- Salva in rubrica: visibile quando il cliente NON è ancora in rubrica -->
                     <div id="salva-rubrica-bar" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
@@ -1357,6 +1368,47 @@ function calcSubtotal(groupId) {
             }
         }
 
+        let _refResults = [];
+        async function searchRefCliente(q) {
+            const dropdown = document.getElementById('ref-ac-dropdown');
+            if (!q || q.length < 2) { dropdown.classList.add('hidden'); return; }
+            try {
+                const { data } = await _supabase
+                    .from('clienti')
+                    .select('id,nome,cognome,telefono,email,wa')
+                    .or(`cognome.ilike.%${q}%,nome.ilike.%${q}%`)
+                    .order('cognome')
+                    .limit(8);
+                _refResults = data || [];
+                if (!_refResults.length) { dropdown.classList.add('hidden'); return; }
+                dropdown.innerHTML = _refResults.map((c, i) => `
+                    <div class="px-4 py-3 cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                         onclick="selectRefCliente(${i})">
+                        <div style="font-weight:700;color:#334155">${escHtml(c.cognome + ' ' + c.nome)}</div>
+                        ${c.telefono ? `<div style="font-size:11px;color:#94a3b8">${escHtml(c.telefono)}</div>` : ''}
+                    </div>`).join('');
+                dropdown.classList.remove('hidden');
+            } catch(e) {}
+        }
+        function selectRefCliente(i) {
+            const c = _refResults[i];
+            if (!c) return;
+            document.getElementById('cust-ref-nome').value    = c.nome     || '';
+            document.getElementById('cust-ref-cognome').value = c.cognome  || '';
+            document.getElementById('cust-ref-cel').value     = c.telefono || '';
+            document.getElementById('cust-ref-email').value   = c.email    || '';
+            document.getElementById('ref-ac-dropdown').classList.add('hidden');
+        }
+        let _refWaActive = false;
+        function toggleRefWa() {
+            _refWaActive = !_refWaActive;
+            document.getElementById('btn-ref-wa').style.color = _refWaActive ? '#25D366' : '#94a3b8';
+        }
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#azienda-ref-section'))
+                document.getElementById('ref-ac-dropdown')?.classList.add('hidden');
+        });
+
         function setSelectedCliente(c) {
             _selectedClienteId = c ? c.id : null;
             document.getElementById('rubrica-actions')?.classList.toggle('hidden', !_selectedClienteId);
@@ -1699,16 +1751,18 @@ function calcSubtotal(groupId) {
                 }
                 el.classList.remove('campo-errore');
             }
-            // Per aziende: almeno cellulare O email
+            // Per aziende: almeno ref-cel O ref-email
             if (isAz) {
-                const cel   = document.getElementById('cust-cel')?.value.trim();
-                const email = document.getElementById('cust-email')?.value.trim();
-                if (!cel && !email) {
-                    document.getElementById('cust-cel')?.classList.add('campo-errore');
+                const refCel   = document.getElementById('cust-ref-cel')?.value.trim();
+                const refEmail = document.getElementById('cust-ref-email')?.value.trim();
+                if (!refCel && !refEmail) {
+                    document.getElementById('cust-ref-cel')?.classList.add('campo-errore');
+                    document.getElementById('ref-contact-err').style.display = '';
                     await m361Alert('Inserire almeno un contatto (cellulare/tel. o email) per la persona di riferimento', '', 'warning');
                     return false;
                 }
-                document.getElementById('cust-cel')?.classList.remove('campo-errore');
+                document.getElementById('cust-ref-cel')?.classList.remove('campo-errore');
+                document.getElementById('ref-contact-err').style.display = 'none';
             }
             const righe = document.querySelectorAll('.product-row');
             if (!righe.length) {
@@ -1818,8 +1872,8 @@ function calcSubtotal(groupId) {
                     cliente_cognome: _custTipo === 'azienda' ? '' : (getValueSafe('cust-cognome') || ''),
                     ref_nome:    _custTipo === 'azienda' ? (getValueSafe('cust-ref-nome').trim() || null) : null,
                     ref_cognome: _custTipo === 'azienda' ? (getValueSafe('cust-ref-cognome').trim() || null) : null,
-                    cliente_cellulare: getValueSafe('cust-cel'),
-                    cliente_email: getValueSafe('cust-email'),
+                    cliente_cellulare: _custTipo === 'azienda' ? getValueSafe('cust-ref-cel') : getValueSafe('cust-cel'),
+                    cliente_email: _custTipo === 'azienda' ? getValueSafe('cust-ref-email') : getValueSafe('cust-email'),
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),
                     modalita_consegna: getCheckedValueSafe('mod_consegna'),
                     totale_ordine: itParse(document.getElementById('grand-total')?.textContent),

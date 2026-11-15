@@ -438,7 +438,10 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                             <input type="text" id="cust-ref-nome" placeholder="Nome *" class="form-input">
                             <input type="text" id="cust-ref-cognome" placeholder="Cognome" class="form-input">
+                            <input type="cel" id="cust-ref-cel" placeholder="Cellulare/Tel." class="form-input">
+                            <input type="email" id="cust-ref-email" placeholder="Email" class="form-input">
                         </div>
+                        <div id="ref-contact-err" style="display:none;font-size:11px;color:#B5453A;font-weight:700;margin-top:6px"><i class="fas fa-exclamation-circle"></i> Inserire cellulare/tel. o email della persona di riferimento</div>
                     </div>
                     <!-- Salva in rubrica: visibile quando il cliente NON è ancora in rubrica -->
                     <div id="salva-rubrica-bar" class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
@@ -752,8 +755,13 @@
                 setCustTipo('privato');
                 setValueSafe('cust-cognome', order.cliente_cognome);
             }
-            setValueSafe('cust-cel', order.cliente_cellulare);
-            setValueSafe('cust-email', order.cliente_email);
+            if (isAzOrd) {
+                setValueSafe('cust-ref-cel',   order.cliente_cellulare);
+                setValueSafe('cust-ref-email', order.cliente_email);
+            } else {
+                setValueSafe('cust-cel',   order.cliente_cellulare);
+                setValueSafe('cust-email', order.cliente_email);
+            }
             
             // WhatsApp
             const waBtn = document.getElementById('btn-wa');
@@ -1585,8 +1593,8 @@
                     cliente_cognome: _custTipo === 'azienda' ? '' : (document.getElementById('cust-cognome').value || ''),
                     ref_nome:    _custTipo === 'azienda' ? (document.getElementById('cust-ref-nome')?.value.trim() || null) : null,
                     ref_cognome: _custTipo === 'azienda' ? (document.getElementById('cust-ref-cognome')?.value.trim() || null) : null,
-                    cliente_cellulare: document.getElementById('cust-cel').value,
-                    cliente_email: document.getElementById('cust-email').value,
+                    cliente_cellulare: _custTipo === 'azienda' ? (document.getElementById('cust-ref-cel')?.value || '') : document.getElementById('cust-cel').value,
+                    cliente_email:     _custTipo === 'azienda' ? (document.getElementById('cust-ref-email')?.value || '') : document.getElementById('cust-email').value,
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),
                     modalita_consegna: document.querySelector('input[name="mod_consegna"]:checked').value,
                     totale_ordine: itParse(document.getElementById('grand-total').textContent),
