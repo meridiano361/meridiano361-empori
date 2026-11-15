@@ -1505,6 +1505,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             </div>
             <div class="modal-footer">
               <button class="btn-secondary" onclick="chiudiModalFrontalinoProd()">Annulla</button>
+              <button type="button" onclick="spostaFrInCatalogo()" style="background:#0f766e;color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" title="Sposta nel catalogo prodotti unificato ed elimina da frontalini"><i class="fas fa-arrow-right-to-bracket" style="margin-right:5px"></i>Sposta in Prodotti</button>
               <button class="btn-primary" id="modal-fr-prod-save" onclick="salvaProdFrontalino()">Salva</button>
             </div>
           </div>
@@ -1575,6 +1576,14 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
                 </div>
               </div>
               <div style="margin-top:14px">
+                <label style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:8px">Attributi</label>
+                <div style="display:flex;gap:16px;flex-wrap:wrap">
+                  <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-bio"> BIO</label>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-sg"> Senza Glutine</label>
+                  <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-veg"> Vegano</label>
+                </div>
+              </div>
+              <div style="margin-top:14px">
                 <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" id="prif-active" checked> Prodotto attivo</label>
               </div>
               <div style="margin-top:14px">
@@ -1598,6 +1607,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             </div>
             <div class="modal-footer">
               <button class="btn-secondary" onclick="chiudiModalFornituraProd()">Annulla</button>
+              <button type="button" onclick="spostaRifInCatalogo()" style="background:#0f766e;color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" title="Sposta nel catalogo prodotti unificato ed elimina da fornitura"><i class="fas fa-arrow-right-to-bracket" style="margin-right:5px"></i>Sposta in Prodotti</button>
               <button class="btn-primary" id="modal-rif-prod-save" onclick="salvaProdFornitura()">Salva</button>
             </div>
           </div>
@@ -6160,6 +6170,9 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         document.getElementById('prif-ca').checked    = !!p?.assortment_casalmaggiore;
         document.getElementById('prif-vi').checked    = !!p?.assortment_viadana;
         document.getElementById('prif-active').checked = p?.active !== false;
+        document.getElementById('prif-bio').checked   = !!p?.bio;
+        document.getElementById('prif-sg').checked    = !!p?.senza_glutine;
+        document.getElementById('prif-veg').checked   = !!p?.vegano;
         // foto
         _prifFotoUrl = p?.foto_url || null;
         const fImg = document.getElementById('prif-foto-img');
@@ -6225,6 +6238,9 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             assortment_casalmaggiore:document.getElementById('prif-ca').checked,
             assortment_viadana:      document.getElementById('prif-vi').checked,
             active:                  document.getElementById('prif-active').checked,
+            bio:                     document.getElementById('prif-bio').checked,
+            senza_glutine:           document.getElementById('prif-sg').checked,
+            vegano:                  document.getElementById('prif-veg').checked,
             foto_url:                _prifFotoUrl || null,
         };
         const { error } = _prodEditRifId != null
@@ -6241,6 +6257,70 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const { error } = await db.from('rifornimento_catalogo').delete().eq('id', id);
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         showToast('Prodotto eliminato', 'ok');
+        await caricaProdotti();
+    }
+
+    async function spostaFrInCatalogo() {
+        if (!_prodEditFrId) return;
+        if (!confirm('Sposta questo prodotto nel Catalogo Prodotti ed eliminalo dal catalogo frontalini?')) return;
+        const ivaVal = parseInt(document.getElementById('pfr-iva').value);
+        const payload = {
+            codice:      document.getElementById('pfr-codice').value.trim() || null,
+            descrizione: document.getElementById('pfr-descrizione').value.trim().toUpperCase(),
+            prezzo:      parseFloat(document.getElementById('pfr-prezzo').value) || null,
+            iva:         isNaN(ivaVal) ? null : ivaVal,
+            fornitore:   document.getElementById('pfr-fornitore').value.trim() || null,
+            marchio:     document.getElementById('pfr-marchio').value.trim() || null,
+            category:    document.getElementById('pfr-category').value.trim() || null,
+            pack_size:   parseInt(document.getElementById('pfr-pack').value) || null,
+            peso:        parseFloat(document.getElementById('pfr-peso').value) || null,
+            unita:       document.getElementById('pfr-unita').value || null,
+            bio:         document.getElementById('pfr-bio').checked,
+            senza_glutine: document.getElementById('pfr-sg').checked,
+            vegano:      document.getElementById('pfr-veg').checked,
+            note:        document.getElementById('pfr-note').value.trim() || null,
+            foto_url:    _pfrFotoUrl || null,
+            active:      true,
+        };
+        if (!payload.descrizione) { _showProdMsg('fr', 'La descrizione è obbligatoria', 'error'); return; }
+        const { error: insErr } = await db.from('prodotti_catalogo').insert(payload);
+        if (insErr) { _showProdMsg('fr', insErr.message, 'error'); return; }
+        const { error: delErr } = await db.from('frontalini_catalogo').delete().eq('id', _prodEditFrId);
+        if (delErr) { showToast('Inserito ma errore eliminazione originale: ' + delErr.message, 'err'); }
+        chiudiModalFrontalinoProd();
+        showToast('Prodotto spostato nel Catalogo Prodotti', 'ok');
+        await caricaProdotti();
+    }
+    async function spostaRifInCatalogo() {
+        if (!_prodEditRifId) return;
+        if (!confirm('Sposta questo prodotto nel Catalogo Prodotti ed eliminalo dal catalogo fornitura?')) return;
+        const payload = {
+            codice:      document.getElementById('prif-code').value.trim() || null,
+            descrizione: document.getElementById('prif-desc').value.trim().toUpperCase(),
+            prezzo:      parseFloat(document.getElementById('prif-pvp').value) || null,
+            fornitore:   document.getElementById('prif-forn').value.trim() || null,
+            marchio:     document.getElementById('prif-marchio').value.trim() || null,
+            category:    document.getElementById('prif-cat').value.trim() || null,
+            linea:       document.getElementById('prif-linea').value.trim() || null,
+            pack_size:   parseInt(document.getElementById('prif-pack').value) || null,
+            peso:        parseFloat(document.getElementById('prif-qty').value) || null,
+            unita:       document.getElementById('prif-um').value.trim() || null,
+            bio:         document.getElementById('prif-bio').checked,
+            senza_glutine: document.getElementById('prif-sg').checked,
+            vegano:      document.getElementById('prif-veg').checked,
+            assortment_cremona:       document.getElementById('prif-cr').checked,
+            assortment_casalmaggiore: document.getElementById('prif-ca').checked,
+            assortment_viadana:       document.getElementById('prif-vi').checked,
+            active:      document.getElementById('prif-active').checked,
+            foto_url:    _prifFotoUrl || null,
+        };
+        if (!payload.descrizione) { _showProdMsg('rif', 'La descrizione è obbligatoria', 'error'); return; }
+        const { error: insErr } = await db.from('prodotti_catalogo').insert(payload);
+        if (insErr) { _showProdMsg('rif', insErr.message, 'error'); return; }
+        const { error: delErr } = await db.from('rifornimento_catalogo').delete().eq('id', _prodEditRifId);
+        if (delErr) { showToast('Inserito ma errore eliminazione originale: ' + delErr.message, 'err'); }
+        chiudiModalFornituraProd();
+        showToast('Prodotto spostato nel Catalogo Prodotti', 'ok');
         await caricaProdotti();
     }
 
