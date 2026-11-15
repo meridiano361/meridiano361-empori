@@ -505,12 +505,19 @@ async function loadCard() {
           ${compHistRows}`;
       })()}
       ${(() => {
-        const tessList = t.sconti_tessera_list || [];
+        const tessList  = t.sconti_tessera_list || [];
         const tessCount = t.sconti_tessera_usati || 0;
+        if (!tessCount) return `<div class="info-row"><span>${_t('label_sconti_tessera','Sconti tessera utilizzati')}</span><strong>0</strong></div>`;
+        const uid = 'tess-dates-toggle';
         const tessDateRows = tessList.map(s =>
-          `<div style="display:flex;justify-content:space-between;padding:2px 0 0 8px;font-size:11px;color:#94a3b8"><span>${s.valore||''}</span><span>${fmtDate(s.data)}</span></div>`
+          `<div style="display:flex;justify-content:space-between;padding:3px 0 0 12px;font-size:11px;color:#94a3b8"><span>${s.valore||''}</span><span>${fmtDate(s.data)}</span></div>`
         ).join('');
-        return `<div class="info-row"><span>${_t('label_sconti_tessera','Sconti tessera utilizzati')}</span><strong>${tessCount}</strong></div>${tessDateRows}`;
+        return `
+          <div class="info-row" onclick="(function(){var el=document.getElementById('${uid}'),ar=document.getElementById('${uid}-arrow');if(el){var open=el.style.display!=='none';el.style.display=open?'none':'';if(ar)ar.textContent=open?'▸':'▾';}})()" style="cursor:pointer;user-select:none">
+            <span>${_t('label_sconti_tessera','Sconti tessera utilizzati')} <span id="${uid}-arrow" style="font-size:10px;color:#94a3b8">▸</span></span>
+            <strong>${tessCount}</strong>
+          </div>
+          <div id="${uid}" style="display:none">${tessDateRows}</div>`;
       })()}
 
       <div class="save-actions">
