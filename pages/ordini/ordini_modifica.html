@@ -290,6 +290,20 @@
 </head>
 <body class="pb-28">
 
+    <!-- Modal conferma lettura note interne -->
+    <div id="note-interne-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:none;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:28px 24px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="font-size:22px">📌</span>
+          <div style="font-size:11px;font-weight:800;color:#B5453A;text-transform:uppercase;letter-spacing:.1em">Note interne</div>
+        </div>
+        <div id="note-interne-modal-testo" style="font-size:15px;font-weight:600;color:#1e293b;line-height:1.6;background:#fef9c3;border:1.5px solid #fbbf24;border-radius:12px;padding:14px 16px;margin-bottom:20px;white-space:pre-wrap"></div>
+        <button onclick="document.getElementById('note-interne-modal').style.display='none'" style="width:100%;background:#B5453A;color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">
+          <i class="fas fa-check" style="margin-right:6px"></i> Ho letto le note interne
+        </button>
+      </div>
+    </div>
+
     <div id="loading-overlay">
         <i class="fas fa-circle-notch fa-spin text-5xl text-m361-red mb-4"></i>
         <p class="text-xs font-bold uppercase tracking-widest text-slate-500">Recupero dati ordine...</p>
@@ -418,6 +432,14 @@
                             </label>
                         </div>
                     </div>
+                    <!-- Persona di riferimento (solo Azienda / Assoc.) -->
+                    <div id="azienda-ref-section" style="display:none" class="mt-3 pt-3 border-t border-dashed border-slate-200">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fas fa-user-tie" style="margin-right:4px"></i> Persona di riferimento</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <input type="text" id="cust-ref-nome" placeholder="Nome *" class="form-input">
+                            <input type="text" id="cust-ref-cognome" placeholder="Cognome" class="form-input">
+                        </div>
+                    </div>
                     <!-- Salva in rubrica: visibile quando il cliente NON è ancora in rubrica -->
                     <div id="salva-rubrica-bar" class="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                         <button type="button" data-tip="Salva questo cliente nella rubrica" onclick="salvaBozzaInRubrica()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-emerald-100 transition-colors">
@@ -489,7 +511,7 @@
                     <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:4px">
                         <i class="fas fa-lock" style="font-size:9px"></i> Note interne
                     </div>
-                    <textarea id="order-notes" rows="3" class="form-input" placeholder="Visibili solo agli operatori…"></textarea>
+                    <textarea id="order-notes" rows="3" class="form-input" placeholder="Visibili solo agli operatori…" oninput="_aggiornaBorderNote(this)"></textarea>
                 </div>
                 <div>
                     <div style="font-size:10px;font-weight:800;color:#0369a1;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;display:flex;align-items:center;gap:4px">
@@ -538,6 +560,11 @@
         let ALL_EMPORI = ["Casalmaggiore", "Cremona", "Reggio Emilia", "Mantova", "Viadana"];
         let _custTipo = 'privato';
 
+        function _aggiornaBorderNote(el) {
+            el.style.borderColor = el.value.trim() ? '#fbbf24' : '';
+            el.style.background  = el.value.trim() ? '#fefce8' : '';
+        }
+
         function setCustTipo(tipo) {
             _custTipo = tipo;
             const isAz = tipo === 'azienda';
@@ -551,8 +578,15 @@
             nomeInput.placeholder = isAz ? 'Ragione sociale *' : 'Nome *';
             cogWrap.style.display = isAz ? 'none' : '';
             cogInput.required = !isAz;
+            if (isAz) { cogInput.value = ''; }
+            const celInput = document.getElementById('cust-cel');
+            if (celInput) {
+                celInput.required = !isAz;
+                celInput.placeholder = isAz ? 'Cellulare/Tel.' : 'Cellulare *';
+            }
+            const refSection = document.getElementById('azienda-ref-section');
+            if (refSection) refSection.style.display = isAz ? '' : 'none';
             if (isAz) {
-                cogInput.value = '';
                 document.getElementById('salva-rubrica-bar')?.classList.add('hidden');
                 document.getElementById('rubrica-actions')?.classList.add('hidden');
             }
@@ -709,8 +743,15 @@
             
             // Cliente
             setValueSafe('cust-nome', order.cliente_nome);
-            setValueSafe('cust-cognome', order.cliente_cognome);
-            if (!order.cliente_cognome) setCustTipo('azienda'); else setCustTipo('privato');
+            const isAzOrd = order.tipo_cliente === 'azienda' || (!order.tipo_cliente && (!order.cliente_cognome || order.cliente_cognome.trim() === ''));
+            if (isAzOrd) {
+                setCustTipo('azienda');
+                setValueSafe('cust-ref-nome',    order.ref_nome    || '');
+                setValueSafe('cust-ref-cognome', order.ref_cognome || '');
+            } else {
+                setCustTipo('privato');
+                setValueSafe('cust-cognome', order.cliente_cognome);
+            }
             setValueSafe('cust-cel', order.cliente_cellulare);
             setValueSafe('cust-email', order.cliente_email);
             
@@ -736,6 +777,13 @@
             // Note
             setValueSafe('order-notes', order.note);
             setValueSafe('order-notes-cliente', order.note_cliente);
+
+            // Mostra modal conferma lettura se ci sono note interne
+            if (order.note && order.note.trim()) {
+                const modal = document.getElementById('note-interne-modal');
+                document.getElementById('note-interne-modal-testo').textContent = order.note.trim();
+                modal.style.display = 'flex';
+            }
 
             // Titolo
             setValueSafe('titolo-ordine', order.titolo || '');
@@ -1528,12 +1576,15 @@
 
                 const orderData = {
                     tipo_ordine: currentType,
+                    tipo_cliente: _custTipo || 'privato',
                     emporio: document.getElementById('select-emporio').value,
                     canale: document.getElementById('select-canale')?.value || null,
                     operatore: document.getElementById('select-operatore').value,
                     data_ordine: document.getElementById('order-date').value,
                     cliente_nome: document.getElementById('cust-nome').value,
                     cliente_cognome: _custTipo === 'azienda' ? '' : (document.getElementById('cust-cognome').value || ''),
+                    ref_nome:    _custTipo === 'azienda' ? (document.getElementById('cust-ref-nome')?.value.trim() || null) : null,
+                    ref_cognome: _custTipo === 'azienda' ? (document.getElementById('cust-ref-cognome')?.value.trim() || null) : null,
                     cliente_cellulare: document.getElementById('cust-cel').value,
                     cliente_email: document.getElementById('cust-email').value,
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),

@@ -603,6 +603,14 @@
                             </label>
                         </div>
                     </div>
+                    <!-- Persona di riferimento (solo Azienda / Assoc.) -->
+                    <div id="azienda-ref-section" style="display:none" class="mt-3 pt-3 border-t border-dashed border-slate-200">
+                        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fas fa-user-tie" style="margin-right:4px"></i> Persona di riferimento</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <input type="text" id="cust-ref-nome" placeholder="Nome *" class="form-input">
+                            <input type="text" id="cust-ref-cognome" placeholder="Cognome" class="form-input">
+                        </div>
+                    </div>
                     <!-- Salva in rubrica: visibile quando il cliente NON è ancora in rubrica -->
                     <div id="salva-rubrica-bar" class="hidden flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                         <button type="button" data-tip="Salva questo cliente nella rubrica" onclick="salvaBozzaInRubrica()" class="text-xs font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg px-3 py-1.5 flex items-center gap-1 hover:bg-emerald-100 transition-colors">
@@ -1297,6 +1305,21 @@ function calcSubtotal(groupId) {
             cogWrap.style.display = isAz ? 'none' : '';
             cogInput.required = !isAz;
             if (isAz) { cogInput.value = ''; }
+            // Cellulare: non obbligatorio per aziende (si valida cel OR email)
+            const celInput = document.getElementById('cust-cel');
+            if (celInput) {
+                celInput.required = !isAz;
+                celInput.placeholder = isAz ? 'Cellulare/Tel.' : 'Cellulare *';
+            }
+            // Sezione persona di riferimento
+            const refSection = document.getElementById('azienda-ref-section');
+            if (refSection) refSection.style.display = isAz ? '' : 'none';
+            if (!isAz) {
+                const rn = document.getElementById('cust-ref-nome');
+                const rc = document.getElementById('cust-ref-cognome');
+                if (rn) rn.value = '';
+                if (rc) rc.value = '';
+            }
             if (isAz) {
                 document.getElementById('salva-rubrica-bar')?.classList.add('hidden');
                 document.getElementById('rubrica-actions')?.classList.add('hidden');
@@ -1655,11 +1678,16 @@ function calcSubtotal(groupId) {
         }
 
         async function validaFormOrdine() {
+            const isAz = _custTipo === 'azienda';
             const campiObbligatori = [
                 { id: 'select-emporio', label: 'Emporio' },
-                { id: 'cust-nome',      label: 'Nome cliente' },
-                { id: 'cust-cognome',   label: 'Cognome cliente' },
-                { id: 'cust-cel',       label: 'Cellulare cliente' },
+                { id: 'cust-nome', label: isAz ? 'Ragione sociale' : 'Nome cliente' },
+                ...(!isAz ? [
+                    { id: 'cust-cognome', label: 'Cognome cliente' },
+                    { id: 'cust-cel',     label: 'Cellulare cliente' },
+                ] : [
+                    { id: 'cust-ref-nome', label: 'Nome persona di riferimento' },
+                ]),
             ];
             for (const campo of campiObbligatori) {
                 const el = document.getElementById(campo.id);
@@ -1670,6 +1698,17 @@ function calcSubtotal(groupId) {
                     return false;
                 }
                 el.classList.remove('campo-errore');
+            }
+            // Per aziende: almeno cellulare O email
+            if (isAz) {
+                const cel   = document.getElementById('cust-cel')?.value.trim();
+                const email = document.getElementById('cust-email')?.value.trim();
+                if (!cel && !email) {
+                    document.getElementById('cust-cel')?.classList.add('campo-errore');
+                    await m361Alert('Inserire almeno un contatto (cellulare/tel. o email) per la persona di riferimento', '', 'warning');
+                    return false;
+                }
+                document.getElementById('cust-cel')?.classList.remove('campo-errore');
             }
             const righe = document.querySelectorAll('.product-row');
             if (!righe.length) {
@@ -1774,8 +1813,11 @@ function calcSubtotal(groupId) {
                     canale: document.getElementById('select-canale')?.value || null,
                     operatore: getValueSafe('select-operatore'),
                     data_ordine: document.getElementById('order-date').value || today,
+                    tipo_cliente: _custTipo || 'privato',
                     cliente_nome: getValueSafe('cust-nome'),
-                    cliente_cognome: _custTipo === 'azienda' ? null : (getValueSafe('cust-cognome') || null),
+                    cliente_cognome: _custTipo === 'azienda' ? '' : (getValueSafe('cust-cognome') || ''),
+                    ref_nome:    _custTipo === 'azienda' ? (getValueSafe('cust-ref-nome').trim() || null) : null,
+                    ref_cognome: _custTipo === 'azienda' ? (getValueSafe('cust-ref-cognome').trim() || null) : null,
                     cliente_cellulare: getValueSafe('cust-cel'),
                     cliente_email: getValueSafe('cust-email'),
                     wa_attivo: document.getElementById('btn-wa').classList.contains('wa-active'),
