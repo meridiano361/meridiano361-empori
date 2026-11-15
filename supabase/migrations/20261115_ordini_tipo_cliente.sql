@@ -4,12 +4,16 @@
 ALTER TABLE public.ordini_incorso
   ADD COLUMN IF NOT EXISTS tipo_cliente       text NOT NULL DEFAULT 'privato',
   ADD COLUMN IF NOT EXISTS ref_nome           text,
-  ADD COLUMN IF NOT EXISTS ref_cognome        text;
+  ADD COLUMN IF NOT EXISTS ref_cognome        text,
+  ADD COLUMN IF NOT EXISTS ref_telefono       text,
+  ADD COLUMN IF NOT EXISTS ref_email          text;
 
 ALTER TABLE public.ordini_archiviati
   ADD COLUMN IF NOT EXISTS tipo_cliente       text NOT NULL DEFAULT 'privato',
   ADD COLUMN IF NOT EXISTS ref_nome           text,
-  ADD COLUMN IF NOT EXISTS ref_cognome        text;
+  ADD COLUMN IF NOT EXISTS ref_cognome        text,
+  ADD COLUMN IF NOT EXISTS ref_telefono       text,
+  ADD COLUMN IF NOT EXISTS ref_email          text;
 
 -- Backfill: ordini con cliente_cognome vuoto erano già aziende
 UPDATE public.ordini_incorso
