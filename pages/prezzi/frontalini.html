@@ -457,7 +457,8 @@ function bandTextColor(hex) {
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let _view     = 'selezione';   // 'selezione' | 'bozza' | 'stampa' | 'impostazioni'
-let _catalogo = [];
+let _catalogo    = [];
+let _catalogoSrc = 'frontalini'; // 'frontalini' | 'prodotti'
 let _draft    = [];
 let _sel      = new Set();     // IDs prodotti selezionati nel catalogo
 let _addCopie = 1;
@@ -595,10 +596,43 @@ async function loadCatalogo() {
   try {
     const { data, error } = await db.from('frontalini_catalogo').select('*').order('descrizione');
     if (error) throw error;
-    _catalogo = data || [];
+    if (data && data.length > 0) {
+      _catalogo    = data;
+      _catalogoSrc = 'frontalini';
+    } else {
+      // frontalini_catalogo vuoto → fallback su prodotti_catalogo
+      const { data: pu } = await db.from('prodotti_catalogo').select('*').order('descrizione');
+      _catalogo = (pu || []).map(p => ({
+        id: p.id, codice: p.codice, descrizione: p.descrizione,
+        peso: p.peso, unita: p.unita, prezzo: p.prezzo,
+        fornitore: p.fornitore, marchio: p.marchio,
+        bio: !!p.bio, senza_glutine: !!p.senza_glutine, vegano: !!p.vegano,
+        note: p.note, foto_url: p.foto_url, sito_url: p.sito_url,
+        category: p.category,
+      }));
+      _catalogoSrc = 'prodotti';
+    }
   } catch(e) {
-    console.warn('frontalini_catalogo non disponibile:', e.message);
+    console.warn('Errore caricamento catalogo:', e.message);
     _catalogo = [];
+  }
+  _aggiornaBannerFonte();
+}
+
+function _aggiornaBannerFonte() {
+  let el = document.getElementById('banner-catalogo-src');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'banner-catalogo-src';
+    el.style.cssText = 'background:#fef3c7;border:1.5px solid #fbbf24;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:#92400e;margin:8px 0 4px';
+    const wrap = document.getElementById('catalog-wrap') || document.querySelector('.catalog-search-wrap') || document.body;
+    wrap.prepend(el);
+  }
+  if (_catalogoSrc === 'prodotti') {
+    el.style.display = '';
+    el.textContent = '⚠️ frontalini_catalogo vuoto — visualizzazione da prodotti_catalogo. Per ripristinare le foto vai su Supabase Dashboard → Backups.';
+  } else {
+    el.style.display = 'none';
   }
 }
 
@@ -680,7 +714,8 @@ async function saveCatEditModal() {
   if (!desc) { alert('La descrizione è obbligatoria.'); g('ce-desc')?.focus(); return; }
   const btn = g('modal-cat-edit').querySelector('.btn-red');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
-  const { error } = await db.from('frontalini_catalogo').update({
+  const tbl = _catalogoSrc === 'prodotti' ? 'prodotti_catalogo' : 'frontalini_catalogo';
+  const { error } = await db.from(tbl).update({
     descrizione:       desc,
     codice:            g('ce-codice').value.trim() || null,
     prezzo:            g('ce-prezzo').value !== '' ? parseFloat(g('ce-prezzo').value) : null,
@@ -704,7 +739,8 @@ async function deleteCatItem() {
   const p = _catalogo.find(c => c.id === _catEditId);
   if (!p) return;
   if (!confirm(`Eliminare "${p.descrizione}" dal catalogo?\nL'azione non può essere annullata.`)) return;
-  const { error } = await db.from('frontalini_catalogo').delete().eq('id', _catEditId);
+  const tbl = _catalogoSrc === 'prodotti' ? 'prodotti_catalogo' : 'frontalini_catalogo';
+  const { error } = await db.from(tbl).delete().eq('id', _catEditId);
   if (error) { alert('Errore eliminazione: ' + error.message); return; }
   await loadCatalogo();
   closeCatEditModal();
@@ -715,7 +751,8 @@ async function quickDeleteCat(id) {
   const p = _catalogo.find(c => c.id === id);
   if (!p) return;
   if (!confirm(`Eliminare "${p.descrizione}" dal catalogo?`)) return;
-  const { error } = await db.from('frontalini_catalogo').delete().eq('id', id);
+  const tbl = _catalogoSrc === 'prodotti' ? 'prodotti_catalogo' : 'frontalini_catalogo';
+  const { error } = await db.from(tbl).delete().eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
   await loadCatalogo();
   R();
@@ -1297,7 +1334,8 @@ async function saveManModal() {
   // Salva nel catalogo se richiesto
   const saveCat = !_manEditId && g('man-save-cat')?.checked;
   if (saveCat) {
-    const { error } = await db.from('frontalini_catalogo').insert([{
+    const tbl = _catalogoSrc === 'prodotti' ? 'prodotti_catalogo' : 'frontalini_catalogo';
+    const { error } = await db.from(tbl).insert([{
       codice: f.codice || null,
       descrizione: f.descrizione,
       peso: f.peso, unita: f.unita, prezzo: f.prezzo,

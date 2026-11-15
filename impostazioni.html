@@ -5936,7 +5936,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     async function eliminaSelezionati() {
         const n = _selProd.size;
         if (!n) return;
-        if (!confirm(`Eliminare ${n} prodott${n===1?'o':'i'} selezionat${n===1?'o':'i'}? L'operazione non è reversibile.`)) return;
         const frIds = [], rfIds = [], puIds = [];
         _selProd.forEach(key => {
             const [src, id] = key.split(':');
@@ -5944,6 +5943,11 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             else if (src === 'fornitura') rfIds.push(Number(id));
             else puIds.push(Number(id));
         });
+        const frConFoto = frIds.filter(id => _prodFrontalini.find(p => p.id === id && p.foto_url));
+        let msg = `Eliminare ${n} prodott${n===1?'o':'i'} selezionat${n===1?'o':'i'}?\n\nQuesta operazione NON è reversibile.`;
+        if (frConFoto.length > 0) msg += `\n\n⚠️ ATTENZIONE: ${frConFoto.length} prodott${frConFoto.length===1?'o':'i'} hann${frConFoto.length===1?'o':'o'} una foto — eliminandol${frConFoto.length===1?'o':'i'} perderai il collegamento foto↔prodotto.`;
+        if (frIds.length > 10) msg += `\n\n⚠️ Stai eliminando ${frIds.length} prodotti FRONTALINI. Sicuro?`;
+        if (!confirm(msg)) return;
         const ops = [];
         if (frIds.length) ops.push(db.from('frontalini_catalogo').delete().in('id', frIds));
         if (rfIds.length) ops.push(db.from('rifornimento_catalogo').delete().in('id', rfIds));
