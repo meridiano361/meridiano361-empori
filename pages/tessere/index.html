@@ -1036,6 +1036,11 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <button onclick="chiudiSpesaModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#94a3b8"><i class="fas fa-xmark"></i></button>
     </div>
     <p id="spesa-modal-sub">Inserisci l'importo della spesa</p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <label style="font-size:12px;font-weight:700;color:#64748b;white-space:nowrap">Data:</label>
+      <input type="date" id="spesa-data" style="font-size:13px;font-weight:700;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-family:inherit;flex:1" onchange="aggiornaLabelDataSpesa()">
+      <span id="spesa-data-label" style="font-size:11px;color:#94a3b8;white-space:nowrap"></span>
+    </div>
     <input class="importo-input" type="number" id="spesa-importo" placeholder="0" min="0" step="0.50" oninput="aggiornaPreviewSpesa()">
     <div class="importo-preview" id="spesa-preview"></div>
     <div style="display:flex;gap:8px">
@@ -7126,6 +7131,9 @@ function apriSpesaModal(tesseraId) {
     `Timbri attuali: ${t?.timbri_attuali || 0}/${DIG_TIMBRI_MAX} · ogni €${digEuroTimbro(_digSpesaTipo)} = 1 timbro`;
   document.getElementById('spesa-importo').value = '';
   document.getElementById('spesa-preview').textContent = '';
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('spesa-data').value = today;
+  document.getElementById('spesa-data-label').textContent = '';
   const box = document.getElementById('wa-success-box');
   box.classList.remove('show');
   document.getElementById('sconto-subito-box').style.display = 'none';
@@ -7139,6 +7147,15 @@ function chiudiSpesaModal() {
   document.getElementById('sconto-subito-box').style.display = 'none';
   _digSpesaTesseraId = null;
   _scontoSubitoData  = null;
+}
+
+function aggiornaLabelDataSpesa() {
+  const val  = document.getElementById('spesa-data').value;
+  const today = new Date().toISOString().split('T')[0];
+  const lbl  = document.getElementById('spesa-data-label');
+  if (!val || val === today) { lbl.textContent = 'oggi'; return; }
+  const d = new Date(val + 'T12:00:00');
+  lbl.textContent = d.toLocaleDateString('it-IT', { day:'numeric', month:'short' });
 }
 
 function aggiornaPreviewSpesa() {
@@ -7199,12 +7216,15 @@ async function salvaSpesa() {
 
   try {
     // movimenti_tessera: inserimento opzionale (non blocca se la tabella non è configurata)
+    const dataSpesa = document.getElementById('spesa-data')?.value;
+    const created_at = dataSpesa ? new Date(dataSpesa + 'T12:00:00').toISOString() : new Date().toISOString();
     await _sb.from('movimenti_tessera').insert({
       tessera_id:      _digSpesaTesseraId,
       importo,
       timbri_aggiunti: timbriNuovi,
       sconto_generato: scontoGenerato,
-      operatore:       _user?.nome || ''
+      operatore:       _user?.nome || '',
+      created_at,
     }).then(({ error }) => { if (error) console.warn('[movimenti_tessera]', error.message); });
 
     const { error: errUpd } = await _sb.from('tessere').update({
