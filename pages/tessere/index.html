@@ -546,9 +546,31 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
         <i class="fas fa-rotate"></i> Da cartacea
       </button>
     </div>
-    <div class="dig-search-wrap" style="margin-bottom:14px">
+    <div class="dig-search-wrap" style="margin-bottom:10px">
       <i class="fas fa-search"></i>
       <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice…" oninput="renderDigitale()" autocomplete="off">
+    </div>
+    <div class="chip-group" style="margin-bottom:6px" id="dig-tipo-chips">
+      <div class="chip active" onclick="setDigFilter('tipo','',this)">Tutti</div>
+      <div class="chip" onclick="setDigFilter('tipo','standard',this)">Standard</div>
+      <div class="chip amb-chip" onclick="setDigFilter('tipo','ambassador',this)">Ambassador</div>
+    </div>
+    <div class="chip-group" style="margin-bottom:6px" id="dig-emp-chips">
+      <div class="chip active" onclick="setDigFilter('emp','',this)">Tutti</div>
+      <div class="chip" onclick="setDigFilter('emp','cremona',this)">Cremona</div>
+      <div class="chip" onclick="setDigFilter('emp','casalmaggiore',this)">Casalmaggiore</div>
+      <div class="chip" onclick="setDigFilter('emp','viadana',this)">Viadana</div>
+      <div class="chip" onclick="setDigFilter('emp','reggio emilia',this)">Reggio E.</div>
+    </div>
+    <div class="chip-group" style="margin-bottom:6px" id="dig-timbri-chips">
+      <div class="chip active" onclick="setDigFilter('timbri','',this)">Tutti</div>
+      <div class="chip" onclick="setDigFilter('timbri','vuota',this)">Vuota</div>
+      <div class="chip" onclick="setDigFilter('timbri','incorso',this)">In corso</div>
+      <div class="chip" onclick="setDigFilter('timbri','completa',this)">Completa</div>
+    </div>
+    <div class="chip-group" style="margin-bottom:14px">
+      <div class="chip" id="dig-sconto-chip" onclick="toggleDigChip('sconto',this)">Con sconto</div>
+      <div class="chip" id="dig-wa-chip" onclick="toggleDigChip('wa',this)">Con WA</div>
     </div>
     <div id="dig-grid"></div>
   </div>
@@ -5056,7 +5078,7 @@ function _formatProvincia(el) {
 }
 
 function _capitalizzaCitta(s) {
-  return (s || '').trim().replace(/\b\w/g, c => c.toUpperCase());
+  return (s || '').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function autoProvincia(sourceId) {
@@ -5932,6 +5954,25 @@ async function confirmMerge() {
 // ── TESSERE DIGITALI ──────────────────────────────────────────────────────────
 let DIG_TIMBRI_MAX = 12;
 const _digExpanded = new Set(); // cards expanded by user; default is collapsed
+
+let _digTipoFilter   = '';
+let _digEmpFilter    = '';
+let _digTimbriFilter = '';
+let _digScontoFilter = false;
+let _digWaFilter     = false;
+
+function setDigFilter(key, val, el) {
+  if (key === 'tipo')   { _digTipoFilter   = val; document.querySelectorAll('#dig-tipo-chips .chip').forEach(c => c.classList.remove('active')); }
+  if (key === 'emp')    { _digEmpFilter    = val; document.querySelectorAll('#dig-emp-chips .chip').forEach(c => c.classList.remove('active')); }
+  if (key === 'timbri') { _digTimbriFilter = val; document.querySelectorAll('#dig-timbri-chips .chip').forEach(c => c.classList.remove('active')); }
+  el.classList.add('active');
+  renderDigitale();
+}
+function toggleDigChip(key, el) {
+  if (key === 'sconto') { _digScontoFilter = !_digScontoFilter; el.classList.toggle('active', _digScontoFilter); }
+  if (key === 'wa')     { _digWaFilter     = !_digWaFilter;     el.classList.toggle('active', _digWaFilter); }
+  renderDigitale();
+}
 // Regole per tipo: Standard €25→€20, Ambassador €30→€25
 function digEuroTimbro(tipo) { return _tesseraConfig[tipo]?.euro_per_timbro ?? (tipo === 'ambassador' ? 30 : 25); }
 function digSconto(tipo)     { return _tesseraConfig[tipo]?.sconto_ciclo    ?? (tipo === 'ambassador' ? 25 : 20); }
@@ -5968,9 +6009,21 @@ function renderDigitale() {
     .map(t => ({ t, c: cMap.get(t.cliente_id) }))
     .filter(({ t, c }) => {
       if (!c) return false;
-      if (!q) return true;
-      const hay = `${c.nome} ${c.cognome} ${t.codice_tessera || ''}`.toLowerCase();
-      return hay.includes(q);
+      if (q) {
+        const hay = `${c.nome} ${c.cognome} ${t.codice_tessera || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (_digTipoFilter && t.tipo !== _digTipoFilter) return false;
+      if (_digEmpFilter  && t.emporio !== _digEmpFilter) return false;
+      if (_digTimbriFilter) {
+        const tim = t.timbri_attuali || 0;
+        if (_digTimbriFilter === 'vuota'   && tim !== 0)                    return false;
+        if (_digTimbriFilter === 'incorso' && (tim === 0 || tim >= DIG_TIMBRI_MAX)) return false;
+        if (_digTimbriFilter === 'completa'&& tim < DIG_TIMBRI_MAX)         return false;
+      }
+      if (_digScontoFilter && !((t.saldo_sconto || 0) > 0)) return false;
+      if (_digWaFilter     && !c.wa)                        return false;
+      return true;
     })
     .sort((a, b) => `${a.c.cognome}${a.c.nome}`.localeCompare(`${b.c.cognome}${b.c.nome}`));
 
@@ -7017,10 +7070,22 @@ async function setTimbriOmaggio(tesseraId, nuovi) {
   _updateHomeStats();
 }
 
-function aggiungiTimbroOmaggio(tesseraId) {
+async function aggiungiTimbroOmaggio(tesseraId) {
   const t = allTessere.find(x => x.id === tesseraId);
   if (!t) return;
-  setTimbriOmaggio(tesseraId, (t.timbri_attuali || 0) + 1);
+  await setTimbriOmaggio(tesseraId, (t.timbri_attuali || 0) + 1);
+  const tUpd = allTessere.find(x => x.id === tesseraId);
+  const c    = allClienti.find(x => x.id === t.cliente_id);
+  const tel  = (c?.telefono || '').replace(/\D/g, '');
+  if (!tel || !(tUpd?.token || tUpd?.slug)) return;
+  const nome = c ? `${c.nome||''} ${c.cognome||''}`.trim() : '';
+  const timbriNuovi = tUpd?.timbri_attuali || 0;
+  const cartaUrl = tUpd.slug
+    ? `${location.origin}/tessera/${tUpd.slug}`
+    : `${location.origin}/pages/tessere/carta.html?t=${tUpd.token}`;
+  const completa = timbriNuovi >= DIG_TIMBRI_MAX;
+  const msg = `Ciao ${nome}! 🎁\n\nAbbiamo aggiunto 1 timbro omaggio alla tua Tessera Fedeltà Meridiano 361.\n\nOra hai ${timbriNuovi}/${DIG_TIMBRI_MAX} timbri.${completa ? ' 🎉 Hai completato la tessera!' : ''}\n\n📲 Vedi la tua tessera aggiornata:\n${cartaUrl}`;
+  window.open(_waUrl(tel, msg), '_blank');
 }
 
 function rimuoviTimbro(tesseraId) {
