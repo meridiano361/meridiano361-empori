@@ -1511,11 +1511,16 @@
 
         // UPDATE ORDER
         function validaFormOrdine() {
+            const isAz = _custTipo === 'azienda';
             const campiObbligatori = [
                 { id: 'select-emporio', label: 'Emporio' },
-                { id: 'cust-nome',      label: _custTipo === 'azienda' ? 'Ragione sociale' : 'Nome cliente' },
-                ...(_custTipo !== 'azienda' ? [{ id: 'cust-cognome', label: 'Cognome cliente' }] : []),
-                { id: 'cust-cel',       label: 'Cellulare cliente' },
+                { id: 'cust-nome',      label: isAz ? 'Ragione sociale' : 'Nome cliente' },
+                ...(!isAz ? [
+                    { id: 'cust-cognome', label: 'Cognome cliente' },
+                    { id: 'cust-cel',     label: 'Cellulare cliente' },
+                ] : [
+                    { id: 'cust-ref-nome', label: 'Nome persona di riferimento' },
+                ]),
             ];
             for (const campo of campiObbligatori) {
                 const el = document.getElementById(campo.id);
@@ -1526,6 +1531,18 @@
                     return false;
                 }
                 el.classList.remove('campo-errore');
+            }
+            if (isAz) {
+                const refCel   = document.getElementById('cust-ref-cel')?.value.trim();
+                const refEmail = document.getElementById('cust-ref-email')?.value.trim();
+                if (!refCel && !refEmail) {
+                    document.getElementById('cust-ref-cel')?.classList.add('campo-errore');
+                    document.getElementById('ref-contact-err').style.display = '';
+                    alert('Inserire almeno cellulare/tel. o email della persona di riferimento');
+                    return false;
+                }
+                document.getElementById('cust-ref-cel')?.classList.remove('campo-errore');
+                document.getElementById('ref-contact-err').style.display = 'none';
             }
             const righe = document.querySelectorAll('.product-row');
             if (!righe.length) {

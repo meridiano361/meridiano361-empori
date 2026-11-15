@@ -550,27 +550,30 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
       <i class="fas fa-search"></i>
       <input class="dig-search" type="text" id="dig-search" placeholder="Cerca cliente o codice…" oninput="renderDigitale()" autocomplete="off">
     </div>
-    <div class="chip-group" style="margin-bottom:6px" id="dig-tipo-chips">
-      <div class="chip active" onclick="setDigFilter('tipo','',this)">Tutti</div>
-      <div class="chip" onclick="setDigFilter('tipo','standard',this)">Standard</div>
-      <div class="chip amb-chip" onclick="setDigFilter('tipo','ambassador',this)">Ambassador</div>
-    </div>
-    <div class="chip-group" style="margin-bottom:6px" id="dig-emp-chips">
-      <div class="chip active" onclick="setDigFilter('emp','',this)">Tutti</div>
-      <div class="chip" onclick="setDigFilter('emp','cremona',this)">Cremona</div>
-      <div class="chip" onclick="setDigFilter('emp','casalmaggiore',this)">Casalmaggiore</div>
-      <div class="chip" onclick="setDigFilter('emp','viadana',this)">Viadana</div>
-      <div class="chip" onclick="setDigFilter('emp','reggio emilia',this)">Reggio E.</div>
-    </div>
-    <div class="chip-group" style="margin-bottom:6px" id="dig-timbri-chips">
-      <div class="chip active" onclick="setDigFilter('timbri','',this)">Tutti</div>
-      <div class="chip" onclick="setDigFilter('timbri','vuota',this)">Vuota</div>
-      <div class="chip" onclick="setDigFilter('timbri','incorso',this)">In corso</div>
-      <div class="chip" onclick="setDigFilter('timbri','completa',this)">Completa</div>
-    </div>
-    <div class="chip-group" style="margin-bottom:14px">
-      <div class="chip" id="dig-sconto-chip" onclick="toggleDigChip('sconto',this)">Con sconto</div>
-      <div class="chip" id="dig-wa-chip" onclick="toggleDigChip('wa',this)">Con WA</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      <select id="dig-filter-tipo" onchange="renderDigitale()" style="font-size:12px;font-weight:700;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;cursor:pointer;font-family:inherit">
+        <option value="">Tipo: tutti</option>
+        <option value="standard">Standard</option>
+        <option value="ambassador">Ambassador</option>
+      </select>
+      <select id="dig-filter-emp" onchange="renderDigitale()" style="font-size:12px;font-weight:700;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;cursor:pointer;font-family:inherit">
+        <option value="">Emporio: tutti</option>
+        <option value="cremona">Cremona</option>
+        <option value="casalmaggiore">Casalmaggiore</option>
+        <option value="viadana">Viadana</option>
+        <option value="reggio emilia">Reggio Emilia</option>
+      </select>
+      <select id="dig-filter-timbri" onchange="renderDigitale()" style="font-size:12px;font-weight:700;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;cursor:pointer;font-family:inherit">
+        <option value="">Timbri: tutti</option>
+        <option value="vuota">Vuota (0)</option>
+        <option value="incorso">In corso</option>
+        <option value="completa">Completa</option>
+      </select>
+      <select id="dig-filter-extra" onchange="renderDigitale()" style="font-size:12px;font-weight:700;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;cursor:pointer;font-family:inherit">
+        <option value="">Extra: tutti</option>
+        <option value="sconto">Con sconto</option>
+        <option value="wa">Con WhatsApp</option>
+      </select>
     </div>
     <div id="dig-grid"></div>
   </div>
@@ -5955,23 +5958,13 @@ async function confirmMerge() {
 let DIG_TIMBRI_MAX = 12;
 const _digExpanded = new Set(); // cards expanded by user; default is collapsed
 
-let _digTipoFilter   = '';
-let _digEmpFilter    = '';
-let _digTimbriFilter = '';
-let _digScontoFilter = false;
-let _digWaFilter     = false;
-
-function setDigFilter(key, val, el) {
-  if (key === 'tipo')   { _digTipoFilter   = val; document.querySelectorAll('#dig-tipo-chips .chip').forEach(c => c.classList.remove('active')); }
-  if (key === 'emp')    { _digEmpFilter    = val; document.querySelectorAll('#dig-emp-chips .chip').forEach(c => c.classList.remove('active')); }
-  if (key === 'timbri') { _digTimbriFilter = val; document.querySelectorAll('#dig-timbri-chips .chip').forEach(c => c.classList.remove('active')); }
-  el.classList.add('active');
-  renderDigitale();
-}
-function toggleDigChip(key, el) {
-  if (key === 'sconto') { _digScontoFilter = !_digScontoFilter; el.classList.toggle('active', _digScontoFilter); }
-  if (key === 'wa')     { _digWaFilter     = !_digWaFilter;     el.classList.toggle('active', _digWaFilter); }
-  renderDigitale();
+function _digFilters() {
+  return {
+    tipo:   document.getElementById('dig-filter-tipo')?.value  || '',
+    emp:    document.getElementById('dig-filter-emp')?.value   || '',
+    timbri: document.getElementById('dig-filter-timbri')?.value|| '',
+    extra:  document.getElementById('dig-filter-extra')?.value || '',
+  };
 }
 // Regole per tipo: Standard €25→€20, Ambassador €30→€25
 function digEuroTimbro(tipo) { return _tesseraConfig[tipo]?.euro_per_timbro ?? (tipo === 'ambassador' ? 30 : 25); }
@@ -6005,6 +5998,7 @@ function renderDigitale() {
   const cMap = new Map(allClienti.map(c => [c.id, c]));
   const tessereAttive = allTessere.filter(t => t.attiva !== false && t.ha_carta_digitale);
 
+  const { tipo, emp, timbri: fTimbri, extra } = _digFilters();
   let righe = tessereAttive
     .map(t => ({ t, c: cMap.get(t.cliente_id) }))
     .filter(({ t, c }) => {
@@ -6013,16 +6007,16 @@ function renderDigitale() {
         const hay = `${c.nome} ${c.cognome} ${t.codice_tessera || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (_digTipoFilter && t.tipo !== _digTipoFilter) return false;
-      if (_digEmpFilter  && t.emporio !== _digEmpFilter) return false;
-      if (_digTimbriFilter) {
+      if (tipo && t.tipo !== tipo) return false;
+      if (emp  && t.emporio !== emp) return false;
+      if (fTimbri) {
         const tim = t.timbri_attuali || 0;
-        if (_digTimbriFilter === 'vuota'   && tim !== 0)                    return false;
-        if (_digTimbriFilter === 'incorso' && (tim === 0 || tim >= DIG_TIMBRI_MAX)) return false;
-        if (_digTimbriFilter === 'completa'&& tim < DIG_TIMBRI_MAX)         return false;
+        if (fTimbri === 'vuota'   && tim !== 0)                     return false;
+        if (fTimbri === 'incorso' && (tim === 0 || tim >= DIG_TIMBRI_MAX)) return false;
+        if (fTimbri === 'completa'&& tim < DIG_TIMBRI_MAX)          return false;
       }
-      if (_digScontoFilter && !((t.saldo_sconto || 0) > 0)) return false;
-      if (_digWaFilter     && !c.wa)                        return false;
+      if (extra === 'sconto' && !((t.saldo_sconto || 0) > 0)) return false;
+      if (extra === 'wa'     && !c.wa)                        return false;
       return true;
     })
     .sort((a, b) => `${a.c.cognome}${a.c.nome}`.localeCompare(`${b.c.cognome}${b.c.nome}`));
