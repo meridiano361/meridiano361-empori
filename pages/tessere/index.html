@@ -1113,8 +1113,16 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
         </div>
       </div>
 
-      <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:6px">Timbri già presenti sulla tessera cartacea</label>
-      <input type="number" id="converti-timbri" class="importo-input" style="font-size:24px;padding:10px 14px;margin-bottom:6px;width:100%;text-align:center;font-weight:800" min="0" max="12" value="0" oninput="aggiornaConvertiPreview()">
+      <div style="display:flex;gap:10px;margin-bottom:6px">
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Cicli completati da riportare</label>
+          <input type="number" id="converti-cicli" class="importo-input" style="font-size:22px;padding:10px 14px;width:100%;text-align:center;font-weight:800" min="0" value="0" oninput="aggiornaConvertiPreview()">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:12px;font-weight:700;color:#64748b;display:block;margin-bottom:4px">Timbri sul nuovo ciclo</label>
+          <input type="number" id="converti-timbri" class="importo-input" style="font-size:22px;padding:10px 14px;width:100%;text-align:center;font-weight:800" min="0" max="12" value="0" oninput="aggiornaConvertiPreview()">
+        </div>
+      </div>
       <div id="converti-preview" style="font-size:12px;font-weight:700;margin-bottom:10px;min-height:18px"></div>
       <label id="converti-forza-label" style="display:none;align-items:center;gap:8px;font-size:12px;color:#dc2626;font-weight:600;margin-bottom:14px;cursor:pointer;padding:8px 10px;background:#fef2f2;border-radius:8px;border:1px solid #fca5a5">
         <input type="checkbox" id="converti-forza-cb" onchange="_toggleForzaTimbri(this)" style="accent-color:#dc2626;width:14px;height:14px;flex-shrink:0">
@@ -6433,6 +6441,7 @@ function apriConvertiModal() {
   document.getElementById('converti-risultati').innerHTML = '';
   document.getElementById('converti-timbri').value = 0;
   document.getElementById('converti-timbri').max   = 12;
+  document.getElementById('converti-cicli').value  = 0;
   document.getElementById('converti-forza-cb').checked = false;
   document.getElementById('converti-forza-label').style.display = 'none';
   document.getElementById('converti-spesa-toggle').checked = false;
@@ -6506,13 +6515,15 @@ function _popolaConvertiCliente(c, t) {
   haGiaDig.style.display = t?.ha_carta_digitale ? '' : 'none';
   document.getElementById('converti-timbri').value = 0;
   document.getElementById('converti-timbri').max   = 12;
+  document.getElementById('converti-cicli').value  = 0;
   document.getElementById('converti-forza-cb').checked = false;
   document.getElementById('converti-forza-label').style.display = 'none';
   aggiornaConvertiPreview();
 }
 
 function aggiornaConvertiPreview() {
-  const timbri = parseInt(document.getElementById('converti-timbri').value) || 0;
+  const timbri  = parseInt(document.getElementById('converti-timbri').value) || 0;
+  const cicli   = parseInt(document.getElementById('converti-cicli').value)  || 0;
   const forzaCb    = document.getElementById('converti-forza-cb');
   const forzaLabel = document.getElementById('converti-forza-label');
   const btnConv    = document.getElementById('btn-conferma-converti');
@@ -6532,14 +6543,14 @@ function aggiornaConvertiPreview() {
   forzaLabel.style.display = timbri > DIG_TIMBRI_MAX ? 'flex' : 'none';
   btnConv.disabled = false;
 
-  if (timbri >= DIG_TIMBRI_MAX) {
-    el.textContent = `🎉 Ciclo completato! Il cliente riceverà €${sconto} di sconto sulla nuova tessera digitale.`;
-    el.style.color = '#7c3aed';
-  } else if (timbri > 0) {
-    el.textContent = `${timbri} timbri verranno trasferiti sulla tessera digitale.`;
+  const parts = [];
+  if (cicli > 0) parts.push(`${cicli} ciclo/i completato/i registrato/i`);
+  if (timbri > 0) parts.push(`${timbri}/${DIG_TIMBRI_MAX} timbri sul ciclo attuale`);
+  if (parts.length) {
+    el.textContent = parts.join(' · ') + '.';
     el.style.color = '#7c3aed';
   } else {
-    el.textContent = 'La tessera digitale partirà da zero timbri.';
+    el.textContent = 'La tessera digitale partirà da zero.';
     el.style.color = '#94a3b8';
   }
 }
@@ -6635,8 +6646,8 @@ async function confermaConversione() {
 
   try {
     const c = allClienti.find(x => String(x.id) === String(_convertiClienteId));
-    const timbriCartacea = parseInt(document.getElementById('converti-timbri').value) || 0;
-    const cicloCompletato = timbriCartacea >= DIG_TIMBRI_MAX;
+    const timbriCartacea  = parseInt(document.getElementById('converti-timbri').value) || 0;
+    const cicliCartacea   = parseInt(document.getElementById('converti-cicli').value)  || 0;
     let t = _convertiTesseraId ? allTessere.find(x => x.id === _convertiTesseraId) : null;
     // Fallback: se non trovata per ID, cerca tessera ambassador del cliente
     if (!t && _convertiClienteId) {
@@ -6647,16 +6658,19 @@ async function confermaConversione() {
     const sconto = digSconto(tipo);
     const euroTimbro = digEuroTimbro(tipo);
 
-    // Genera slug univoco: nome_cognome (+ _2, _3 se già esiste)
-    const base = `${(c.nome||'').toLowerCase().replace(/[^a-z0-9]/g,'_')}_${(c.cognome||'').toLowerCase().replace(/[^a-z0-9]/g,'_')}`;
-    let slug = base;
-    const slugsUsati = new Set(allTessere.map(x => x.slug).filter(Boolean));
-    let sfx = 2;
-    while (slugsUsati.has(slug)) { slug = `${base}_${sfx++}`; }
+    // Genera slug univoco: nome_cognome (+ _2, _3 se già esiste) — mantieni slug esistente se già digitale
+    let slug = t?.slug || null;
+    if (!slug) {
+      const base = `${(c.nome||'').toLowerCase().replace(/[^a-z0-9]/g,'_')}_${(c.cognome||'').toLowerCase().replace(/[^a-z0-9]/g,'_')}`;
+      slug = base;
+      const slugsUsati = new Set(allTessere.map(x => x.slug).filter(Boolean));
+      let sfx = 2;
+      while (slugsUsati.has(slug)) { slug = `${base}_${sfx++}`; }
+    }
 
-    const timbriNuovi   = cicloCompletato ? 0 : timbriCartacea;
-    const cicliNuovi    = cicloCompletato ? (t?.cicli_completati||0) + 1 : (t?.cicli_completati||0);
-    const saldoSconto   = cicloCompletato ? sconto : 0;
+    const timbriNuovi   = timbriCartacea;
+    const cicliNuovi    = (t?.cicli_completati||0) + cicliCartacea;
+    const saldoSconto   = 0;
 
     let updatedTessera;
     if (t) {
