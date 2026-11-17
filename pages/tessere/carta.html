@@ -457,7 +457,7 @@ async function loadCard() {
       </div>
       ${isAmb ? `<div class="card-title" style="text-transform:uppercase">${_cfg.titolo || 'TESSERA AMBASSADOR'}</div>` : ''}
       <div class="card-title" style="text-transform:uppercase">${isAmb ? 'di' : (_cfg.titolo || 'Tessera di')} <span id="card-name-span">${[t.nome, t.cognome].filter(Boolean).join(' ')}</span></div>
-      ${isAmb && t.codice_tessera ? `<div class="card-subtitle">${t.codice_tessera}</div>` : '<div class="card-subtitle"></div>'}
+      <div class="card-subtitle"></div>
     </div>
     <div class="card-divider"></div>
     <div class="card-body">
@@ -523,7 +523,6 @@ async function loadCard() {
       ${(() => {
         const movimenti = t.movimenti_list || [];
         const cicli     = t.cicli_list     || [];
-        if (!movimenti.length && !cicli.length) return '';
 
         // Costruisce lista unificata cronologica: movimenti + cicli completati
         const righe = movimenti.map(m => ({ tipo:'acquisto', data: m.data, importo: m.importo, timbri: m.timbri, sconto: m.sconto }))
@@ -564,15 +563,18 @@ async function loadCard() {
             </div>`
           : '';
 
+        const listaHtml = righe.length
+          ? righe.map((r, i) => rRiga(r, i)).join('') + mostraTutti
+          : `<div style="text-align:center;padding:14px 0;font-size:12px;color:#cbd5e1">Nessun acquisto ancora registrato</div>`;
+
         return `
         <div style="margin-top:16px;border-top:1px solid #f1f5f9;padding-top:12px">
           <div class="info-row" onclick="(function(){var el=document.getElementById('${uidList}'),ar=document.getElementById('${uid}-arrow');if(el){var open=el.style.display!=='none';el.style.display=open?'none':'';if(ar)ar.textContent=open?'▸':'▾';}})()" style="cursor:pointer;user-select:none;margin-bottom:0">
             <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8">Storico acquisti <span id="${uid}-arrow" style="font-weight:600">▸</span></span>
-            <strong style="font-size:12px;color:#94a3b8">${totAcquisti} acquist${totAcquisti===1?'o':'i'}</strong>
+            <strong style="font-size:12px;color:#94a3b8">${totAcquisti > 0 ? totAcquisti + ' acquist' + (totAcquisti===1?'o':'i') : ''}</strong>
           </div>
           <div id="${uidList}" style="display:none;padding-top:4px">
-            ${righe.map((r, i) => rRiga(r, i)).join('')}
-            ${mostraTutti}
+            ${listaHtml}
           </div>
         </div>`;
       })()}

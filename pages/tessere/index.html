@@ -1162,6 +1162,9 @@ body{font-family:'CenturyGothic', 'Century Gothic', sans-serif;background:#f8faf
         <button class="btn btn-sm" style="flex:2;background:#25d366;color:#fff;font-size:13px;font-weight:700" id="btn-converti-wa" onclick="inviaWADopoConversione()">
           <i class="fab fa-whatsapp"></i> <span id="btn-converti-wa-label">Invia su WA</span>
         </button>
+        <button class="btn btn-sm" style="flex:1;background:#7c3aed;color:#fff;font-size:13px;font-weight:700" id="btn-converti-solo-spesa" onclick="registraSoloSpesaConversione()" style="display:none">
+          <i class="fas fa-receipt"></i> Salva spesa
+        </button>
         <button class="btn btn-outline btn-sm" style="flex:1;font-size:13px" onclick="chiudiConvertiModal()">
           Chiudi
         </button>
@@ -6638,6 +6641,35 @@ async function inviaWADopoConversione() {
   chiudiConvertiModal();
 }
 
+async function registraSoloSpesaConversione() {
+  const conSpesa = document.getElementById('converti-spesa-toggle').checked;
+  const importo  = conSpesa ? (parseFloat(document.getElementById('converti-spesa-importo').value) || 0) : 0;
+  if (!conSpesa || importo <= 0) { chiudiConvertiModal(); return; }
+  const t = allTessere.find(x => x.id === _convertiTesseraId);
+  if (!t) { chiudiConvertiModal(); return; }
+  const tipo = t.tipo || 'standard';
+  const euroTimbro = digEuroTimbro(tipo);
+  const scontoPerCiclo = digSconto(tipo);
+  const timbriSpesa = Math.floor(importo / euroTimbro);
+  const timbriTotali = (t.timbri_attuali || 0) + timbriSpesa;
+  const scontoGen = timbriTotali >= DIG_TIMBRI_MAX ? Math.floor(timbriTotali / DIG_TIMBRI_MAX) * scontoPerCiclo : 0;
+
+  await _sb.from('movimenti_tessera').insert({
+    tessera_id: t.id, importo, timbri_aggiunti: timbriSpesa,
+    sconto_generato: scontoGen, operatore: _user?.nome || ''
+  });
+  await _sb.from('tessere').update({
+    timbri_attuali: timbriTotali,
+    totale_spesa:   (t.totale_spesa || 0) + importo,
+    saldo_sconto:   (t.saldo_sconto || 0) + scontoGen,
+  }).eq('id', t.id);
+  const idx = allTessere.findIndex(x => x.id === t.id);
+  if (idx >= 0) allTessere[idx] = { ...allTessere[idx], timbri_attuali: timbriTotali, totale_spesa: (t.totale_spesa||0)+importo, saldo_sconto: (t.saldo_sconto||0)+scontoGen };
+  showToast(`✓ Spesa €${importo.toFixed(2)} registrata`);
+  renderDigitale();
+  chiudiConvertiModal();
+}
+
 async function confermaConversione() {
   if (!_convertiClienteId) return;
   const btn = document.getElementById('btn-conferma-converti');
@@ -6712,8 +6744,8 @@ async function confermaConversione() {
       _convertiTesseraId = updatedTessera.id;
     }
 
-    // Registra ciclo completato se applicabile
-    if (cicloCompletato) {
+    // Registra cicli completati se riportati dalla cartacea
+    if (cicliCartacea > 0) {
       const today = new Date().toISOString();
       await _sb.from('tessere_cicli_log').insert({
         tessera_id: updatedTessera.id, ciclo_numero: cicliNuovi, completato_at: today
@@ -6729,11 +6761,12 @@ async function confermaConversione() {
     const nomeCliente = `${c?.nome||''} ${c?.cognome||''}`.trim();
     document.getElementById('converti-success-nome').textContent = nomeCliente;
     document.getElementById('btn-converti-wa').style.display = tel ? '' : 'none';
+    document.getElementById('btn-converti-solo-spesa').style.display = tel ? 'none' : '';
     converti_step(3);
 
     _invalidateMaps();
     showTab('digitale');
-    showToast(`✓ Tessera digitale attivata per ${nomeCliente}${cicloCompletato ? ` — €${sconto} di sconto registrati` : ''}`);
+    showToast(`✓ Tessera digitale attivata per ${nomeCliente}`);
     renderDigitale();
   } catch(e) {
     alert('Errore: ' + e.message);
