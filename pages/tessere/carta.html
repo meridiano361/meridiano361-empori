@@ -520,6 +520,63 @@ async function loadCard() {
           <div id="${uid}" style="display:none">${tessDateRows}</div>`;
       })()}
 
+      ${(() => {
+        const movimenti = t.movimenti_list || [];
+        const cicli     = t.cicli_list     || [];
+        if (!movimenti.length && !cicli.length) return '';
+
+        // Costruisce lista unificata cronologica: movimenti + cicli completati
+        const righe = movimenti.map(m => ({ tipo:'acquisto', data: m.data, importo: m.importo, timbri: m.timbri, sconto: m.sconto }))
+          .concat(cicli.map(c => ({ tipo:'ciclo', data: c.data, ciclo: c.ciclo })))
+          .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+        const MOSTRA_INIT = 10;
+        const totAcquisti = movimenti.length;
+        const uid = 'storico-toggle';
+        const uidList = 'storico-list';
+
+        const rRiga = (r, idx) => {
+          const hidden = idx >= MOSTRA_INIT ? `class="storico-extra" style="display:none"` : '';
+          if (r.tipo === 'ciclo') {
+            return `<div ${hidden} style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9">
+              <span style="font-size:12px;color:#94a3b8">${fmtDate(r.data)}</span>
+              <span style="font-size:11px;font-weight:800;color:#f59e0b;letter-spacing:.04em">🏆 Tessera ${r.ciclo} completata</span>
+            </div>`;
+          }
+          const timbriEl = r.timbri > 0
+            ? `<span style="font-size:11px;font-weight:800;color:#B5453A;margin-left:8px">+${r.timbri} 🏷</span>`
+            : '';
+          const scontoEl = r.sconto > 0
+            ? `<span style="font-size:10px;font-weight:700;color:#059669;margin-left:6px">sconto €${String(r.sconto.toFixed(2)).replace('.',',')}</span>`
+            : '';
+          return `<div ${hidden} style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9">
+            <span style="font-size:12px;color:#94a3b8">${fmtDate(r.data)}</span>
+            <span style="display:flex;align-items:center">
+              <span style="font-size:13px;font-weight:700;color:#334155">€ ${String((r.importo||0).toFixed(2)).replace('.',',')}</span>
+              ${timbriEl}${scontoEl}
+            </span>
+          </div>`;
+        };
+
+        const mostraTutti = righe.length > MOSTRA_INIT
+          ? `<div id="${uid}-mostra" style="text-align:center;padding:8px 0">
+              <button onclick="(function(){document.querySelectorAll('.storico-extra').forEach(el=>el.style.display='');document.getElementById('${uid}-mostra').style.display='none'})()" style="background:none;border:none;color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Mostra tutti (${righe.length}) ▾</button>
+            </div>`
+          : '';
+
+        return `
+        <div style="margin-top:16px;border-top:1px solid #f1f5f9;padding-top:12px">
+          <div class="info-row" onclick="(function(){var el=document.getElementById('${uidList}'),ar=document.getElementById('${uid}-arrow');if(el){var open=el.style.display!=='none';el.style.display=open?'none':'';if(ar)ar.textContent=open?'▸':'▾';}})()" style="cursor:pointer;user-select:none;margin-bottom:0">
+            <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8">Storico acquisti <span id="${uid}-arrow" style="font-weight:600">▸</span></span>
+            <strong style="font-size:12px;color:#94a3b8">${totAcquisti} acquist${totAcquisti===1?'o':'i'}</strong>
+          </div>
+          <div id="${uidList}" style="display:none;padding-top:4px">
+            ${righe.map((r, i) => rRiga(r, i)).join('')}
+            ${mostraTutti}
+          </div>
+        </div>`;
+      })()}
+
       <div class="save-actions">
         <button class="btn-copy" data-tip="${_t('btn_salva_tip','Salva il link della tessera sul telefono')}" onclick="copyLink()">${_t('btn_salva','Salva tessera')}</button>
         <button class="btn-copy" data-tip="${_t('btn_contattaci_tip','Scrivici su WhatsApp o segnala un problema')}" onclick="apriContattaci()">${_t('btn_contattaci','Contattaci')}</button>
