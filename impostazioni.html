@@ -1265,9 +1265,9 @@
             .prod-toolbar input,.prod-toolbar select{border:1px solid #e2e8f0;border-radius:9px;padding:7px 12px;font-size:13px;color:#334155;background:#fff;font-family:inherit;outline:none}
             .prod-toolbar input:focus,.prod-toolbar select:focus{border-color:#B5453A}
             .prod-toolbar input{flex:1;min-width:160px}
-            .prod-tbl{width:100%;border-collapse:collapse;font-size:12px}
-            .prod-tbl th{padding:7px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;white-space:nowrap;text-align:left}
-            .prod-tbl td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+            .prod-tbl{width:100%;border-collapse:collapse;font-size:11px}
+            .prod-tbl th{padding:6px 7px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;white-space:nowrap;text-align:left}
+            .prod-tbl td{padding:6px 7px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
             .prod-tbl tr:last-child td{border-bottom:none}
             .prod-tbl tbody tr:hover td{background:#f8fafc}
             .prod-attr{display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:800;text-transform:uppercase;margin:1px}
@@ -1336,15 +1336,14 @@
                   <th class="sortable" onclick="sortProdAll('codice')">Codice<i class="sort-arrow" id="sa-codice">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('descrizione')">Descrizione<i class="sort-arrow" id="sa-descrizione">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('pvp')">PVP<i class="sort-arrow" id="sa-pvp">↕</i></th>
-                  <th class="sortable" onclick="sortProdAll('pack')">Pack<i class="sort-arrow" id="sa-pack">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('fornitore')">Fornitore<i class="sort-arrow" id="sa-fornitore">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('marchio')">Marchio<i class="sort-arrow" id="sa-marchio">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('categoria')">Categoria<i class="sort-arrow" id="sa-categoria">↕</i></th>
-                  <th title="Cremona">CR</th><th title="Casalmaggiore">CA</th><th title="Viadana">VI</th>
+                  <th title="Cremona / Casalmaggiore / Viadana">Empori</th>
                   <th class="sortable" onclick="sortProdAll('attivo')">Attivo<i class="sort-arrow" id="sa-attivo">↕</i></th>
-                  <th>Peso/Unità</th><th>Attributi</th><th>Foto</th><th title="Link sito prodotto">🔗</th><th></th>
+                  <th>Peso/Unità</th><th>Attr.</th><th>Foto</th><th></th>
                 </tr></thead>
-                <tbody id="prod-all-tbody"><tr><td colspan="17" class="prod-empty">Caricamento…</td></tr></tbody>
+                <tbody id="prod-all-tbody"><tr><td colspan="14" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -5814,7 +5813,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
         const tbody = document.getElementById('prod-all-tbody');
         if (!tbody) return;
-        if (!items.length) { tbody.innerHTML = `<tr><td colspan="18" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="14" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
 
         const srcBadge = s => s === 'frontalini'
             ? `<span style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FRO</span>`
@@ -5841,24 +5840,22 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : p._src === 'fornitura' ? `apriModalFornituraProd(${p._id})` : `apriModalProdUnif(${p._id})`;
             const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : p._src === 'fornitura' ? `eliminaProdFornitura(${p._id})`  : `eliminaProdUnif(${p._id})`;
             const copyBtn = _isAdmin ? `<button class="prod-row-btn" onclick="copiaProdUnif('${p._src}',${p._id})" title="Copia prodotto"><i class="fas fa-copy"></i></button>` : '';
+            const ec = (v,l) => v===true?`<b style="color:#15803d">${l}</b>`:v===false?`<span style="color:#ef4444;text-decoration:line-through;opacity:.5">${l}</span>`:`<span style="color:#e2e8f0">${l}</span>`;
+            const emporiCell = `<span style="font-size:10px;letter-spacing:.5px;white-space:nowrap">${ec(p.cr,'CR')} ${ec(p.ca,'CA')} ${ec(p.vi,'VI')}</span>`;
             return `<tr data-sel-key="${selKey}" style="${_selProd.has(selKey)?'background:#eff6ff':''}" >
               <td style="text-align:center"><input type="checkbox" ${checked} onchange="_toggleSelProd('${selKey}',this.checked)" style="accent-color:#3b82f6;cursor:pointer"></td>
               <td>${srcBadge(p._src)}</td>
-              <td style="color:#94a3b8;font-size:11px;font-family:monospace">${escHtml(p.codice||'—')}</td>
-              <td style="font-weight:700;color:#1e293b;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.descrizione)}">${escHtml(p.descrizione)}</td>
+              <td style="color:#94a3b8;font-size:10px;font-family:monospace;white-space:nowrap">${escHtml(p.codice||'—')}</td>
+              <td style="font-weight:700;color:#1e293b;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.descrizione)}">${escHtml(p.descrizione)}</td>
               <td style="font-weight:600;white-space:nowrap">${p.pvp != null ? _fmtP(p.pvp) : '<span style="color:#cbd5e1">—</span>'}</td>
-              <td style="text-align:center;color:#64748b">${p.pack ?? '<span style="color:#cbd5e1">—</span>'}</td>
-              <td style="font-size:12px">${escHtml(p.fornitore||'—')}</td>
-              <td style="font-size:12px">${escHtml(p.marchio||'—')}</td>
-              <td style="font-size:11px;color:#64748b">${escHtml(p.categoria||'—')}</td>
-              <td style="text-align:center">${bool3(p.cr)}</td>
-              <td style="text-align:center">${bool3(p.ca)}</td>
-              <td style="text-align:center">${bool3(p.vi)}</td>
+              <td style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.fornitore||'')}">${escHtml(p.fornitore||'—')}</td>
+              <td style="max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.marchio||'')}">${escHtml(p.marchio||'—')}</td>
+              <td style="font-size:10px;color:#64748b;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.categoria||'')}">${escHtml(p.categoria||'—')}</td>
+              <td>${emporiCell}</td>
               <td>${attBadge}</td>
-              <td style="font-size:12px;white-space:nowrap">${fmtPeso(p)}</td>
+              <td style="white-space:nowrap">${fmtPeso(p)}</td>
               <td>${attrBadges}</td>
               <td>${fotoCell}</td>
-              <td style="text-align:center">${p.sito ? `<a href="${escHtml(p.sito)}" target="_blank" rel="noopener" title="${escHtml(p.sito)}" style="color:#2563eb;font-size:13px"><i class="fas fa-external-link-alt"></i></a>` : '<span style="color:#cbd5e1">—</span>'}</td>
               <td style="white-space:nowrap">
                 <button class="prod-row-btn" onclick="${editFn}" title="Modifica"><i class="fas fa-pencil"></i></button>
                 ${copyBtn}
