@@ -948,44 +948,44 @@ async function loadRubrica(){
   const panel=document.getElementById('rubrica-panel');
   if(panel) panel.innerHTML='<div class="rubrica-empty">Caricamento…</div>';
   try{
-    const {data}=await _sb.from('consegne')
-      .select('destinatario_nome,destinatario_telefono,destinatario_indirizzo,destinatario_citta,destinatario_cap')
-      .not('destinatario_nome','is',null)
-      .order('destinatario_nome');
-    const seen=new Set();
-    _rubricaCache=(data||[]).filter(r=>{
-      if(!r.destinatario_nome||seen.has(r.destinatario_nome)) return false;
-      seen.add(r.destinatario_nome); return true;
-    });
+    const {data}=await _sb.from('clienti')
+      .select('id,nome,cognome,telefono,cellulare,indirizzo,citta')
+      .order('cognome').order('nome');
+    _rubricaCache=(data||[]).map(r=>({
+      nome_completo: [r.nome,r.cognome].filter(Boolean).join(' '),
+      telefono: r.telefono||r.cellulare||'',
+      indirizzo: r.indirizzo||'',
+      citta: r.citta||'',
+    }));
   }catch{ _rubricaCache=[]; }
 }
 
 function renderRubrica(q){
   const panel=document.getElementById('rubrica-panel'); if(!panel||_rubricaCache===null) return;
   if(!_rubricaCache.length){
-    panel.innerHTML='<div class="rubrica-empty">La rubrica si riempie automaticamente dopo le prime consegne salvate</div>'; return;
+    panel.innerHTML='<div class="rubrica-empty">Nessun cliente in rubrica</div>'; return;
   }
   _rubricaResults=q.trim()
-    ? _rubricaCache.filter(r=>r.destinatario_nome.toLowerCase().includes(q.toLowerCase()))
+    ? _rubricaCache.filter(r=>r.nome_completo.toLowerCase().includes(q.toLowerCase()))
     : _rubricaCache;
   if(!_rubricaResults.length){
     panel.innerHTML='<div class="rubrica-empty">Nessun contatto trovato</div>'; return;
   }
   panel.innerHTML='<div class="rubrica-list">'+_rubricaResults.map((r,i)=>`
     <div class="rubrica-item" onclick="selezionaContatto(${i})">
-      <div class="rubrica-item-nome">${esc(r.destinatario_nome)}</div>
-      ${r.destinatario_telefono||r.destinatario_citta?`<div class="rubrica-item-det">${[r.destinatario_telefono,r.destinatario_citta].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+      <div class="rubrica-item-nome">${esc(r.nome_completo)}</div>
+      ${r.telefono||r.citta?`<div class="rubrica-item-det">${[r.telefono,r.citta].filter(Boolean).map(esc).join(' · ')}</div>`:''}
     </div>`).join('')+'</div>';
 }
 
 function selezionaContatto(i){
   const r=_rubricaResults[i]; if(!r) return;
   const map={
-    'fc-dest-nome':r.destinatario_nome||'',
-    'fc-dest-tel':r.destinatario_telefono||'',
-    'fc-dest-ind':r.destinatario_indirizzo||'',
-    'fc-dest-cit':r.destinatario_citta||'',
-    'fc-dest-cap':r.destinatario_cap||'',
+    'fc-dest-nome':r.nome_completo,
+    'fc-dest-tel':r.telefono,
+    'fc-dest-ind':r.indirizzo,
+    'fc-dest-cit':r.citta,
+    'fc-dest-cap':'',
   };
   Object.entries(map).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
   _rubricaOpen=false;
