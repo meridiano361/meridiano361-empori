@@ -636,12 +636,7 @@
                 document.getElementById('ref-ac-dropdown')?.classList.add('hidden');
         });
 
-        const OPERATORI_DATA = {
-            "Cremona": ["Chiara Monteverdi", "Emilio Mazzolari"],
-            "Casalmaggiore": ["Alessandra Rivetti", "Barbara Araldi", "Carla Maffei", "Chiara Monteverdi", "Edoardo Pavesi", "Emilio Mazzolari", "Erica Bossi", "Francesco Lunardini", "Giovanna Raineri", "Giulia Frigeri", "Giuseppe Lunardini", "Ileana Galli", "Maria Marcella Scaravonati", "Matilde Chiarini", "Michele Marchini", "Roberta Vezzosi", "Teyssir Mabrouk", "Vittoria Lunardini"],
-            "Viadana": ["Alessia Rovina", "Ave Aroldi", "Barbara Piotrowska", "Carla Bellelli", "Carla Chittolini", "Chiara Monteverdi", "Claudio Mortini", "Donatella Falugi", "Elena Ghelfi", "Emilio Mazzolari", "Franco Furlotti", "Giuseppina Amadini", "Manuela Scazza", "Marta Sanfelici", "Mariagrazia Bertolini", "Mirella Panato", "Roberta Alberini", "Sara Germani", "Tiziana Bortesi"],
-            "Reggio Emilia": ["Alessia Bartolomei", "Elsa Scarpa", "Manuela Capanni", "Marica Pioli"]
-        };
+        let _operatoriCache = null;
 
         // GET ORDER ID FROM URL
         function getOrderIdFromURL() {
@@ -1008,22 +1003,32 @@
             calcRow(rowId, groupId);
         }
 
-        function handleCittaChange() {
+        async function handleCittaChange() {
             const citta = document.getElementById('select-emporio').value;
             const canaleContainer = document.getElementById('canale-cremona-container');
             const opSelect = document.getElementById('select-operatore');
-            
+
             canaleContainer.classList.toggle('hidden', citta !== 'Cremona');
             document.getElementById('select-canale').required = (citta === 'Cremona');
-            
+
             opSelect.innerHTML = '<option value="">Seleziona Operatore *</option>';
-            (OPERATORI_DATA[citta] || []).sort().forEach(op => {
-                const opt = document.createElement('option');
-                opt.value = op;
-                opt.text = op;
-                opSelect.add(opt);
-            });
-            
+            if (citta) {
+                if (!_operatoriCache) {
+                    const { data } = await _supabase.from('operatori')
+                        .select('nome, emporio, empori_aggiuntivi')
+                        .or('attivo.eq.true,attivo.is.null')
+                        .order('nome');
+                    _operatoriCache = data || [];
+                }
+                _operatoriCache
+                    .filter(op => op.emporio === citta || (op.empori_aggiuntivi || []).includes(citta))
+                    .forEach(op => {
+                        const opt = document.createElement('option');
+                        opt.value = op.nome; opt.text = op.nome;
+                        opSelect.add(opt);
+                    });
+            }
+
             updateAllEmporiDropdowns();
         }
 
@@ -2249,7 +2254,7 @@ function nuovaSchedaProd(row, preVal) {
                 <input id="se-desc" class="form-input w-full" value="${esc(preVal||'').toUpperCase()}" oninput="this.value=this.value.toUpperCase()"></div>
             <div><label style="${L}">Prezzo PVP (€)</label>
                 <input id="se-prezzo" class="form-input" type="number" step="0.01" value=""></div>
-            <div><label style="${L}">Pack size</label>
+            <div><label style="${L}">Pezzi per collo</label>
                 <input id="se-pack" class="form-input" type="number" step="1" min="0" value=""></div>
             <div><label style="${L}">Fornitore</label>
                 <input id="se-forn" class="form-input" value="" oninput="if(this.value)this.value=this.value.charAt(0).toUpperCase()+this.value.slice(1)"></div>
