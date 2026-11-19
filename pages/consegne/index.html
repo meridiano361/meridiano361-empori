@@ -149,6 +149,15 @@
     .rubrica-item-det{color:#64748b;font-size:11px;margin-top:1px}
     .rubrica-empty{padding:16px;text-align:center;color:#94a3b8;font-size:12px}
     .rubrica-list{overflow-y:auto}
+
+    /* ── Undated (da concordare) banner ── */
+    .undated-section{padding:10px 14px;background:#fffbeb;border-bottom:1px solid #fde68a}
+    .undated-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;color:#92400e;letter-spacing:.05em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .undated-list{display:flex;gap:8px;flex-wrap:wrap}
+    .undated-card{background:#fff;border:1px solid #fde68a;border-radius:10px;padding:8px 11px;font-size:12px;cursor:pointer;transition:box-shadow .12s;min-width:140px;max-width:220px}
+    .undated-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
+    .uc-dest{font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .uc-meta{color:#92400e;font-size:11px;margin-top:2px}
   </style>
 </head>
 <body>
@@ -358,15 +367,22 @@ async function loadAndRender(){
     from=to=dateKey(_curDate);
   }
 
-  const {data,error} = await _sb.from('consegne')
-    .select('*')
-    .gte('data_consegna',from)
-    .lte('data_consegna',to)
-    .order('data_consegna')
-    .order('ora_prevista',{nullsFirst:false});
+  const [rangeRes, undatedRes] = await Promise.all([
+    _sb.from('consegne')
+      .select('*')
+      .gte('data_consegna',from)
+      .lte('data_consegna',to)
+      .order('data_consegna')
+      .order('ora_prevista',{nullsFirst:false}),
+    _sb.from('consegne')
+      .select('*')
+      .eq('da_concordare',true)
+      .is('data_consegna',null)
+      .order('created_at'),
+  ]);
 
-  if(error){ M361.toast('Errore caricamento: '+error.message,'err'); _consegne=[]; }
-  else { _consegne = data||[]; }
+  if(rangeRes.error){ M361.toast('Errore caricamento: '+rangeRes.error.message,'err'); _consegne=[]; }
+  else { _consegne = [...(rangeRes.data||[]),...(undatedRes.data||[])]; }
 
   render();
 }
@@ -433,6 +449,29 @@ function resetFiltri(){
 function render(){
   updatePeriodo();
   if(_view==='settimana') renderSettimana(); else renderGiorno();
+  _prependUndatedSection();
+}
+
+function _prependUndatedSection(){
+  const undated=getFiltered().filter(c=>c.da_concordare&&!c.data_consegna);
+  if(!undated.length) return;
+  const container=document.getElementById('view-container');
+  const div=document.createElement('div');
+  div.className='undated-section';
+  div.innerHTML=`
+    <div class="undated-sec-title"><i class="fas fa-clock"></i> Da concordare — data da definire (${undated.length})</div>
+    <div class="undated-list">
+      ${undated.map(c=>{
+        const st=STATI[c.stato]||STATI.da_programmare;
+        const dest=c.tipo_destinazione==='emporio'?(c.emporio_destinazione||'—'):(c.destinatario_nome||'—');
+        const sub=[c.destinatario_telefono,c.tipo_destinazione!=='emporio'?c.emporio_partenza:''].filter(Boolean).map(esc).join(' · ');
+        return `<div class="undated-card" onclick="apriModifica('${c.id}')">
+          <div class="uc-dest">${esc(dest)}</div>
+          <div class="uc-meta"><span style="color:${st.c}">${st.label}</span>${sub?' · '+sub:''}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  container.insertBefore(div,container.firstChild);
 }
 
 function updatePeriodo(){
@@ -601,6 +640,9 @@ function buildFormCns(c, dataDefault){
   _currentMetodoPagamento = isEdit ? (c.metodo_pagamento || null) : null;
   _rubricaOpen = false;
 
+  const curUser = getOperatoreLoggato();
+  const compilatoLbl = isEdit ? esc(c.creato_da||'—') : esc(curUser?.nome||curUser?.email||'—');
+
   const empOpts=EMPORI_LIST.map(e=>
     `<option value="${e}"${(isEdit?c.emporio_partenza:'')=== e?' selected':''}>${e}</option>`
   ).join('');
@@ -618,12 +660,14 @@ function buildFormCns(c, dataDefault){
   const showConcordata = isEdit&&c.da_concordare ? '' : 'display:none';
   const showPagWrap    = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
 
-  const pagOpts=[
-    ['scontrinato','Scontrinato'],['regalo','Regalo'],
-    ['pagato','Pagato'],['da_pagare','Da pagare'],
-  ].map(([val,label])=>
-    `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
-  ).join('');
+  const pagOpts=
+    [['scontrinato','Scontrinato'],['regalo','Regalo']].map(([val,label])=>
+      `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
+    ).join('') +
+    `<span style="display:inline-block;width:1px;background:#e2e8f0;align-self:stretch;margin:0 3px"></span>` +
+    [['pagato','Pagato'],['da_pagare','Da pagare']].map(([val,label])=>
+      `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
+    ).join('');
 
   const body=document.getElementById('modal-cns-body');
   body.dataset.tipo=tipo;
@@ -655,7 +699,7 @@ function buildFormCns(c, dataDefault){
 
     <!-- EMPORIO -->
     <div class="form-sec">
-      <div class="form-sec-title">Emporio</div>
+      <div class="form-sec-title">Emporio di partenza</div>
       <div class="form-row r1">
         <div class="form-field">
           <label class="form-lbl">Emporio *</label>
@@ -825,6 +869,12 @@ function buildFormCns(c, dataDefault){
       </button>
     </div>
     `:''}
+
+    <!-- COMPILATO DA -->
+    <div style="margin-top:16px;padding:10px 12px;background:#f8fafc;border-radius:10px;font-size:12px;color:#64748b;display:flex;align-items:center;gap:7px;border:1px solid #f1f5f9">
+      <i class="fas fa-user-pen" style="color:#94a3b8;font-size:13px"></i>
+      <span>Compilato da <strong style="color:#334155">${compilatoLbl}</strong></span>
+    </div>
   `;
 }
 
@@ -849,6 +899,8 @@ function onConcordareChange(){
   const checked=document.getElementById('fc-concordare')?.checked;
   const wrap=document.getElementById('fc-concordata-wrap');
   if(wrap) wrap.style.display=checked?'':'none';
+  const dataInp=document.getElementById('fc-data');
+  if(dataInp&&checked) dataInp.value='';
 }
 
 function onPagChange(el){
@@ -901,6 +953,9 @@ async function loadRubrica(){
 
 function renderRubrica(q){
   const panel=document.getElementById('rubrica-panel'); if(!panel||_rubricaCache===null) return;
+  if(!_rubricaCache.length){
+    panel.innerHTML='<div class="rubrica-empty">La rubrica si riempie automaticamente dopo le prime consegne salvate</div>'; return;
+  }
   _rubricaResults=q.trim()
     ? _rubricaCache.filter(r=>r.destinatario_nome.toLowerCase().includes(q.toLowerCase()))
     : _rubricaCache;
@@ -945,15 +1000,15 @@ async function salvaConsegna(){
   const dataVal=document.getElementById('fc-data')?.value;
   const empPart=document.getElementById('fc-emp-part')?.value;
 
-  if(!dataVal){ M361.toast('Inserisci la data','err'); return; }
-  if(!empPart){ M361.toast('Seleziona l\'emporio','err'); return; }
+  const concordare=document.getElementById('fc-concordare')?.checked||false;
+  if(!dataVal&&!concordare){ M361.toast('Inserisci la data','err'); return; }
+  if(!empPart){ M361.toast('Seleziona l\'emporio di partenza','err'); return; }
 
   const stato=document.getElementById('fc-stato')?.value||'da_programmare';
   const user=getOperatoreLoggato();
-  const concordare=document.getElementById('fc-concordare')?.checked||false;
 
   const payload={
-    data_consegna:               dataVal,
+    data_consegna:               dataVal||null,
     da_concordare:               concordare,
     ora_concordata:              concordare?(document.getElementById('fc-ora-concordata')?.value||null):null,
     emporio_partenza:            empPart,
@@ -975,7 +1030,7 @@ async function salvaConsegna(){
     stato:                       stato,
     motivo:                      ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
     data_rinvio:                 stato==='rinviato'?(document.getElementById('fc-data-rinvio')?.value||null):null,
-    creato_da:                   user?.email||null,
+    creato_da:                   user?.nome||user?.email||null,
   };
 
   // Timestamp cambio stato
