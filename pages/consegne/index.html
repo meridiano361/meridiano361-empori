@@ -131,6 +131,24 @@
 
     /* ── Delete section ── */
     .del-section{margin-top:8px;padding-top:14px;border-top:1px solid #f1f5f9}
+
+    /* ── Payment selector ── */
+    .pag-sel{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:2px}
+    .pag-btn{padding:7px 11px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:#64748b;background:#f8fafc;transition:all .12s}
+    .pag-btn:hover{border-color:var(--red);color:var(--red)}
+    .pag-btn.active{border-color:var(--red);background:#fdf1f0;color:var(--red)}
+    .metodo-btn{padding:7px 14px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:#64748b;background:#f8fafc;transition:all .12s}
+    .metodo-btn:hover{border-color:#2563eb;color:#2563eb}
+    .metodo-btn.active{border-color:#2563eb;background:#eff6ff;color:#2563eb}
+
+    /* ── Rubrica panel ── */
+    .rubrica-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:1000;max-height:200px;display:flex;flex-direction:column;overflow:hidden}
+    .rubrica-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f8fafc;font-size:12px}
+    .rubrica-item:hover{background:#f8fafc}
+    .rubrica-item-nome{font-weight:700;color:#1e293b}
+    .rubrica-item-det{color:#64748b;font-size:11px;margin-top:1px}
+    .rubrica-empty{padding:16px;text-align:center;color:#94a3b8;font-size:12px}
+    .rubrica-list{overflow-y:auto}
   </style>
 </head>
 <body>
@@ -282,6 +300,11 @@ let _filtri      = { q:'', emporio:'', tipo:'', fattorino:'', stato:'' };
 let _editId      = null;
 let _statoId     = null;
 let _fattorini   = [];
+let _currentTipoPagamento   = null;
+let _currentMetodoPagamento = null;
+let _rubricaOpen  = false;
+let _rubricaCache = null;
+let _rubricaResults = [];
 
 /* ── Utils ─────────────────────────────────────────────── */
 
@@ -457,6 +480,8 @@ function renderSettimana(){
       html+=`</div>`;
       html+=`<div class="cc-dest"><i class="fas ${icon}" style="color:${st.c};font-size:9px;margin-right:3px"></i>${esc(dest)}</div>`;
       if(c.fattorino) html+=`<div class="cc-fatt"><i class="fas fa-person-biking" style="font-size:8px"></i> ${esc(c.fattorino)}</div>`;
+      if(c.da_concordare&&!c.ora_concordata) html+=`<div style="font-size:9px;color:#d97706;margin-top:1px"><i class="fas fa-clock"></i> Da concordare</div>`;
+      if(c.tipo_pagamento==='da_pagare') html+=`<div style="font-size:9px;color:#dc2626;margin-top:1px"><i class="fas fa-coins"></i> Da pagare${c.importo?' €'+c.importo:''}</div>`;
       html+=`</div>`;
     });
 
@@ -519,6 +544,13 @@ function renderGiorno(){
     if(c.destinatario_telefono) html+=`<span><a href="tel:${esc(c.destinatario_telefono)}" style="color:inherit"><i class="fas fa-phone"></i> ${esc(c.destinatario_telefono)}</a></span>`;
     html+=`</div>`;
     if(c.merce) html+=`<div class="di-merce"><i class="fas fa-box" style="color:#94a3b8;margin-right:5px"></i>${esc(c.merce)}</div>`;
+    if(c.da_concordare) html+=`<div class="di-nota" style="color:#d97706"><i class="fas fa-clock" style="margin-top:1px"></i> Da concordare${c.ora_concordata?' — concordato: '+fmtOra(c.ora_concordata):''}</div>`;
+    if(c.tipo_pagamento){
+      const pLabel={scontrinato:'Scontrinato',regalo:'Regalo',pagato:'Pagato',da_pagare:'Da pagare'}[c.tipo_pagamento]||c.tipo_pagamento;
+      const pColor=c.tipo_pagamento==='da_pagare'?'#dc2626':'#16a34a';
+      const pExtra=c.tipo_pagamento==='da_pagare'&&c.importo?` — € ${Number(c.importo).toFixed(2)}${c.metodo_pagamento?' ('+c.metodo_pagamento.toUpperCase()+')':''}` : '';
+      html+=`<div class="di-nota" style="color:${pColor}"><i class="fas fa-receipt" style="margin-top:1px"></i> ${pLabel}${pExtra}</div>`;
+    }
     if(c.destinatario_note_indirizzo) html+=`<div class="di-nota"><i class="fas fa-location-dot" style="margin-top:1px"></i> ${esc(c.destinatario_note_indirizzo)}</div>`;
     if(c.note) html+=`<div class="di-nota"><i class="fas fa-note-sticky" style="margin-top:1px"></i> ${esc(c.note)}</div>`;
     if(c.motivo&&(c.stato==='rinviato'||c.stato==='annullato')) html+=`<div class="di-nota" style="color:${st.c}"><i class="fas fa-circle-info" style="margin-top:1px"></i> ${esc(c.motivo)}</div>`;
@@ -555,14 +587,19 @@ async function apriModifica(id){
 function chiudiModalCns(){
   document.getElementById('modal-cns').style.display='none';
   _editId=null;
+  _rubricaOpen=false;
 }
 
 function buildFormCns(c, dataDefault){
   const isEdit=!!c;
   document.getElementById('modal-cns-title').textContent=isEdit?'Modifica consegna':'Nuova consegna';
 
-  const tipo=(isEdit&&c.tipo_destinazione)||'cliente';
-  const stato=(isEdit&&c.stato)||'da_programmare';
+  const tipo  = (isEdit&&c.tipo_destinazione)||'cliente';
+  const stato = (isEdit&&c.stato)||'da_programmare';
+
+  _currentTipoPagamento   = isEdit ? (c.tipo_pagamento   || null) : null;
+  _currentMetodoPagamento = isEdit ? (c.metodo_pagamento || null) : null;
+  _rubricaOpen = false;
 
   const empOpts=EMPORI_LIST.map(e=>
     `<option value="${e}"${(isEdit?c.emporio_partenza:'')=== e?' selected':''}>${e}</option>`
@@ -570,15 +607,23 @@ function buildFormCns(c, dataDefault){
   const empDestOpts=`<option value="">— scegli —</option>`+EMPORI_LIST.map(e=>
     `<option value="${e}"${(isEdit?c.emporio_destinazione:'')=== e?' selected':''}>${e}</option>`
   ).join('');
-  const fattOpts=_fattorini.map(f=>`<option value="${esc(f)}">`).join('');
   const statiOpts=Object.entries(STATI).map(([k,v])=>
     `<option value="${k}"${stato===k?' selected':''}>${v.label}</option>`
   ).join('');
 
-  const showEmpDest  = tipo==='emporio'  ? '' : 'display:none';
-  const showPersDest = tipo!=='emporio'  ? '' : 'display:none';
-  const showMotivo   = ['rinviato','annullato'].includes(stato) ? '' : 'display:none';
-  const showRinvio   = stato==='rinviato' ? '' : 'display:none';
+  const showEmpDest    = tipo==='emporio' ? '' : 'display:none';
+  const showPersDest   = tipo!=='emporio' ? '' : 'display:none';
+  const showMotivo     = ['rinviato','annullato'].includes(stato) ? '' : 'display:none';
+  const showRinvio     = stato==='rinviato' ? '' : 'display:none';
+  const showConcordata = isEdit&&c.da_concordare ? '' : 'display:none';
+  const showPagWrap    = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
+
+  const pagOpts=[
+    ['scontrinato','Scontrinato'],['regalo','Regalo'],
+    ['pagato','Pagato'],['da_pagare','Da pagare'],
+  ].map(([val,label])=>
+    `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
+  ).join('');
 
   const body=document.getElementById('modal-cns-body');
   body.dataset.tipo=tipo;
@@ -588,31 +633,29 @@ function buildFormCns(c, dataDefault){
       <span id="cns-conflict-msg"></span>
     </div>
 
-    <!-- QUANDO -->
+    <!-- DATA + DA CONCORDARE -->
     <div class="form-sec">
-      <div class="form-sec-title">Quando</div>
-      <div class="form-row">
+      <div class="form-row r1">
         <div class="form-field">
           <label class="form-lbl">Data *</label>
           <input id="fc-data" class="form-inp" type="date" value="${isEdit?c.data_consegna:(dataDefault||dateKey(new Date()))}">
         </div>
-        <div></div>
       </div>
-      <div class="form-row">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;font-size:13px;color:#475569;user-select:none;padding:2px 0">
+        <input type="checkbox" id="fc-concordare" ${isEdit&&c.da_concordare?'checked':''} onchange="onConcordareChange()" style="width:16px;height:16px;accent-color:var(--red);cursor:pointer;flex-shrink:0">
+        Da concordare con il cliente/azienda
+      </label>
+      <div id="fc-concordata-wrap" style="${showConcordata};margin-top:10px">
         <div class="form-field">
-          <label class="form-lbl">Orario previsto</label>
-          <input id="fc-ora" class="form-inp" type="time" value="${isEdit&&c.ora_prevista?c.ora_prevista.slice(0,5):''}">
-        </div>
-        <div class="form-field">
-          <label class="form-lbl">Fino alle (fascia)</label>
-          <input id="fc-ora-fine" class="form-inp" type="time" value="${isEdit&&c.ora_fine?c.ora_fine.slice(0,5):''}">
+          <label class="form-lbl">Orario concordato</label>
+          <input id="fc-ora-concordata" class="form-inp" type="time" value="${isEdit&&c.ora_concordata?c.ora_concordata.slice(0,5):''}">
         </div>
       </div>
     </div>
 
-    <!-- PARTENZA -->
+    <!-- EMPORIO -->
     <div class="form-sec">
-      <div class="form-sec-title">Emporio di partenza</div>
+      <div class="form-sec-title">Emporio</div>
       <div class="form-row r1">
         <div class="form-field">
           <label class="form-lbl">Emporio *</label>
@@ -647,9 +690,15 @@ function buildFormCns(c, dataDefault){
       </div>
       <div id="dest-pers" style="${showPersDest}">
         <div class="form-row r1">
-          <div class="form-field">
+          <div class="form-field" style="position:relative">
             <label class="form-lbl" id="lbl-dest-nome">${tipo==='azienda'?'Nome azienda':'Nome destinatario'}</label>
-            <input id="fc-dest-nome" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_nome||''):''}">
+            <div style="display:flex;gap:6px">
+              <input id="fc-dest-nome" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_nome||''):''}" style="flex:1" oninput="onRubricaSearch()">
+              <button type="button" class="btn btn-outline btn-sm" onclick="toggleRubrica()" title="Cerca in rubrica" style="flex-shrink:0;padding:7px 10px">
+                <i class="fas fa-address-book"></i>
+              </button>
+            </div>
+            <div id="rubrica-panel" class="rubrica-panel" style="display:none"></div>
           </div>
         </div>
         <div class="form-row">
@@ -677,7 +726,7 @@ function buildFormCns(c, dataDefault){
         </div>
         <div class="form-row r1">
           <div class="form-field">
-            <label class="form-lbl">Come raggiungerlo</label>
+            <label class="form-lbl">Note</label>
             <input id="fc-dest-note-ind" class="form-inp" type="text"
               placeholder="es. Suonare campanello B, 2° piano"
               value="${isEdit?esc(c.destinatario_note_indirizzo||''):''}">
@@ -708,20 +757,33 @@ function buildFormCns(c, dataDefault){
       </div>
     </div>
 
-    <!-- FATTORINO & NOTE -->
+    <!-- PAGAMENTO -->
     <div class="form-sec">
-      <div class="form-sec-title">Fattorino e note</div>
-      <div class="form-row r1">
-        <div class="form-field">
-          <label class="form-lbl">Fattorino assegnato</label>
-          <input id="fc-fatt" class="form-inp" type="text" list="fc-fatt-list"
-            placeholder="Nome fattorino" value="${isEdit?esc(c.fattorino||''):''}">
-          <datalist id="fc-fatt-list">${fattOpts}</datalist>
+      <div class="form-sec-title">Pagamento</div>
+      <div class="pag-sel">${pagOpts}</div>
+      <div id="fc-pagamento-wrap" style="${showPagWrap};margin-top:12px">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-lbl">Importo €</label>
+            <input id="fc-importo" class="form-inp" type="number" min="0" step="0.01" placeholder="0.00"
+              value="${isEdit&&c.importo!=null?c.importo:''}">
+          </div>
+          <div class="form-field">
+            <label class="form-lbl">Metodo</label>
+            <div style="display:flex;gap:6px;padding-top:6px">
+              <button type="button" class="metodo-btn${isEdit&&c.metodo_pagamento==='pos'?' active':''}" data-val="pos" onclick="onMetodoChange(this)">POS</button>
+              <button type="button" class="metodo-btn${isEdit&&c.metodo_pagamento==='contanti'?' active':''}" data-val="contanti" onclick="onMetodoChange(this)">Contanti</button>
+            </div>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- NOTE -->
+    <div class="form-sec">
+      <div class="form-sec-title">Note</div>
       <div class="form-row r1">
         <div class="form-field">
-          <label class="form-lbl">Note operative</label>
           <textarea id="fc-note" class="form-inp form-ta">${isEdit?esc(c.note||''):''}</textarea>
         </div>
       </div>
@@ -743,7 +805,7 @@ function buildFormCns(c, dataDefault){
         <div class="form-row r1">
           <div class="form-field">
             <label class="form-lbl">Motivazione</label>
-            <textarea id="fc-motivo" class="form-inp form-ta">${isEdit?esc(c.motivo||''):''}</textarea>
+            <textarea id="fc-motivo" class="form-inp form-ta">${esc(c.motivo||'')}</textarea>
           </div>
         </div>
       </div>
@@ -751,7 +813,7 @@ function buildFormCns(c, dataDefault){
         <div class="form-row">
           <div class="form-field">
             <label class="form-lbl">Nuova data consegna</label>
-            <input id="fc-data-rinvio" class="form-inp" type="date" value="${isEdit&&c.data_rinvio?c.data_rinvio:''}">
+            <input id="fc-data-rinvio" class="form-inp" type="date" value="${c.data_rinvio||''}">
           </div>
           <div></div>
         </div>
@@ -783,6 +845,90 @@ function onStatoChangeForm(stato){
   if(rw) rw.style.display=stato==='rinviato'?'':'none';
 }
 
+function onConcordareChange(){
+  const checked=document.getElementById('fc-concordare')?.checked;
+  const wrap=document.getElementById('fc-concordata-wrap');
+  if(wrap) wrap.style.display=checked?'':'none';
+}
+
+function onPagChange(el){
+  el.closest('.pag-sel').querySelectorAll('.pag-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  _currentTipoPagamento=el.dataset.val;
+  const wrap=document.getElementById('fc-pagamento-wrap');
+  if(wrap) wrap.style.display=_currentTipoPagamento==='da_pagare'?'':'none';
+}
+
+function onMetodoChange(el){
+  el.closest('div').querySelectorAll('.metodo-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  _currentMetodoPagamento=el.dataset.val;
+}
+
+/* ── Rubrica ──────────────────────────────────────────────── */
+
+async function toggleRubrica(){
+  const panel=document.getElementById('rubrica-panel'); if(!panel) return;
+  _rubricaOpen=!_rubricaOpen;
+  panel.style.display=_rubricaOpen?'':'none';
+  if(_rubricaOpen){
+    await loadRubrica();
+    renderRubrica(document.getElementById('fc-dest-nome')?.value||'');
+  }
+}
+
+function onRubricaSearch(){
+  if(!_rubricaOpen) return;
+  renderRubrica(document.getElementById('fc-dest-nome')?.value||'');
+}
+
+async function loadRubrica(){
+  if(_rubricaCache!==null) return;
+  const panel=document.getElementById('rubrica-panel');
+  if(panel) panel.innerHTML='<div class="rubrica-empty">Caricamento…</div>';
+  try{
+    const {data}=await _sb.from('consegne')
+      .select('destinatario_nome,destinatario_telefono,destinatario_indirizzo,destinatario_citta,destinatario_cap')
+      .not('destinatario_nome','is',null)
+      .order('destinatario_nome');
+    const seen=new Set();
+    _rubricaCache=(data||[]).filter(r=>{
+      if(!r.destinatario_nome||seen.has(r.destinatario_nome)) return false;
+      seen.add(r.destinatario_nome); return true;
+    });
+  }catch{ _rubricaCache=[]; }
+}
+
+function renderRubrica(q){
+  const panel=document.getElementById('rubrica-panel'); if(!panel||_rubricaCache===null) return;
+  _rubricaResults=q.trim()
+    ? _rubricaCache.filter(r=>r.destinatario_nome.toLowerCase().includes(q.toLowerCase()))
+    : _rubricaCache;
+  if(!_rubricaResults.length){
+    panel.innerHTML='<div class="rubrica-empty">Nessun contatto trovato</div>'; return;
+  }
+  panel.innerHTML='<div class="rubrica-list">'+_rubricaResults.map((r,i)=>`
+    <div class="rubrica-item" onclick="selezionaContatto(${i})">
+      <div class="rubrica-item-nome">${esc(r.destinatario_nome)}</div>
+      ${r.destinatario_telefono||r.destinatario_citta?`<div class="rubrica-item-det">${[r.destinatario_telefono,r.destinatario_citta].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+    </div>`).join('')+'</div>';
+}
+
+function selezionaContatto(i){
+  const r=_rubricaResults[i]; if(!r) return;
+  const map={
+    'fc-dest-nome':r.destinatario_nome||'',
+    'fc-dest-tel':r.destinatario_telefono||'',
+    'fc-dest-ind':r.destinatario_indirizzo||'',
+    'fc-dest-cit':r.destinatario_citta||'',
+    'fc-dest-cap':r.destinatario_cap||'',
+  };
+  Object.entries(map).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
+  _rubricaOpen=false;
+  const panel=document.getElementById('rubrica-panel');
+  if(panel) panel.style.display='none';
+}
+
 function checkConflitti(payload){
   if(!payload.fattorino||!payload.ora_prevista) return [];
   return _consegne.filter(c=>{
@@ -800,15 +946,16 @@ async function salvaConsegna(){
   const empPart=document.getElementById('fc-emp-part')?.value;
 
   if(!dataVal){ M361.toast('Inserisci la data','err'); return; }
-  if(!empPart){ M361.toast('Seleziona l\'emporio di partenza','err'); return; }
+  if(!empPart){ M361.toast('Seleziona l\'emporio','err'); return; }
 
   const stato=document.getElementById('fc-stato')?.value||'da_programmare';
   const user=getOperatoreLoggato();
+  const concordare=document.getElementById('fc-concordare')?.checked||false;
 
   const payload={
     data_consegna:               dataVal,
-    ora_prevista:                document.getElementById('fc-ora')?.value||null,
-    ora_fine:                    document.getElementById('fc-ora-fine')?.value||null,
+    da_concordare:               concordare,
+    ora_concordata:              concordare?(document.getElementById('fc-ora-concordata')?.value||null):null,
     emporio_partenza:            empPart,
     tipo_destinazione:           tipo,
     emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
@@ -821,7 +968,9 @@ async function salvaConsegna(){
     merce:                       document.getElementById('fc-merce')?.value.trim()||null,
     colli:                       parseInt(document.getElementById('fc-colli')?.value)||null,
     note_merce:                  document.getElementById('fc-note-merce')?.value.trim()||null,
-    fattorino:                   document.getElementById('fc-fatt')?.value.trim()||null,
+    tipo_pagamento:              _currentTipoPagamento||null,
+    importo:                     _currentTipoPagamento==='da_pagare'?(parseFloat(document.getElementById('fc-importo')?.value)||null):null,
+    metodo_pagamento:            _currentTipoPagamento==='da_pagare'?(_currentMetodoPagamento||null):null,
     note:                        document.getElementById('fc-note')?.value.trim()||null,
     stato:                       stato,
     motivo:                      ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
