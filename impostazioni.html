@@ -2872,6 +2872,10 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             if (!res.ok || json.error) {
                 showToast('Operatore salvato, ma account Auth non creato: ' + (json.error || res.statusText), 'err');
             } else {
+                // Collega auth_id all'operatore così il login funziona subito
+                if (json.user_id) {
+                    await db.from('operatori').update({ auth_id: json.user_id }).ilike('email', email);
+                }
                 showToast('Account creato — accesso: ' + email + ' / 123456', 'ok');
             }
         } catch (e) {
