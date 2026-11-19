@@ -2107,7 +2107,13 @@ async function saveContaContanti(turno) {
   const feedback = document.getElementById('conta-'+turno+'-feedback');
   if (btn) btn.disabled = true;
   if (feedback) { feedback.textContent = ''; feedback.style.color = ''; }
-  const err = await dbUpsert({ chiave: currentKey, emporio: currentEmp, [field]: total });
+  const payload = { chiave: currentKey, emporio: currentEmp, [field]: total };
+  TAGLI.forEach(t => {
+    const inputKey = String(t).replace('.','_');
+    const dbKey    = t < 1 ? t.toFixed(2).replace('.','_') : inputKey;
+    payload[turno+'_moneta_'+dbKey] = parseFloat(document.getElementById('conta_'+turno+'_coin_'+inputKey)?.value||0)||0;
+  });
+  const err = await dbUpsert(payload);
   if (btn) btn.disabled = false;
   if (err) {
     if (feedback) { feedback.textContent = '✗ Errore: ' + (err.message || err); feedback.style.color = '#e11d48'; }
@@ -3409,6 +3415,23 @@ function fillForm(data) {
   // Ripristina badge conteggio inizio turno
   if (data.mat_ini_contanti != null && data.mat_ini_contanti > 0) updateContaBadge('mat', data.mat_ini_contanti);
   if (data.pom_ini_contanti != null && data.pom_ini_contanti > 0) updateContaBadge('pom', data.pom_ini_contanti);
+  // Ripristina pezzi per taglio nel conteggio inizio turno
+  ['mat','pom'].forEach(turno => {
+    const hasData = TAGLI.some(t => {
+      const dbKey = t < 1 ? t.toFixed(2).replace('.','_') : String(t).replace('.','_');
+      return (data[turno+'_moneta_'+dbKey] || 0) > 0;
+    });
+    if (!hasData) return;
+    const section = document.getElementById('conta-section-'+turno);
+    if (section && !section.dataset.built) { buildContaCoins(turno); section.dataset.built = 'true'; }
+    TAGLI.forEach(t => {
+      const inputKey = String(t).replace('.','_');
+      const dbKey    = t < 1 ? t.toFixed(2).replace('.','_') : inputKey;
+      const el = document.getElementById('conta_'+turno+'_coin_'+inputKey);
+      if (el) el.value = data[turno+'_moneta_'+dbKey] || '';
+    });
+    calcConta(turno);
+  });
   syncWeatherIcon(); calcIva();
 }
 
