@@ -169,7 +169,7 @@
       { id: 'listino',    label: 'Vetrina',     icon: 'fa-list-ul',           href: 'pages/listino-prezzi/listino-prezzi.html',       section: null, active: true },
       { id: 'saldi',      label: 'Saldi',       icon: 'fa-percent',           href: 'pages/saldi/index.html',                        section: null, active: true },
       { id: 'inventario', label: 'Inventario',  icon: 'fa-barcode',           href: 'pages/inventario/index.html',                   section: null, active: true },
-      { id: 'consegne',  label: 'Consegne',   icon: 'fa-truck',             href: 'pages/consegne/index.html',                     section: null, active: false, emilioOnly: true },
+      { id: 'consegne',  label: 'Consegne',   icon: 'fa-truck',             href: 'pages/consegne/index.html',                     section: null, active: true },
     ]},
     { group: 'Extra', items: [
       { id: 'conta-persone', label: 'Conta', icon: 'fa-person-walking', href: 'pages/conta-persone/conta-persone.html', section: null, active: true },
