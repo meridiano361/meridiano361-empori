@@ -953,6 +953,29 @@ function buildFormCns(c, dataDefault){
       <span>Compilato da <strong style="color:#334155">${compilatoLbl}</strong></span>
     </div>
   `;
+
+  if (isEdit && getRuoloLoggato() === 'fattorino') _applyFattorinoRestrictions();
+}
+
+function _applyFattorinoRestrictions() {
+  const body = document.getElementById('modal-cns-body');
+  // Blocca sezioni non modificabili (emporio, destinazione, merce, pagamento, note)
+  ['fc-emp-part','fc-merce','fc-note'].forEach(id => {
+    const sec = document.getElementById(id)?.closest('.form-sec');
+    if (sec) { sec.style.opacity='.45'; sec.style.pointerEvents='none'; }
+  });
+  const tipoSel = body.querySelector('.tipo-sel');
+  if (tipoSel) { const sec=tipoSel.closest('.form-sec'); if(sec){ sec.style.opacity='.45'; sec.style.pointerEvents='none'; } }
+  const pagSel = body.querySelector('.pag-sel');
+  if (pagSel) { const sec=pagSel.closest('.form-sec'); if(sec){ sec.style.opacity='.45'; sec.style.pointerEvents='none'; } }
+  // Nascondi elimina
+  const delSec = body.querySelector('.del-section');
+  if (delSec) delSec.style.display = 'none';
+  // Banner informativo in cima
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 13px;font-size:12px;color:#1d4ed8;display:flex;align-items:center;gap:8px;margin-bottom:12px';
+  banner.innerHTML = '<i class="fas fa-lock" style="font-size:11px;flex-shrink:0"></i><span>Puoi modificare solo <strong>stato</strong>, <strong>data</strong> e <strong>orari</strong></span>';
+  body.insertBefore(banner, body.firstChild);
 }
 
 function onTipoChange(el,tipo){
@@ -1089,42 +1112,56 @@ function checkConflitti(payload){
 }
 
 async function salvaConsegna(){
+  const isFattorinoMode = _editId && getRuoloLoggato() === 'fattorino';
   const tipo=document.getElementById('modal-cns-body').dataset.tipo||'cliente';
   const dataVal=document.getElementById('fc-data')?.value;
   const empPart=document.getElementById('fc-emp-part')?.value;
 
   const concordare=document.getElementById('fc-concordare')?.checked||false;
   if(!dataVal&&!concordare){ M361.toast('Inserisci la data','err'); return; }
-  if(!empPart){ M361.toast('Seleziona l\'emporio di partenza','err'); return; }
+  if(!isFattorinoMode && !empPart){ M361.toast('Seleziona l\'emporio di partenza','err'); return; }
 
   const stato=document.getElementById('fc-stato')?.value||'da_programmare';
   const user=getOperatoreLoggato();
 
-  const payload={
-    data_consegna:               dataVal||null,
-    da_concordare:               concordare,
-    ora_concordata:              concordare?(document.getElementById('fc-ora-concordata')?.value||null):null,
-    emporio_partenza:            empPart,
-    tipo_destinazione:           tipo,
-    emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
-    destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
-    destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
-    destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
-    destinatario_citta:          tipo!=='emporio'?(document.getElementById('fc-dest-cit')?.value.trim()||null):null,
-    destinatario_cap:            tipo!=='emporio'?(document.getElementById('fc-dest-cap')?.value.trim()||null):null,
-    destinatario_note_indirizzo: tipo!=='emporio'?(document.getElementById('fc-dest-note-ind')?.value.trim()||null):null,
-    merce:                       document.getElementById('fc-merce')?.value.trim()||null,
-    colli:                       parseInt(document.getElementById('fc-colli')?.value)||null,
-    note_merce:                  document.getElementById('fc-note-merce')?.value.trim()||null,
-    tipo_pagamento:              _currentTipoPagamento||null,
-    importo:                     _currentTipoPagamento==='da_pagare'?(parseFloat(document.getElementById('fc-importo')?.value)||null):null,
-    metodo_pagamento:            _currentTipoPagamento==='da_pagare'?(_currentMetodoPagamento||null):null,
-    note:                        document.getElementById('fc-note')?.value.trim()||null,
-    stato:                       stato,
-    motivo:                      ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
-    data_rinvio:                 stato==='rinviato'?(document.getElementById('fc-data-rinvio')?.value||null):null,
-    creato_da:                   user?.nome||user?.email||null,
-  };
+  let payload;
+  if (isFattorinoMode) {
+    // Fattorino: solo stato, data, orari
+    payload = {
+      data_consegna:  dataVal||null,
+      da_concordare:  concordare,
+      ora_concordata: concordare?(document.getElementById('fc-ora-concordata')?.value||null):null,
+      stato,
+      motivo:         ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
+      data_rinvio:    stato==='rinviato'?(document.getElementById('fc-data-rinvio')?.value||null):null,
+    };
+  } else {
+    payload={
+      data_consegna:               dataVal||null,
+      da_concordare:               concordare,
+      ora_concordata:              concordare?(document.getElementById('fc-ora-concordata')?.value||null):null,
+      emporio_partenza:            empPart,
+      tipo_destinazione:           tipo,
+      emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
+      destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
+      destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
+      destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
+      destinatario_citta:          tipo!=='emporio'?(document.getElementById('fc-dest-cit')?.value.trim()||null):null,
+      destinatario_cap:            tipo!=='emporio'?(document.getElementById('fc-dest-cap')?.value.trim()||null):null,
+      destinatario_note_indirizzo: tipo!=='emporio'?(document.getElementById('fc-dest-note-ind')?.value.trim()||null):null,
+      merce:                       document.getElementById('fc-merce')?.value.trim()||null,
+      colli:                       parseInt(document.getElementById('fc-colli')?.value)||null,
+      note_merce:                  document.getElementById('fc-note-merce')?.value.trim()||null,
+      tipo_pagamento:              _currentTipoPagamento||null,
+      importo:                     _currentTipoPagamento==='da_pagare'?(parseFloat(document.getElementById('fc-importo')?.value)||null):null,
+      metodo_pagamento:            _currentTipoPagamento==='da_pagare'?(_currentMetodoPagamento||null):null,
+      note:                        document.getElementById('fc-note')?.value.trim()||null,
+      stato,
+      motivo:                      ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
+      data_rinvio:                 stato==='rinviato'?(document.getElementById('fc-data-rinvio')?.value||null):null,
+      creato_da:                   user?.nome||user?.email||null,
+    };
+  }
 
   // Timestamp cambio stato
   if(stato==='consegnato'&&_editId){
