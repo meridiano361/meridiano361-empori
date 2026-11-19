@@ -417,7 +417,12 @@ async function loadAndRender(){
   ]);
 
   if(rangeRes.error){ M361.toast('Errore caricamento: '+rangeRes.error.message,'err'); _consegne=[]; }
-  else { _consegne = [...(rangeRes.data||[]),...(undatedRes.data||[])]; }
+  else {
+    // de-duplica: le consegne da_concordare con data potrebbero comparire in entrambe le query
+    const seen=new Set();
+    const all=[...(rangeRes.data||[]),...(undatedRes.data||[])];
+    _consegne=all.filter(c=>{ if(seen.has(c.id)) return false; seen.add(c.id); return true; });
+  }
 
   render();
 }
