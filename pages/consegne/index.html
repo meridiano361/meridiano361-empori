@@ -197,9 +197,34 @@
       /* Checkbox da concordare: target più grande */
       #fc-concordare{width:20px;height:20px}
     }
+    /* ── WA sheet ── */
+    #wa-sheet{position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center}
+    .wa-box{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:560px;padding:20px 20px 32px;box-shadow:0 -4px 30px rgba(0,0,0,.15)}
+    .wa-title{font-size:15px;font-weight:800;color:#1e293b;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+    .wa-subtitle{font-size:12px;color:#64748b;margin-bottom:14px}
+    .wa-msg{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 14px;font-size:12px;color:#166534;white-space:pre-wrap;line-height:1.6;margin-bottom:16px;max-height:220px;overflow-y:auto;font-family:'CenturyGothic','Century Gothic',sans-serif}
+    .wa-actions{display:flex;gap:8px}
+    .wa-btn-send{flex:1;height:44px;background:#25D366;border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}
+    .wa-btn-send:hover{background:#1ebe59}
+    .wa-btn-skip{height:44px;padding:0 18px;background:#f1f5f9;border:none;border-radius:12px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+    .wa-btn-skip:hover{background:#e2e8f0}
+    @media(min-width:600px){#wa-sheet{align-items:center;padding:20px}.wa-box{border-radius:20px;padding-bottom:20px}}
   </style>
 </head>
 <body>
+
+<!-- ── WA Sheet ── -->
+<div id="wa-sheet" style="display:none" onclick="if(event.target===this)chiudiWASheet()">
+  <div class="wa-box">
+    <div class="wa-title"><i class="fab fa-whatsapp" style="color:#25D366;font-size:20px"></i> Invia al gruppo Consegne</div>
+    <div class="wa-subtitle">Testo pre-compilato — potrai modificarlo in WhatsApp prima di inviare</div>
+    <div class="wa-msg" id="wa-msg-preview"></div>
+    <div class="wa-actions">
+      <button class="wa-btn-send" onclick="inviaWA()"><i class="fab fa-whatsapp"></i> Apri WhatsApp</button>
+      <button class="wa-btn-skip" onclick="chiudiWASheet()">Salta</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Auth check immediato (prima di qualsiasi contenuto) ── -->
 <script src="../../scripts/auth.js"></script>
@@ -1220,8 +1245,65 @@ async function salvaConsegna(){
   if(error){ M361.toast('Errore: '+error.message,'err'); return; }
 
   M361.toast(_editId?'Consegna aggiornata':'Consegna creata','ok');
+  const payloadForWA = { ...payload };
   chiudiModalCns();
   await loadAndRender();
+  mostraWASheet(payloadForWA);
+}
+
+/* ── WhatsApp ────────────────────────────────────────────── */
+let _waMsg = '';
+
+function _fmtDataItaliana(dk){
+  if(!dk) return '';
+  const d=new Date(dk+'T00:00:00');
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function mostraWASheet(p){
+  const dest = p.tipo_destinazione==='emporio'
+    ? (p.emporio_destinazione||'—')
+    : (p.destinatario_nome||'—');
+
+  let righe = [];
+  righe.push('📦 *Consegna programmata*');
+  if(p.da_concordare){
+    righe.push('📅 Data: da concordare');
+  } else if(p.data_consegna){
+    let dataRiga = '📅 ' + _fmtDataItaliana(p.data_consegna);
+    righe.push(dataRiga);
+  }
+  righe.push('👤 ' + dest);
+  if(p.destinatario_indirizzo){
+    let ind = p.destinatario_indirizzo;
+    if(p.destinatario_citta) ind += ', ' + p.destinatario_citta;
+    righe.push('📍 ' + ind);
+  }
+  if(p.destinatario_telefono) righe.push('📞 ' + p.destinatario_telefono);
+  if(p.merce) righe.push('📦 ' + p.merce);
+  if(p.colli) righe.push('🔢 ' + p.colli + ' colli');
+  const docLabel = {scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[p.tipo_documento];
+  const pagLabel = {pagato:'Pagato',da_pagare:'Da pagare'}[p.tipo_pagamento];
+  const pagExtra = p.tipo_pagamento==='da_pagare'&&p.importo ? ` € ${Number(p.importo).toFixed(2)}` : '';
+  if(docLabel||pagLabel) righe.push('💳 ' + [docLabel,pagLabel?pagLabel+pagExtra:null].filter(Boolean).join(' · '));
+  if(p.note_merce) righe.push('⚠️ ' + p.note_merce);
+  if(p.note) righe.push('📝 ' + p.note);
+  if(p.destinatario_note_indirizzo) righe.push('🔔 ' + p.destinatario_note_indirizzo);
+
+  _waMsg = righe.join('\n');
+  document.getElementById('wa-msg-preview').textContent = _waMsg;
+  document.getElementById('wa-sheet').style.display = 'flex';
+}
+
+function chiudiWASheet(){
+  document.getElementById('wa-sheet').style.display = 'none';
+  _waMsg = '';
+}
+
+function inviaWA(){
+  const url = 'whatsapp://send?text=' + encodeURIComponent(_waMsg);
+  window.location.href = url;
+  chiudiWASheet();
 }
 
 async function eliminaConsegna(id){
