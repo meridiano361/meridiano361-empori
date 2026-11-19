@@ -250,7 +250,7 @@ async function init() {
   proposta = prop;
   catalogo = cat || [];
   (rig || []).forEach(r => {
-    righe[r.codice] = { qty: r.quantity, notes: r.notes || '', id: r.id };
+    righe[r.product_code] = { qty: r.quantity, notes: r.notes || '', id: r.id };
   });
 
   isEditable = (proposta.status === 'bozza' || proposta.status === 'inviata') &&
@@ -750,7 +750,7 @@ async function salva(manual = false) {
     .map(code => ({
       proposal_id:       propId,
       catalog_product_id: catalogo.find(p => p.codice === code)?.id || null,
-      codice:      code,
+      product_code: code,
       description:       catalogo.find(p => p.codice === code)?.descrizione || code,
       quantity:          righe[code].qty || 0,
       notes:             righe[code].notes || '',
@@ -760,7 +760,7 @@ async function salva(manual = false) {
 
   const { error } = await db
     .from('rifornimento_proposte_righe')
-    .upsert(toUpsert, { onConflict: 'proposal_id,codice' });
+    .upsert(toUpsert, { onConflict: 'proposal_id,product_code' });
 
   if (error) { showBadge('err', 'Errore: ' + error.message.slice(0,60)); return; }
 
