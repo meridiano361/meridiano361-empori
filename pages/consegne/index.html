@@ -142,7 +142,7 @@
     .metodo-btn.active{border-color:#2563eb;background:#eff6ff;color:#2563eb}
 
     /* ── Rubrica panel ── */
-    .rubrica-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:1000;max-height:200px;display:flex;flex-direction:column;overflow:hidden}
+    .rubrica-panel{position:fixed;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:9999;max-height:200px;display:flex;flex-direction:column;overflow:hidden}
     .rubrica-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f8fafc;font-size:12px}
     .rubrica-item:hover{background:#f8fafc}
     .rubrica-item-nome{font-weight:700;color:#1e293b}
@@ -922,10 +922,20 @@ function onMetodoChange(el){
 async function toggleRubrica(){
   const panel=document.getElementById('rubrica-panel'); if(!panel) return;
   _rubricaOpen=!_rubricaOpen;
-  panel.style.display=_rubricaOpen?'':'none';
   if(_rubricaOpen){
+    const ref=document.getElementById('fc-dest-nome')?.closest('.form-field');
+    if(ref){
+      const r=ref.getBoundingClientRect();
+      panel.style.left=r.left+'px';
+      panel.style.width=r.width+'px';
+      panel.style.top=(r.bottom+4)+'px';
+    }
+    panel.style.display='flex';
+    panel.style.flexDirection='column';
     await loadRubrica();
     renderRubrica(document.getElementById('fc-dest-nome')?.value||'');
+  } else {
+    panel.style.display='none';
   }
 }
 
