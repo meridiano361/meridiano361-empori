@@ -132,6 +132,31 @@
       .col-sheet { display: none; }
       .tabella th { top: 156px; }
     }
+
+    /* ── PRINT ── */
+    #print-header { display: none; }
+    @media print {
+      nav, .toolbar, .filter-bar, #sommario-bar, #save-badge,
+      #pdf-modal, .readonly-notice { display: none !important; }
+
+      #print-header { display: block !important; padding: 0 0 12px; border-bottom: 2px solid #1e293b; margin-bottom: 10px; }
+
+      body { background: white !important; padding: 0 !important; }
+
+      /* Mostra intestazioni fornitore e categoria, nascondi i prodotti senza qtà */
+      .tabella tbody tr { display: none !important; }
+      .tabella tbody tr.forn-header-row { display: table-row !important; }
+      .tabella tbody tr[class*="forn-cat-row"] { display: table-row !important; }
+      .tabella tbody tr[id^="row-"].has-qty { display: table-row !important; }
+
+      .tabella tbody tr.forn-header-row td > div { background: #1e293b !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .cat-header { background: #64748b !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .tabella tbody tr.has-qty td { background: #fffbeb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+      .tabella { font-size: 11px; }
+      .col-note { display: table-cell !important; }
+    }
+
 [data-tip]{position:relative}
 [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;font-size:11px;font-weight:500;font-family:'CenturyGothic','Century Gothic',sans-serif;white-space:nowrap;padding:5px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;line-height:1.4;max-width:220px;white-space:normal;text-align:center}
 [data-tip]::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999}
@@ -202,8 +227,36 @@
   </label>
 </div>
 
+<div id="print-header">
+  <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:4px">Meridiano 361 — Richiesta di Fornitura</div>
+  <div id="ph-emporio" style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:2px"></div>
+  <div id="ph-meta" style="font-size:12px;color:#64748b"></div>
+</div>
+
 <div id="content" style="padding-bottom:80px">
   <div class="text-center py-12 text-slate-400 text-sm">Caricamento...</div>
+</div>
+
+<!-- ── PDF MODAL ── -->
+<div id="pdf-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.6);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:white;border-radius:20px;padding:28px 24px 24px;max-width:400px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.35);text-align:center;">
+    <div style="font-size:48px;line-height:1;margin-bottom:12px">📄</div>
+    <h2 style="font-size:17px;font-weight:800;color:#1e293b;margin:0 0 10px">Salva e verifica la richiesta</h2>
+    <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 20px">
+      Salva la richiesta in PDF e verifica che tutte le quantità siano state registrate correttamente prima di continuare.
+    </p>
+    <button id="btn-stampa-pdf" onclick="stampaPdf()"
+      style="width:100%;background:#f59e0b;color:white;border:none;border-radius:12px;padding:14px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:'CenturyGothic','Century Gothic',sans-serif;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      🖨️&nbsp; Stampa / Salva PDF
+    </button>
+    <button id="btn-chiudi-pdf" onclick="chiudiPdfModal()"
+      style="width:100%;background:#f1f5f9;color:#94a3b8;border:none;border-radius:12px;padding:14px 20px;font-size:14px;font-weight:700;cursor:not-allowed;font-family:'CenturyGothic','Century Gothic',sans-serif;pointer-events:none;">
+      ✓&nbsp; Ho verificato, chiudi
+    </button>
+    <p id="pdf-modal-hint" style="font-size:11px;color:#94a3b8;margin:10px 0 0">
+      Il pulsante si sblocca dopo aver aperto la stampa
+    </p>
+  </div>
 </div>
 
 <div id="sommario-bar">
@@ -539,7 +592,7 @@ function renderTable() {
     const allFornProds  = Object.values(byCat).flat();
     const qtyInForn     = allFornProds.filter(p => righe[p.codice]?.qty > 0).length;
 
-    html += `<tr onclick="toggleForn('${fornSlug}')">
+    html += `<tr class="forn-header-row" onclick="toggleForn('${fornSlug}')">
       <td colspan="8" style="padding:0">
         <div style="background:#1e293b;color:white;padding:10px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
           <svg id="forn-chev-${fornSlug}" style="width:14px;height:14px;flex-shrink:0;transition:transform .2s;transform:rotate(-90deg)"
@@ -791,6 +844,55 @@ async function invia() {
 
   // Notifica push ai responsabili acquisti (await per evitare cancellazione in mid-flight)
   await _notificaRespAcquisti().catch(() => {});
+  mostraPdfModal();
+}
+
+// ── PDF MODAL ─────────────────────────────────────────────────────
+let _pdfStampato = false;
+
+function mostraPdfModal() {
+  _pdfStampato = false;
+  const btnChiudi = document.getElementById('btn-chiudi-pdf');
+  if (btnChiudi) {
+    btnChiudi.style.background = '#f1f5f9';
+    btnChiudi.style.color = '#94a3b8';
+    btnChiudi.style.cursor = 'not-allowed';
+    btnChiudi.style.pointerEvents = 'none';
+  }
+  const hint = document.getElementById('pdf-modal-hint');
+  if (hint) hint.style.display = '';
+
+  // Popola header di stampa
+  const d = proposta.submitted_at
+    ? new Date(proposta.submitted_at).toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' })
+    : new Date().toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' });
+  const el = document.getElementById('ph-emporio');
+  const me = document.getElementById('ph-meta');
+  if (el) el.textContent = proposta.emporio || '';
+  if (me) me.textContent = `Inviata il ${d}  ·  ${proposta.created_by || ''}`;
+
+  document.getElementById('pdf-modal').style.display = 'flex';
+}
+
+function stampaPdf() {
+  window.print();
+  setTimeout(() => {
+    _pdfStampato = true;
+    const btnChiudi = document.getElementById('btn-chiudi-pdf');
+    if (btnChiudi) {
+      btnChiudi.style.background = '#16a34a';
+      btnChiudi.style.color = 'white';
+      btnChiudi.style.cursor = 'pointer';
+      btnChiudi.style.pointerEvents = '';
+    }
+    const hint = document.getElementById('pdf-modal-hint');
+    if (hint) hint.style.display = 'none';
+  }, 500);
+}
+
+function chiudiPdfModal() {
+  if (!_pdfStampato) return;
+  document.getElementById('pdf-modal').style.display = 'none';
 }
 
 async function _notificaRespAcquisti() {
