@@ -312,7 +312,6 @@ let _fattorini   = [];
 let _currentTipoPagamento   = null;
 let _currentMetodoPagamento = null;
 let _rubricaOpen  = false;
-let _rubricaCache = null;
 let _rubricaResults = [];
 
 /* ── Utils ─────────────────────────────────────────────── */
@@ -931,51 +930,57 @@ async function toggleRubrica(){
     }
     panel.style.display='flex';
     panel.style.flexDirection='column';
-    await loadRubrica();
-    renderRubrica(document.getElementById('fc-dest-nome')?.value||'');
+    const q=document.getElementById('fc-dest-nome')?.value||'';
+    await searchRubrica(q);
   } else {
     panel.style.display='none';
   }
 }
 
+let _rubricaTimer=null;
 function onRubricaSearch(){
   if(!_rubricaOpen) return;
-  renderRubrica(document.getElementById('fc-dest-nome')?.value||'');
+  clearTimeout(_rubricaTimer);
+  const q=document.getElementById('fc-dest-nome')?.value||'';
+  _rubricaTimer=setTimeout(()=>searchRubrica(q), 220);
 }
 
-async function loadRubrica(){
-  if(_rubricaCache!==null) return;
-  const panel=document.getElementById('rubrica-panel');
-  if(panel) panel.innerHTML='<div class="rubrica-empty">Caricamento…</div>';
+async function searchRubrica(q){
+  const panel=document.getElementById('rubrica-panel'); if(!panel) return;
+  panel.innerHTML='<div class="rubrica-empty">Ricerca…</div>';
   try{
-    const {data}=await _sb.from('clienti')
-      .select('id,nome,cognome,telefono,cellulare,indirizzo,citta')
-      .order('cognome').order('nome');
-    _rubricaCache=(data||[]).map(r=>({
-      nome_completo: [r.nome,r.cognome].filter(Boolean).join(' '),
-      telefono: r.telefono||r.cellulare||'',
-      indirizzo: r.indirizzo||'',
-      citta: r.citta||'',
+    let query=_sb.from('clienti')
+      .select('nome,cognome,telefono,cellulare,indirizzo,citta')
+      .order('cognome').order('nome')
+      .limit(30);
+    if(q.trim().length>=2){
+      // cerca su nome O cognome
+      query=query.or(`nome.ilike.%${q.trim()}%,cognome.ilike.%${q.trim()}%`);
+    } else {
+      // senza query mostra i primi 30 ordinati
+    }
+    const {data,error}=await query;
+    if(error) throw error;
+    _rubricaResults=(data||[]).map(r=>({
+      nome_completo:[r.nome,r.cognome].filter(Boolean).join(' '),
+      telefono:r.telefono||r.cellulare||'',
+      indirizzo:r.indirizzo||'',
+      citta:r.citta||'',
     }));
-  }catch{ _rubricaCache=[]; }
-}
-
-function renderRubrica(q){
-  const panel=document.getElementById('rubrica-panel'); if(!panel||_rubricaCache===null) return;
-  if(!_rubricaCache.length){
-    panel.innerHTML='<div class="rubrica-empty">Nessun cliente in rubrica</div>'; return;
+    if(!_rubricaResults.length){
+      panel.innerHTML=q.trim().length>=2
+        ?'<div class="rubrica-empty">Nessun contatto trovato</div>'
+        :'<div class="rubrica-empty">Digita un nome per cercare</div>';
+      return;
+    }
+    panel.innerHTML='<div class="rubrica-list">'+_rubricaResults.map((r,i)=>`
+      <div class="rubrica-item" onclick="selezionaContatto(${i})">
+        <div class="rubrica-item-nome">${esc(r.nome_completo)}</div>
+        ${r.telefono||r.citta?`<div class="rubrica-item-det">${[r.telefono,r.citta].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+      </div>`).join('')+'</div>';
+  }catch{
+    panel.innerHTML='<div class="rubrica-empty">Errore caricamento</div>';
   }
-  _rubricaResults=q.trim()
-    ? _rubricaCache.filter(r=>r.nome_completo.toLowerCase().includes(q.toLowerCase()))
-    : _rubricaCache;
-  if(!_rubricaResults.length){
-    panel.innerHTML='<div class="rubrica-empty">Nessun contatto trovato</div>'; return;
-  }
-  panel.innerHTML='<div class="rubrica-list">'+_rubricaResults.map((r,i)=>`
-    <div class="rubrica-item" onclick="selezionaContatto(${i})">
-      <div class="rubrica-item-nome">${esc(r.nome_completo)}</div>
-      ${r.telefono||r.citta?`<div class="rubrica-item-det">${[r.telefono,r.citta].filter(Boolean).map(esc).join(' · ')}</div>`:''}
-    </div>`).join('')+'</div>';
 }
 
 function selezionaContatto(i){
