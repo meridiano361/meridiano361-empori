@@ -906,7 +906,18 @@ document.getElementById('numero-ordine-preview').value = '';
                 opt.text = op;
                 opSelect.add(opt);
             });
-            if (prevVal && lista.includes(prevVal)) opSelect.value = prevVal;
+            // Ripristina selezione precedente se presente nella lista
+            if (prevVal && lista.includes(prevVal)) {
+                opSelect.value = prevVal;
+            } else {
+                // Auto-seleziona l'operatore loggato solo se il campo era vuoto
+                // (non sovrascrivere se un altro operatore aveva già selezionato il suo nome)
+                const op = typeof getOperatoreLoggato === 'function' ? getOperatoreLoggato() : null;
+                const nomeLoggato = op ? [op.nome, op.cognome].filter(Boolean).join(' ') : '';
+                if (!prevVal && nomeLoggato && lista.includes(nomeLoggato)) {
+                    opSelect.value = nomeLoggato;
+                }
+            }
         }
 
         function handleCittaChange() {
