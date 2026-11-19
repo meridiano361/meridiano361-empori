@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/faviconm361.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="../../assets/style/nav-style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>Consegne Fattorino</title>
+  <style>
+    :root { --red:#B5453A; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
+    a{color:inherit;text-decoration:none}
+
+    .page-wrap{padding-top:56px;padding-bottom:72px;min-height:100vh}
+
+    /* ── Sticky header ── */
+    #hdr{position:sticky;top:56px;z-index:100;background:#fff;border-bottom:1px solid #e2e8f0}
+    .hdr-r1{padding:10px 14px 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .hdr-r2{padding:0 14px 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .page-title{font-size:17px;font-weight:800;color:#1e293b}
+    .wip-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px}
+
+    /* ── Period nav ── */
+    .period-nav{display:flex;align-items:center;gap:4px}
+    .period-nav .nav-btn{width:28px;height:28px;border-radius:8px;background:#f1f5f9;border:none;cursor:pointer;color:#64748b;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+    .period-nav .nav-btn:hover{background:#e2e8f0}
+    #periodo-label{font-size:13px;font-weight:700;color:#334155;min-width:200px;text-align:center}
+
+    /* ── View tabs ── */
+    .view-tabs{display:flex;background:#f1f5f9;border-radius:10px;padding:2px}
+    .view-tab{padding:5px 12px;border-radius:8px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:#64748b;background:transparent;transition:all .15s}
+    .view-tab.active{background:#fff;color:var(--red);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+    /* ── Buttons ── */
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:opacity .12s}
+    .btn:hover{opacity:.88}
+    .btn-red{background:var(--red);color:#fff}
+    .btn-outline{background:#fff;border:1px solid #e2e8f0;color:#334155}
+    .btn-sm{padding:5px 10px;font-size:11px}
+    .btn-ghost{background:#f1f5f9;border:none;color:#334155;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit}
+    .btn-ghost:hover{background:#e2e8f0}
+    .btn-filtri{background:#f1f5f9;border:none;color:#334155;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px}
+    .btn-filtri.has-active{background:#fdf1f0;color:var(--red)}
+    .btn-danger{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+
+    /* ── Filter bar ── */
+    #filtri-bar{background:#fff;border-bottom:1px solid #f1f5f9;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .f-input{padding:7px 10px;border:1px solid #e2e8f0;border-radius:9px;font-size:12px;font-family:inherit;color:#334155;outline:none;background:#f8fafc}
+    .f-input:focus{border-color:var(--red);background:#fff}
+    .f-search{min-width:160px;flex:1;max-width:260px}
+
+    /* ── Weekly grid ── */
+    .week-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .week-grid{display:grid;grid-template-columns:repeat(7,minmax(140px,1fr));gap:1px;background:#e2e8f0;min-width:700px}
+    .day-col{background:#f8fafc;padding:8px 6px;min-height:200px;display:flex;flex-direction:column;gap:4px}
+    .day-col.day-today{background:#fff9f9}
+    .day-col-hdr{display:flex;flex-direction:column;align-items:center;padding:4px 0 8px;cursor:pointer;border-radius:8px;transition:background .12s}
+    .day-col-hdr:hover{background:rgba(0,0,0,.04)}
+    .day-name{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em}
+    .day-num{font-size:22px;font-weight:800;color:#334155;line-height:1.1}
+    .day-today .day-num{color:var(--red)}
+    .day-today .day-name{color:var(--red)}
+    .day-col-list{display:flex;flex-direction:column;gap:4px;flex:1}
+    .day-add-btn{align-self:center;width:28px;height:28px;border-radius:50%;background:transparent;border:1.5px dashed #cbd5e1;color:#94a3b8;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;margin-top:4px;font-family:inherit}
+    .day-add-btn:hover{background:#f1f5f9;border-color:var(--red);color:var(--red)}
+
+    /* ── Mini card (weekly) ── */
+    .cns-card{border-radius:8px;padding:7px 8px;background:#fff;border-left:3px solid #94a3b8;cursor:pointer;transition:box-shadow .12s;font-size:11px;user-select:none}
+    .cns-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
+    .cc-r1{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px}
+    .cc-ora{font-weight:800;color:#334155}
+    .cc-stato{font-size:10px;font-weight:700}
+    .cc-dest{color:#334155;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cc-fatt{color:#64748b;font-size:10px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* ── Daily list ── */
+    .day-list{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:12px;padding:16px}
+    .day-item{background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+    .di-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+    .di-tipo{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px}
+    .di-stato{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap}
+    .di-dest{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:7px;line-height:1.3}
+    .di-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#64748b;margin-bottom:7px}
+    .di-meta span{display:flex;align-items:center;gap:4px}
+    .di-merce{font-size:12px;color:#475569;padding:5px 9px;background:#f8fafc;border-radius:7px;margin-bottom:6px}
+    .di-nota{font-size:11px;color:#94a3b8;display:flex;align-items:flex-start;gap:5px;margin-top:4px}
+    .di-actions{display:flex;gap:7px;margin-top:12px;justify-content:flex-end}
+
+    /* ── Empty / loading ── */
+    .empty-state{text-align:center;padding:60px 20px;display:flex;flex-direction:column;align-items:center;color:#64748b}
+    .loading-state{text-align:center;padding:60px 20px;color:#94a3b8}
+
+    /* ── Modals ── */
+    .modal-ov{position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center}
+    @media(min-width:600px){.modal-ov{align-items:center;padding:20px}}
+    .modal-box{background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 -4px 40px rgba(0,0,0,.18)}
+    @media(min-width:600px){.modal-box{border-radius:20px;max-width:540px}}
+    .modal-hdr{padding:16px 20px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .modal-hdr h2{font-size:16px;font-weight:800;color:#1e293b;margin:0}
+    .modal-close{width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:none;font-size:18px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center;font-family:inherit}
+    .modal-body{overflow-y:auto;flex:1;padding:16px 20px}
+    .modal-ftr{padding:12px 20px 16px;border-top:1px solid #f1f5f9;display:flex;gap:8px;flex-shrink:0}
+    .modal-ftr .btn{flex:1;justify-content:center;padding:11px}
+
+    /* ── Form ── */
+    .form-sec{margin-bottom:20px}
+    .form-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f1f5f9}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .form-row.r1{grid-template-columns:1fr}
+    .form-field{display:flex;flex-direction:column;gap:4px}
+    .form-lbl{font-size:10px;font-weight:800;text-transform:uppercase;color:#94a3b8}
+    .form-inp{padding:9px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-family:inherit;color:#334155;outline:none;width:100%}
+    .form-inp:focus{border-color:var(--red)}
+    .form-sel{appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+    .form-ta{resize:none;min-height:64px}
+
+    /* ── Tipo destination selector ── */
+    .tipo-sel{display:flex;gap:6px;margin-bottom:12px}
+    .tipo-btn{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid #e2e8f0;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#64748b;background:#f8fafc;text-align:center;transition:all .12s;display:flex;flex-direction:column;align-items:center;gap:4px}
+    .tipo-btn i{font-size:16px}
+    .tipo-btn:hover{border-color:var(--red);color:var(--red);background:#fdf1f0}
+    .tipo-btn.active{border-color:var(--red);background:#fdf1f0;color:var(--red)}
+
+    /* ── Conflict warning ── */
+    .conflict-warn{background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400e;display:flex;gap:7px;align-items:flex-start;margin-bottom:12px}
+    .conflict-warn i{margin-top:1px;flex-shrink:0}
+
+    /* ── Delete section ── */
+    .del-section{margin-top:8px;padding-top:14px;border-top:1px solid #f1f5f9}
+  </style>
+</head>
+<body>
+
+<!-- ── Auth check immediato (prima di qualsiasi contenuto) ── -->
+<script src="../../scripts/auth.js"></script>
+<script>
+(function(){
+  var u = getOperatoreLoggato();
+  if (!u) { window.location.replace('../../login.html'); return; }
+  var em = (u.email || '').toLowerCase().trim();
+  var allowed = ['emilio.mazzolari@gmail.com','e.mazzolari@meridiano361.it'];
+  if (allowed.indexOf(em) === -1) { window.location.replace('../../index.html'); }
+})();
+</script>
+
+<div class="page-wrap">
+
+  <!-- ══ HEADER STICKY ══ -->
+  <div id="hdr">
+    <div class="hdr-r1">
+      <h1 class="page-title">Consegne Fattorino</h1>
+      <span class="wip-badge">🚧 In costruzione</span>
+      <div style="flex:1"></div>
+      <button class="btn btn-red" onclick="apriNuova(null)">
+        <i class="fas fa-plus"></i> Nuova consegna
+      </button>
+    </div>
+    <div class="hdr-r2">
+      <!-- navigazione periodo -->
+      <div class="period-nav">
+        <button class="nav-btn" onclick="navPrev()" title="Precedente"><i class="fas fa-chevron-left"></i></button>
+        <span id="periodo-label"></span>
+        <button class="nav-btn" onclick="navNext()" title="Successivo"><i class="fas fa-chevron-right"></i></button>
+        <button class="btn-ghost" onclick="goToday()">Oggi</button>
+      </div>
+      <!-- tabs vista -->
+      <div class="view-tabs">
+        <button id="tab-sett"   class="view-tab active" onclick="setView('settimana')">Settimana</button>
+        <button id="tab-giorno" class="view-tab"        onclick="setView('giorno')">Giorno</button>
+      </div>
+      <!-- filtri -->
+      <button id="btn-filtri" class="btn-filtri" onclick="toggleFiltri()">
+        <i class="fas fa-filter"></i> Filtri
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ BARRA FILTRI ══ -->
+  <div id="filtri-bar" style="display:none">
+    <input id="f-q"    class="f-input f-search" type="search"  placeholder="Cerca destinatario, merce, note…" oninput="applyFiltri()">
+    <select id="f-emp" class="f-input" onchange="applyFiltri()">
+      <option value="">Tutti gli empori</option>
+      <option>Cremona</option><option>Casalmaggiore</option>
+      <option>Viadana</option><option>Reggio Emilia</option>
+    </select>
+    <select id="f-tipo" class="f-input" onchange="applyFiltri()">
+      <option value="">Tutti i tipi</option>
+      <option value="emporio">Trasferimento</option>
+      <option value="cliente">Cliente privato</option>
+      <option value="azienda">Azienda</option>
+    </select>
+    <input id="f-fatt"  class="f-input" type="text" placeholder="Fattorino" oninput="applyFiltri()" style="width:130px">
+    <select id="f-stato" class="f-input" onchange="applyFiltri()">
+      <option value="">Tutti gli stati</option>
+      <option value="da_programmare">Da programmare</option>
+      <option value="programmato">Programmato</option>
+      <option value="in_consegna">In consegna</option>
+      <option value="consegnato">Consegnato</option>
+      <option value="rinviato">Rinviato</option>
+      <option value="annullato">Annullato</option>
+    </select>
+    <button class="btn-ghost" onclick="resetFiltri()" style="flex-shrink:0">
+      <i class="fas fa-rotate-left"></i> Reset
+    </button>
+  </div>
+
+  <!-- ══ CONTENUTO PRINCIPALE ══ -->
+  <div id="view-container"></div>
+
+</div><!-- /page-wrap -->
+
+
+<!-- ══ MODAL: CREA / MODIFICA CONSEGNA ══ -->
+<div id="modal-cns" class="modal-ov" style="display:none" onclick="if(event.target===this)chiudiModalCns()">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h2 id="modal-cns-title">Nuova consegna</h2>
+      <button class="modal-close" onclick="chiudiModalCns()">×</button>
+    </div>
+    <div class="modal-body" id="modal-cns-body"></div>
+    <div class="modal-ftr">
+      <button class="btn btn-outline" onclick="chiudiModalCns()">Annulla</button>
+      <button class="btn btn-red" id="btn-salva-cns" onclick="salvaConsegna()">
+        <i class="fas fa-check"></i> Salva
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: AGGIORNA STATO ══ -->
+<div id="modal-stato" class="modal-ov" style="display:none" onclick="if(event.target===this)chiudiModalStato()">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-hdr">
+      <h2>Aggiorna stato</h2>
+      <button class="modal-close" onclick="chiudiModalStato()">×</button>
+    </div>
+    <div class="modal-body" id="modal-stato-body"></div>
+    <div class="modal-ftr">
+      <button class="btn btn-outline" onclick="chiudiModalStato()">Annulla</button>
+      <button class="btn btn-red" id="btn-salva-stato" onclick="salvaStato()">
+        <i class="fas fa-check"></i> Aggiorna
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="../../scripts/nav-script.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   Consegne Fattorino — logica pagina
+═══════════════════════════════════════════════════════════ */
+
+const SB_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+
+const EMPORI_LIST = ['Cremona','Casalmaggiore','Viadana','Reggio Emilia'];
+
+const STATI = {
+  da_programmare: { label:'Da programmare', c:'#94a3b8', bg:'#f8fafc' },
+  programmato:    { label:'Programmato',    c:'#2563eb', bg:'#eff6ff' },
+  in_consegna:    { label:'In consegna',    c:'#d97706', bg:'#fffbeb' },
+  consegnato:     { label:'Consegnato',     c:'#16a34a', bg:'#f0fdf4' },
+  rinviato:       { label:'Rinviato',       c:'#ea580c', bg:'#fff7ed' },
+  annullato:      { label:'Annullato',      c:'#991b1b', bg:'#fef2f2' },
+};
+
+const GIORNI       = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+const GIORNI_BREVI = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+const MESI         = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+
+let _sb;
+let _view        = 'settimana';
+let _curDate     = new Date();
+let _consegne    = [];
+let _filtri      = { q:'', emporio:'', tipo:'', fattorino:'', stato:'' };
+let _editId      = null;
+let _statoId     = null;
+let _fattorini   = [];
+
+/* ── Utils ─────────────────────────────────────────────── */
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function dateKey(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+
+function getMonday(d){
+  const r=new Date(d); const dow=r.getDay();
+  r.setDate(r.getDate()+(dow===0?-6:1-dow)); r.setHours(0,0,0,0); return r;
+}
+
+function fmtOra(t){ return t?t.slice(0,5):''; }
+
+function fmtDataIta(dk){
+  const dt=new Date(dk+'T00:00:00');
+  return `${dt.getDate()} ${MESI[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+
+/* ── Init ───────────────────────────────────────────────── */
+
+async function init(){
+  _sb = window.supabase.createClient(SB_URL, SB_KEY);
+  await loadFattorini();
+  await loadAndRender();
+}
+
+async function loadFattorini(){
+  try{
+    const {data} = await _sb.from('operatori').select('nome').or('attivo.eq.true,attivo.is.null').order('nome');
+    _fattorini = (data||[]).map(o=>o.nome);
+  }catch{}
+}
+
+/* ── Data ───────────────────────────────────────────────── */
+
+async function loadAndRender(){
+  document.getElementById('view-container').innerHTML =
+    '<div class="loading-state"><i class="fas fa-spinner fa-spin" style="font-size:28px;color:#cbd5e1"></i></div>';
+
+  let from, to;
+  if(_view==='settimana'){
+    const mon=getMonday(_curDate);
+    from=dateKey(mon); to=dateKey(addDays(mon,6));
+  } else {
+    from=to=dateKey(_curDate);
+  }
+
+  const {data,error} = await _sb.from('consegne')
+    .select('*')
+    .gte('data_consegna',from)
+    .lte('data_consegna',to)
+    .order('data_consegna')
+    .order('ora_prevista',{nullsFirst:false});
+
+  if(error){ M361.toast('Errore caricamento: '+error.message,'err'); _consegne=[]; }
+  else { _consegne = data||[]; }
+
+  render();
+}
+
+function getFiltered(){
+  return _consegne.filter(c=>{
+    if(_filtri.q){
+      const q=_filtri.q.toLowerCase();
+      const hay=[c.destinatario_nome,c.destinatario_indirizzo,c.destinatario_citta,
+                 c.note,c.merce,c.fattorino,c.emporio_destinazione,c.destinatario_telefono]
+        .filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    if(_filtri.emporio && c.emporio_partenza!==_filtri.emporio) return false;
+    if(_filtri.tipo    && c.tipo_destinazione!==_filtri.tipo)   return false;
+    if(_filtri.fattorino && !(c.fattorino||'').toLowerCase().includes(_filtri.fattorino.toLowerCase())) return false;
+    if(_filtri.stato   && c.stato!==_filtri.stato)              return false;
+    return true;
+  });
+}
+
+/* ── Navigation ─────────────────────────────────────────── */
+
+function setView(v){
+  _view=v;
+  document.getElementById('tab-sett').classList.toggle('active',v==='settimana');
+  document.getElementById('tab-giorno').classList.toggle('active',v==='giorno');
+  loadAndRender();
+}
+
+function navPrev(){ _curDate=addDays(_curDate,_view==='settimana'?-7:-1); loadAndRender(); }
+function navNext(){ _curDate=addDays(_curDate,_view==='settimana'? 7: 1); loadAndRender(); }
+function goToday(){ _curDate=new Date(); loadAndRender(); }
+function goToDay(dk){ _curDate=new Date(dk+'T00:00:00'); setView('giorno'); }
+
+/* ── Filters ─────────────────────────────────────────────── */
+
+function toggleFiltri(){
+  const bar=document.getElementById('filtri-bar');
+  const show=bar.style.display==='none';
+  bar.style.display=show?'flex':'none';
+  document.getElementById('btn-filtri').classList.toggle('has-active',show);
+}
+
+function applyFiltri(){
+  _filtri.q        = document.getElementById('f-q')?.value||'';
+  _filtri.emporio  = document.getElementById('f-emp')?.value||'';
+  _filtri.tipo     = document.getElementById('f-tipo')?.value||'';
+  _filtri.fattorino= document.getElementById('f-fatt')?.value||'';
+  _filtri.stato    = document.getElementById('f-stato')?.value||'';
+  render();
+}
+
+function resetFiltri(){
+  ['f-q','f-emp','f-tipo','f-fatt','f-stato'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  _filtri={q:'',emporio:'',tipo:'',fattorino:'',stato:''};
+  render();
+}
+
+/* ── Rendering ───────────────────────────────────────────── */
+
+function render(){
+  updatePeriodo();
+  if(_view==='settimana') renderSettimana(); else renderGiorno();
+}
+
+function updatePeriodo(){
+  const el=document.getElementById('periodo-label'); if(!el) return;
+  if(_view==='settimana'){
+    const mon=getMonday(_curDate), sun=addDays(mon,6);
+    if(mon.getMonth()===sun.getMonth()){
+      el.textContent=`${mon.getDate()}–${sun.getDate()} ${MESI[mon.getMonth()]} ${mon.getFullYear()}`;
+    } else {
+      el.textContent=`${mon.getDate()} ${MESI[mon.getMonth()].slice(0,3)} – ${sun.getDate()} ${MESI[sun.getMonth()].slice(0,3)} ${sun.getFullYear()}`;
+    }
+  } else {
+    const d=_curDate;
+    el.textContent=`${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
+  }
+}
+
+function renderSettimana(){
+  const mon=getMonday(_curDate);
+  const today=dateKey(new Date());
+  const days=Array.from({length:7},(_,i)=>addDays(mon,i));
+  const filt=getFiltered();
+
+  let html='<div class="week-scroll"><div class="week-grid">';
+
+  days.forEach(day=>{
+    const dk=dateKey(day);
+    const dayCns=filt.filter(c=>c.data_consegna===dk).sort((a,b)=>(a.ora_prevista||'99:99')>(b.ora_prevista||'99:99')?1:-1);
+    const isToday=dk===today;
+
+    html+=`<div class="day-col${isToday?' day-today':''}">`;
+    html+=`<div class="day-col-hdr" onclick="goToDay('${dk}')">`;
+    html+=`<span class="day-name">${GIORNI_BREVI[day.getDay()]}</span>`;
+    html+=`<span class="day-num">${day.getDate()}</span>`;
+    html+=`</div><div class="day-col-list">`;
+
+    dayCns.forEach(c=>{
+      const st=STATI[c.stato]||STATI.da_programmare;
+      const dest=c.tipo_destinazione==='emporio'?(c.emporio_destinazione||'—'):(c.destinatario_nome||'—');
+      const icon=c.tipo_destinazione==='emporio'?'fa-right-left':(c.tipo_destinazione==='azienda'?'fa-building':'fa-user');
+      html+=`<div class="cns-card" style="border-left-color:${st.c}" onclick="apriModifica('${c.id}')">`;
+      html+=`<div class="cc-r1">`;
+      if(c.ora_prevista) html+=`<span class="cc-ora">${fmtOra(c.ora_prevista)}</span>`;
+      html+=`<span class="cc-stato" style="color:${st.c}">${st.label}</span>`;
+      html+=`</div>`;
+      html+=`<div class="cc-dest"><i class="fas ${icon}" style="color:${st.c};font-size:9px;margin-right:3px"></i>${esc(dest)}</div>`;
+      if(c.fattorino) html+=`<div class="cc-fatt"><i class="fas fa-person-biking" style="font-size:8px"></i> ${esc(c.fattorino)}</div>`;
+      html+=`</div>`;
+    });
+
+    html+=`</div>`;
+    html+=`<button class="day-add-btn" onclick="apriNuova('${dk}')" title="Nuova consegna per questo giorno">+</button>`;
+    html+=`</div>`;
+  });
+
+  html+='</div></div>';
+  document.getElementById('view-container').innerHTML=html;
+}
+
+function renderGiorno(){
+  const dk=dateKey(_curDate);
+  const filt=getFiltered().filter(c=>c.data_consegna===dk)
+    .sort((a,b)=>(a.ora_prevista||'99:99')>(b.ora_prevista||'99:99')?1:-1);
+
+  const container=document.getElementById('view-container');
+
+  if(!filt.length){
+    container.innerHTML=`
+      <div class="empty-state">
+        <i class="fas fa-truck-fast" style="font-size:38px;color:#cbd5e1;margin-bottom:14px"></i>
+        <p style="font-size:14px;font-weight:600;color:#64748b;margin-bottom:4px">Nessuna consegna programmata</p>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:22px">per ${GIORNI[_curDate.getDay()].toLowerCase()} ${_curDate.getDate()} ${MESI[_curDate.getMonth()]}</p>
+        <button onclick="apriNuova('${dk}')" class="btn btn-red"><i class="fas fa-plus"></i> Aggiungi consegna</button>
+      </div>`;
+    return;
+  }
+
+  let html='<div class="day-list">';
+  filt.forEach(c=>{
+    const st=STATI[c.stato]||STATI.da_programmare;
+    const icon=c.tipo_destinazione==='emporio'?'fa-right-left':(c.tipo_destinazione==='azienda'?'fa-building':'fa-user');
+    const tipoLabel=c.tipo_destinazione==='emporio'?'Trasferimento':(c.tipo_destinazione==='azienda'?'Azienda':'Cliente');
+
+    let dest='';
+    if(c.tipo_destinazione==='emporio'){
+      dest=`${esc(c.emporio_partenza||'?')} → ${esc(c.emporio_destinazione||'?')}`;
+    } else {
+      const parts=[c.destinatario_nome];
+      if(c.destinatario_indirizzo) parts.push(c.destinatario_indirizzo+(c.destinatario_citta?', '+c.destinatario_citta:''));
+      dest=parts.filter(Boolean).map(esc).join(' • ');
+    }
+    dest=dest||'Destinazione non specificata';
+
+    const oraRange=c.ora_prevista?(c.ora_fine?`${fmtOra(c.ora_prevista)}–${fmtOra(c.ora_fine)}`:fmtOra(c.ora_prevista)):'';
+
+    html+=`<div class="day-item">`;
+    html+=`<div class="di-hdr">`;
+    html+=`<span class="di-tipo" style="background:${st.bg};color:${st.c}"><i class="fas ${icon}"></i> ${tipoLabel}</span>`;
+    html+=`<span class="di-stato" style="background:${st.bg};color:${st.c}">${st.label}</span>`;
+    html+=`</div>`;
+    html+=`<div class="di-dest">${dest}</div>`;
+    html+=`<div class="di-meta">`;
+    if(oraRange) html+=`<span><i class="fas fa-clock"></i> ${oraRange}</span>`;
+    if(c.fattorino) html+=`<span><i class="fas fa-person-biking"></i> ${esc(c.fattorino)}</span>`;
+    if(c.colli) html+=`<span><i class="fas fa-boxes-stacked"></i> ${c.colli} colli</span>`;
+    if(c.tipo_destinazione!=='emporio'&&c.emporio_partenza) html+=`<span><i class="fas fa-store"></i> Da ${esc(c.emporio_partenza)}</span>`;
+    if(c.destinatario_telefono) html+=`<span><a href="tel:${esc(c.destinatario_telefono)}" style="color:inherit"><i class="fas fa-phone"></i> ${esc(c.destinatario_telefono)}</a></span>`;
+    html+=`</div>`;
+    if(c.merce) html+=`<div class="di-merce"><i class="fas fa-box" style="color:#94a3b8;margin-right:5px"></i>${esc(c.merce)}</div>`;
+    if(c.destinatario_note_indirizzo) html+=`<div class="di-nota"><i class="fas fa-location-dot" style="margin-top:1px"></i> ${esc(c.destinatario_note_indirizzo)}</div>`;
+    if(c.note) html+=`<div class="di-nota"><i class="fas fa-note-sticky" style="margin-top:1px"></i> ${esc(c.note)}</div>`;
+    if(c.motivo&&(c.stato==='rinviato'||c.stato==='annullato')) html+=`<div class="di-nota" style="color:${st.c}"><i class="fas fa-circle-info" style="margin-top:1px"></i> ${esc(c.motivo)}</div>`;
+    if(c.data_rinvio) html+=`<div class="di-nota" style="color:#ea580c"><i class="fas fa-calendar-xmark" style="margin-top:1px"></i> Rinviato al ${fmtDataIta(c.data_rinvio)}</div>`;
+    html+=`<div class="di-actions">`;
+    html+=`<button class="btn btn-outline btn-sm" onclick="apriModifica('${c.id}')"><i class="fas fa-pencil"></i> Modifica</button>`;
+    html+=`<button class="btn btn-sm" style="background:${st.bg};color:${st.c};border:1px solid ${st.c}44" onclick="apriModalStato('${c.id}')"><i class="fas fa-circle-dot"></i> Aggiorna stato</button>`;
+    html+=`</div></div>`;
+  });
+  html+='</div>';
+  container.innerHTML=html;
+}
+
+/* ── Create / Edit modal ─────────────────────────────────── */
+
+function apriNuova(dataDefault){
+  _editId=null;
+  buildFormCns(null, dataDefault||dateKey(new Date()));
+  document.getElementById('modal-cns').style.display='flex';
+}
+
+async function apriModifica(id){
+  _editId=id;
+  let c=_consegne.find(x=>x.id===id);
+  if(!c){
+    const {data}=await _sb.from('consegne').select('*').eq('id',id).single();
+    c=data;
+  }
+  if(!c){ M361.toast('Consegna non trovata','err'); return; }
+  buildFormCns(c,null);
+  document.getElementById('modal-cns').style.display='flex';
+}
+
+function chiudiModalCns(){
+  document.getElementById('modal-cns').style.display='none';
+  _editId=null;
+}
+
+function buildFormCns(c, dataDefault){
+  const isEdit=!!c;
+  document.getElementById('modal-cns-title').textContent=isEdit?'Modifica consegna':'Nuova consegna';
+
+  const tipo=(isEdit&&c.tipo_destinazione)||'cliente';
+  const stato=(isEdit&&c.stato)||'da_programmare';
+
+  const empOpts=EMPORI_LIST.map(e=>
+    `<option value="${e}"${(isEdit?c.emporio_partenza:'')=== e?' selected':''}>${e}</option>`
+  ).join('');
+  const empDestOpts=`<option value="">— scegli —</option>`+EMPORI_LIST.map(e=>
+    `<option value="${e}"${(isEdit?c.emporio_destinazione:'')=== e?' selected':''}>${e}</option>`
+  ).join('');
+  const fattOpts=_fattorini.map(f=>`<option value="${esc(f)}">`).join('');
+  const statiOpts=Object.entries(STATI).map(([k,v])=>
+    `<option value="${k}"${stato===k?' selected':''}>${v.label}</option>`
+  ).join('');
+
+  const showEmpDest  = tipo==='emporio'  ? '' : 'display:none';
+  const showPersDest = tipo!=='emporio'  ? '' : 'display:none';
+  const showMotivo   = ['rinviato','annullato'].includes(stato) ? '' : 'display:none';
+  const showRinvio   = stato==='rinviato' ? '' : 'display:none';
+
+  const body=document.getElementById('modal-cns-body');
+  body.dataset.tipo=tipo;
+  body.innerHTML=`
+    <div id="cns-conflict" class="conflict-warn" style="display:none">
+      <i class="fas fa-triangle-exclamation"></i>
+      <span id="cns-conflict-msg"></span>
+    </div>
+
+    <!-- QUANDO -->
+    <div class="form-sec">
+      <div class="form-sec-title">Quando</div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-lbl">Data *</label>
+          <input id="fc-data" class="form-inp" type="date" value="${isEdit?c.data_consegna:(dataDefault||dateKey(new Date()))}">
+        </div>
+        <div></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-lbl">Orario previsto</label>
+          <input id="fc-ora" class="form-inp" type="time" value="${isEdit&&c.ora_prevista?c.ora_prevista.slice(0,5):''}">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Fino alle (fascia)</label>
+          <input id="fc-ora-fine" class="form-inp" type="time" value="${isEdit&&c.ora_fine?c.ora_fine.slice(0,5):''}">
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTENZA -->
+    <div class="form-sec">
+      <div class="form-sec-title">Emporio di partenza</div>
+      <div class="form-row r1">
+        <div class="form-field">
+          <label class="form-lbl">Emporio *</label>
+          <select id="fc-emp-part" class="form-inp form-sel">
+            <option value="">— scegli —</option>${empOpts}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESTINAZIONE -->
+    <div class="form-sec">
+      <div class="form-sec-title">Destinazione</div>
+      <div class="tipo-sel">
+        <button type="button" class="tipo-btn${tipo==='emporio'?' active':''}" onclick="onTipoChange(this,'emporio')">
+          <i class="fas fa-right-left"></i>Trasferimento
+        </button>
+        <button type="button" class="tipo-btn${tipo==='cliente'?' active':''}" onclick="onTipoChange(this,'cliente')">
+          <i class="fas fa-user"></i>Cliente
+        </button>
+        <button type="button" class="tipo-btn${tipo==='azienda'?' active':''}" onclick="onTipoChange(this,'azienda')">
+          <i class="fas fa-building"></i>Azienda
+        </button>
+      </div>
+      <div id="dest-emporio" style="${showEmpDest}">
+        <div class="form-row r1">
+          <div class="form-field">
+            <label class="form-lbl">Emporio destinazione</label>
+            <select id="fc-emp-dest" class="form-inp form-sel">${empDestOpts}</select>
+          </div>
+        </div>
+      </div>
+      <div id="dest-pers" style="${showPersDest}">
+        <div class="form-row r1">
+          <div class="form-field">
+            <label class="form-lbl" id="lbl-dest-nome">${tipo==='azienda'?'Nome azienda':'Nome destinatario'}</label>
+            <input id="fc-dest-nome" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_nome||''):''}">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-lbl">Telefono</label>
+            <input id="fc-dest-tel" class="form-inp" type="tel" value="${isEdit?esc(c.destinatario_telefono||''):''}">
+          </div>
+          <div></div>
+        </div>
+        <div class="form-row r1">
+          <div class="form-field">
+            <label class="form-lbl">Indirizzo</label>
+            <input id="fc-dest-ind" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_indirizzo||''):''}">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-lbl">Città</label>
+            <input id="fc-dest-cit" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_citta||''):''}">
+          </div>
+          <div class="form-field">
+            <label class="form-lbl">CAP</label>
+            <input id="fc-dest-cap" class="form-inp" type="text" maxlength="5" value="${isEdit?esc(c.destinatario_cap||''):''}">
+          </div>
+        </div>
+        <div class="form-row r1">
+          <div class="form-field">
+            <label class="form-lbl">Come raggiungerlo</label>
+            <input id="fc-dest-note-ind" class="form-inp" type="text"
+              placeholder="es. Suonare campanello B, 2° piano"
+              value="${isEdit?esc(c.destinatario_note_indirizzo||''):''}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MERCE -->
+    <div class="form-sec">
+      <div class="form-sec-title">Merce</div>
+      <div class="form-row r1">
+        <div class="form-field">
+          <label class="form-lbl">Descrizione merce</label>
+          <textarea id="fc-merce" class="form-inp form-ta">${isEdit?esc(c.merce||''):''}</textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label class="form-lbl">N. colli</label>
+          <input id="fc-colli" class="form-inp" type="number" min="0" step="1" value="${isEdit&&c.colli!=null?c.colli:''}">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Note merce</label>
+          <input id="fc-note-merce" class="form-inp" type="text" placeholder="es. fragile, surgelato…"
+            value="${isEdit?esc(c.note_merce||''):''}">
+        </div>
+      </div>
+    </div>
+
+    <!-- FATTORINO & NOTE -->
+    <div class="form-sec">
+      <div class="form-sec-title">Fattorino e note</div>
+      <div class="form-row r1">
+        <div class="form-field">
+          <label class="form-lbl">Fattorino assegnato</label>
+          <input id="fc-fatt" class="form-inp" type="text" list="fc-fatt-list"
+            placeholder="Nome fattorino" value="${isEdit?esc(c.fattorino||''):''}">
+          <datalist id="fc-fatt-list">${fattOpts}</datalist>
+        </div>
+      </div>
+      <div class="form-row r1">
+        <div class="form-field">
+          <label class="form-lbl">Note operative</label>
+          <textarea id="fc-note" class="form-inp form-ta">${isEdit?esc(c.note||''):''}</textarea>
+        </div>
+      </div>
+    </div>
+
+    ${isEdit?`
+    <!-- STATO (solo in modifica) -->
+    <div class="form-sec">
+      <div class="form-sec-title">Stato</div>
+      <div class="form-row r1">
+        <div class="form-field">
+          <label class="form-lbl">Stato consegna</label>
+          <select id="fc-stato" class="form-inp form-sel" onchange="onStatoChangeForm(this.value)">
+            ${statiOpts}
+          </select>
+        </div>
+      </div>
+      <div id="fc-motivo-wrap" style="${showMotivo}">
+        <div class="form-row r1">
+          <div class="form-field">
+            <label class="form-lbl">Motivazione</label>
+            <textarea id="fc-motivo" class="form-inp form-ta">${isEdit?esc(c.motivo||''):''}</textarea>
+          </div>
+        </div>
+      </div>
+      <div id="fc-rinvio-wrap" style="${showRinvio}">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-lbl">Nuova data consegna</label>
+            <input id="fc-data-rinvio" class="form-inp" type="date" value="${isEdit&&c.data_rinvio?c.data_rinvio:''}">
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+    <div class="del-section">
+      <button onclick="eliminaConsegna('${c.id}')" class="btn btn-danger" style="width:100%">
+        <i class="fas fa-trash"></i> Elimina questa consegna
+      </button>
+    </div>
+    `:''}
+  `;
+}
+
+function onTipoChange(el,tipo){
+  document.getElementById('modal-cns-body').dataset.tipo=tipo;
+  el.closest('.tipo-sel').querySelectorAll('.tipo-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('dest-emporio').style.display = tipo==='emporio'?'':'none';
+  document.getElementById('dest-pers').style.display    = tipo!=='emporio'?'':'none';
+  const lbl=document.getElementById('lbl-dest-nome');
+  if(lbl) lbl.textContent=tipo==='azienda'?'Nome azienda':'Nome destinatario';
+}
+
+function onStatoChangeForm(stato){
+  const mw=document.getElementById('fc-motivo-wrap');
+  const rw=document.getElementById('fc-rinvio-wrap');
+  if(mw) mw.style.display=['rinviato','annullato'].includes(stato)?'':'none';
+  if(rw) rw.style.display=stato==='rinviato'?'':'none';
+}
+
+function checkConflitti(payload){
+  if(!payload.fattorino||!payload.ora_prevista) return [];
+  return _consegne.filter(c=>{
+    if(c.id===_editId||!c.fattorino||c.fattorino!==payload.fattorino) return false;
+    if(c.data_consegna!==payload.data_consegna||c.stato==='annullato'||!c.ora_prevista) return false;
+    const aS=payload.ora_prevista, aE=payload.ora_fine||payload.ora_prevista;
+    const bS=c.ora_prevista,       bE=c.ora_fine||c.ora_prevista;
+    return aS<=bE&&aE>=bS;
+  });
+}
+
+async function salvaConsegna(){
+  const tipo=document.getElementById('modal-cns-body').dataset.tipo||'cliente';
+  const dataVal=document.getElementById('fc-data')?.value;
+  const empPart=document.getElementById('fc-emp-part')?.value;
+
+  if(!dataVal){ M361.toast('Inserisci la data','err'); return; }
+  if(!empPart){ M361.toast('Seleziona l\'emporio di partenza','err'); return; }
+
+  const stato=document.getElementById('fc-stato')?.value||'da_programmare';
+  const user=getOperatoreLoggato();
+
+  const payload={
+    data_consegna:               dataVal,
+    ora_prevista:                document.getElementById('fc-ora')?.value||null,
+    ora_fine:                    document.getElementById('fc-ora-fine')?.value||null,
+    emporio_partenza:            empPart,
+    tipo_destinazione:           tipo,
+    emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
+    destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
+    destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
+    destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
+    destinatario_citta:          tipo!=='emporio'?(document.getElementById('fc-dest-cit')?.value.trim()||null):null,
+    destinatario_cap:            tipo!=='emporio'?(document.getElementById('fc-dest-cap')?.value.trim()||null):null,
+    destinatario_note_indirizzo: tipo!=='emporio'?(document.getElementById('fc-dest-note-ind')?.value.trim()||null):null,
+    merce:                       document.getElementById('fc-merce')?.value.trim()||null,
+    colli:                       parseInt(document.getElementById('fc-colli')?.value)||null,
+    note_merce:                  document.getElementById('fc-note-merce')?.value.trim()||null,
+    fattorino:                   document.getElementById('fc-fatt')?.value.trim()||null,
+    note:                        document.getElementById('fc-note')?.value.trim()||null,
+    stato:                       stato,
+    motivo:                      ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
+    data_rinvio:                 stato==='rinviato'?(document.getElementById('fc-data-rinvio')?.value||null):null,
+    creato_da:                   user?.email||null,
+  };
+
+  // Timestamp cambio stato
+  if(stato==='consegnato'&&_editId){
+    const orig=_consegne.find(x=>x.id===_editId);
+    if(!orig||orig.stato!=='consegnato') payload.completato_at=new Date().toISOString();
+  }
+  if(stato==='rinviato'&&_editId){
+    const orig=_consegne.find(x=>x.id===_editId);
+    if(!orig||orig.stato!=='rinviato') payload.rinviato_at=new Date().toISOString();
+  }
+
+  // Controllo sovrapposizioni fattorino
+  const conflitti=checkConflitti(payload);
+  if(conflitti.length){
+    const cw=document.getElementById('cns-conflict');
+    const cm=document.getElementById('cns-conflict-msg');
+    if(cw&&cm){
+      cm.textContent=`${payload.fattorino} ha già ${conflitti.length} consegn${conflitti.length>1?'e':'a'} in questo orario il ${dataVal}.`;
+      cw.style.display='flex';
+    }
+    // Avviso non bloccante — l'operatore può salvare comunque
+  }
+
+  const btn=document.getElementById('btn-salva-cns');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+
+  let error;
+  if(!_editId){
+    ({error}=await _sb.from('consegne').insert(payload));
+  } else {
+    ({error}=await _sb.from('consegne').update(payload).eq('id',_editId));
+  }
+
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> Salva';
+
+  if(error){ M361.toast('Errore: '+error.message,'err'); return; }
+
+  M361.toast(_editId?'Consegna aggiornata':'Consegna creata','ok');
+  chiudiModalCns();
+  await loadAndRender();
+}
+
+async function eliminaConsegna(id){
+  if(!confirm('Eliminare questa consegna?')) return;
+  const {error}=await _sb.from('consegne').delete().eq('id',id);
+  if(error){ M361.toast('Errore: '+error.message,'err'); return; }
+  M361.toast('Consegna eliminata','ok');
+  chiudiModalCns();
+  await loadAndRender();
+}
+
+/* ── Status modal ────────────────────────────────────────── */
+
+function apriModalStato(id){
+  _statoId=id;
+  const c=_consegne.find(x=>x.id===id); if(!c) return;
+  const st=STATI[c.stato]||STATI.da_programmare;
+  const statiOpts=Object.entries(STATI).map(([k,v])=>
+    `<option value="${k}"${c.stato===k?' selected':''}>${v.label}</option>`
+  ).join('');
+
+  document.getElementById('modal-stato-body').innerHTML=`
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:#94a3b8;margin-bottom:6px">Stato attuale</div>
+      <span style="background:${st.bg};color:${st.c};padding:4px 11px;border-radius:7px;font-size:13px;font-weight:700;display:inline-block">${st.label}</span>
+    </div>
+    <div class="form-field" style="margin-bottom:12px">
+      <label class="form-lbl">Nuovo stato</label>
+      <select id="st-stato" class="form-inp form-sel" onchange="onStatoModalChange(this.value)">
+        ${statiOpts}
+      </select>
+    </div>
+    <div id="st-motivo-wrap" style="${['rinviato','annullato'].includes(c.stato)?'':'display:none'}">
+      <div class="form-field" style="margin-bottom:12px">
+        <label class="form-lbl">Motivazione</label>
+        <textarea id="st-motivo" class="form-inp form-ta" placeholder="Aggiungi motivazione o nota…">${esc(c.motivo||'')}</textarea>
+      </div>
+    </div>
+    <div id="st-rinvio-wrap" style="${c.stato==='rinviato'?'':'display:none'}">
+      <div class="form-field">
+        <label class="form-lbl">Nuova data consegna</label>
+        <input id="st-data-rinvio" class="form-inp" type="date" value="${c.data_rinvio||''}">
+      </div>
+    </div>
+  `;
+  document.getElementById('modal-stato').style.display='flex';
+}
+
+function chiudiModalStato(){
+  document.getElementById('modal-stato').style.display='none';
+  _statoId=null;
+}
+
+function onStatoModalChange(stato){
+  const mw=document.getElementById('st-motivo-wrap');
+  const rw=document.getElementById('st-rinvio-wrap');
+  if(mw) mw.style.display=['rinviato','annullato'].includes(stato)?'':'none';
+  if(rw) rw.style.display=stato==='rinviato'?'':'none';
+}
+
+async function salvaStato(){
+  const id=_statoId; if(!id) return;
+  const nuovoStato=document.getElementById('st-stato')?.value; if(!nuovoStato) return;
+  const c=_consegne.find(x=>x.id===id);
+
+  const payload={
+    stato:       nuovoStato,
+    motivo:      ['rinviato','annullato'].includes(nuovoStato)?(document.getElementById('st-motivo')?.value.trim()||null):null,
+    data_rinvio: nuovoStato==='rinviato'?(document.getElementById('st-data-rinvio')?.value||null):null,
+  };
+  if(nuovoStato==='consegnato'&&(!c||c.stato!=='consegnato')) payload.completato_at=new Date().toISOString();
+  if(nuovoStato==='rinviato'  &&(!c||c.stato!=='rinviato'))   payload.rinviato_at  =new Date().toISOString();
+
+  const btn=document.getElementById('btn-salva-stato');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+
+  const {error}=await _sb.from('consegne').update(payload).eq('id',id);
+
+  btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> Aggiorna';
+
+  if(error){ M361.toast('Errore: '+error.message,'err'); return; }
+
+  M361.toast('Stato aggiornato','ok');
+  chiudiModalStato();
+  await loadAndRender();
+}
+
+/* ── Avvio ───────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -169,6 +169,7 @@
       { id: 'listino',    label: 'Vetrina',     icon: 'fa-list-ul',           href: 'pages/listino-prezzi/listino-prezzi.html',       section: null, active: true },
       { id: 'saldi',      label: 'Saldi',       icon: 'fa-percent',           href: 'pages/saldi/index.html',                        section: null, active: true },
       { id: 'inventario', label: 'Inventario',  icon: 'fa-barcode',           href: 'pages/inventario/index.html',                   section: null, active: true },
+      { id: 'consegne',  label: 'Consegne',   icon: 'fa-truck',             href: 'pages/consegne/index.html',                     section: null, active: false, emilioOnly: true },
     ]},
     { group: 'Extra', items: [
       { id: 'conta-persone', label: 'Conta', icon: 'fa-person-walking', href: 'pages/conta-persone/conta-persone.html', section: null, active: true },
@@ -605,6 +606,10 @@ function buildNav() {
     const preordItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'preordini') : null;
     if (preordItem) preordItem.active = true;
   }
+  if (_isAdminNav) {
+    const consegneItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'consegne') : null;
+    if (consegneItem) consegneItem.active = true;
+  }
   const TESSERE_ALLOWED = ['Emilio Mazzolari', 'Chiara Monteverdi'];
   if (user && TESSERE_ALLOWED.includes(user.nome)) {
     const tessereItem = typeof ALL_ITEMS !== 'undefined' ? ALL_ITEMS.find(i => i.id === 'tessere') : null;
@@ -643,6 +648,7 @@ function buildNav() {
       const visibleNonLogout = section.items.filter(item => {
         if (item.isLogout) return false;
         if (item.adminOnly && !isFullAdmin) return false;
+        if (item.emilioOnly && !_isAdminNav) return false;
         if (item.section && userSections.length > 0 && !userSections.includes(item.section)) return false;
         return true;
       });
@@ -653,6 +659,7 @@ function buildNav() {
       }
       section.items.forEach(item => {
         if (item.adminOnly && !isFullAdmin) return;
+        if (item.emilioOnly && !_isAdminNav) return;
         if (item.section && userSections.length > 0 && !userSections.includes(item.section)) return;
         if (item.isLogout) return;
         scrollWrap.appendChild(renderItem(item));
