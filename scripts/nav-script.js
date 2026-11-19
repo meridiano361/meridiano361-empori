@@ -1776,6 +1776,20 @@ function buildNav() {
 
   preventAutofill();
 
+  // Tastierino numerico: su tastiere italiane/europee NumpadDecimal manda ','
+  // che type="number" rifiuta. Lo sostituiamo con '.'.
+  document.addEventListener('keydown', function(e) {
+    if (e.code !== 'NumpadDecimal' || e.key !== ',') return;
+    const inp = e.target;
+    if (!(inp instanceof HTMLInputElement) || inp.type !== 'number') return;
+    e.preventDefault();
+    const v = String(inp.value || '');
+    if (!v.includes('.')) {
+      inp.value = v + '.';
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }, true);
+
   // Lancio dello script
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
