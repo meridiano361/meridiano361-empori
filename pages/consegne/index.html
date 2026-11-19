@@ -377,7 +377,8 @@ let _filtri      = { q:'', emporio:'', tipo:'', fattorino:'', stato:'' };
 let _editId      = null;
 let _statoId     = null;
 let _fattorini   = [];
-let _currentTipoPagamento   = null;
+let _currentTipoDocumento   = null; // null | 'scontrinato' | 'regalo' | 'scontrinato_regalo'
+let _currentTipoPagamento   = null; // null | 'pagato' | 'da_pagare'
 let _currentMetodoPagamento = null;
 let _rubricaOpen  = false;
 let _rubricaResults = [];
@@ -662,11 +663,15 @@ function renderGiorno(){
     html+=`</div>`;
     if(c.merce) html+=`<div class="di-merce"><i class="fas fa-box" style="color:#94a3b8;margin-right:5px"></i>${esc(c.merce)}</div>`;
     if(c.da_concordare) html+=`<div class="di-nota" style="color:#d97706"><i class="fas fa-clock" style="margin-top:1px"></i> Da concordare${c.ora_concordata?' — concordato: '+fmtOra(c.ora_concordata):''}</div>`;
+    if(c.tipo_documento){
+      const dLabel={scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[c.tipo_documento]||c.tipo_documento;
+      html+=`<div class="di-nota" style="color:#16a34a"><i class="fas fa-receipt" style="margin-top:1px"></i> ${dLabel}</div>`;
+    }
     if(c.tipo_pagamento){
-      const pLabel={scontrinato:'Scontrinato',regalo:'Regalo',pagato:'Pagato',da_pagare:'Da pagare'}[c.tipo_pagamento]||c.tipo_pagamento;
+      const pLabel={pagato:'Pagato',da_pagare:'Da pagare'}[c.tipo_pagamento]||c.tipo_pagamento;
       const pColor=c.tipo_pagamento==='da_pagare'?'#dc2626':'#16a34a';
       const pExtra=c.tipo_pagamento==='da_pagare'&&c.importo?` — € ${Number(c.importo).toFixed(2)}${c.metodo_pagamento?' ('+c.metodo_pagamento.toUpperCase()+')':''}` : '';
-      html+=`<div class="di-nota" style="color:${pColor}"><i class="fas fa-receipt" style="margin-top:1px"></i> ${pLabel}${pExtra}</div>`;
+      html+=`<div class="di-nota" style="color:${pColor}"><i class="fas fa-coins" style="margin-top:1px"></i> ${pLabel}${pExtra}</div>`;
     }
     if(c.destinatario_note_indirizzo) html+=`<div class="di-nota"><i class="fas fa-location-dot" style="margin-top:1px"></i> ${esc(c.destinatario_note_indirizzo)}</div>`;
     if(c.note) html+=`<div class="di-nota"><i class="fas fa-note-sticky" style="margin-top:1px"></i> ${esc(c.note)}</div>`;
@@ -714,6 +719,7 @@ function buildFormCns(c, dataDefault){
   const tipo  = (isEdit&&c.tipo_destinazione)||'cliente';
   const stato = (isEdit&&c.stato)||'da_programmare';
 
+  _currentTipoDocumento   = isEdit ? (c.tipo_documento   || null) : null;
   _currentTipoPagamento   = isEdit ? (c.tipo_pagamento   || null) : null;
   _currentMetodoPagamento = isEdit ? (c.metodo_pagamento || null) : null;
   _rubricaOpen = false;
@@ -738,11 +744,12 @@ function buildFormCns(c, dataDefault){
   const showConcordata = isEdit&&c.da_concordare ? '' : 'display:none';
   const showPagWrap    = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
 
+  const _hasSc = _currentTipoDocumento==='scontrinato'||_currentTipoDocumento==='scontrinato_regalo';
+  const _hasRe = _currentTipoDocumento==='regalo'||_currentTipoDocumento==='scontrinato_regalo';
+  const docOpts=
+    `<button type="button" class="pag-btn${_hasSc?' active':''}" data-val="scontrinato" onclick="onDocChange(this)">Scontrinato</button>` +
+    `<button type="button" class="pag-btn${_hasRe?' active':''}" data-val="regalo" onclick="onDocChange(this)">Regalo</button>`;
   const pagOpts=
-    [['scontrinato','Scontrinato'],['regalo','Regalo']].map(([val,label])=>
-      `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
-    ).join('') +
-    `<span style="display:inline-block;width:1px;background:#e2e8f0;align-self:stretch;margin:0 3px"></span>` +
     [['pagato','Pagato'],['da_pagare','Da pagare']].map(([val,label])=>
       `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
     ).join('');
@@ -881,6 +888,7 @@ function buildFormCns(c, dataDefault){
     <!-- PAGAMENTO -->
     <div class="form-sec">
       <div class="form-sec-title">Pagamento</div>
+      <div class="pag-sel" style="margin-bottom:8px">${docOpts}</div>
       <div class="pag-sel">${pagOpts}</div>
       <div id="fc-pagamento-wrap" style="${showPagWrap};margin-top:12px">
         <div class="form-row">
@@ -1001,6 +1009,17 @@ function onConcordareChange(){
   if(wrap) wrap.style.display=checked?'':'none';
   const dataInp=document.getElementById('fc-data');
   if(dataInp&&checked) dataInp.value='';
+}
+
+function onDocChange(el){
+  // toggle indipendente: scontrinato e regalo non si escludono
+  el.classList.toggle('active');
+  const hasSc = document.querySelector('.pag-sel [data-val="scontrinato"]')?.classList.contains('active');
+  const hasRe = document.querySelector('.pag-sel [data-val="regalo"]')?.classList.contains('active');
+  if (hasSc && hasRe) _currentTipoDocumento = 'scontrinato_regalo';
+  else if (hasSc)     _currentTipoDocumento = 'scontrinato';
+  else if (hasRe)     _currentTipoDocumento = 'regalo';
+  else                _currentTipoDocumento = null;
 }
 
 function onPagChange(el){
@@ -1152,6 +1171,7 @@ async function salvaConsegna(){
       merce:                       document.getElementById('fc-merce')?.value.trim()||null,
       colli:                       parseInt(document.getElementById('fc-colli')?.value)||null,
       note_merce:                  document.getElementById('fc-note-merce')?.value.trim()||null,
+      tipo_documento:              _currentTipoDocumento||null,
       tipo_pagamento:              _currentTipoPagamento||null,
       importo:                     _currentTipoPagamento==='da_pagare'?(parseFloat(document.getElementById('fc-importo')?.value)||null):null,
       metodo_pagamento:            _currentTipoPagamento==='da_pagare'?(_currentMetodoPagamento||null):null,
