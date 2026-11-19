@@ -2426,14 +2426,112 @@ let _acProd=[], _acDropEl=null;
 (async function _loadAcProd(){try{const {data:pu}=await _supabase.from('prodotti_catalogo').select('codice,descrizione,prezzo').neq('active',false);_acProd=(pu||[]).map(p=>({c:p.codice||'',n:p.descrizione,p:p.prezzo,src:'prodotti'}))}catch(e){}})();
 function _acEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _acSearch(q){q=q.trim().toLowerCase();if(q.length<2)return [];return _acProd.filter(p=>p.n.toLowerCase().includes(q)||p.c.toLowerCase().includes(q)).slice(0,10);}
-function _acShow(inp,results,row){_acHide();if(!results.length)return;const d=document.createElement('div');d.className='ac-prod-drop';d.innerHTML=results.map((p,i)=>`<div class="ac-prod-item" data-i="${i}"><div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)||'—'}</span><span class="ac-prod-src">${p.src}</span></div><div class="ac-prod-name">${_acEsc(p.n)}</div>${p.p!=null?`<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.',',')}</div>`:''}</div>`).join('');const rect=inp.getBoundingClientRect();d.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,240)}px;z-index:99999`;d.querySelectorAll('.ac-prod-item').forEach((el,i)=>{el.addEventListener('mousedown',e=>{e.preventDefault();_acApply(row,results[i]);_acHide();});});document.body.appendChild(d);_acDropEl=d;}
+function _acShow(inp,results,row){
+  _acHide();
+  const admin=typeof isAdmin==='function'&&isAdmin();
+  const q=inp.value.trim();
+  if(!results.length&&!admin) return;
+  const d=document.createElement('div');d.className='ac-prod-drop';
+  d.innerHTML=results.map((p,i)=>`<div class="ac-prod-item" data-i="${i}"><div class="ac-prod-top"><span class="ac-prod-code">${_acEsc(p.c)||'—'}</span><span class="ac-prod-src">${p.src}</span></div><div class="ac-prod-name">${_acEsc(p.n)}</div>${p.p!=null?`<div class="ac-prod-price">€ ${Number(p.p).toFixed(2).replace('.',',')}</div>`:''}</div>`).join('');
+  if(admin&&q.length>=2){
+    const addBtn=document.createElement('div');
+    addBtn.className='ac-prod-item';
+    addBtn.style.cssText='display:flex;align-items:center;gap:8px;color:#d97706;font-weight:700;font-size:12px;border-top:2px solid #fef3c7;background:#fffbeb';
+    addBtn.innerHTML=`<span style="font-size:16px">+</span> Aggiungi "${_acEsc(q)}" al catalogo`;
+    addBtn.addEventListener('mousedown',e=>{e.preventDefault();_acHide();_acOpenNewProd(q,row);});
+    d.appendChild(addBtn);
+  }
+  if(!d.children.length){return;}
+  const rect=inp.getBoundingClientRect();
+  d.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,280)}px;z-index:99999`;
+  d.querySelectorAll('.ac-prod-item[data-i]').forEach((el,i)=>{el.addEventListener('mousedown',e=>{e.preventDefault();_acApply(row,results[i]);_acHide();});});
+  document.body.appendChild(d);_acDropEl=d;
+}
 function _acHide(){_acDropEl?.remove();_acDropEl=null;}
 function _acApply(row,prod){row.querySelector('.codice-input').value=prod.c;row.querySelector('.desc-input').value=prod.n;if(prod.p!=null){const pi=row.querySelector('.price-input');if(pi){pi.value='€ '+Number(prod.p).toFixed(2).replace('.',',');pi.dispatchEvent(new Event('input'));}}}
 function _acWire(inp,row){inp.addEventListener('input',function(){_acShow(inp,_acSearch(this.value),row);});inp.addEventListener('blur',()=>setTimeout(_acHide,200));inp.addEventListener('focus',function(){if(this.value.length>=2)_acShow(inp,_acSearch(this.value),row);});}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')_acHide();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){_acHide();_acCloseNewProd();}});
+
+/* ── Anagrafica nuovo prodotto (solo admin) ─────────────────── */
+let _acTargetRow=null;
+function _acOpenNewProd(q,row){
+  _acTargetRow=row;
+  document.getElementById('acnp-desc').value=q||'';
+  document.getElementById('acnp-codice').value='';
+  document.getElementById('acnp-prezzo').value='';
+  document.getElementById('acnp-fornitore').value='';
+  document.getElementById('acnp-err').textContent='';
+  document.getElementById('acnp-save').textContent='Salva prodotto';
+  document.getElementById('acnp-save').disabled=false;
+  document.getElementById('ac-new-prod-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('acnp-desc').focus(),50);
+}
+function _acCloseNewProd(){
+  document.getElementById('ac-new-prod-modal').style.display='none';
+  _acTargetRow=null;
+}
+async function _acSaveNewProd(){
+  const desc=document.getElementById('acnp-desc').value.trim();
+  const codice=document.getElementById('acnp-codice').value.trim()||null;
+  const prezzoRaw=document.getElementById('acnp-prezzo').value.trim();
+  const prezzo=prezzoRaw!==''?parseFloat(prezzoRaw.replace(',','.'))||null:null;
+  const fornitore=document.getElementById('acnp-fornitore').value.trim()||null;
+  const errEl=document.getElementById('acnp-err');
+  const btn=document.getElementById('acnp-save');
+  if(!desc){errEl.textContent='La descrizione è obbligatoria.';return;}
+  btn.disabled=true;btn.textContent='Salvataggio…';errEl.textContent='';
+  try{
+    const payload={descrizione:desc,codice,prezzo,fornitore,active:true,source_sheet:''};
+    const {data,error}=await _supabase.from('prodotti_catalogo').insert(payload).select('codice,descrizione,prezzo').single();
+    if(error)throw error;
+    const prod={c:data.codice||'',n:data.descrizione,p:data.prezzo,src:'prodotti'};
+    _acProd.push(prod);
+    if(_acTargetRow) _acApply(_acTargetRow,prod);
+    _acCloseNewProd();
+  }catch(e){
+    errEl.textContent='Errore: '+(e.message||'salvataggio fallito');
+    btn.disabled=false;btn.textContent='Salva prodotto';
+  }
+}
     </script>
     <script src="../../scripts/auth.js"></script>
     <script src="../../scripts/ui-helpers.js"></script>
     <script src="../../scripts/nav-script.js"></script>
+
+<!-- MODAL ANAGRAFICA NUOVO PRODOTTO -->
+<div id="ac-new-prod-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;padding:28px 24px;width:min(420px,92vw);box-shadow:0 16px 48px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <h3 style="font-weight:800;font-size:16px;color:#1e293b;margin:0">Nuovo prodotto al catalogo</h3>
+      <button onclick="_acCloseNewProd()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Descrizione *</label>
+        <input id="acnp-desc" type="text" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:14px;box-sizing:border-box" placeholder="Nome prodotto" autocomplete="off"
+          onkeydown="if(event.key==='Enter')_acSaveNewProd()">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Codice</label>
+          <input id="acnp-codice" type="text" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:14px;box-sizing:border-box" placeholder="es. 851" autocomplete="off">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Prezzo (€)</label>
+          <input id="acnp-prezzo" type="number" step="0.01" min="0" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:14px;box-sizing:border-box" placeholder="0,00">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#475569;display:block;margin-bottom:4px">Fornitore</label>
+        <input id="acnp-fornitore" type="text" style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:14px;box-sizing:border-box" placeholder="es. Altromercato" autocomplete="off">
+      </div>
+      <div id="acnp-err" style="color:#ef4444;font-size:12px;min-height:16px"></div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button onclick="_acCloseNewProd()" style="flex:1;border:1.5px solid #e2e8f0;background:#fff;color:#475569;font-weight:700;padding:10px;border-radius:12px;cursor:pointer;font-size:13px">Annulla</button>
+        <button id="acnp-save" onclick="_acSaveNewProd()" style="flex:2;background:#d97706;color:#fff;font-weight:800;padding:10px;border-radius:12px;border:none;cursor:pointer;font-size:13px">Salva prodotto</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
