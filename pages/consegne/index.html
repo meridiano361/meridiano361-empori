@@ -158,6 +158,45 @@
     .undated-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1)}
     .uc-dest{font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .uc-meta{color:#92400e;font-size:11px;margin-top:2px}
+
+    /* ── Mobile Android optimizations ── */
+    @media(max-width:599px){
+      /* Usa dvh per gestire la tastiera virtuale */
+      .modal-box{max-height:88dvh}
+      /* Safe-area per la barra navigazione Android */
+      .modal-ftr{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+
+      /* font-size:16px impedisce lo zoom automatico su Android/iOS */
+      .form-inp{font-size:16px;padding:13px 14px}
+      .form-lbl{font-size:11px;letter-spacing:.04em}
+      .form-sec{margin-bottom:22px}
+
+      /* Tutto a colonna singola — più leggibile su schermi stretti */
+      .form-row{grid-template-columns:1fr}
+
+      /* Tipo destinazione: bottoni più alti e leggibili */
+      .tipo-sel{gap:8px}
+      .tipo-btn{padding:13px 4px;font-size:12px;border-radius:12px}
+      .tipo-btn i{font-size:20px}
+
+      /* Chip pagamento: target più grande */
+      .pag-sel{gap:7px}
+      .pag-btn{padding:11px 15px;font-size:13px;border-radius:10px}
+
+      /* Metodo pagamento */
+      .metodo-btn{padding:11px 20px;font-size:13px;border-radius:10px}
+
+      /* Bottoni footer più grandi */
+      .modal-ftr .btn{padding:14px;font-size:14px}
+      .modal-hdr{padding:14px 16px 10px}
+      .modal-body{padding:14px 16px}
+
+      /* Rubrica: si apre dal basso a tutta larghezza su mobile */
+      .rubrica-panel{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;width:100%!important;max-height:50dvh;border-radius:16px 16px 0 0;border-bottom:none;z-index:99999}
+
+      /* Checkbox da concordare: target più grande */
+      #fc-concordare{width:20px;height:20px}
+    }
   </style>
 </head>
 <body>
@@ -735,7 +774,7 @@ function buildFormCns(c, dataDefault){
           <div class="form-field" style="position:relative">
             <label class="form-lbl" id="lbl-dest-nome">${tipo==='azienda'?'Nome azienda':'Nome destinatario'}</label>
             <div style="display:flex;gap:6px">
-              <input id="fc-dest-nome" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_nome||''):''}" style="flex:1" oninput="onRubricaSearch()">
+              <input id="fc-dest-nome" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_nome||''):''}" style="flex:1" oninput="onRubricaSearch()" autocomplete="off">
               <button type="button" class="btn btn-outline btn-sm" onclick="toggleRubrica()" title="Cerca in rubrica" style="flex-shrink:0;padding:7px 10px">
                 <i class="fas fa-address-book"></i>
               </button>
@@ -746,7 +785,7 @@ function buildFormCns(c, dataDefault){
         <div class="form-row">
           <div class="form-field">
             <label class="form-lbl">Telefono</label>
-            <input id="fc-dest-tel" class="form-inp" type="tel" value="${isEdit?esc(c.destinatario_telefono||''):''}">
+            <input id="fc-dest-tel" class="form-inp" type="tel" inputmode="tel" value="${isEdit?esc(c.destinatario_telefono||''):''}">
           </div>
           <div></div>
         </div>
@@ -763,7 +802,7 @@ function buildFormCns(c, dataDefault){
           </div>
           <div class="form-field">
             <label class="form-lbl">CAP</label>
-            <input id="fc-dest-cap" class="form-inp" type="text" maxlength="5" value="${isEdit?esc(c.destinatario_cap||''):''}">
+            <input id="fc-dest-cap" class="form-inp" type="text" maxlength="5" inputmode="numeric" value="${isEdit?esc(c.destinatario_cap||''):''}">
           </div>
         </div>
         <div class="form-row r1">
@@ -789,7 +828,7 @@ function buildFormCns(c, dataDefault){
       <div class="form-row">
         <div class="form-field">
           <label class="form-lbl">N. colli</label>
-          <input id="fc-colli" class="form-inp" type="number" min="0" step="1" value="${isEdit&&c.colli!=null?c.colli:''}">
+          <input id="fc-colli" class="form-inp" type="number" inputmode="numeric" min="0" step="1" value="${isEdit&&c.colli!=null?c.colli:''}">
         </div>
         <div class="form-field">
           <label class="form-lbl">Note merce</label>
@@ -807,7 +846,7 @@ function buildFormCns(c, dataDefault){
         <div class="form-row">
           <div class="form-field">
             <label class="form-lbl">Importo €</label>
-            <input id="fc-importo" class="form-inp" type="number" min="0" step="0.01" placeholder="0.00"
+            <input id="fc-importo" class="form-inp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"
               value="${isEdit&&c.importo!=null?c.importo:''}">
           </div>
           <div class="form-field">
