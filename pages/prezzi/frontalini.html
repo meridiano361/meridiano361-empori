@@ -107,7 +107,7 @@
     .fr-side{display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px}
     .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.5px;text-align:center;overflow:hidden;white-space:nowrap}
     .fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;min-width:0;padding:2px 3px 1px 3px;overflow:hidden;background:#fff}
-    .fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;align-self:start;padding-top:2px;text-align:center}
+    .fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:start;padding-top:2px;text-align:center}
     .fr-mid{display:flex;align-items:center;overflow:visible;gap:3px;min-width:0}
     .fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
     .fr-prezzo{line-height:1}
@@ -256,9 +256,9 @@
     <h3>⚙️ Configurazione stampa</h3>
     <div class="cfg-row">
       <div class="f-g"><label class="lbl">Colonne</label><input class="inp" id="cfg-cols" type="number" min="1" max="10" value="3"></div>
-      <div class="f-g"><label class="lbl">Righe per pagina</label><input class="inp" id="cfg-rows" type="number" min="1" max="30" value="11"></div>
+      <div class="f-g"><label class="lbl">Righe per pagina</label><input class="inp" id="cfg-rows" type="number" min="1" max="30" value="13"></div>
       <div class="f-g"><label class="lbl">Larghezza frontalino (mm)</label><input class="inp" id="cfg-cw" type="number" min="20" max="300" value="60"></div>
-      <div class="f-g"><label class="lbl">Altezza frontalino (mm)</label><input class="inp" id="cfg-ch" type="number" min="10" max="200" value="24"></div>
+      <div class="f-g"><label class="lbl">Altezza frontalino (mm)</label><input class="inp" id="cfg-ch" type="number" min="10" max="200" value="20"></div>
       <div class="f-g"><label class="lbl">Formato carta</label>
         <select class="inp" id="cfg-paper">
           <option value="A4P">A4 Portrait (210×297mm)</option>
@@ -476,8 +476,8 @@ let _manEditId = null;         // se stiamo modificando un draft item
 let _catEditId = null;         // ID prodotto catalogo in modifica
 
 let _cfg = {
-  cols: 3, rows: 11,
-  cw: 60, ch: 24,
+  cols: 3, rows: 13,
+  cw: 60, ch: 20,
   paper: 'A4P',
   pw: 210, ph: 297,
   margin: 7,
@@ -486,28 +486,24 @@ let _cfg = {
 const STYLE_KEY = 'm361_frontalini_style';
 const DEFAULT_STYLE = {
   fontFamily:  'Arial,Helvetica,sans-serif',
-  bandWidthMm: 6,
+  bandWidthMm: 4,
   desc:   { size: 13, bold: true,  italic: false, color: '#000000' },
   prezzo: { size: 16, bold: true,  italic: false, color: '#000000' },
   euro:   { size: 10, bold: false, italic: false, color: '#000000' },
   attr:   { size:  6, bold: true,  italic: false, color: '#000000' },
-  sec:    { size:  5, bold: false, italic: false, color: '#333333' },
-  brand:  { size:  6, bold: true,  italic: false, color: null },
+  sec:    { size:  4, bold: false, italic: false, color: '#333333' },
+  brand:  { size:  3, bold: true,  italic: false, color: null },
 };
 const DS = DEFAULT_STYLE;
 let _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
   desc:{...DS.desc}, prezzo:{...DS.prezzo}, euro:{...DS.euro},
   attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand} };
-const STYLE_VERSION = 2;
 function loadStyle() {
   try {
     const s = localStorage.getItem(STYLE_KEY);
     if (!s) return;
     const saved = JSON.parse(s);
-    // Reset old styles (v1 or unversioned) to pick up new defaults
-    if (saved.descRatio !== undefined || !saved._v || saved._v < STYLE_VERSION) {
-      localStorage.removeItem(STYLE_KEY); return;
-    }
+    if (saved.descRatio !== undefined) { localStorage.removeItem(STYLE_KEY); return; }
     if (saved.fontFamily)                _style.fontFamily  = saved.fontFamily;
     if (saved.bandWidthMm !== undefined) _style.bandWidthMm = saved.bandWidthMm;
     ['desc','prezzo','euro','attr','sec','brand'].forEach(k => {
@@ -515,7 +511,7 @@ function loadStyle() {
     });
   } catch {}
 }
-function saveStyle() { localStorage.setItem(STYLE_KEY, JSON.stringify({ ...JSON.parse(JSON.stringify(_style)), _v: STYLE_VERSION })); }
+function saveStyle() { localStorage.setItem(STYLE_KEY, JSON.stringify(_style)); }
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
 const g    = id => document.getElementById(id);
@@ -548,22 +544,9 @@ function pesoDisplay(peso, unita) {
 
 // ── DRAFT ──────────────────────────────────────────────────────────────────
 function saveDraft()   { localStorage.setItem(DRAFT_KEY, JSON.stringify(_draft)); }
-function saveCfg()     { localStorage.setItem(CFG_KEY,   JSON.stringify({ ..._cfg, _v: 2 }));   }
+function saveCfg()     { localStorage.setItem(CFG_KEY,   JSON.stringify(_cfg));   }
 function loadDraft()   { try { const s = localStorage.getItem(DRAFT_KEY); if(s) _draft = JSON.parse(s); } catch{} }
-function loadCfg() {
-  try {
-    const s = localStorage.getItem(CFG_KEY);
-    if (!s) return;
-    const saved = JSON.parse(s);
-    Object.assign(_cfg, saved);
-    // Migrate: if saved with old small defaults, upgrade to better proportions
-    if (!saved._v || saved._v < 2) {
-      if (_cfg.ch  <= 20) _cfg.ch   = 24;
-      if (_cfg.rows >= 13 && _cfg.cols <= 3) _cfg.rows = 11;
-      saveCfg();
-    }
-  } catch {}
-}
+function loadCfg()     { try { const s = localStorage.getItem(CFG_KEY);   if(s) Object.assign(_cfg, JSON.parse(s)); } catch{} }
 
 function draftTotalCopies() { return _draft.reduce((s,i) => s + (i.copie || 1), 0); }
 function draftPageCount()   { const ppp = _cfg.cols * _cfg.rows; return Math.ceil(draftTotalCopies() / ppp) || 0; }
@@ -783,7 +766,7 @@ function frontalino(item, forPrint = false, scale = 1) {
       <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bfColor};font-weight:${bfBold};font-style:${bfItalic}">${escH(brand)}</span>
     </div>
     <div class="fr-body">
-      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:2;font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}">${escH(item.descrizione)}</div>
+      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:1;font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}">${escH(item.descrizione)}</div>
       <div class="fr-mid">
         <div class="fr-price-grp">
           ${prezzo
@@ -1386,9 +1369,9 @@ function saveCfgModal() {
     : (PAPER_SIZES[pKey] || PAPER_SIZES.A4P);
   _cfg = {
     cols:   Math.max(1,parseInt(g('cfg-cols').value)||3),
-    rows:   Math.max(1,parseInt(g('cfg-rows').value)||11),
+    rows:   Math.max(1,parseInt(g('cfg-rows').value)||13),
     cw:     parseFloat(g('cfg-cw').value)||60,
-    ch:     parseFloat(g('cfg-ch').value)||24,
+    ch:     parseFloat(g('cfg-ch').value)||20,
     paper:  pKey,
     pw:     paper.w, ph: paper.h,
     margin: parseFloat(g('cfg-margin').value)||7,
