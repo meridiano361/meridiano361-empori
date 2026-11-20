@@ -173,6 +173,7 @@
     { group: 'Extra', items: [
       { id: 'consegne',  label: 'Consegne',   icon: 'fa-truck',             href: 'pages/consegne/index.html',                     section: null, active: true },
       { id: 'conta-persone', label: 'Conta', icon: 'fa-person-walking', href: 'pages/conta-persone/conta-persone.html', section: null, active: true },
+      { id: 'azienda',   label: 'Azienda',    icon: 'fa-building',          href: 'pages/azienda/index.html',                      section: null, active: true },
     ]},
     { group: null, items: [
       { id: 'guida', label: 'Aiuto', icon: 'fa-circle-question', href: 'pages/guida/guida.html', section: null, active: true },
