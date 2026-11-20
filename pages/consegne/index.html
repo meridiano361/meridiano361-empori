@@ -222,6 +222,7 @@
       .lp-cell-val{font-size:8pt;font-weight:700}
       .lp-merce{font-size:8pt;line-height:1.4;margin-top:2mm;color:#222}
       .lp-note{font-size:7pt;color:#333;line-height:1.4;padding:1.5mm 2mm;border:1px dashed #bbb;margin-top:2mm}
+      .lp-fragile{font-size:9pt;font-weight:900;color:#b91c1c;border:2px solid #b91c1c;border-radius:3mm;padding:1mm 3mm;display:inline-block;margin-top:2mm;letter-spacing:.04em}
       .lp-pag{font-size:7.5pt;font-weight:700;margin-top:1.5mm}
       .lp-footer{position:absolute;bottom:4mm;left:6mm;right:6mm;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e0e0e0;padding-top:1.5mm}
       .lp-footer-txt{font-size:6pt;color:#aaa}
@@ -958,14 +959,16 @@ function buildFormCns(c, dataDefault){
         </div>
       </div>
       <div class="form-row">
-        <div class="form-field">
+        <div class="form-field" style="max-width:120px">
           <label class="form-lbl">N. colli</label>
           <input id="fc-colli" class="form-inp" type="number" inputmode="numeric" min="0" step="1" value="${isEdit&&c.colli!=null?c.colli:''}">
         </div>
-        <div class="form-field">
-          <label class="form-lbl">Note merce</label>
-          <input id="fc-note-merce" class="form-inp" type="text" placeholder="es. fragile, surgelato…"
-            value="${isEdit?esc(c.note_merce||''):''}">
+        <div class="form-field" style="justify-content:flex-end">
+          <label class="form-lbl">&nbsp;</label>
+          <button type="button" id="fc-fragile-btn" class="pag-btn${(isEdit&&c.fragile)?' active':''}"
+            onclick="this.classList.toggle('active')">
+            <i class="fas fa-triangle-exclamation"></i> Fragile
+          </button>
         </div>
       </div>
     </div>
@@ -1255,7 +1258,7 @@ async function salvaConsegna(){
       destinatario_note_indirizzo: tipo!=='emporio'?(document.getElementById('fc-dest-note-ind')?.value.trim()||null):null,
       merce:                       document.getElementById('fc-merce')?.value.trim()||null,
       colli:                       parseInt(document.getElementById('fc-colli')?.value)||null,
-      note_merce:                  document.getElementById('fc-note-merce')?.value.trim()||null,
+      fragile:                     document.getElementById('fc-fragile-btn')?.classList.contains('active')||false,
       tipo_documento:              _currentTipoDocumento||null,
       tipo_pagamento:              _currentTipoPagamento||null,
       importo:                     _currentTipoPagamento==='da_pagare'?(parseFloat(document.getElementById('fc-importo')?.value)||null):null,
@@ -1346,7 +1349,7 @@ function mostraWASheet(p){
   const pagLabel = {pagato:'Pagato',da_pagare:'Da pagare'}[p.tipo_pagamento];
   const pagExtra = p.tipo_pagamento==='da_pagare'&&p.importo ? ` € ${Number(p.importo).toFixed(2)}` : '';
   if(docLabel||pagLabel) righe.push('💳 ' + [docLabel,pagLabel?pagLabel+pagExtra:null].filter(Boolean).join(' · '));
-  if(p.note_merce) righe.push('⚠️ ' + p.note_merce);
+  if(p.fragile) righe.push('⚠️ MERCE FRAGILE');
   if(p.note) righe.push('📝 ' + p.note);
   if(p.destinatario_note_indirizzo) righe.push('🔔 ' + p.destinatario_note_indirizzo);
 
@@ -1383,7 +1386,7 @@ function stampaEtichetta(id){
   const pagLabel = {pagato:'Pagato',da_pagare:'Da pagare'}[c.tipo_pagamento]||'';
   const pagExtra = c.tipo_pagamento==='da_pagare'&&c.importo ? ` — € ${Number(c.importo).toFixed(2)}` : '';
   const pagInfo  = [docLabel, pagLabel?pagLabel+pagExtra:''].filter(Boolean).join(' · ');
-  const noteArr  = [c.destinatario_note_indirizzo, c.note_merce, c.note].filter(Boolean);
+  const noteArr  = [c.destinatario_note_indirizzo, c.note].filter(Boolean);
 
   const sedePart = _sediPartenza.find(s=>s.nome===c.emporio_partenza);
   const sedeAddr = sedePart?.indirizzo || '';
@@ -1422,6 +1425,7 @@ function stampaEtichetta(id){
     ${c.merce ? `<div class="lp-merce">${esc(c.merce)}${nColli>1?` &nbsp;·&nbsp; ${nColli} colli`:''}</div>` : (nColli>1?`<div class="lp-merce">${nColli} colli</div>`:'')}
     ${c.fattorino ? `<div class="lp-row"><div class="lp-cell"><div class="lp-lbl">Fattorino</div><div class="lp-cell-val">${esc(c.fattorino)}</div></div></div>` : ''}` : ''}
     ${pagInfo ? `<div class="lp-pag">${esc(pagInfo)}</div>` : ''}
+    ${c.fragile ? `<div class="lp-fragile">⚠ FRAGILE</div>` : ''}
     ${noteArr.length ? `<div class="lp-note">${noteArr.map(esc).join(' • ')}</div>` : ''}
     ${nColli>1 ? `<div class="lp-collo-lbl">Collo</div><div class="lp-collo-num">1 / ${nColli}</div>` : ''}
     ${footer(1)}
@@ -1434,6 +1438,7 @@ function stampaEtichetta(id){
       <hr class="lp-divider">
       <div class="lp-lbl">Destinatario</div>
       <div class="lp-dest">${esc(dest)}</div>
+      ${c.fragile ? `<div class="lp-fragile" style="margin-top:4mm">⚠ FRAGILE</div>` : ''}
       <div class="lp-collo-lbl" style="margin-top:8mm">Collo</div>
       <div class="lp-collo-num">${i} / ${nColli}</div>
       ${footer(i)}

@@ -1,0 +1,1 @@
+ALTER TABLE consegne ADD COLUMN IF NOT EXISTS fragile boolean NOT NULL DEFAULT false;
