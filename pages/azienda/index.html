@@ -35,123 +35,19 @@
     .copy-btn{background:#f1f5f9;border:none;border-radius:7px;padding:4px 9px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;font-family:inherit;margin-top:4px;display:inline-flex;align-items:center;gap:5px;transition:background .12s}
     .copy-btn:hover{background:#e2e8f0}
     .copy-btn.copied{background:#dcfce7;color:#15803d}
+    .az-loading{text-align:center;padding:40px;color:#94a3b8;font-size:13px}
   </style>
 </head>
 <body>
 <script src="../../scripts/nav-script.js"></script>
 
 <div class="page-wrap">
-  <div class="content">
-
-    <div class="logo-wrap">
-      <img src="/icons/icon-192.png" alt="Logo Meridiano 361">
-      <div class="az-name">MERIDIANO 361<br>IMPRESA SOCIALE S.R.L. – SOCIO UNICO</div>
-      <div class="az-sub">Cooperativa sociale</div>
-    </div>
-
-    <!-- Sede -->
-    <div class="card">
-      <div class="card-title">Sede</div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-location-dot"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Indirizzo</div>
-          <div class="row-val">Via Don Giovanni Verità 8<br>42124 Reggio nell'Emilia (RE)
-            <br><a href="https://www.google.com/maps/search/Via+Don+Giovanni+Verità+8,+42124+Reggio+nell'Emilia" target="_blank"><i class="fas fa-diamond-turn-right"></i> Google Maps</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Contatti -->
-    <div class="card">
-      <div class="card-title">Contatti</div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-phone"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Telefono</div>
-          <div class="row-val"><a href="tel:052213014630">0522 1301463</a></div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-fax"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Fax</div>
-          <div class="row-val">0522 550611</div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-envelope"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">PEC</div>
-          <div class="row-val"><a href="mailto:meridiano361@pec.confcooperative.it">meridiano361@pec.confcooperative.it</a>
-            <button class="copy-btn" onclick="copia('meridiano361@pec.confcooperative.it',this)"><i class="fas fa-copy"></i> Copia</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Dati Fiscali -->
-    <div class="card">
-      <div class="card-title">Dati Fiscali</div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-id-card"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">C.F. e P.IVA</div>
-          <div class="row-val">02834570356
-            <button class="copy-btn" onclick="copia('02834570356',this)"><i class="fas fa-copy"></i> Copia</button>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-file-invoice"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Codice SDI</div>
-          <div class="row-val">USAL8PV
-            <button class="copy-btn" onclick="copia('USAL8PV',this)"><i class="fas fa-copy"></i> Copia</button>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-building-columns"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Numero REA</div>
-          <div class="row-val">RE – 317691</div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-registered"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Iscrizione Registro Imprese</div>
-          <div class="row-val">02834570356</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bancario -->
-    <div class="card" id="card-bancario" style="display:none">
-      <div class="card-title">Dati bancari</div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-university"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">Banca di appoggio</div>
-          <div class="row-val">Emil Banca</div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="row-icon"><i class="fas fa-credit-card"></i></div>
-        <div class="row-body">
-          <div class="row-lbl">IBAN</div>
-          <div class="row-val">IT69L0707212803000000417081
-            <button class="copy-btn" onclick="copia('IT69L0707212803000000417081',this)"><i class="fas fa-copy"></i> Copia</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
+  <div class="content" id="az-content">
+    <div class="az-loading"><i class="fas fa-spinner fa-spin"></i> Caricamento…</div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 function copia(testo, btn) {
   navigator.clipboard.writeText(testo).then(() => {
@@ -161,14 +57,140 @@ function copia(testo, btn) {
     setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
   });
 }
-(function() {
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function copyBtn(val) {
+  return `<button class="copy-btn" onclick="copia('${esc(val)}',this)"><i class="fas fa-copy"></i> Copia</button>`;
+}
+
+(async function() {
   try {
     const u = JSON.parse(localStorage.getItem('m361_user') || 'null');
     const ruolo = (u && u.ruolo || '').toLowerCase();
-    if (['admin', 'dipendente'].includes(ruolo)) {
-      document.getElementById('card-bancario').style.display = '';
+    const showBanca = ['admin','dipendente'].includes(ruolo);
+
+    // Supabase
+    const SUPA_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
+    const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+    const { data: d } = await sb.from('dati_azienda').select('*').eq('id',1).single();
+
+    if (!d) {
+      document.getElementById('az-content').innerHTML = '<p style="padding:40px;color:#94a3b8;text-align:center">Dati non disponibili.</p>';
+      return;
     }
-  } catch {}
+
+    const indirizzo = [d.indirizzo, [d.cap, d.citta].filter(Boolean).join(' ') + (d.provincia ? ` (${d.provincia})` : '')].filter(Boolean).join('<br>');
+    const mapsUrl = encodeURIComponent([d.indirizzo, d.cap, d.citta].filter(Boolean).join(', '));
+
+    document.getElementById('az-content').innerHTML = `
+      <div class="logo-wrap">
+        <img src="/icons/icon-192.png" alt="Logo Meridiano 361">
+        <div class="az-name">${esc(d.nome||'MERIDIANO 361')}</div>
+        <div class="az-sub">${esc(d.tipo||'')}</div>
+      </div>
+
+      <!-- Sede -->
+      <div class="card">
+        <div class="card-title">Sede</div>
+        <div class="row">
+          <div class="row-icon"><i class="fas fa-location-dot"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Indirizzo</div>
+            <div class="row-val">${indirizzo}
+              ${d.indirizzo ? `<br><a href="https://www.google.com/maps/search/${mapsUrl}" target="_blank"><i class="fas fa-diamond-turn-right"></i> Google Maps</a>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contatti -->
+      <div class="card">
+        <div class="card-title">Contatti</div>
+        ${d.telefono ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-phone"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Telefono</div>
+            <div class="row-val"><a href="tel:${esc(d.telefono.replace(/\s/g,''))}">${esc(d.telefono)}</a></div>
+          </div>
+        </div>` : ''}
+        ${d.fax ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-fax"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Fax</div>
+            <div class="row-val">${esc(d.fax)}</div>
+          </div>
+        </div>` : ''}
+        ${d.pec ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-envelope"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">PEC</div>
+            <div class="row-val"><a href="mailto:${esc(d.pec)}">${esc(d.pec)}</a>
+              ${copyBtn(d.pec)}
+            </div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <!-- Dati Fiscali -->
+      <div class="card">
+        <div class="card-title">Dati Fiscali</div>
+        ${d.cf_piva ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-id-card"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">C.F. e P.IVA</div>
+            <div class="row-val">${esc(d.cf_piva)} ${copyBtn(d.cf_piva)}</div>
+          </div>
+        </div>` : ''}
+        ${d.sdi ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-file-invoice"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Codice SDI</div>
+            <div class="row-val">${esc(d.sdi)} ${copyBtn(d.sdi)}</div>
+          </div>
+        </div>` : ''}
+        ${d.rea ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-building-columns"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Numero REA</div>
+            <div class="row-val">${esc(d.rea)}</div>
+          </div>
+        </div>` : ''}
+        ${d.registro_imprese ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-registered"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Iscrizione Registro Imprese</div>
+            <div class="row-val">${esc(d.registro_imprese)}</div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <!-- Bancario (solo admin/dipendente) -->
+      ${showBanca && (d.banca||d.iban) ? `<div class="card">
+        <div class="card-title">Dati bancari</div>
+        ${d.banca ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-university"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">Banca di appoggio</div>
+            <div class="row-val">${esc(d.banca)}</div>
+          </div>
+        </div>` : ''}
+        ${d.iban ? `<div class="row">
+          <div class="row-icon"><i class="fas fa-credit-card"></i></div>
+          <div class="row-body">
+            <div class="row-lbl">IBAN</div>
+            <div class="row-val">${esc(d.iban)} ${copyBtn(d.iban)}</div>
+          </div>
+        </div>` : ''}
+      </div>` : ''}
+    `;
+  } catch(e) {
+    document.getElementById('az-content').innerHTML = '<p style="padding:40px;color:#94a3b8;text-align:center">Errore caricamento dati.</p>';
+  }
 })();
 </script>
 </body>

@@ -300,6 +300,7 @@
             <button class="adm-nav-item"             id="nav-personalizzazione" data-tip="Personalizzazione dell'interfaccia" onclick="openSection('personalizzazione')"><i class="fas fa-palette"></i><span>Personalizzazione</span></button>
             <button class="adm-nav-item"             id="nav-prodotti"          data-tip="Anagrafica prodotti" onclick="openSection('prodotti')">             <i class="fas fa-box-open"></i><span>Prodotti</span></button>
             <button class="adm-nav-item"             id="nav-calendario"        data-tip="Calendario commerciale" onclick="location.href='pages/calendario-commerciale/calendario-commerciale.html'"><i class="fas fa-calendar-days"></i><span>Calendario</span></button>
+            <button class="adm-nav-item"             id="nav-azienda"           data-tip="Dati legali azienda" onclick="openSection('azienda')">              <i class="fas fa-building"></i><span>Azienda</span></button>
           </div>
           <div class="adm-nav-foot">
             <div class="adm-nav-role">SUPER ADMIN</div>
@@ -386,6 +387,12 @@
               <div class="adm-home-icon" style="background:rgba(181,69,58,.1)"><i class="fas fa-box-open" style="color:#B5453A"></i></div>
               <div class="adm-home-card-title">Prodotti</div>
               <div class="adm-home-card-desc">Catalogo frontalini, fornitura e unificazione database</div>
+              <div class="adm-home-arrow">→</div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('azienda')">
+              <div class="adm-home-icon" style="background:rgba(181,69,58,.1)"><i class="fas fa-building" style="color:#B5453A"></i></div>
+              <div class="adm-home-card-title">Dati Azienda</div>
+              <div class="adm-home-card-desc">Modifica ragione sociale, P.IVA, IBAN e recapiti</div>
               <div class="adm-home-arrow">→</div>
             </div>
           </div>
@@ -2222,6 +2229,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         sezioni:'Sezioni',
         personalizzazione:'Personalizzazione',
         prodotti:'Anagrafica Prodotti',
+        azienda:'Dati Azienda',
     };
 
     function openSection(id) {
@@ -2272,6 +2280,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         }
         if (id === 'personalizzazione') setTimeout(initPreviewScale, 100);
         if (id === 'prodotti') caricaProdotti();
+        if (id === 'azienda') caricaDatiAzienda();
     }
 
     // ── LOGHI LISTINI ─────────────────────────────────────────────────────
@@ -7043,6 +7052,120 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         showToast(`Migrazione completata: ${n} ${modeLabel}`, 'ok');
         await caricaProdotti();
     }
+
+    /* ── Dati Azienda ─────────────────────────────────────── */
+    async function caricaDatiAzienda() {
+      const { data, error } = await db.from('dati_azienda').select('*').eq('id', 1).single();
+      if (error || !data) return;
+      const fields = ['nome','tipo','rea','registro_imprese','cf_piva','sdi','indirizzo','cap','citta','provincia','telefono','fax','pec','banca','iban'];
+      fields.forEach(f => {
+        const el = document.getElementById('az-' + f);
+        if (el) el.value = data[f] || '';
+      });
+    }
+    async function salvaDatiAzienda() {
+      const fields = ['nome','tipo','rea','registro_imprese','cf_piva','sdi','indirizzo','cap','citta','provincia','telefono','fax','pec','banca','iban'];
+      const payload = { updated_at: new Date().toISOString() };
+      fields.forEach(f => {
+        const el = document.getElementById('az-' + f);
+        if (el) payload[f] = el.value.trim() || null;
+      });
+      const btn = document.getElementById('az-save-btn');
+      btn.disabled = true; btn.textContent = 'Salvataggio…';
+      const { error } = await db.from('dati_azienda').update(payload).eq('id', 1);
+      btn.disabled = false; btn.textContent = 'Salva modifiche';
+      if (error) showToast('Errore: ' + error.message, 'err');
+      else showToast('Dati azienda salvati', 'ok');
+    }
     </script>
+
+    <!-- ── SEZIONE: DATI AZIENDA ──────────────────────────────────────────── -->
+    <div id="section-azienda" class="section-page">
+      <div class="section-page-head">
+        <button class="back-btn" onclick="closeSection()"><i class="fas fa-arrow-left"></i> Impostazioni</button>
+        <span class="section-page-title">🏢 Dati Azienda</span>
+      </div>
+      <div class="s-card">
+        <div class="s-card-body">
+          <style>
+            .az-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+            .az-form-grid .az-full{grid-column:1/-1}
+            .az-field{display:flex;flex-direction:column;gap:5px}
+            .az-field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8}
+            .az-field input{border:1px solid #e2e8f0;border-radius:9px;padding:9px 12px;font-size:13px;font-family:inherit;color:#1e293b;outline:none;transition:border-color .15s}
+            .az-field input:focus{border-color:#B5453A}
+            @media(max-width:520px){.az-form-grid{grid-template-columns:1fr}}
+          </style>
+          <div class="az-form-grid">
+            <div class="az-field az-full">
+              <label>Ragione sociale</label>
+              <input id="az-nome" type="text">
+            </div>
+            <div class="az-field az-full">
+              <label>Tipo società</label>
+              <input id="az-tipo" type="text">
+            </div>
+            <div class="az-field">
+              <label>C.F. e P.IVA</label>
+              <input id="az-cf_piva" type="text">
+            </div>
+            <div class="az-field">
+              <label>Codice SDI</label>
+              <input id="az-sdi" type="text">
+            </div>
+            <div class="az-field">
+              <label>Numero REA</label>
+              <input id="az-rea" type="text">
+            </div>
+            <div class="az-field">
+              <label>Iscrizione Registro Imprese</label>
+              <input id="az-registro_imprese" type="text">
+            </div>
+            <div class="az-field az-full">
+              <label>Indirizzo sede</label>
+              <input id="az-indirizzo" type="text">
+            </div>
+            <div class="az-field">
+              <label>CAP</label>
+              <input id="az-cap" type="text">
+            </div>
+            <div class="az-field">
+              <label>Città</label>
+              <input id="az-citta" type="text">
+            </div>
+            <div class="az-field">
+              <label>Provincia</label>
+              <input id="az-provincia" type="text" maxlength="2">
+            </div>
+            <div class="az-field">
+              <label>Telefono</label>
+              <input id="az-telefono" type="text">
+            </div>
+            <div class="az-field">
+              <label>Fax</label>
+              <input id="az-fax" type="text">
+            </div>
+            <div class="az-field az-full">
+              <label>PEC</label>
+              <input id="az-pec" type="email">
+            </div>
+            <div class="az-field">
+              <label>Banca di appoggio</label>
+              <input id="az-banca" type="text">
+            </div>
+            <div class="az-field">
+              <label>IBAN</label>
+              <input id="az-iban" type="text">
+            </div>
+          </div>
+          <div style="margin-top:20px;text-align:right">
+            <button id="az-save-btn" class="btn-primary" onclick="salvaDatiAzienda()" style="padding:10px 24px;font-size:14px;font-weight:700;background:#B5453A;color:#fff;border:none;border-radius:10px;cursor:pointer">
+              Salva modifiche
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 </body>
 </html>
