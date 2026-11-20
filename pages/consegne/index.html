@@ -202,9 +202,10 @@
     @media print{
       @page{size:100mm 150mm;margin:0}
       body>*{display:none!important}
-      #label-print{display:block!important;width:100mm;height:150mm;padding:5mm 6mm;box-sizing:border-box;font-family:'CenturyGothic','Century Gothic',Arial,sans-serif;color:#000;position:fixed;top:0;left:0}
+      #label-print{display:block!important;font-family:'CenturyGothic','Century Gothic',Arial,sans-serif;color:#000}
+      .lp-page{width:100mm;height:150mm;padding:5mm 6mm;box-sizing:border-box;position:relative;page-break-after:always}
+      .lp-page:last-child{page-break-after:auto}
       .lp-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #000;padding-bottom:3mm;margin-bottom:3mm}
-      .lp-logo{height:9mm;width:auto}
       .lp-emporio{font-size:7pt;color:#444;text-align:right;line-height:1.4}
       .lp-emporio span{display:block;font-size:5.5pt;text-transform:uppercase;letter-spacing:.08em;color:#888}
       .lp-lbl{font-size:5.5pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#888;margin-bottom:1mm}
@@ -223,6 +224,8 @@
       .lp-pag{font-size:7.5pt;font-weight:700;margin-top:1.5mm}
       .lp-footer{position:absolute;bottom:4mm;left:6mm;right:6mm;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #e0e0e0;padding-top:1.5mm}
       .lp-footer-txt{font-size:6pt;color:#aaa}
+      .lp-collo-num{font-size:28pt;font-weight:900;line-height:1;margin:6mm 0 2mm}
+      .lp-collo-lbl{font-size:7pt;color:#666;font-weight:700;letter-spacing:.05em}
     }
     /* ── WA sheet ── */
     #wa-sheet{position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center}
@@ -1354,6 +1357,7 @@ function inviaWA(){
 function stampaEtichetta(id){
   const c = _consegne.find(x=>x.id===id); if(!c) return;
 
+  const nColli  = parseInt(c.colli) || 1;
   const dest    = c.destinatario_nome || '—';
   const dataTxt = c.da_concordare ? 'Da concordare' : (c.data_consegna ? _fmtDataItaliana(c.data_consegna) : '—');
 
@@ -1368,7 +1372,7 @@ function stampaEtichetta(id){
   const pagInfo  = [docLabel, pagLabel?pagLabel+pagExtra:''].filter(Boolean).join(' · ');
   const noteArr  = [c.destinatario_note_indirizzo, c.note_merce, c.note].filter(Boolean);
 
-  document.getElementById('label-print').innerHTML = `
+  const header = (colloN) => `
     <div class="lp-header">
       <div class="lp-header-date">
         <div class="lp-lbl">Data consegna</div>
@@ -1378,30 +1382,48 @@ function stampaEtichetta(id){
         <span>Da</span>
         ${esc(c.emporio_partenza||'—')}
       </div>
-    </div>
+    </div>`;
 
-    <hr class="lp-divider">
-
-    <div class="lp-lbl">Destinatario</div>
-    <div class="lp-dest">${esc(dest)}</div>
-    ${righeAddr.length ? `<div class="lp-addr">${righeAddr.map(esc).join('<br>')}</div>` : ''}
-    ${c.destinatario_telefono ? `<div class="lp-tel">☎ ${esc(c.destinatario_telefono)}</div>` : ''}
-
-    ${(c.merce||c.colli||c.fattorino) ? `<hr class="lp-divider">
-    ${c.merce ? `<div class="lp-merce">${esc(c.merce)}${c.colli?` &nbsp;·&nbsp; ${c.colli} colli`:''}</div>` : (c.colli?`<div class="lp-merce">${c.colli} colli</div>`:'')}
-    ${c.fattorino ? `<div class="lp-row"><div class="lp-cell"><div class="lp-lbl">Fattorino</div><div class="lp-cell-val">${esc(c.fattorino)}</div></div></div>` : ''}` : ''}
-
-    ${pagInfo ? `<div class="lp-pag">${esc(pagInfo)}</div>` : ''}
-    ${noteArr.length ? `<div class="lp-note">${noteArr.map(esc).join(' • ')}</div>` : ''}
-
+  const footer = (colloN) => `
     <div class="lp-footer">
       <div>
         <div class="lp-footer-txt">meridiano361.it</div>
         <div class="lp-footer-legal">Meridiano 361 Impresa Sociale S.r.l. – Socio unico &nbsp;·&nbsp; P.IVA 02834570356 &nbsp;·&nbsp; SDI USAL8PV &nbsp;·&nbsp; IBAN IT69L0707212803000000417081</div>
       </div>
-      <div class="lp-footer-txt">${id.slice(0,8).toUpperCase()}</div>
+      <div class="lp-footer-txt">${nColli>1?`${colloN}/${nColli} &nbsp;·&nbsp; `:''} ${id.slice(0,8).toUpperCase()}</div>
     </div>`;
 
+  // Prima etichetta: completa
+  let pages = `<div class="lp-page">
+    ${header(1)}
+    <hr class="lp-divider">
+    <div class="lp-lbl">Destinatario</div>
+    <div class="lp-dest">${esc(dest)}</div>
+    ${righeAddr.length ? `<div class="lp-addr">${righeAddr.map(esc).join('<br>')}</div>` : ''}
+    ${c.destinatario_telefono ? `<div class="lp-tel">☎ ${esc(c.destinatario_telefono)}</div>` : ''}
+    ${(c.merce||c.colli||c.fattorino) ? `<hr class="lp-divider">
+    ${c.merce ? `<div class="lp-merce">${esc(c.merce)}${nColli>1?` &nbsp;·&nbsp; ${nColli} colli`:''}</div>` : (nColli>1?`<div class="lp-merce">${nColli} colli</div>`:'')}
+    ${c.fattorino ? `<div class="lp-row"><div class="lp-cell"><div class="lp-lbl">Fattorino</div><div class="lp-cell-val">${esc(c.fattorino)}</div></div></div>` : ''}` : ''}
+    ${pagInfo ? `<div class="lp-pag">${esc(pagInfo)}</div>` : ''}
+    ${noteArr.length ? `<div class="lp-note">${noteArr.map(esc).join(' • ')}</div>` : ''}
+    ${nColli>1 ? `<div class="lp-collo-lbl">Collo</div><div class="lp-collo-num">1 / ${nColli}</div>` : ''}
+    ${footer(1)}
+  </div>`;
+
+  // Etichette successive: solo data, nome, numero collo
+  for(let i = 2; i <= nColli; i++){
+    pages += `<div class="lp-page">
+      ${header(i)}
+      <hr class="lp-divider">
+      <div class="lp-lbl">Destinatario</div>
+      <div class="lp-dest">${esc(dest)}</div>
+      <div class="lp-collo-lbl" style="margin-top:8mm">Collo</div>
+      <div class="lp-collo-num">${i} / ${nColli}</div>
+      ${footer(i)}
+    </div>`;
+  }
+
+  document.getElementById('label-print').innerHTML = pages;
   window.print();
 }
 
