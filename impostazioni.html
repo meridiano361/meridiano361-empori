@@ -301,6 +301,7 @@
             <button class="adm-nav-item"             id="nav-prodotti"          data-tip="Anagrafica prodotti" onclick="openSection('prodotti')">             <i class="fas fa-box-open"></i><span>Prodotti</span></button>
             <button class="adm-nav-item"             id="nav-calendario"        data-tip="Calendario commerciale" onclick="location.href='pages/calendario-commerciale/calendario-commerciale.html'"><i class="fas fa-calendar-days"></i><span>Calendario</span></button>
             <button class="adm-nav-item"             id="nav-azienda"           data-tip="Dati legali azienda" onclick="openSection('azienda')">              <i class="fas fa-building"></i><span>Azienda</span></button>
+            <button class="adm-nav-item"             id="nav-sedi"              data-tip="Sedi di partenza consegne" onclick="openSection('sedi')">             <i class="fas fa-map-pin"></i><span>Sedi</span></button>
           </div>
           <div class="adm-nav-foot">
             <div class="adm-nav-role">SUPER ADMIN</div>
@@ -393,6 +394,12 @@
               <div class="adm-home-icon" style="background:rgba(181,69,58,.1)"><i class="fas fa-building" style="color:#B5453A"></i></div>
               <div class="adm-home-card-title">Dati Azienda</div>
               <div class="adm-home-card-desc">Modifica ragione sociale, P.IVA, IBAN e recapiti</div>
+              <div class="adm-home-arrow">→</div>
+            </div>
+            <div class="adm-home-card" onclick="openSection('sedi')">
+              <div class="adm-home-icon" style="background:rgba(37,99,235,.08)"><i class="fas fa-map-pin" style="color:#2563eb"></i></div>
+              <div class="adm-home-card-title">Sedi di partenza</div>
+              <div class="adm-home-card-desc">Gestisci le sedi per le consegne (nome e indirizzo)</div>
               <div class="adm-home-arrow">→</div>
             </div>
           </div>
@@ -2230,6 +2237,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         personalizzazione:'Personalizzazione',
         prodotti:'Anagrafica Prodotti',
         azienda:'Dati Azienda',
+        sedi:'Sedi di partenza',
     };
 
     function openSection(id) {
@@ -2281,6 +2289,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (id === 'personalizzazione') setTimeout(initPreviewScale, 100);
         if (id === 'prodotti') caricaProdotti();
         if (id === 'azienda') caricaDatiAzienda();
+        if (id === 'sedi') caricaSediPartenza();
     }
 
     // ── LOGHI LISTINI ─────────────────────────────────────────────────────
@@ -7077,9 +7086,145 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
       if (error) showToast('Errore: ' + error.message, 'err');
       else showToast('Dati azienda salvati', 'ok');
     }
+
+    /* ── Sedi di partenza ───────────────────────────────── */
+
+    let _sediList = [];
+
+    function _escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function renderSediList(){
+      const wrap = document.getElementById('sedi-list');
+      if(!wrap) return;
+      if(!_sediList.length){ wrap.innerHTML='<div style="color:#94a3b8;font-size:13px;padding:8px 0">Nessuna sede trovata.</div>'; return; }
+      wrap.innerHTML = _sediList.map(s=>`
+        <div class="sede-row" id="sede-row-${s.id}">
+          <div class="sede-row-fields">
+            <div class="sede-field" style="grid-column:1/-1">
+              <label>Nome</label>
+              <input type="text" id="sede-nome-${s.id}" value="${_escH(s.nome)}">
+            </div>
+            <div class="sede-field">
+              <label>Indirizzo</label>
+              <input type="text" id="sede-ind-${s.id}" value="${_escH(s.indirizzo||'')}">
+            </div>
+            <div class="sede-field">
+              <label>Comune</label>
+              <input type="text" id="sede-com-${s.id}" value="${_escH(s.comune||'')}">
+            </div>
+          </div>
+          <div class="sede-actions">
+            <label class="sede-toggle">
+              <input type="checkbox" id="sede-att-${s.id}"${s.attiva?' checked':''} onchange="toggleSede(${s.id},this.checked)"> Attiva
+            </label>
+            <button class="sede-btn-del" onclick="eliminaSede(${s.id})"><i class="fas fa-trash"></i></button>
+            <button class="sede-btn-save" onclick="salvaSede(${s.id})"><i class="fas fa-check"></i> Salva</button>
+          </div>
+        </div>`).join('');
+    }
+
+    async function caricaSediPartenza(){
+      const { data, error } = await db.from('sedi_partenza').select('*').order('ordine');
+      if(error){ showToast('Errore caricamento sedi','err'); return; }
+      _sediList = data || [];
+      renderSediList();
+    }
+
+    async function salvaSede(id){
+      const nome = document.getElementById('sede-nome-'+id)?.value.trim();
+      if(!nome){ showToast('Il nome è obbligatorio','err'); return; }
+      const indirizzo = document.getElementById('sede-ind-'+id)?.value.trim()||null;
+      const comune    = document.getElementById('sede-com-'+id)?.value.trim()||null;
+      const { error } = await db.from('sedi_partenza').update({nome,indirizzo,comune}).eq('id',id);
+      if(error) showToast('Errore: '+error.message,'err');
+      else{ showToast('Sede salvata','ok'); const s=_sediList.find(x=>x.id===id); if(s){s.nome=nome;s.indirizzo=indirizzo;s.comune=comune;} }
+    }
+
+    async function toggleSede(id, attiva){
+      const { error } = await db.from('sedi_partenza').update({attiva}).eq('id',id);
+      if(error){ showToast('Errore: '+error.message,'err'); return; }
+      const s=_sediList.find(x=>x.id===id); if(s) s.attiva=attiva;
+      showToast(attiva?'Sede attivata':'Sede disattivata','ok');
+    }
+
+    async function eliminaSede(id){
+      const s=_sediList.find(x=>x.id===id);
+      if(!confirm(`Eliminare "${s?.nome||'questa sede'}"?`)) return;
+      const { error } = await db.from('sedi_partenza').delete().eq('id',id);
+      if(error){ showToast('Errore: '+error.message,'err'); return; }
+      _sediList = _sediList.filter(x=>x.id!==id);
+      renderSediList();
+      showToast('Sede eliminata','ok');
+    }
+
+    async function aggiungiSede(){
+      const nome      = document.getElementById('new-sede-nome')?.value.trim();
+      const indirizzo = document.getElementById('new-sede-indirizzo')?.value.trim()||null;
+      const comune    = document.getElementById('new-sede-comune')?.value.trim()||null;
+      if(!nome){ showToast('Inserisci il nome della sede','err'); return; }
+      const ordine = (_sediList.length ? Math.max(..._sediList.map(s=>s.ordine||0)) : 0) + 10;
+      const { data, error } = await db.from('sedi_partenza').insert({nome,indirizzo,comune,attiva:true,ordine}).select().single();
+      if(error){ showToast('Errore: '+error.message,'err'); return; }
+      _sediList.push(data);
+      renderSediList();
+      document.getElementById('new-sede-nome').value='';
+      document.getElementById('new-sede-indirizzo').value='';
+      document.getElementById('new-sede-comune').value='';
+      showToast('Sede aggiunta','ok');
+    }
     </script>
 
     <!-- ── SEZIONE: DATI AZIENDA ──────────────────────────────────────────── -->
+    <!-- ══ SEZIONE: SEDI DI PARTENZA ══════════════════════════════════════════ -->
+    <div id="section-sedi" class="section-page">
+      <div class="section-page-head">
+        <button class="back-btn" onclick="closeSection()"><i class="fas fa-arrow-left"></i> Impostazioni</button>
+        <span class="section-page-title">Sedi di partenza</span>
+      </div>
+      <style>
+        .sedi-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+        .sede-row{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+        .sede-row-top{display:flex;align-items:center;gap:10px}
+        .sede-row-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .sede-field{display:flex;flex-direction:column;gap:4px}
+        .sede-field label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8}
+        .sede-field input{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;color:#1e293b;outline:none;transition:border-color .15s;background:#fff}
+        .sede-field input:focus{border-color:#2563eb}
+        .sede-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+        .sede-btn-save{padding:5px 14px;font-size:12px;font-weight:700;background:#2563eb;color:#fff;border:none;border-radius:7px;cursor:pointer;font-family:inherit}
+        .sede-btn-del{padding:5px 10px;font-size:12px;font-weight:700;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:7px;cursor:pointer;font-family:inherit}
+        .sede-toggle{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#64748b;margin-left:auto}
+        .sede-new-card{background:#eff6ff;border:1.5px dashed #93c5fd;border-radius:12px;padding:14px}
+        .sede-new-title{font-size:12px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+        @media(max-width:520px){.sede-row-fields{grid-template-columns:1fr}}
+      </style>
+      <div class="s-card">
+        <div class="s-card-body">
+          <div id="sedi-list" class="sedi-list"><div style="color:#94a3b8;font-size:13px;padding:8px 0">Caricamento…</div></div>
+          <div class="sede-new-card">
+            <div class="sede-new-title"><i class="fas fa-plus"></i> Nuova sede</div>
+            <div class="sede-row-fields">
+              <div class="sede-field" style="grid-column:1/-1">
+                <label>Nome *</label>
+                <input id="new-sede-nome" type="text" placeholder="es. Emporio Lodi">
+              </div>
+              <div class="sede-field">
+                <label>Indirizzo</label>
+                <input id="new-sede-indirizzo" type="text" placeholder="Via Roma 1">
+              </div>
+              <div class="sede-field">
+                <label>Comune</label>
+                <input id="new-sede-comune" type="text" placeholder="Cremona">
+              </div>
+            </div>
+            <div class="sede-actions" style="margin-top:10px">
+              <button class="sede-btn-save" onclick="aggiungiSede()"><i class="fas fa-plus"></i> Aggiungi sede</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="section-azienda" class="section-page">
       <div class="section-page-head">
         <button class="back-btn" onclick="closeSection()"><i class="fas fa-arrow-left"></i> Impostazioni</button>

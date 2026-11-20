@@ -208,6 +208,7 @@
       .lp-header{display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #000;padding-bottom:3mm;margin-bottom:3mm}
       .lp-emporio{font-size:7pt;color:#444;text-align:right;line-height:1.4}
       .lp-emporio span{display:block;font-size:5.5pt;text-transform:uppercase;letter-spacing:.08em;color:#888}
+      .lp-sede-addr{font-size:5.5pt;color:#888;margin-top:1px}
       .lp-lbl{font-size:5.5pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#888;margin-bottom:1mm}
       .lp-data{font-size:14pt;font-weight:900;line-height:1.1}
       .lp-header-date .lp-lbl{margin-bottom:0.5mm}
@@ -336,9 +337,7 @@
   <div id="filtri-bar" style="display:none">
     <input id="f-q"    class="f-input f-search" type="search"  placeholder="Cerca destinatario, merce, note…" oninput="applyFiltri()">
     <select id="f-emp" class="f-input" onchange="applyFiltri()">
-      <option value="">Tutti gli empori</option>
-      <option>Cremona</option><option>Casalmaggiore</option>
-      <option>Viadana</option><option>Reggio Emilia</option>
+      <option value="">Tutte le sedi</option>
     </select>
     <select id="f-tipo" class="f-input" onchange="applyFiltri()">
       <option value="">Tutti i tipi</option>
@@ -415,7 +414,7 @@
 const SB_URL = 'https://hsalynvxazxqtmsvjrzc.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8';
 
-const EMPORI_LIST = ['Cremona','Casalmaggiore','Viadana','Reggio Emilia'];
+let _sediPartenza = []; // {id, nome, indirizzo, comune}
 
 const STATI = {
   da_programmare: { label:'Da programmare', c:'#94a3b8', bg:'#f8fafc' },
@@ -479,8 +478,22 @@ function toggleManuale(){
 
 async function init(){
   _sb = window.supabase.createClient(SB_URL, SB_KEY);
-  await loadFattorini();
+  await Promise.all([loadFattorini(), loadSediPartenza()]);
   await loadAndRender();
+}
+
+async function loadSediPartenza(){
+  try{
+    const {data} = await _sb.from('sedi_partenza').select('id,nome,indirizzo,comune').eq('attiva',true).order('ordine');
+    _sediPartenza = data || [];
+  }catch{ _sediPartenza = []; }
+  const sel = document.getElementById('f-emp');
+  if(sel){
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Tutte le sedi</option>' +
+      _sediPartenza.map(s=>`<option value="${esc(s.nome)}">${esc(s.nome)}</option>`).join('');
+    sel.value = cur;
+  }
 }
 
 async function loadFattorini(){
@@ -791,11 +804,11 @@ function buildFormCns(c, dataDefault){
   const curUser = getOperatoreLoggato();
   const compilatoLbl = isEdit ? esc(c.creato_da||'—') : esc(curUser?.nome||curUser?.email||'—');
 
-  const empOpts=EMPORI_LIST.map(e=>
-    `<option value="${e}"${(isEdit?c.emporio_partenza:'')=== e?' selected':''}>${e}</option>`
+  const empOpts=_sediPartenza.map(s=>
+    `<option value="${esc(s.nome)}"${(isEdit?c.emporio_partenza:'')=== s.nome?' selected':''}>${esc(s.nome)}</option>`
   ).join('');
-  const empDestOpts=`<option value="">— scegli —</option>`+EMPORI_LIST.map(e=>
-    `<option value="${e}"${(isEdit?c.emporio_destinazione:'')=== e?' selected':''}>${e}</option>`
+  const empDestOpts=`<option value="">— scegli —</option>`+_sediPartenza.map(s=>
+    `<option value="${esc(s.nome)}"${(isEdit?c.emporio_destinazione:'')=== s.nome?' selected':''}>${esc(s.nome)}</option>`
   ).join('');
   const statiOpts=Object.entries(STATI).map(([k,v])=>
     `<option value="${k}"${stato===k?' selected':''}>${v.label}</option>`
@@ -850,7 +863,7 @@ function buildFormCns(c, dataDefault){
     <div class="form-sec">
       <div class="form-row r1">
         <div class="form-field">
-          <label class="form-lbl">Emporio di partenza *</label>
+          <label class="form-lbl">Sede di partenza *</label>
           <select id="fc-emp-part" class="form-inp form-sel">
             <option value="">— scegli —</option>${empOpts}
           </select>
@@ -1372,6 +1385,9 @@ function stampaEtichetta(id){
   const pagInfo  = [docLabel, pagLabel?pagLabel+pagExtra:''].filter(Boolean).join(' · ');
   const noteArr  = [c.destinatario_note_indirizzo, c.note_merce, c.note].filter(Boolean);
 
+  const sedePart = _sediPartenza.find(s=>s.nome===c.emporio_partenza);
+  const sedeAddr = sedePart?.indirizzo || '';
+
   const header = (colloN) => `
     <div class="lp-header">
       <div class="lp-header-date">
@@ -1381,6 +1397,7 @@ function stampaEtichetta(id){
       <div class="lp-emporio">
         <span>Da</span>
         ${esc(c.emporio_partenza||'—')}
+        ${sedeAddr ? `<div class="lp-sede-addr">${esc(sedeAddr)}</div>` : ''}
       </div>
     </div>`;
 
