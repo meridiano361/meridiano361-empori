@@ -106,7 +106,7 @@
     .frontalino{display:flex;border:0.5pt solid #333;overflow:hidden;background:#fff;box-sizing:border-box;flex-shrink:0}
     .fr-side{display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px}
     .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.5px;text-align:center;overflow:hidden;white-space:nowrap}
-    .fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;min-width:0;padding:2px 3px 1px 3px;overflow:hidden;background:#fff}
+    .fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;min-width:0;padding:2px 1px 1px 1px;overflow:hidden;background:#fff}
     .fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:start;padding-top:2px;text-align:center}
     .fr-mid{display:flex;align-items:center;overflow:visible;gap:3px;min-width:0}
     .fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
@@ -487,7 +487,7 @@ const STYLE_KEY = 'm361_frontalini_style';
 const DEFAULT_STYLE = {
   fontFamily:  'Arial,Helvetica,sans-serif',
   bandWidthMm: 4,
-  desc:   { size: 13, bold: true,  italic: false, color: '#000000' },
+  desc:   { size: 13, bold: true,  italic: false, color: '#000000', fit: false },
   prezzo: { size: 16, bold: true,  italic: false, color: '#000000' },
   euro:   { size: 10, bold: false, italic: false, color: '#000000' },
   attr:   { size:  6, bold: true,  italic: false, color: '#000000' },
@@ -766,7 +766,7 @@ function frontalino(item, forPrint = false, scale = 1) {
       <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bfColor};font-weight:${bfBold};font-style:${bfItalic}">${escH(brand)}</span>
     </div>
     <div class="fr-body">
-      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:1;font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}">${escH(item.descrizione)}</div>
+      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${st.desc.fit?'unset':'1'};white-space:${st.desc.fit?'nowrap':'normal'};font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}" ${st.desc.fit?'data-autofit="1"':''}>${escH(item.descrizione)}</div>
       <div class="fr-mid">
         <div class="fr-price-grp">
           ${prezzo
@@ -1104,6 +1104,21 @@ function rStampa() {
 }
 
 // ── MASTER RENDER ──────────────────────────────────────────────────────────
+function applyDescFit(doc) {
+  const d = doc || document;
+  d.querySelectorAll('.fr-desc[data-autofit]').forEach(el => {
+    el.style.transform = '';
+    const body = el.closest('.fr-body');
+    if (!body) return;
+    const availW = body.getBoundingClientRect().width - 2;
+    const textW = el.scrollWidth;
+    if (textW > availW && availW > 0) {
+      el.style.transformOrigin = 'left center';
+      el.style.transform = `scaleX(${availW / textW})`;
+    }
+  });
+}
+
 function R() {
   rTabs();
   if (_loading) {
@@ -1114,6 +1129,7 @@ function R() {
   else if (_view === 'bozza')      g('fl-main').innerHTML = rBozza();
   else if (_view === 'stampa')     g('fl-main').innerHTML = rStampa();
   else if (_view === 'impostazioni') g('fl-main').innerHTML = rImpostazioni();
+  if (_style.desc?.fit) requestAnimationFrame(() => applyDescFit());
 }
 
 function setView(v) { _view = v; R(); }
@@ -1434,7 +1450,22 @@ function doPrint() {
 
   const win = window.open('', '_blank');
   if (!win) { alert('Abilita i popup del browser per stampare.'); return; }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${printCSS}</style></head><body>${pagesHTML}</body></html>`);
+  const fitScript = _style.desc?.fit ? `<script>
+    window.addEventListener('load', function() {
+      document.querySelectorAll('.fr-desc[data-autofit]').forEach(function(el) {
+        el.style.transform = '';
+        var body = el.parentElement;
+        if (!body) return;
+        var availW = body.getBoundingClientRect().width - 2;
+        var textW = el.scrollWidth;
+        if (textW > availW && availW > 0) {
+          el.style.transformOrigin = 'left center';
+          el.style.transform = 'scaleX(' + (availW/textW) + ')';
+        }
+      });
+    });
+  <\/script>` : '';
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${printCSS}</style></head><body>${pagesHTML}${fitScript}</body></html>`);
   win.document.close();
   win.focus();
   setTimeout(() => { win.print(); }, 400);
@@ -1556,6 +1587,7 @@ function rImpostazioni() {
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Bold</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Corsivo</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Colore</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px" title="Rimpicciolisce il testo per farlo stare su una riga">Adatta</th>
               </tr>
             </thead>
             <tbody>
@@ -1589,6 +1621,11 @@ function rImpostazioni() {
                        </div>`
                     : `<input type="color" id="st-${k}-color" value="${el.color||'#000000'}" onchange="previewStyle()" style="width:28px;height:24px;border:none;padding:0;cursor:pointer;border-radius:4px">`
                   }
+                </td>
+                <td style="padding:4px 6px;text-align:center">
+                  ${k==='desc'
+                    ? `<input type="checkbox" id="st-desc-fit" ${el.fit?'checked':''} onchange="previewStyle()" title="Rimpicciolisce il testo per farlo stare tutto su una riga" style="accent-color:var(--red);width:15px;height:15px;cursor:pointer">`
+                    : ''}
                 </td>
               </tr>`).join('')}
             </tbody>
@@ -1648,12 +1685,14 @@ function rImpostazioni() {
 function readStyleFields() {
   function el(k) {
     const def = DEFAULT_STYLE[k];
-    return {
+    const obj = {
       size:   parseFloat(g(`st-${k}-size`)?.value)  || def.size,
       bold:   g(`st-${k}-bold`)?.checked  ?? def.bold,
       italic: g(`st-${k}-italic`)?.checked ?? def.italic,
       color:  g(`st-${k}-color`)?.value   || def.color,
     };
+    if (k === 'desc') obj.fit = g('st-desc-fit')?.checked ?? def.fit;
+    return obj;
   }
   const brandEl = el('brand');
   if (g('st-brand-color-auto')?.checked) brandEl.color = null;
@@ -1690,7 +1729,8 @@ function resetStyle() {
   if (!confirm('Ripristinare le impostazioni di stile ai valori di default?')) return;
   _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
     desc:{...DS.desc}, prezzo:{...DS.prezzo}, euro:{...DS.euro},
-    attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand} };
+    attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand},
+  };
   saveStyle();
   R();
 }
