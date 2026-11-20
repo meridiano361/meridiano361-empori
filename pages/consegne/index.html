@@ -197,6 +197,30 @@
       /* Checkbox da concordare: target più grande */
       #fc-concordare{width:20px;height:20px}
     }
+    /* ── Etichetta print ── */
+    #label-print{display:none}
+    @media print{
+      @page{size:100mm 150mm;margin:0}
+      body>*{display:none!important}
+      #label-print{display:block!important;width:100mm;height:150mm;padding:6mm 7mm;box-sizing:border-box;font-family:'CenturyGothic','Century Gothic',Arial,sans-serif;color:#000;position:fixed;top:0;left:0}
+      .lp-header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:3mm;margin-bottom:3mm}
+      .lp-brand{font-size:9pt;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+      .lp-emporio{font-size:7.5pt;color:#444;text-align:right;line-height:1.3}
+      .lp-to-lbl{font-size:6pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#666;margin-bottom:1.5mm}
+      .lp-dest{font-size:13pt;font-weight:900;line-height:1.2;margin-bottom:1mm}
+      .lp-addr{font-size:9pt;line-height:1.5;margin-bottom:3mm}
+      .lp-tel{font-size:9pt;font-weight:700;margin-bottom:3mm}
+      .lp-divider{border:none;border-top:1px solid #bbb;margin:2.5mm 0}
+      .lp-row{display:flex;gap:4mm;margin-bottom:2mm}
+      .lp-cell{flex:1}
+      .lp-cell-lbl{font-size:6pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:0.5mm}
+      .lp-cell-val{font-size:8.5pt;font-weight:700;line-height:1.3}
+      .lp-merce{font-size:8pt;line-height:1.4;margin-bottom:2mm}
+      .lp-note{font-size:7.5pt;color:#333;line-height:1.4;padding:1.5mm 2mm;border:1px dashed #aaa;border-radius:1mm;margin-top:2mm}
+      .lp-footer{position:absolute;bottom:5mm;left:7mm;right:7mm;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #ddd;padding-top:2mm}
+      .lp-footer-brand{font-size:6.5pt;color:#888;font-weight:700;letter-spacing:.05em}
+      .lp-footer-id{font-size:6pt;color:#aaa}
+    }
     /* ── WA sheet ── */
     #wa-sheet{position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center}
     .wa-box{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:560px;padding:20px 20px 32px;box-shadow:0 -4px 30px rgba(0,0,0,.15)}
@@ -225,6 +249,9 @@
     </div>
   </div>
 </div>
+
+<!-- ── Label print layer ── -->
+<div id="label-print"></div>
 
 <!-- ── Auth check immediato (prima di qualsiasi contenuto) ── -->
 <script src="../../scripts/auth.js"></script>
@@ -705,6 +732,7 @@ function renderGiorno(){
     html+=`<div class="di-actions">`;
     html+=`<button class="btn btn-outline btn-sm" onclick="apriModifica('${c.id}')"><i class="fas fa-pencil"></i> Modifica</button>`;
     html+=`<button class="btn btn-sm" style="background:${st.bg};color:${st.c};border:1px solid ${st.c}44" onclick="apriModalStato('${c.id}')"><i class="fas fa-circle-dot"></i> Aggiorna stato</button>`;
+    if(c.tipo_destinazione!=='emporio') html+=`<button class="btn btn-outline btn-sm" onclick="stampaEtichetta('${c.id}')"><i class="fas fa-tag"></i> Etichetta</button>`;
     html+=`</div></div>`;
   });
   html+='</div>';
@@ -1304,6 +1332,69 @@ function inviaWA(){
   navigator.clipboard.writeText(_waMsg).catch(()=>{});
   chiudiWASheet();
   window.open('https://chat.whatsapp.com/DuKBU5EL0NN0vbiPV0zp81', '_blank');
+}
+
+/* ── Stampa etichetta ───────────────────────────────────── */
+function stampaEtichetta(id){
+  const c = _consegne.find(x=>x.id===id); if(!c) return;
+
+  const dest  = c.destinatario_nome || '—';
+  const dataTxt = c.da_concordare ? 'Da concordare' : (c.data_consegna ? _fmtDataItaliana(c.data_consegna) : '—');
+  let indirizzo = '';
+  if(c.destinatario_indirizzo) indirizzo += c.destinatario_indirizzo;
+  if(c.destinatario_cap||c.destinatario_citta){
+    indirizzo += (indirizzo?'\n':'') + [c.destinatario_cap,c.destinatario_citta].filter(Boolean).join(' ');
+  }
+
+  const docLabel = {scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[c.tipo_documento]||'';
+  const pagLabel = {pagato:'Pagato',da_pagare:'Da pagare'}[c.tipo_pagamento]||'';
+  const pagaExtra = c.tipo_pagamento==='da_pagare'&&c.importo ? ` — € ${Number(c.importo).toFixed(2)}` : '';
+  const pagInfo = [docLabel, pagLabel?pagLabel+pagaExtra:''].filter(Boolean).join(' · ');
+
+  const noteArr = [c.destinatario_note_indirizzo, c.note_merce, c.note].filter(Boolean);
+
+  const el = document.getElementById('label-print');
+  el.innerHTML = `
+    <div class="lp-header">
+      <div class="lp-brand">Meridiano 361</div>
+      <div class="lp-emporio">
+        <div style="font-size:6pt;color:#666;text-transform:uppercase;letter-spacing:.08em">Da</div>
+        <div style="font-weight:800">${esc(c.emporio_partenza||'—')}</div>
+      </div>
+    </div>
+
+    <div class="lp-to-lbl">Destinatario</div>
+    <div class="lp-dest">${esc(dest)}</div>
+    ${indirizzo ? `<div class="lp-addr">${esc(indirizzo).replace(/\n/g,'<br>')}</div>` : ''}
+    ${c.destinatario_telefono ? `<div class="lp-tel"><i class="fas fa-phone" style="font-size:7pt"></i> ${esc(c.destinatario_telefono)}</div>` : ''}
+
+    <hr class="lp-divider">
+
+    <div class="lp-row">
+      <div class="lp-cell">
+        <div class="lp-cell-lbl">Data consegna</div>
+        <div class="lp-cell-val">${esc(dataTxt)}</div>
+      </div>
+      ${c.colli ? `<div class="lp-cell">
+        <div class="lp-cell-lbl">N. colli</div>
+        <div class="lp-cell-val">${c.colli}</div>
+      </div>` : ''}
+      ${c.fattorino ? `<div class="lp-cell">
+        <div class="lp-cell-lbl">Fattorino</div>
+        <div class="lp-cell-val">${esc(c.fattorino)}</div>
+      </div>` : ''}
+    </div>
+
+    ${c.merce ? `<div class="lp-cell-lbl">Merce</div><div class="lp-merce">${esc(c.merce)}</div>` : ''}
+    ${pagInfo ? `<div style="font-size:7.5pt;font-weight:700;margin-bottom:2mm">${esc(pagInfo)}</div>` : ''}
+    ${noteArr.length ? `<div class="lp-note">${esc(noteArr.join(' • '))}</div>` : ''}
+
+    <div class="lp-footer">
+      <div class="lp-footer-brand">meridiano361.it</div>
+      <div class="lp-footer-id">${id.slice(0,8).toUpperCase()}</div>
+    </div>`;
+
+  window.print();
 }
 
 async function eliminaConsegna(id){
