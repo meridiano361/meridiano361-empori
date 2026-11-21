@@ -1550,12 +1550,12 @@ function buildNav() {
           } else {
             // Token non nel DB: era scaduto (410) e rimosso. Forza rinnovo.
             const err = await _pushSubscribe(user);
-            if (err) _showPushBanner(user, err);
+            if (err && !_isPushTransientError(err)) _showPushBanner(user, err);
           }
         } else {
           // Subscription persa ma permesso già granted: re-subscribe silenzioso
           const err = await _pushSubscribe(user);
-          if (err) _showPushBanner(user, err);
+          if (err && !_isPushTransientError(err)) _showPushBanner(user, err);
         }
       } catch (_) {}
     } else if (Notification.permission === 'default') {
@@ -1565,10 +1565,17 @@ function buildNav() {
         const err = await _pushSubscribe(user);
         // Mostra banner solo se c'è un errore reale (es. iOS non standalone)
         // "Permesso negato" non mostra nulla: l'utente ha scelto consapevolmente
-        if (err && !err.startsWith('Permesso negato')) _showPushBanner(user, err);
+        if (err && !err.startsWith('Permesso negato') && !_isPushTransientError(err)) _showPushBanner(user, err);
       }
     }
     // permission === 'denied': l'utente ha bloccato — non disturbare
+  }
+
+  function _isPushTransientError(msg) {
+    if (!msg) return false;
+    const lc = msg.toLowerCase();
+    return lc.includes('push service') || lc.includes('registration failed') ||
+           lc.includes('network') || lc.includes('fetch') || lc.includes('timeout');
   }
 
   function _showPushBanner(user, errMsg) {
