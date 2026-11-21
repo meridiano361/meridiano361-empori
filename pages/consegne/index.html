@@ -743,7 +743,7 @@ function renderGiorno(){
     if(c.merce) html+=`<div class="di-merce"><i class="fas fa-box" style="color:#94a3b8;margin-right:5px"></i>${esc(c.merce)}</div>`;
     if(c.da_concordare) html+=`<div class="di-nota" style="color:#ea580c"><i class="fas fa-calendar-xmark" style="margin-top:1px"></i> Giorno da concordare</div>`;
     if(c.orario_da_concordare) html+=`<div class="di-nota" style="color:#2563eb"><i class="fas fa-clock" style="margin-top:1px"></i> Fascia oraria da concordare</div>`;
-    if(!c.da_concordare&&!c.orario_da_concordare&&c.ora_concordata) html+=`<div class="di-nota"><i class="fas fa-clock" style="margin-top:1px"></i> Orario: ${fmtOra(c.ora_concordata)}</div>`;
+    if(!c.da_concordare&&!c.orario_da_concordare&&c.ora_prevista) html+=`<div class="di-nota"><i class="fas fa-clock" style="margin-top:1px"></i> ${fmtOra(c.ora_prevista)}${c.ora_fine?' – '+fmtOra(c.ora_fine):''}</div>`;
     if(c.tipo_documento){
       const dLabel={scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[c.tipo_documento]||c.tipo_documento;
       html+=`<div class="di-nota" style="color:#16a34a"><i class="fas fa-receipt" style="margin-top:1px"></i> ${dLabel}</div>`;
@@ -825,7 +825,25 @@ function buildFormCns(c, dataDefault){
   const showPersDest   = tipo!=='emporio' ? '' : 'display:none';
   const showMotivo     = ['rinviato','annullato'].includes(stato) ? '' : 'display:none';
   const showRinvio     = stato==='rinviato' ? '' : 'display:none';
-  const showConcordata = isEdit&&!c.da_concordare&&!c.orario_da_concordare ? '' : 'display:none';
+  const showConcordata = !isEdit || (!c.da_concordare&&!c.orario_da_concordare) ? '' : 'display:none';
+
+  // Genera opzioni orario 06:00–21:00 ogni 15 min
+  function _oraOpts(selVal){
+    let opts = '<option value="">—</option>';
+    for(let h=6;h<=21;h++){
+      for(let m=0;m<60;m+=15){
+        if(h===21&&m>0) break;
+        const hh=String(h).padStart(2,'0'), mm=String(m).padStart(2,'0');
+        const v=`${hh}:${mm}`;
+        opts+=`<option value="${v}"${selVal===v?' selected':''}>${v}</option>`;
+      }
+    }
+    return opts;
+  }
+  const oraInizioVal = isEdit&&c.ora_prevista ? c.ora_prevista.slice(0,5) : '';
+  const oraFineVal   = isEdit&&c.ora_fine     ? c.ora_fine.slice(0,5)     : '';
+  const oraInizioOpts = _oraOpts(oraInizioVal);
+  const oraFineOpts   = _oraOpts(oraFineVal);
   const showPagWrap    = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
 
   const _hasSc = _currentTipoDocumento==='scontrinato'||_currentTipoDocumento==='scontrinato_regalo';
@@ -867,9 +885,15 @@ function buildFormCns(c, dataDefault){
         </label>
       </div>
       <div id="fc-concordata-wrap" style="${showConcordata};margin-top:10px">
-        <div class="form-field">
-          <label class="form-lbl">Orario concordato</label>
-          <input id="fc-ora-concordata" class="form-inp" type="time" value="${isEdit&&c.ora_concordata?c.ora_concordata.slice(0,5):''}">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-lbl">Dalle</label>
+            <select id="fc-ora-inizio" class="form-inp form-sel">${oraInizioOpts}</select>
+          </div>
+          <div class="form-field">
+            <label class="form-lbl">Alle</label>
+            <select id="fc-ora-fine" class="form-inp form-sel">${oraFineOpts}</select>
+          </div>
         </div>
       </div>
     </div>
@@ -1254,7 +1278,8 @@ async function salvaConsegna(){
       data_consegna:        dataVal||null,
       da_concordare:        concordare,
       orario_da_concordare: orarioConcordare,
-      ora_concordata:       (!concordare&&!orarioConcordare)?(document.getElementById('fc-ora-concordata')?.value||null):null,
+      ora_prevista:         (!concordare&&!orarioConcordare)?(document.getElementById('fc-ora-inizio')?.value||null):null,
+      ora_fine:             (!concordare&&!orarioConcordare)?(document.getElementById('fc-ora-fine')?.value||null):null,
       stato,
       motivo:         ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
       data_rinvio:    stato==='rinviato'?(document.getElementById('fc-data-rinvio')?.value||null):null,
@@ -1264,7 +1289,8 @@ async function salvaConsegna(){
       data_consegna:               dataVal||null,
       da_concordare:               concordare,
       orario_da_concordare:        orarioConcordare,
-      ora_concordata:              (!concordare&&!orarioConcordare)?(document.getElementById('fc-ora-concordata')?.value||null):null,
+      ora_prevista:                (!concordare&&!orarioConcordare)?(document.getElementById('fc-ora-inizio')?.value||null):null,
+      ora_fine:                    (!concordare&&!orarioConcordare)?(document.getElementById('fc-ora-fine')?.value||null):null,
       emporio_partenza:            empPart,
       tipo_destinazione:           tipo,
       emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
@@ -1410,11 +1436,16 @@ function stampaEtichetta(id){
   const sedePart = _sediPartenza.find(s=>s.nome===c.emporio_partenza);
   const sedeAddr = sedePart?.indirizzo || '';
 
+  const fasciaOraria = (!c.da_concordare&&!c.orario_da_concordare&&c.ora_prevista)
+    ? (c.ora_fine ? `${fmtOra(c.ora_prevista)} – ${fmtOra(c.ora_fine)}` : fmtOra(c.ora_prevista))
+    : (c.orario_da_concordare ? 'Fascia da concordare' : '');
+
   const header = (colloN) => `
     <div class="lp-header">
       <div class="lp-header-date">
         <div class="lp-lbl">Data consegna</div>
         <div class="lp-data">${esc(dataTxt)}</div>
+        ${fasciaOraria ? `<div style="font-size:9pt;font-weight:700;color:#444;margin-top:1mm">${esc(fasciaOraria)}</div>` : ''}
       </div>
       <div class="lp-emporio">
         <span>Da</span>
