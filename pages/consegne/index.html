@@ -676,7 +676,7 @@ function renderSettimana(){
       html+=`<div class="cc-dest"><i class="fas ${icon}" style="color:${st.c};font-size:9px;margin-right:3px"></i>${esc(dest)}</div>`;
       if(c.fattorino) html+=`<div class="cc-fatt"><i class="fas fa-person-biking" style="font-size:8px"></i> ${esc(c.fattorino)}</div>`;
       if(c.da_concordare) html+=`<div style="font-size:9px;color:#ea580c;margin-top:1px"><i class="fas fa-calendar-xmark"></i> Giorno da concordare</div>`;
-      else if(c.orario_da_concordare) html+=`<div style="font-size:9px;color:#2563eb;margin-top:1px"><i class="fas fa-clock"></i> Orario da concordare</div>`;
+      if(c.orario_da_concordare) html+=`<div style="font-size:9px;color:#2563eb;margin-top:1px"><i class="fas fa-clock"></i> Fascia oraria da concordare</div>`;
       if(c.tipo_pagamento==='da_pagare') html+=`<div style="font-size:9px;color:#dc2626;margin-top:1px"><i class="fas fa-coins"></i> Da pagare${c.importo?' €'+c.importo:''}</div>`;
       html+=`</div>`;
     });
@@ -741,7 +741,7 @@ function renderGiorno(){
     html+=`</div>`;
     if(c.merce) html+=`<div class="di-merce"><i class="fas fa-box" style="color:#94a3b8;margin-right:5px"></i>${esc(c.merce)}</div>`;
     if(c.da_concordare) html+=`<div class="di-nota" style="color:#ea580c"><i class="fas fa-calendar-xmark" style="margin-top:1px"></i> Giorno da concordare</div>`;
-    if(c.orario_da_concordare) html+=`<div class="di-nota" style="color:#2563eb"><i class="fas fa-clock" style="margin-top:1px"></i> Orario da concordare</div>`;
+    if(c.orario_da_concordare) html+=`<div class="di-nota" style="color:#2563eb"><i class="fas fa-clock" style="margin-top:1px"></i> Fascia oraria da concordare</div>`;
     if(!c.da_concordare&&!c.orario_da_concordare&&c.ora_concordata) html+=`<div class="di-nota"><i class="fas fa-clock" style="margin-top:1px"></i> Orario: ${fmtOra(c.ora_concordata)}</div>`;
     if(c.tipo_documento){
       const dLabel={scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[c.tipo_documento]||c.tipo_documento;
@@ -855,14 +855,14 @@ function buildFormCns(c, dataDefault){
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#475569;user-select:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;padding:6px 12px;flex-shrink:0">
-          <input type="checkbox" id="fc-concordare" ${isEdit&&c.da_concordare?'checked':''} onchange="onConcordareChange('giorno')" style="width:15px;height:15px;accent-color:#ea580c;cursor:pointer;flex-shrink:0">
+          <input type="checkbox" id="fc-concordare" ${isEdit&&c.da_concordare?'checked':''} onchange="onConcordareChange()" style="width:15px;height:15px;accent-color:#ea580c;cursor:pointer;flex-shrink:0">
           <i class="fas fa-calendar-xmark" style="color:#ea580c;font-size:12px"></i>
           Giorno da concordare
         </label>
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#475569;user-select:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:6px 12px;flex-shrink:0">
-          <input type="checkbox" id="fc-orario-concordare" ${isEdit&&c.orario_da_concordare?'checked':''} onchange="onConcordareChange('orario')" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
+          <input type="checkbox" id="fc-orario-concordare" ${isEdit&&c.orario_da_concordare?'checked':''} onchange="onConcordareChange()" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
           <i class="fas fa-clock" style="color:#2563eb;font-size:12px"></i>
-          Orario da concordare
+          Fascia oraria da concordare
         </label>
       </div>
       <div id="fc-concordata-wrap" style="${showConcordata};margin-top:10px">
@@ -1104,17 +1104,13 @@ function onStatoChangeForm(stato){
   if(rw) rw.style.display=stato==='rinviato'?'':'none';
 }
 
-function onConcordareChange(tipo){
-  const giorno  = document.getElementById('fc-concordare');
-  const orario  = document.getElementById('fc-orario-concordare');
+function onConcordareChange(){
+  const giorno  = document.getElementById('fc-concordare')?.checked;
+  const fascia  = document.getElementById('fc-orario-concordare')?.checked;
   const wrap    = document.getElementById('fc-concordata-wrap');
   const dataInp = document.getElementById('fc-data');
-  if(tipo==='giorno' && giorno?.checked && orario) orario.checked = false;
-  if(tipo==='orario' && orario?.checked && giorno) { giorno.checked = false; }
-  const giornoOk  = giorno?.checked;
-  const orarioOk  = orario?.checked;
-  if(wrap) wrap.style.display=(!giornoOk && !orarioOk)?'':'none';
-  if(dataInp && giornoOk) dataInp.value='';
+  if(wrap) wrap.style.display=(!giorno && !fascia)?'':'none';
+  if(dataInp && giorno) dataInp.value='';
 }
 
 function onDocChange(el){
@@ -1355,7 +1351,7 @@ function mostraWASheet(p){
     righe.push('📅 Data: giorno da concordare');
   } else if(p.data_consegna){
     let dataRiga = '📅 ' + _fmtDataItaliana(p.data_consegna);
-    if(p.orario_da_concordare) dataRiga += ' — orario da concordare';
+    if(p.orario_da_concordare) dataRiga += ' — fascia oraria da concordare';
     righe.push(dataRiga);
   }
   righe.push('👤 ' + dest);
