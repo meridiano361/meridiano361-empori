@@ -825,13 +825,11 @@ function buildFormCns(c, dataDefault){
   const showPersDest   = tipo!=='emporio' ? '' : 'display:none';
   const showMotivo     = ['rinviato','annullato'].includes(stato) ? '' : 'display:none';
   const showRinvio     = stato==='rinviato' ? '' : 'display:none';
-  const showConcordata = !isEdit || (!c.da_concordare&&!c.orario_da_concordare) ? '' : 'display:none';
-
-  // Genera opzioni orario 06:00–21:00 ogni 15 min
+  // Genera opzioni orario 06:00–21:00 ogni 30 min
   function _oraOpts(selVal){
     let opts = '<option value="">—</option>';
     for(let h=6;h<=21;h++){
-      for(let m=0;m<60;m+=15){
+      for(let m=0;m<60;m+=30){
         if(h===21&&m>0) break;
         const hh=String(h).padStart(2,'0'), mm=String(m).padStart(2,'0');
         const v=`${hh}:${mm}`;
@@ -869,30 +867,34 @@ function buildFormCns(c, dataDefault){
       <div class="form-row r1">
         <div class="form-field">
           <label class="form-lbl">Data *</label>
-          <input id="fc-data" class="form-inp" type="date" value="${isEdit?c.data_consegna:(dataDefault||dateKey(new Date()))}">
+          <input id="fc-data" class="form-inp" type="date"
+            value="${isEdit ? (c.da_concordare ? '' : (c.data_consegna||'')) : (dataDefault||dateKey(new Date()))}"
+            oninput="if(this.value){const cb=document.getElementById('fc-concordare');if(cb)cb.checked=false;}">
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#475569;user-select:none;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;padding:6px 12px;flex-shrink:0">
-          <input type="checkbox" id="fc-concordare" ${isEdit&&c.da_concordare?'checked':''} onchange="onConcordareChange()" style="width:15px;height:15px;accent-color:#ea580c;cursor:pointer;flex-shrink:0">
+          <input type="checkbox" id="fc-concordare" ${isEdit&&c.da_concordare?'checked':''} onchange="onConcordareGiornoChange()" style="width:15px;height:15px;accent-color:#ea580c;cursor:pointer;flex-shrink:0">
           <i class="fas fa-calendar-xmark" style="color:#ea580c;font-size:12px"></i>
           Giorno da concordare
         </label>
         <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#475569;user-select:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:6px 12px;flex-shrink:0">
-          <input type="checkbox" id="fc-orario-concordare" ${isEdit&&c.orario_da_concordare?'checked':''} onchange="onConcordareChange()" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
+          <input type="checkbox" id="fc-orario-concordare" ${isEdit&&c.orario_da_concordare?'checked':''} onchange="onConcordareOrarioChange()" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
           <i class="fas fa-clock" style="color:#2563eb;font-size:12px"></i>
           Fascia oraria da concordare
         </label>
       </div>
-      <div id="fc-concordata-wrap" style="${showConcordata};margin-top:10px">
+      <div style="margin-top:10px">
         <div class="form-row">
           <div class="form-field">
             <label class="form-lbl">Dalle</label>
-            <select id="fc-ora-inizio" class="form-inp form-sel">${oraInizioOpts}</select>
+            <select id="fc-ora-inizio" class="form-inp form-sel"
+              onchange="if(this.value){const cb=document.getElementById('fc-orario-concordare');if(cb)cb.checked=false;}">${oraInizioOpts}</select>
           </div>
           <div class="form-field">
             <label class="form-lbl">Alle</label>
-            <select id="fc-ora-fine" class="form-inp form-sel">${oraFineOpts}</select>
+            <select id="fc-ora-fine" class="form-inp form-sel"
+              onchange="if(this.value){const cb=document.getElementById('fc-orario-concordare');if(cb)cb.checked=false;}">${oraFineOpts}</select>
           </div>
         </div>
       </div>
@@ -1129,13 +1131,21 @@ function onStatoChangeForm(stato){
   if(rw) rw.style.display=stato==='rinviato'?'':'none';
 }
 
-function onConcordareChange(){
-  const giorno  = document.getElementById('fc-concordare')?.checked;
-  const fascia  = document.getElementById('fc-orario-concordare')?.checked;
-  const wrap    = document.getElementById('fc-concordata-wrap');
-  const dataInp = document.getElementById('fc-data');
-  if(wrap) wrap.style.display=(!giorno && !fascia)?'':'none';
-  if(dataInp && giorno) dataInp.value='';
+function onConcordareGiornoChange(){
+  const checked = document.getElementById('fc-concordare')?.checked;
+  if(checked){
+    const dataInp = document.getElementById('fc-data');
+    if(dataInp) dataInp.value = '';
+  }
+}
+function onConcordareOrarioChange(){
+  const checked = document.getElementById('fc-orario-concordare')?.checked;
+  if(checked){
+    const ini = document.getElementById('fc-ora-inizio');
+    const fin = document.getElementById('fc-ora-fine');
+    if(ini) ini.value = '';
+    if(fin) fin.value = '';
+  }
 }
 
 function onDocChange(el){
