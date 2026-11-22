@@ -887,13 +887,24 @@ function buildFormCns(c, dataDefault, tipoForzato){
           <i class="fas fa-calendar-xmark" style="color:#ea580c;font-size:12px"></i>
           Giorno da concordare
         </label>
-        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#475569;user-select:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:6px 12px;flex-shrink:0">
+        ${!isTrasf ? `<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#475569;user-select:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:6px 12px;flex-shrink:0">
           <input type="checkbox" id="fc-orario-concordare" ${isEdit&&c.orario_da_concordare?'checked':''} onchange="onConcordareOrarioChange()" style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
           <i class="fas fa-clock" style="color:#2563eb;font-size:12px"></i>
           Fascia oraria da concordare
-        </label>
+        </label>` : ''}
       </div>
-      <div style="margin-top:10px">
+      ${isTrasf ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#1e3a8a;user-select:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:7px 14px;flex-shrink:0;font-weight:600">
+          <input type="checkbox" id="fc-trasf-mattino" ${isEdit&&(c.fascia_trasferimento==='mattino'||c.fascia_trasferimento==='entrambi')?'checked':''} style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
+          <i class="fas fa-sun" style="color:#f59e0b;font-size:13px"></i>
+          Mattino
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:#1e3a8a;user-select:none;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:7px 14px;flex-shrink:0;font-weight:600">
+          <input type="checkbox" id="fc-trasf-pomeriggio" ${isEdit&&(c.fascia_trasferimento==='pomeriggio'||c.fascia_trasferimento==='entrambi')?'checked':''} style="width:15px;height:15px;accent-color:#2563eb;cursor:pointer;flex-shrink:0">
+          <i class="fas fa-cloud-sun" style="color:#6366f1;font-size:13px"></i>
+          Pomeriggio
+        </label>
+      </div>` : `<div style="margin-top:10px">
         <div class="form-row">
           <div class="form-field">
             <label class="form-lbl">Dalle</label>
@@ -906,14 +917,14 @@ function buildFormCns(c, dataDefault, tipoForzato){
               onchange="if(this.value){const cb=document.getElementById('fc-orario-concordare');if(cb)cb.checked=false;}">${oraFineOpts}</select>
           </div>
         </div>
-      </div>
+      </div>`}
     </div>
 
     <!-- EMPORIO -->
     <div class="form-sec">
       <div class="form-row r1">
         <div class="form-field">
-          <label class="form-lbl">Sede di partenza *</label>
+          <label class="form-lbl">${isTrasf?'Partenza':'Sede di partenza'} *</label>
           <select id="fc-emp-part" class="form-inp form-sel">
             <option value="">— scegli —</option>${empOpts}
           </select>
@@ -922,7 +933,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
     </div>
 
     <!-- DESTINAZIONE -->
-    <div class="form-sec">
+    ${!isTrasf ? `<div class="form-sec">
       <div class="form-sec-title">Destinazione</div>
       ${!isTrasf ? `<div class="tipo-sel">
         <button type="button" class="tipo-btn${tipo==='cliente'?' active':''}" onclick="onTipoChange(this,'cliente')">
@@ -993,10 +1004,10 @@ function buildFormCns(c, dataDefault, tipoForzato){
           </div>
         </div>
       </div>
-    </div>
+    </div>` : ''}
 
     <!-- MERCE -->
-    <div class="form-sec">
+    ${!isTrasf ? `<div class="form-sec">
       <div class="form-sec-title">Merce</div>
       <div class="form-row r1">
         <div class="form-field">
@@ -1017,7 +1028,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
           </button>
         </div>
       </div>
-    </div>
+    </div>` : ''}
 
     <!-- PAGAMENTO -->
     ${!isTrasf ? `<div class="form-sec">
@@ -1043,14 +1054,14 @@ function buildFormCns(c, dataDefault, tipoForzato){
     </div>` : ''}
 
     <!-- NOTE -->
-    <div class="form-sec">
+    ${!isTrasf ? `<div class="form-sec">
       <div class="form-sec-title">Note</div>
       <div class="form-row r1">
         <div class="form-field">
           <textarea id="fc-note" class="form-inp form-ta">${isEdit?esc(c.note||''):''}</textarea>
         </div>
       </div>
-    </div>
+    </div>` : ''}
 
     ${isEdit?`
     <!-- STATO (solo in modifica) -->
@@ -1310,6 +1321,7 @@ async function salvaConsegna(){
       emporio_partenza:            empPart,
       tipo_destinazione:           tipo,
       emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
+      fascia_trasferimento:        tipo==='emporio'?(()=>{const m=document.getElementById('fc-trasf-mattino')?.checked,p=document.getElementById('fc-trasf-pomeriggio')?.checked;return(m&&p)?'entrambi':m?'mattino':p?'pomeriggio':null;})():null,
       destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
       destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
       destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
