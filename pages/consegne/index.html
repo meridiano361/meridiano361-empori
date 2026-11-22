@@ -622,7 +622,8 @@ function _prependUndatedSection(){
     <div class="undated-list">
       ${undated.map(c=>{
         const st=STATI[c.stato]||STATI.da_programmare;
-        const dest=c.tipo_destinazione==='emporio'?(c.emporio_destinazione||'—'):(c.destinatario_nome||'—');
+        const _tappeU = Array.isArray(c.tappe)&&c.tappe.length ? c.tappe.join(' → ') : (c.emporio_destinazione||'');
+        const dest=c.tipo_destinazione==='emporio'?((c.emporio_partenza||'?')+(_tappeU?' → '+_tappeU:'')):(c.destinatario_nome||'—');
         const sub=[c.destinatario_telefono,c.tipo_destinazione!=='emporio'?c.emporio_partenza:''].filter(Boolean).map(esc).join(' · ');
         return `<div class="undated-card" onclick="apriModifica('${c.id}')">
           <div class="uc-dest">${esc(dest)}</div>
@@ -669,7 +670,8 @@ function renderSettimana(){
 
     dayCns.forEach(c=>{
       const st=STATI[c.stato]||STATI.da_programmare;
-      const dest=c.tipo_destinazione==='emporio'?(c.emporio_destinazione||'—'):(c.destinatario_nome||'—');
+      const _tappeStr = Array.isArray(c.tappe)&&c.tappe.length ? c.tappe.join(' → ') : (c.emporio_destinazione||'');
+      const dest=c.tipo_destinazione==='emporio'?((c.emporio_partenza||'?')+(_tappeStr?' → '+_tappeStr:'')):(c.destinatario_nome||'—');
       const icon=c.tipo_destinazione==='emporio'?'fa-right-left':(c.tipo_destinazione==='azienda'?'fa-building':'fa-user');
       html+=`<div class="cns-card" style="border-left-color:${st.c}" onclick="apriModifica('${c.id}')">`;
       html+=`<div class="cc-r1">`;
@@ -719,7 +721,8 @@ function renderGiorno(){
 
     let dest='';
     if(c.tipo_destinazione==='emporio'){
-      dest=`${esc(c.emporio_partenza||'?')} → ${esc(c.emporio_destinazione||'?')}`;
+      const tappeStr = Array.isArray(c.tappe)&&c.tappe.length ? c.tappe.map(esc).join(' → ') : (esc(c.emporio_destinazione||''));
+      dest = esc(c.emporio_partenza||'?') + (tappeStr ? ' → ' + tappeStr : '');
     } else {
       const parts=[c.destinatario_nome];
       if(c.destinatario_indirizzo) parts.push(c.destinatario_indirizzo+(c.destinatario_citta?', '+c.destinatario_citta:''));
