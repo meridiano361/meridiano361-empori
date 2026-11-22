@@ -767,6 +767,13 @@ function renderGiorno(){
     html+=`<button class="btn btn-outline btn-sm" onclick="apriModifica('${c.id}')"><i class="fas fa-pencil"></i> Modifica</button>`;
     html+=`<button class="btn btn-sm" style="background:${st.bg};color:${st.c};border:1px solid ${st.c}44" onclick="apriModalStato('${c.id}')"><i class="fas fa-circle-dot"></i> Aggiorna stato</button>`;
     if(c.tipo_destinazione!=='emporio') html+=`<button class="btn btn-outline btn-sm" onclick="stampaEtichetta('${c.id}')"><i class="fas fa-tag"></i> Etichetta</button>`;
+    if(c.tipo_destinazione==='emporio'&&c.emporio_partenza){
+      const _stops=[c.emporio_partenza,...(Array.isArray(c.tappe)&&c.tappe.length?c.tappe:[c.emporio_destinazione||''].filter(Boolean))];
+      const _mu='https://www.google.com/maps/dir/'+_stops.map(s=>encodeURIComponent(s)).join('/');
+      html+=`<a href="${_mu}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="text-decoration:none"><i class="fas fa-map-location-dot"></i> Maps</a>`;
+    }
+    html+=`<button class="btn btn-outline btn-sm" onclick="duplicaConsegna('${c.id}')"><i class="fas fa-copy"></i> Duplica</button>`;
+    if(c.tipo_destinazione==='emporio') html+=`<button class="btn btn-outline btn-sm" onclick="apriPeriodico('${c.id}')"><i class="fas fa-rotate"></i> Periodico</button>`;
     html+=`</div></div>`;
   });
   html+='</div>';
@@ -796,6 +803,21 @@ async function apriModifica(id){
   }
   if(!c){ M361.toast('Consegna non trovata','err'); return; }
   buildFormCns(c,null);
+  document.getElementById('modal-cns').style.display='flex';
+}
+
+async function duplicaConsegna(id){
+  let c=_consegne.find(x=>x.id===id);
+  if(!c){
+    const {data}=await _sb.from('consegne').select('*').eq('id',id).single();
+    c=data;
+  }
+  if(!c){ M361.toast('Consegna non trovata','err'); return; }
+  buildFormCns(c,null);
+  _editId=null;
+  document.getElementById('modal-cns-title').textContent=
+    c.tipo_destinazione==='emporio'?'Duplica trasferimento':'Duplica consegna';
+  document.getElementById('btn-etichetta-cns').style.display='none';
   document.getElementById('modal-cns').style.display='flex';
 }
 
@@ -1010,9 +1032,9 @@ function buildFormCns(c, dataDefault, tipoForzato){
         ${isEdit&&(c.destinatario_indirizzo||c.destinatario_citta)?`
         <div style="margin-top:8px">
           <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([c.destinatario_indirizzo,c.destinatario_cap,c.destinatario_citta].filter(Boolean).join(', '))}"
-            target="_blank" rel="noopener"
-            class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:#1a73e8;border-color:#1a73e8">
-            <i class="fas fa-diamond-turn-right"></i> Apri in Google Maps
+            target="_blank" rel="noopener" title="Apri in Google Maps"
+            style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid #d1d5db;text-decoration:none;color:#1a73e8;background:#fff">
+            <i class="fas fa-map-location-dot" style="font-size:15px"></i>
           </a>
         </div>` : ''}
         <div class="form-row r1">
@@ -1168,6 +1190,7 @@ function renderTappe(){
         </div>
         <span style="font-size:12px;font-weight:700;color:#64748b;min-width:16px">${i+1}.</span>
         <span data-tappa="${esc(t)}" style="font-size:13px;font-weight:600;color:#1e293b;flex:1">${esc(t)}</span>
+        <a href="https://maps.google.com/maps?q=${encodeURIComponent(t)}" target="_blank" rel="noopener" style="color:#94a3b8;font-size:13px;text-decoration:none;line-height:1;padding:0 2px;display:flex;align-items:center" title="Apri in Google Maps"><i class="fas fa-map-location-dot"></i></a>
         <button type="button" onclick="rimuoviTappa(${i})" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;padding:0;line-height:1" title="Rimuovi">
           <i class="fas fa-xmark"></i>
         </button>
@@ -1705,8 +1728,113 @@ async function salvaStato(){
   await loadAndRender();
 }
 
+/* ── Periodico ───────────────────────────────────────────── */
+let _periodicoId = null;
+
+function apriPeriodico(id){
+  _periodicoId = id;
+  const c = _consegne.find(x=>x.id===id);
+  const data = c?.data_consegna ? new Date(c.data_consegna+'T12:00:00') : new Date();
+  const dow = data.getDay();
+  document.querySelectorAll('#per-giorni input[type=checkbox]').forEach(cb=>{
+    cb.checked = parseInt(cb.value)===dow;
+  });
+  const nextDay = new Date(data);
+  nextDay.setDate(nextDay.getDate()+1);
+  document.getElementById('per-dal').value = nextDay.toISOString().split('T')[0];
+  document.getElementById('per-fine').value = '';
+  document.getElementById('per-preview').style.display='none';
+  document.getElementById('btn-crea-periodico').disabled=true;
+  document.getElementById('modal-periodico').style.display='flex';
+  aggiornaPrevPeriodico();
+}
+
+function aggiornaPrevPeriodico(){
+  const dal = document.getElementById('per-dal').value;
+  const fine = document.getElementById('per-fine').value;
+  const giorni = [...document.querySelectorAll('#per-giorni input:checked')].map(cb=>parseInt(cb.value));
+  const preview = document.getElementById('per-preview');
+  const btn = document.getElementById('btn-crea-periodico');
+  if(!dal||!fine||!giorni.length||fine<dal){ preview.style.display='none'; btn.disabled=true; return; }
+  let count=0, d=new Date(dal+'T12:00:00'), fineD=new Date(fine+'T12:00:00');
+  while(d<=fineD){ if(giorni.includes(d.getDay())) count++; d.setDate(d.getDate()+1); }
+  preview.textContent = count===0
+    ? 'Nessun trasferimento da creare per questi giorni.'
+    : `Verranno creati ${count} trasferiment${count===1?'o':'i'}.`;
+  preview.style.display='block';
+  btn.disabled = count===0;
+}
+
+async function creaPeriodico(){
+  let c = _consegne.find(x=>x.id===_periodicoId);
+  if(!c){
+    const {data}=await _sb.from('consegne').select('*').eq('id',_periodicoId).single();
+    c=data;
+  }
+  if(!c){ M361.toast('Consegna non trovata','err'); return; }
+  const dal = document.getElementById('per-dal').value;
+  const fine = document.getElementById('per-fine').value;
+  const giorni = [...document.querySelectorAll('#per-giorni input:checked')].map(cb=>parseInt(cb.value));
+  if(!dal||!fine||!giorni.length) return;
+  const records=[];
+  let d=new Date(dal+'T12:00:00'), fineD=new Date(fine+'T12:00:00');
+  while(d<=fineD){
+    if(giorni.includes(d.getDay())){
+      const dk=d.toISOString().split('T')[0];
+      const {id, created_at, ...rest}=c;
+      records.push({...rest, data_consegna:dk, stato:'da_programmare'});
+    }
+    d.setDate(d.getDate()+1);
+  }
+  if(!records.length) return;
+  const btn=document.getElementById('btn-crea-periodico');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+  const {error}=await _sb.from('consegne').insert(records);
+  if(error){ M361.toast('Errore: '+error.message,'err'); btn.disabled=false; btn.innerHTML='<i class="fas fa-rotate"></i> Crea'; return; }
+  document.getElementById('modal-periodico').style.display='none';
+  M361.toast(`${records.length} trasferiment${records.length===1?'o':'i'} creati`,'ok');
+  await caricaConsegne();
+}
+
 /* ── Avvio ───────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', init);
 </script>
+
+<div id="modal-periodico" style="display:none;position:fixed;inset:0;background:#0006;z-index:1100;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;border-radius:16px;padding:24px 28px;width:400px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="font-size:17px;font-weight:800;color:#1e293b;margin:0">Trasferimento periodico</h2>
+      <button onclick="document.getElementById('modal-periodico').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:22px;color:#94a3b8;line-height:1">×</button>
+    </div>
+    <p style="font-size:13px;color:#64748b;margin:0 0 16px">Crea copie di questo trasferimento nei giorni selezionati.</p>
+    <div style="margin-bottom:14px">
+      <div class="form-lbl" style="margin-bottom:8px">Giorni della settimana</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap" id="per-giorni">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="1" onchange="aggiornaPrevPeriodico()"> Lun</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="2" onchange="aggiornaPrevPeriodico()"> Mar</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="3" onchange="aggiornaPrevPeriodico()"> Mer</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="4" onchange="aggiornaPrevPeriodico()"> Gio</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="5" onchange="aggiornaPrevPeriodico()"> Ven</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="6" onchange="aggiornaPrevPeriodico()"> Sab</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer"><input type="checkbox" value="0" onchange="aggiornaPrevPeriodico()"> Dom</label>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label class="form-lbl">Dal</label>
+        <input type="date" id="per-dal" class="form-inp" oninput="aggiornaPrevPeriodico()">
+      </div>
+      <div>
+        <label class="form-lbl">Fino al</label>
+        <input type="date" id="per-fine" class="form-inp" oninput="aggiornaPrevPeriodico()">
+      </div>
+    </div>
+    <div id="per-preview" style="font-size:13px;font-weight:600;color:#2563eb;margin-bottom:16px;padding:8px 12px;background:#eff6ff;border-radius:8px;display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-outline" style="flex:1" onclick="document.getElementById('modal-periodico').style.display='none'">Annulla</button>
+      <button class="btn btn-red" style="flex:1" id="btn-crea-periodico" onclick="creaPeriodico()" disabled><i class="fas fa-rotate"></i> Crea</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
