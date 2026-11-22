@@ -445,7 +445,7 @@ let _filtri      = { q:'', emporio:'', tipo:'', fattorino:'', stato:'' };
 let _editId      = null;
 let _statoId     = null;
 let _fattorini   = [];
-let _currentTipoDocumento   = null; // null | 'scontrinato' | 'regalo' | 'scontrinato_regalo'
+let _currentTipoDocumento   = null; // null | 'scontrinato' | 'regalo' | 'scontrinato_regalo' | 'fatturato' | 'fatturato_regalo'
 let _currentTipoPagamento   = null; // null | 'pagato' | 'da_pagare'
 let _currentMetodoPagamento = null;
 let _rubricaOpen  = false;
@@ -623,7 +623,7 @@ function _prependUndatedSection(){
       ${undated.map(c=>{
         const st=STATI[c.stato]||STATI.da_programmare;
         const _tappeU = Array.isArray(c.tappe)&&c.tappe.length ? c.tappe.join(' → ') : (c.emporio_destinazione||'');
-        const dest=c.tipo_destinazione==='emporio'?((c.emporio_partenza||'?')+(_tappeU?' → '+_tappeU:'')):(c.destinatario_nome||'—');
+        const dest=c.tipo_destinazione==='emporio'?((c.emporio_partenza||'?')+(_tappeU?' → '+_tappeU:'')):(c.tipo_destinazione==='azienda'&&c.destinatario_azienda?(c.destinatario_azienda+(c.destinatario_nome?' · '+c.destinatario_nome:'')):(c.destinatario_nome||'—'));
         const sub=[c.destinatario_telefono,c.tipo_destinazione!=='emporio'?c.emporio_partenza:''].filter(Boolean).map(esc).join(' · ');
         return `<div class="undated-card" onclick="apriModifica('${c.id}')">
           <div class="uc-dest">${esc(dest)}</div>
@@ -671,7 +671,7 @@ function renderSettimana(){
     dayCns.forEach(c=>{
       const st=STATI[c.stato]||STATI.da_programmare;
       const _tappeStr = Array.isArray(c.tappe)&&c.tappe.length ? c.tappe.join(' → ') : (c.emporio_destinazione||'');
-      const dest=c.tipo_destinazione==='emporio'?((c.emporio_partenza||'?')+(_tappeStr?' → '+_tappeStr:'')):(c.destinatario_nome||'—');
+      const dest=c.tipo_destinazione==='emporio'?((c.emporio_partenza||'?')+(_tappeStr?' → '+_tappeStr:'')):(c.tipo_destinazione==='azienda'&&c.destinatario_azienda?(c.destinatario_azienda+(c.destinatario_nome?' · '+c.destinatario_nome:'')):(c.destinatario_nome||'—'));
       const icon=c.tipo_destinazione==='emporio'?'fa-right-left':(c.tipo_destinazione==='azienda'?'fa-building':'fa-user');
       html+=`<div class="cns-card" style="border-left-color:${st.c}" onclick="apriModifica('${c.id}')">`;
       html+=`<div class="cc-r1">`;
@@ -723,6 +723,8 @@ function renderGiorno(){
     if(c.tipo_destinazione==='emporio'){
       const tappeStr = Array.isArray(c.tappe)&&c.tappe.length ? c.tappe.map(esc).join(' → ') : (esc(c.emporio_destinazione||''));
       dest = esc(c.emporio_partenza||'?') + (tappeStr ? ' → ' + tappeStr : '');
+    } else if(c.tipo_destinazione==='azienda'&&c.destinatario_azienda){
+      dest = esc(c.destinatario_azienda) + (c.destinatario_nome ? ' · <span style="font-weight:500;opacity:.7">'+esc(c.destinatario_nome)+'</span>' : '');
     } else {
       const parts=[c.destinatario_nome];
       if(c.destinatario_indirizzo) parts.push(c.destinatario_indirizzo+(c.destinatario_citta?', '+c.destinatario_citta:''));
@@ -750,7 +752,7 @@ function renderGiorno(){
     if(c.orario_da_concordare) html+=`<div class="di-nota" style="color:#2563eb"><i class="fas fa-clock" style="margin-top:1px"></i> Fascia oraria da concordare</div>`;
     if(!c.da_concordare&&!c.orario_da_concordare&&c.ora_prevista) html+=`<div class="di-nota"><i class="fas fa-clock" style="margin-top:1px"></i> ${fmtOra(c.ora_prevista)}${c.ora_fine?' – '+fmtOra(c.ora_fine):''}</div>`;
     if(c.tipo_documento){
-      const dLabel={scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[c.tipo_documento]||c.tipo_documento;
+      const dLabel={scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo',fatturato:'Fatturato',fatturato_regalo:'Fatturato · Regalo'}[c.tipo_documento]||c.tipo_documento;
       html+=`<div class="di-nota" style="color:#16a34a"><i class="fas fa-receipt" style="margin-top:1px"></i> ${dLabel}</div>`;
     }
     if(c.tipo_pagamento){
@@ -880,11 +882,13 @@ function buildFormCns(c, dataDefault, tipoForzato){
   const oraFineOpts   = _oraOpts(oraFineVal);
   const showPagWrap    = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
 
-  const _hasSc = _currentTipoDocumento==='scontrinato'||_currentTipoDocumento==='scontrinato_regalo';
-  const _hasRe = _currentTipoDocumento==='regalo'||_currentTipoDocumento==='scontrinato_regalo';
+  const _hasSc  = _currentTipoDocumento==='scontrinato'||_currentTipoDocumento==='scontrinato_regalo';
+  const _hasRe  = _currentTipoDocumento==='regalo'||_currentTipoDocumento==='scontrinato_regalo'||_currentTipoDocumento==='fatturato_regalo';
+  const _hasFat = _currentTipoDocumento==='fatturato'||_currentTipoDocumento==='fatturato_regalo';
   const docOpts=
     `<button type="button" class="pag-btn${_hasSc?' active':''}" data-val="scontrinato" onclick="onDocChange(this)">Scontrinato</button>` +
-    `<button type="button" class="pag-btn${_hasRe?' active':''}" data-val="regalo" onclick="onDocChange(this)">Regalo</button>`;
+    `<button type="button" class="pag-btn${_hasRe?' active':''}" data-val="regalo" onclick="onDocChange(this)">Regalo</button>` +
+    `<button type="button" class="pag-btn${_hasFat?' active':''}" data-val="fatturato" onclick="onDocChange(this)">Fatturato</button>`;
   const pagOpts=
     [['pagato','Pagato'],['da_pagare','Da pagare']].map(([val,label])=>
       `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
@@ -994,9 +998,15 @@ function buildFormCns(c, dataDefault, tipoForzato){
         </div>
       </div>
       <div id="dest-pers" style="${showPersDest}">
+        <div class="form-row r1" id="fc-azienda-row" style="${tipo==='azienda'?'':'display:none'}">
+          <div class="form-field">
+            <label class="form-lbl">Nome azienda</label>
+            <input id="fc-dest-azienda" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_azienda||''):''}" autocomplete="off">
+          </div>
+        </div>
         <div class="form-row r1">
           <div class="form-field" style="position:relative">
-            <label class="form-lbl" id="lbl-dest-nome">${tipo==='azienda'?'Nome azienda':'Nome destinatario'}</label>
+            <label class="form-lbl" id="lbl-dest-nome">${tipo==='azienda'?'Referente':'Nome destinatario'}</label>
             <div style="display:flex;gap:6px">
               <input id="fc-dest-nome" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_nome||''):''}" style="flex:1" oninput="onRubricaSearch()" autocomplete="off">
               <button type="button" class="btn btn-outline btn-sm" onclick="toggleRubrica()" title="Cerca in rubrica" style="flex-shrink:0;padding:7px 10px">
@@ -1234,7 +1244,9 @@ function onTipoChange(el,tipo){
   document.getElementById('dest-emporio').style.display = tipo==='emporio'?'':'none';
   document.getElementById('dest-pers').style.display    = tipo!=='emporio'?'':'none';
   const lbl=document.getElementById('lbl-dest-nome');
-  if(lbl) lbl.textContent=tipo==='azienda'?'Nome azienda':'Nome destinatario';
+  if(lbl) lbl.textContent=tipo==='azienda'?'Referente':'Nome destinatario';
+  const azRow=document.getElementById('fc-azienda-row');
+  if(azRow) azRow.style.display=tipo==='azienda'?'':'none';
 }
 
 function onStatoChangeForm(stato){
@@ -1262,14 +1274,22 @@ function onConcordareOrarioChange(){
 }
 
 function onDocChange(el){
-  // toggle indipendente: scontrinato e regalo non si escludono
   el.classList.toggle('active');
-  const hasSc = document.querySelector('.pag-sel [data-val="scontrinato"]')?.classList.contains('active');
-  const hasRe = document.querySelector('.pag-sel [data-val="regalo"]')?.classList.contains('active');
-  if (hasSc && hasRe) _currentTipoDocumento = 'scontrinato_regalo';
-  else if (hasSc)     _currentTipoDocumento = 'scontrinato';
-  else if (hasRe)     _currentTipoDocumento = 'regalo';
-  else                _currentTipoDocumento = null;
+  const val = el.dataset.val;
+  // fatturato e scontrinato si escludono a vicenda
+  if(val==='fatturato' && el.classList.contains('active'))
+    document.querySelector('.pag-sel [data-val="scontrinato"]')?.classList.remove('active');
+  if(val==='scontrinato' && el.classList.contains('active'))
+    document.querySelector('.pag-sel [data-val="fatturato"]')?.classList.remove('active');
+  const hasSc  = document.querySelector('.pag-sel [data-val="scontrinato"]')?.classList.contains('active');
+  const hasRe  = document.querySelector('.pag-sel [data-val="regalo"]')?.classList.contains('active');
+  const hasFat = document.querySelector('.pag-sel [data-val="fatturato"]')?.classList.contains('active');
+  if(hasSc && hasRe)        _currentTipoDocumento = 'scontrinato_regalo';
+  else if(hasFat && hasRe)  _currentTipoDocumento = 'fatturato_regalo';
+  else if(hasSc)            _currentTipoDocumento = 'scontrinato';
+  else if(hasRe)            _currentTipoDocumento = 'regalo';
+  else if(hasFat)           _currentTipoDocumento = 'fatturato';
+  else                      _currentTipoDocumento = null;
 }
 
 function onPagChange(el){
@@ -1419,6 +1439,7 @@ async function salvaConsegna(){
       emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
       fascia_trasferimento:        tipo==='emporio'?(()=>{const m=document.getElementById('fc-trasf-mattino')?.checked,p=document.getElementById('fc-trasf-pomeriggio')?.checked;return(m&&p)?'entrambi':m?'mattino':p?'pomeriggio':null;})():null,
       tappe:                       tipo==='emporio'?(()=>{const t=_getTappe();return t.length>0?t:null;})():null,
+      destinatario_azienda:        tipo==='azienda'?(document.getElementById('fc-dest-azienda')?.value.trim()||null):null,
       destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
       destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
       destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
@@ -1522,7 +1543,7 @@ function mostraWASheet(p){
   if(p.destinatario_telefono) righe.push('📞 ' + p.destinatario_telefono);
   if(p.merce) righe.push('📦 ' + p.merce);
   if(p.colli) righe.push('🔢 ' + p.colli + ' colli');
-  const docLabel = {scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo'}[p.tipo_documento];
+  const docLabel = {scontrinato:'Scontrinato',regalo:'Regalo',scontrinato_regalo:'Scontrinato · Regalo',fatturato:'Fatturato',fatturato_regalo:'Fatturato · Regalo'}[p.tipo_documento];
   const pagLabel = {pagato:'Pagato',da_pagare:'Da pagare'}[p.tipo_pagamento];
   const pagExtra = p.tipo_pagamento==='da_pagare'&&p.importo ? ` € ${Number(p.importo).toFixed(2)}` : '';
   if(docLabel||pagLabel) righe.push('💳 ' + [docLabel,pagLabel?pagLabel+pagExtra:null].filter(Boolean).join(' · '));
