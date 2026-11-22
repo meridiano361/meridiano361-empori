@@ -929,21 +929,23 @@ function buildFormCns(c, dataDefault, tipoForzato){
       <div class="form-row r1">
         <div class="form-field">
           <label class="form-lbl">${isTrasf?'Partenza':'Sede di partenza'} *</label>
-          <select id="fc-emp-part" class="form-inp form-sel" ${isTrasf?'onchange="renderTappe()"':''}>
-            <option value="">— scegli —</option>${empOpts}
-          </select>
+          ${isTrasf
+            ? `<input id="fc-emp-part" class="form-inp" type="text" list="dl-sedi-partenza" placeholder="Sede o indirizzo…" value="${esc(isEdit?c.emporio_partenza||'':'')}" oninput="renderTappe()" autocomplete="off">`
+            : `<select id="fc-emp-part" class="form-inp form-sel"><option value="">— scegli —</option>${empOpts}</select>`
+          }
         </div>
       </div>
     </div>
+
+    <!-- datalist sedi (usato da partenza + tappe) -->
+    ${isTrasf ? `<datalist id="dl-sedi-partenza">${_sediPartenza.map(s=>`<option value="${esc(s.nome)}">`).join('')}</datalist>` : ''}
 
     <!-- TAPPE (solo trasferimento) -->
     ${isTrasf ? `<div class="form-sec">
       <div class="form-sec-title">Tappe</div>
       <div id="tappe-list"></div>
       <div style="display:flex;gap:6px;margin-top:8px">
-        <select id="fc-tappa-sel" class="form-inp form-sel" style="flex:1">
-          <option value="">— aggiungi tappa —</option>
-        </select>
+        <input id="fc-tappa-sel" class="form-inp" type="text" list="dl-sedi-partenza" placeholder="Sede o tappa libera…" autocomplete="off" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();aggiungiTappa();}">
         <button type="button" class="btn btn-outline btn-sm" onclick="aggiungiTappa()" style="flex-shrink:0;padding:7px 12px">
           <i class="fas fa-plus"></i>
         </button>
@@ -1170,13 +1172,6 @@ function renderTappe(){
           <i class="fas fa-xmark"></i>
         </button>
       </div>`).join('');
-  // Refresh dropdown: exclude partenza + already-added tappe
-  const sel = document.getElementById('fc-tappa-sel');
-  if(!sel) return;
-  const partenza = document.getElementById('fc-emp-part')?.value||'';
-  const disponibili = _sediPartenza.filter(s=>s.nome!==partenza);
-  sel.innerHTML = '<option value="">— aggiungi tappa —</option>'
-    + disponibili.map(s=>`<option value="${esc(s.nome)}">${esc(s.nome)}</option>`).join('');
 }
 
 function _getTappe(){
@@ -1191,8 +1186,8 @@ function _getTappe(){
 
 function aggiungiTappa(){
   const sel = document.getElementById('fc-tappa-sel');
-  if(!sel||!sel.value) return;
-  _trasfTappe.push(sel.value);
+  if(!sel||!sel.value.trim()) return;
+  _trasfTappe.push(sel.value.trim());
   sel.value='';
   renderTappe();
 }
@@ -1443,8 +1438,6 @@ async function salvaConsegna(){
     }
     // Avviso non bloccante — l'operatore può salvare comunque
   }
-
-  if(tipo==='emporio') console.error('[TAPPE payload]', JSON.stringify(payload.tappe));
 
   const btn=document.getElementById('btn-salva-cns');
   btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
