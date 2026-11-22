@@ -449,6 +449,7 @@ let _currentTipoDocumento   = null; // null | 'scontrinato' | 'regalo' | 'scontr
 let _currentTipoPagamento   = null; // null | 'pagato' | 'da_pagare'
 let _currentMetodoPagamento = null;
 let _rubricaOpen  = false;
+let _trasfTappe   = [];
 let _rubricaResults = [];
 
 /* ── Utils ─────────────────────────────────────────────── */
@@ -816,6 +817,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
   _currentTipoPagamento   = isEdit ? (c.tipo_pagamento   || null) : null;
   _currentMetodoPagamento = isEdit ? (c.metodo_pagamento || null) : null;
   _rubricaOpen = false;
+  _trasfTappe = isTrasf ? (isEdit&&Array.isArray(c.tappe) ? [...c.tappe] : []) : [];
 
   const curUser = getOperatoreLoggato();
   const compilatoLbl = isEdit ? esc(c.creato_da||'—') : esc(curUser?.nome||curUser?.email||'—');
@@ -931,6 +933,21 @@ function buildFormCns(c, dataDefault, tipoForzato){
         </div>
       </div>
     </div>
+
+    <!-- TAPPE (solo trasferimento) -->
+    ${isTrasf ? `<div class="form-sec">
+      <div class="form-sec-title">Tappe</div>
+      <div id="tappe-list"></div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <select id="fc-tappa-sel" class="form-inp form-sel" style="flex:1">
+          <option value="">— aggiungi tappa —</option>
+          ${_sediPartenza.map(s=>`<option value="${esc(s.nome)}">${esc(s.nome)}</option>`).join('')}
+        </select>
+        <button type="button" class="btn btn-outline btn-sm" onclick="aggiungiTappa()" style="flex-shrink:0;padding:7px 12px">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+    </div>` : ''}
 
     <!-- DESTINAZIONE -->
     ${!isTrasf ? `<div class="form-sec">
@@ -1069,7 +1086,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
       <div class="form-sec-title">Stato</div>
       <div class="form-row r1">
         <div class="form-field">
-          <label class="form-lbl">Stato consegna</label>
+          <label class="form-lbl">${isTrasf?'Stato trasferimento':'Stato consegna'}</label>
           <select id="fc-stato" class="form-inp form-sel" onchange="onStatoChangeForm(this.value)">
             ${statiOpts}
           </select>
@@ -1095,7 +1112,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
     </div>
     <div class="del-section">
       <button onclick="eliminaConsegna('${c.id}')" class="btn btn-danger" style="width:100%">
-        <i class="fas fa-trash"></i> Elimina questa consegna
+        <i class="fas fa-trash"></i> ${isTrasf?'Elimina questo trasferimento':'Elimina questa consegna'}
       </button>
     </div>
     `:''}
@@ -1107,6 +1124,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
     </div>
   `;
 
+  if (isTrasf) renderTappe();
   if (isEdit && getRuoloLoggato() === 'fattorino') _applyFattorinoRestrictions();
 }
 
@@ -1129,6 +1147,36 @@ function _applyFattorinoRestrictions() {
   banner.style.cssText = 'background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:9px 13px;font-size:12px;color:#1d4ed8;display:flex;align-items:center;gap:8px;margin-bottom:12px';
   banner.innerHTML = '<i class="fas fa-lock" style="font-size:11px;flex-shrink:0"></i><span>Puoi modificare solo <strong>stato</strong>, <strong>data</strong> e <strong>orari</strong></span>';
   body.insertBefore(banner, body.firstChild);
+}
+
+function renderTappe(){
+  const list = document.getElementById('tappe-list');
+  if(!list) return;
+  if(_trasfTappe.length===0){
+    list.innerHTML='<div style="font-size:12px;color:#94a3b8;padding:4px 0">Nessuna tappa aggiunta</div>';
+    return;
+  }
+  list.innerHTML = _trasfTappe.map((t,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;background:#f1f5f9;border-radius:8px;padding:6px 10px;margin-bottom:4px">
+      <span style="font-size:12px;font-weight:700;color:#64748b;min-width:16px">${i+1}.</span>
+      <span style="font-size:13px;font-weight:600;color:#1e293b;flex:1">${esc(t)}</span>
+      <button type="button" onclick="rimuoviTappa(${i})" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;padding:0;line-height:1" title="Rimuovi">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>`).join('');
+}
+
+function aggiungiTappa(){
+  const sel = document.getElementById('fc-tappa-sel');
+  if(!sel||!sel.value) return;
+  _trasfTappe.push(sel.value);
+  sel.value='';
+  renderTappe();
+}
+
+function rimuoviTappa(idx){
+  _trasfTappe.splice(idx,1);
+  renderTappe();
 }
 
 function onTipoChange(el,tipo){
@@ -1322,6 +1370,7 @@ async function salvaConsegna(){
       tipo_destinazione:           tipo,
       emporio_destinazione:        tipo==='emporio'?(document.getElementById('fc-emp-dest')?.value||null):null,
       fascia_trasferimento:        tipo==='emporio'?(()=>{const m=document.getElementById('fc-trasf-mattino')?.checked,p=document.getElementById('fc-trasf-pomeriggio')?.checked;return(m&&p)?'entrambi':m?'mattino':p?'pomeriggio':null;})():null,
+      tappe:                       tipo==='emporio'?(_trasfTappe.length>0?_trasfTappe:null):null,
       destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
       destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
       destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
@@ -1400,16 +1449,23 @@ function mostraWASheet(p){
     ? (p.emporio_destinazione||'—')
     : (p.destinatario_nome||'—');
 
+  const isTrsfWA = p.tipo_destinazione === 'emporio';
   let righe = [];
-  righe.push('📦 *Consegna programmata*');
+  righe.push(isTrsfWA ? '🔄 *Trasferimento interno merce*' : '📦 *Consegna programmata*');
   if(p.da_concordare){
     righe.push('📅 Data: giorno da concordare');
   } else if(p.data_consegna){
     let dataRiga = '📅 ' + _fmtDataItaliana(p.data_consegna);
-    if(p.orario_da_concordare) dataRiga += ' — fascia oraria da concordare';
+    if(!isTrsfWA && p.orario_da_concordare) dataRiga += ' — fascia oraria da concordare';
     righe.push(dataRiga);
   }
-  righe.push('👤 ' + dest);
+  if(isTrsfWA && p.fascia_trasferimento){
+    const fasciaLabel = {mattino:'🌤 Mattino',pomeriggio:'🌥 Pomeriggio',entrambi:'🌤🌥 Mattino e pomeriggio'}[p.fascia_trasferimento]||'';
+    if(fasciaLabel) righe.push(fasciaLabel);
+  }
+  if(isTrsfWA && p.emporio_partenza) righe.push('📍 Partenza: ' + p.emporio_partenza);
+  if(isTrsfWA && p.tappe?.length) righe.push('🛣 Tappe: ' + p.tappe.join(' → '));
+  if(!isTrsfWA) righe.push('👤 ' + dest);
   if(p.destinatario_indirizzo){
     let ind = p.destinatario_indirizzo;
     if(p.destinatario_citta) ind += ', ' + p.destinatario_citta;
