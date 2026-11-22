@@ -297,9 +297,14 @@
       <button class="btn-ghost" onclick="toggleManuale()" title="Guida fattorino" style="padding:6px 10px">
         <i class="fas fa-circle-info" style="color:#3b82f6"></i>
       </button>
-      <button class="btn btn-red" onclick="apriNuova(null)" style="margin-left:auto">
-        <i class="fas fa-plus"></i> Nuova consegna
-      </button>
+      <div style="margin-left:auto;display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-outline" onclick="apriNuovaTrasf(null)">
+          <i class="fas fa-right-left"></i> Trasferimento
+        </button>
+        <button class="btn btn-red" onclick="apriNuova(null)">
+          <i class="fas fa-plus"></i> Nuova consegna
+        </button>
+      </div>
     </div>
   </div>
 
@@ -772,6 +777,12 @@ function apriNuova(dataDefault){
   document.getElementById('modal-cns').style.display='flex';
 }
 
+function apriNuovaTrasf(dataDefault){
+  _editId=null;
+  buildFormCns(null, dataDefault||dateKey(new Date()), 'emporio');
+  document.getElementById('modal-cns').style.display='flex';
+}
+
 async function apriModifica(id){
   _editId=id;
   let c=_consegne.find(x=>x.id===id);
@@ -790,13 +801,15 @@ function chiudiModalCns(){
   _rubricaOpen=false;
 }
 
-function buildFormCns(c, dataDefault){
+function buildFormCns(c, dataDefault, tipoForzato){
   const isEdit=!!c;
-  document.getElementById('modal-cns-title').textContent=isEdit?'Modifica consegna':'Nuova consegna';
+  const tipo  = tipoForzato || (isEdit&&c.tipo_destinazione) || 'cliente';
+  const isTrasf = tipo === 'emporio';
+  document.getElementById('modal-cns-title').textContent =
+    isTrasf ? (isEdit?'Modifica trasferimento':'Nuovo trasferimento')
+            : (isEdit?'Modifica consegna':'Nuova consegna');
   const btnEtichetta = document.getElementById('btn-etichetta-cns');
-  if(btnEtichetta) btnEtichetta.style.display = (isEdit && c.tipo_destinazione!=='emporio') ? '' : 'none';
-
-  const tipo  = (isEdit&&c.tipo_destinazione)||'cliente';
+  if(btnEtichetta) btnEtichetta.style.display = (isEdit && !isTrasf) ? '' : 'none';
   const stato = (isEdit&&c.stato)||'da_programmare';
 
   _currentTipoDocumento   = isEdit ? (c.tipo_documento   || null) : null;
@@ -911,17 +924,14 @@ function buildFormCns(c, dataDefault){
     <!-- DESTINAZIONE -->
     <div class="form-sec">
       <div class="form-sec-title">Destinazione</div>
-      <div class="tipo-sel">
-        <button type="button" class="tipo-btn${tipo==='emporio'?' active':''}" onclick="onTipoChange(this,'emporio')">
-          <i class="fas fa-right-left"></i>Trasferimento
-        </button>
+      ${!isTrasf ? `<div class="tipo-sel">
         <button type="button" class="tipo-btn${tipo==='cliente'?' active':''}" onclick="onTipoChange(this,'cliente')">
           <i class="fas fa-user"></i>Cliente
         </button>
         <button type="button" class="tipo-btn${tipo==='azienda'?' active':''}" onclick="onTipoChange(this,'azienda')">
           <i class="fas fa-building"></i>Azienda
         </button>
-      </div>
+      </div>` : ''}
       <div id="dest-emporio" style="${showEmpDest}">
         <div class="form-row r1">
           <div class="form-field">
@@ -1010,7 +1020,7 @@ function buildFormCns(c, dataDefault){
     </div>
 
     <!-- PAGAMENTO -->
-    <div class="form-sec">
+    ${!isTrasf ? `<div class="form-sec">
       <div class="form-sec-title">Pagamento</div>
       <div class="pag-sel" style="margin-bottom:8px">${docOpts}</div>
       <div class="pag-sel">${pagOpts}</div>
@@ -1030,7 +1040,7 @@ function buildFormCns(c, dataDefault){
           </div>
         </div>
       </div>
-    </div>
+    </div>` : ''}
 
     <!-- NOTE -->
     <div class="form-sec">
@@ -1510,8 +1520,11 @@ function stampaEtichetta(id){
     sheets += `<div class="lp-sheet">${pageHtml[i]}${pageHtml[i+1]||''}</div>`;
   }
 
-  document.getElementById('label-print').innerHTML = sheets;
-  window.print();
+  const lp = document.getElementById('label-print');
+  lp.innerHTML = sheets;
+  const imgs = [...lp.querySelectorAll('img')];
+  const loads = imgs.map(img => img.complete ? Promise.resolve() : new Promise(r=>{img.onload=r;img.onerror=r}));
+  Promise.all(loads).then(()=>window.print());
 }
 
 async function eliminaConsegna(id){
