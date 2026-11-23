@@ -492,7 +492,7 @@ async function init(){
 
 async function loadSediPartenza(){
   try{
-    const {data} = await _sb.from('sedi_partenza').select('id,nome,indirizzo,comune').eq('attiva',true).order('ordine');
+    const {data} = await _sb.from('sedi_partenza').select('id,nome,indirizzo,comune,cap').eq('attiva',true).order('ordine');
     _sediPartenza = data || [];
   }catch{ _sediPartenza = []; }
   const sel = document.getElementById('f-emp');
@@ -1362,7 +1362,7 @@ async function _geocodeStop(nome){
   if(wait>0) await new Promise(r=>setTimeout(r,wait));
   _lastGeocode=Date.now();
   const sede=_sediPartenza.find(s=>s.nome===nome);
-  const q=sede?.indirizzo?`${sede.indirizzo}, ${sede.comune}, Italia`:`${nome}, Italia`;
+  const q=sede?.indirizzo?`${sede.indirizzo}, ${sede.cap?sede.cap+' ':''  }${sede.comune}, Italia`:`${nome}, Italia`;
   const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=it`);
   const data=await res.json();
   if(!data.length) throw new Error(`"${nome}" non trovato`);

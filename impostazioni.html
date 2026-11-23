@@ -7093,6 +7093,71 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
     function _escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+    function _mapsUrl(s){
+      const q=[s.indirizzo,s.cap?s.cap+' '+s.comune:s.comune,'Italia'].filter(Boolean).join(', ');
+      return 'https://maps.google.com/?q='+encodeURIComponent(q);
+    }
+
+    function _parseMapsUrlSedi(raw){
+      raw=(raw||'').trim();
+      if(!raw||!raw.includes('maps')) return null;
+      if(/goo\.gl|maps\.app\.goo\.gl/.test(raw)) return {type:'short'};
+      let url; try{url=new URL(raw);}catch(e){return null;}
+      const path=url.pathname;
+      const origin=url.searchParams.get('origin'),dest=url.searchParams.get('destination');
+      if(origin||dest) return null; // direction url, non utile per singolo indirizzo
+      const placeM=path.match(/^\/maps\/place\/([^/@]+)/);
+      if(placeM){
+        const name=decodeURIComponent(placeM[1].replace(/\+/g,' ')).trim();
+        const cm=path.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        return {name,coords:cm?{lat:+cm[1],lon:+cm[2]}:null};
+      }
+      const searchM=path.match(/^\/maps\/search\/([^/@]+)/);
+      if(searchM){const name=decodeURIComponent(searchM[1].replace(/\+/g,' ')).trim();const cm=path.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);return {name,coords:cm?{lat:+cm[1],lon:+cm[2]}:null};}
+      const q=url.searchParams.get('q');
+      if(q) return {name:q};
+      const cm=raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if(cm) return {name:'',coords:{lat:+cm[1],lon:+cm[2]}};
+      return null;
+    }
+
+    let _lastGeoSedi=0;
+    async function importaMapsPerSede(id){
+      const val=document.getElementById('sede-maps-paste-'+id)?.value.trim();
+      if(!val) return;
+      const r=_parseMapsUrlSedi(val);
+      if(!r){showToast('URL Maps non riconosciuto','err');return;}
+      if(r.type==='short'){showToast('Apri il link nel browser, copia l\'URL completo dalla barra degli indirizzi','warn');return;}
+      if(r.coords){
+        const wait=400-(Date.now()-_lastGeoSedi);
+        if(wait>0) await new Promise(res=>setTimeout(res,wait));
+        _lastGeoSedi=Date.now();
+        try{
+          const resp=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${r.coords.lat}&lon=${r.coords.lon}&format=json&addressdetails=1`);
+          const d=await resp.json();
+          const a=d.address||{};
+          const ind=[a.road,a.house_number].filter(Boolean).join(' ')||r.name||'';
+          const com=a.city||a.town||a.village||a.municipality||'';
+          const cap=(a.postcode||'').substring(0,5);
+          if(ind) document.getElementById('sede-ind-'+id).value=ind;
+          if(com) document.getElementById('sede-com-'+id).value=com;
+          if(cap) document.getElementById('sede-cap-'+id).value=cap;
+          document.getElementById('sede-maps-paste-wrap-'+id).style.display='none';
+          showToast('Indirizzo importato da Maps','ok');
+        }catch(e){showToast('Errore geocodifica','err');}
+        return;
+      }
+      if(r.name){
+        const parts=r.name.split(',').map(s=>s.trim()).filter(Boolean);
+        if(parts[0]) document.getElementById('sede-ind-'+id).value=parts[0];
+        if(parts[1]) document.getElementById('sede-com-'+id).value=parts[1].replace(/^\d{5}\s*/,'').replace(/\s+[A-Z]{2}$/,'').trim();
+        const capM=r.name.match(/\b(\d{5})\b/);
+        if(capM) document.getElementById('sede-cap-'+id).value=capM[1];
+        document.getElementById('sede-maps-paste-wrap-'+id).style.display='none';
+        showToast('Indirizzo importato','ok');
+      }
+    }
+
     function renderSediList(){
       const wrap = document.getElementById('sedi-list');
       if(!wrap) return;
@@ -7104,15 +7169,32 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
               <label>Nome</label>
               <input type="text" id="sede-nome-${s.id}" value="${_escH(s.nome)}">
             </div>
-            <div class="sede-field">
-              <label>Indirizzo</label>
-              <input type="text" id="sede-ind-${s.id}" value="${_escH(s.indirizzo||'')}">
+            <div class="sede-field" style="grid-column:1/-1">
+              <label style="display:flex;justify-content:space-between;align-items:center">Indirizzo
+                <a href="#" style="font-size:10px;color:#6366f1;font-weight:normal;text-decoration:none" onclick="event.preventDefault();const d=document.getElementById('sede-maps-paste-wrap-${s.id}');d.style.display=d.style.display==='none'?'flex':'none'"><i class="fas fa-location-dot"></i> da Maps</a>
+              </label>
+              <div id="sede-maps-paste-wrap-${s.id}" style="display:none;gap:6px;margin-bottom:5px">
+                <input type="text" id="sede-maps-paste-${s.id}" placeholder="Incolla link Google Maps…" style="flex:1;border:1px solid #c7d2fe;border-radius:7px;padding:6px 9px;font-size:12px;font-family:inherit">
+                <button onclick="importaMapsPerSede(${s.id})" style="padding:6px 10px;border-radius:7px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:12px;white-space:nowrap"><i class="fas fa-check"></i></button>
+              </div>
+              <input type="text" id="sede-ind-${s.id}" value="${_escH(s.indirizzo||'')}" placeholder="Via Roma 1">
             </div>
             <div class="sede-field">
               <label>Comune</label>
-              <input type="text" id="sede-com-${s.id}" value="${_escH(s.comune||'')}">
+              <input type="text" id="sede-com-${s.id}" value="${_escH(s.comune||'')}" placeholder="Cremona">
+            </div>
+            <div class="sede-field">
+              <label>CAP</label>
+              <input type="text" id="sede-cap-${s.id}" value="${_escH(s.cap||'')}" placeholder="26100" maxlength="5" inputmode="numeric">
             </div>
           </div>
+          ${(s.indirizzo||s.comune)?`
+          <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:8px;padding-top:2px">
+            <i class="fas fa-location-dot" style="color:#94a3b8"></i>
+            <span>${_escH([s.indirizzo,s.cap?s.cap+' '+s.comune:s.comune].filter(Boolean).join(', '))}</span>
+            <a href="${_escH(_mapsUrl(s))}" target="_blank" rel="noopener" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;color:#1a73e8;text-decoration:none;font-weight:600;font-size:11px"><i class="fas fa-map-location-dot"></i> Verifica</a>
+          </div>`:''
+          }
           <div class="sede-actions">
             <label class="sede-toggle">
               <input type="checkbox" id="sede-att-${s.id}"${s.attiva?' checked':''} onchange="toggleSede(${s.id},this.checked)"> Attiva
@@ -7135,9 +7217,10 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
       if(!nome){ showToast('Il nome è obbligatorio','err'); return; }
       const indirizzo = document.getElementById('sede-ind-'+id)?.value.trim()||null;
       const comune    = document.getElementById('sede-com-'+id)?.value.trim()||null;
-      const { error } = await db.from('sedi_partenza').update({nome,indirizzo,comune}).eq('id',id);
+      const cap       = document.getElementById('sede-cap-'+id)?.value.trim()||null;
+      const { error } = await db.from('sedi_partenza').update({nome,indirizzo,comune,cap}).eq('id',id);
       if(error) showToast('Errore: '+error.message,'err');
-      else{ showToast('Sede salvata','ok'); const s=_sediList.find(x=>x.id===id); if(s){s.nome=nome;s.indirizzo=indirizzo;s.comune=comune;} }
+      else{ showToast('Sede salvata','ok'); const s=_sediList.find(x=>x.id===id); if(s){s.nome=nome;s.indirizzo=indirizzo;s.comune=comune;s.cap=cap;} renderSediList(); }
     }
 
     async function toggleSede(id, attiva){
@@ -7161,15 +7244,17 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
       const nome      = document.getElementById('new-sede-nome')?.value.trim();
       const indirizzo = document.getElementById('new-sede-indirizzo')?.value.trim()||null;
       const comune    = document.getElementById('new-sede-comune')?.value.trim()||null;
+      const cap       = document.getElementById('new-sede-cap')?.value.trim()||null;
       if(!nome){ showToast('Inserisci il nome della sede','err'); return; }
       const ordine = (_sediList.length ? Math.max(..._sediList.map(s=>s.ordine||0)) : 0) + 10;
-      const { data, error } = await db.from('sedi_partenza').insert({nome,indirizzo,comune,attiva:true,ordine}).select().single();
+      const { data, error } = await db.from('sedi_partenza').insert({nome,indirizzo,comune,cap,attiva:true,ordine}).select().single();
       if(error){ showToast('Errore: '+error.message,'err'); return; }
       _sediList.push(data);
       renderSediList();
       document.getElementById('new-sede-nome').value='';
       document.getElementById('new-sede-indirizzo').value='';
       document.getElementById('new-sede-comune').value='';
+      document.getElementById('new-sede-cap').value='';
       showToast('Sede aggiunta','ok');
     }
     </script>
@@ -7186,6 +7271,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         .sede-row{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
         .sede-row-top{display:flex;align-items:center;gap:10px}
         .sede-row-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        #sedi-list .sede-maps-paste-wrap{display:none;gap:6px;margin-bottom:5px}
         .sede-field{display:flex;flex-direction:column;gap:4px}
         .sede-field label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8}
         .sede-field input{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;color:#1e293b;outline:none;transition:border-color .15s;background:#fff}
@@ -7202,19 +7288,23 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         <div class="s-card-body">
           <div id="sedi-list" class="sedi-list"><div style="color:#94a3b8;font-size:13px;padding:8px 0">Caricamento…</div></div>
           <div class="sede-new-card">
-            <div class="sede-new-title"><i class="fas fa-plus"></i> Nuova sede</div>
+            <div class="sede-new-title"><i class="fas fa-plus"></i> Nuova sede / luogo</div>
             <div class="sede-row-fields">
               <div class="sede-field" style="grid-column:1/-1">
                 <label>Nome *</label>
                 <input id="new-sede-nome" type="text" placeholder="es. Emporio Lodi">
               </div>
-              <div class="sede-field">
+              <div class="sede-field" style="grid-column:1/-1">
                 <label>Indirizzo</label>
                 <input id="new-sede-indirizzo" type="text" placeholder="Via Roma 1">
               </div>
               <div class="sede-field">
                 <label>Comune</label>
                 <input id="new-sede-comune" type="text" placeholder="Cremona">
+              </div>
+              <div class="sede-field">
+                <label>CAP</label>
+                <input id="new-sede-cap" type="text" placeholder="26100" maxlength="5" inputmode="numeric">
               </div>
             </div>
             <div class="sede-actions" style="margin-top:10px">
