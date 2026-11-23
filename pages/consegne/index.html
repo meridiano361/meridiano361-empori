@@ -451,6 +451,8 @@ let _currentMetodoPagamento = null;
 let _rubricaOpen  = false;
 let _trasfTappe   = [];
 let _rubricaResults = [];
+let _percorsoCoords = {}; // cache geocoding: nome → [lon, lat]
+let _lastGeocode = 0;
 
 /* ── Utils ─────────────────────────────────────────────── */
 
@@ -1234,64 +1236,145 @@ function rimuoviTappa(idx){
   renderTappe();
 }
 
+async function _geocodeStop(nome){
+  if(_percorsoCoords[nome]) return _percorsoCoords[nome];
+  const wait=400-(Date.now()-_lastGeocode);
+  if(wait>0) await new Promise(r=>setTimeout(r,wait));
+  _lastGeocode=Date.now();
+  const sede=_sediPartenza.find(s=>s.nome===nome);
+  const q=sede?.indirizzo?`${sede.indirizzo}, ${sede.comune}, Italia`:`${nome}, Italia`;
+  const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=it`);
+  const data=await res.json();
+  if(!data.length) throw new Error(`"${nome}" non trovato`);
+  _percorsoCoords[nome]=[parseFloat(data[0].lon),parseFloat(data[0].lat)];
+  return _percorsoCoords[nome];
+}
+
+function _fmtMins(mins){return mins>=60?`${Math.floor(mins/60)}h ${mins%60}min`:`${mins} min`;}
+
 async function calcolaPercorso(){
-  const partenza = document.getElementById('fc-emp-part')?.value.trim();
-  const tappe = _getTappe();
-  const rDiv = document.getElementById('percorso-risultato');
-  if(!partenza||!tappe.length){
-    M361.toast('Aggiungi partenza e almeno una tappa','warn'); return;
-  }
+  const partenza=document.getElementById('fc-emp-part')?.value.trim();
+  const tappe=_getTappe();
+  const rDiv=document.getElementById('percorso-risultato');
+  if(!partenza||!tappe.length){M361.toast('Aggiungi partenza e almeno una tappa','warn');return;}
   rDiv.style.display='block';
   rDiv.innerHTML='<span style="color:#64748b"><i class="fas fa-spinner fa-spin"></i> Calcolo percorso…</span>';
-
-  // Geocode un indirizzo via Nominatim (usa indirizzo sede se noto)
-  async function geocode(nome, i){
-    const sede=_sediPartenza.find(s=>s.nome===nome);
-    const q=sede?.indirizzo ? `${sede.indirizzo}, ${sede.comune}, Italia` : `${nome}, Italia`;
-    if(i>0) await new Promise(r=>setTimeout(r,400)); // Nominatim: max 1 req/s
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=it`);
-    const data=await res.json();
-    if(!data.length) throw new Error(`"${nome}" non trovato`);
-    return [parseFloat(data[0].lon), parseFloat(data[0].lat)];
-  }
-
   try {
     const stops=[partenza,...tappe];
     const coords=[];
-    for(let i=0;i<stops.length;i++) coords.push(await geocode(stops[i],i));
-
-    // OSRM routing con steps per rilevare autostrade
+    for(const s of stops) coords.push(await _geocodeStop(s));
     const coordStr=coords.map(c=>c.join(',')).join(';');
     const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=false&steps=true`);
     const d=await r.json();
     if(d.code!=='Ok') throw new Error('Errore routing: '+d.message);
-
     const route=d.routes[0];
     const km=route.distance/1000;
-    const mins=Math.round(route.duration/60);
-    const tempoStr=mins>=60?`${Math.floor(mins/60)}h ${mins%60}min`:`${mins} min`;
-
-    // Rileva tratte autostradali (nomi tipo A1, A4, A21, A22 ...)
+    const tempoStr=_fmtMins(Math.round(route.duration/60));
     const autoRe=/^A\d+(\s|$)/i;
     let autoKm=0;
     for(const leg of route.legs)
       for(const step of (leg.steps||[]))
         if(autoRe.test(step.name||step.ref||'')) autoKm+=step.distance/1000;
-
-    const tolls=autoKm*0.09; // ~€0.09/km media autostrade italiane per auto
-
+    const tolls=autoKm*0.09;
+    const ottBtn=tappe.length>=2
+      ?`<button type="button" onclick="ottimizzaPercorso()" style="margin-left:auto;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #6366f1;color:#6366f1;background:#fff;cursor:pointer"><i class="fas fa-wand-magic-sparkles"></i> Ottimizza ordine</button>`:'';
     rDiv.innerHTML=`
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
         <span><i class="fas fa-road" style="color:#64748b;margin-right:4px"></i><strong>${km.toFixed(1)} km</strong></span>
         <span><i class="fas fa-clock" style="color:#64748b;margin-right:4px"></i><strong>${tempoStr}</strong></span>
         ${autoKm>0.5
-          ? `<span><i class="fas fa-ticket" style="color:#f59e0b;margin-right:4px"></i><strong style="color:#b45309">~€${tolls.toFixed(2)}</strong><span style="font-size:11px;color:#94a3b8;margin-left:4px">stima pedaggi (${autoKm.toFixed(0)} km autostrada)</span></span>`
-          : `<span style="font-size:11px;color:#22c55e"><i class="fas fa-check-circle"></i> Nessuna autostrada rilevata</span>`
+          ?`<span><i class="fas fa-ticket" style="color:#f59e0b;margin-right:4px"></i><strong style="color:#b45309">~€${tolls.toFixed(2)}</strong><span style="font-size:11px;color:#94a3b8;margin-left:4px">stima pedaggi (${autoKm.toFixed(0)} km autostrada)</span></span>`
+          :`<span style="font-size:11px;color:#22c55e"><i class="fas fa-check-circle"></i> Nessuna autostrada</span>`
         }
+        ${ottBtn}
       </div>`;
   } catch(e){
     rDiv.innerHTML=`<span style="color:#dc2626;font-size:12px"><i class="fas fa-exclamation-circle"></i> ${esc(e.message)}</span>`;
   }
+}
+
+async function ottimizzaPercorso(){
+  const partenza=document.getElementById('fc-emp-part')?.value.trim();
+  const tappe=_getTappe();
+  const rDiv=document.getElementById('percorso-risultato');
+  if(!partenza||tappe.length<2){M361.toast('Servono almeno 2 tappe per ottimizzare','warn');return;}
+  rDiv.innerHTML='<span style="color:#64748b"><i class="fas fa-spinner fa-spin"></i> Ottimizzazione in corso…</span>';
+  try {
+    const stops=[partenza,...tappe];
+    const coords=[];
+    for(const s of stops) coords.push(await _geocodeStop(s));
+
+    // Matrice tempi OSRM Table
+    const coordStr=coords.map(c=>c.join(',')).join(';');
+    const r=await fetch(`https://router.project-osrm.org/table/v1/driving/${coordStr}?annotations=duration`);
+    const d=await r.json();
+    if(d.code!=='Ok') throw new Error('Errore matrice tempi');
+    const mx=d.durations; // mx[i][j] = secondi da i a j
+
+    const n=tappe.length;
+    const idxs=Array.from({length:n},(_,i)=>i+1); // indici 1..n (0=partenza)
+
+    function routeTime(order){
+      let t=mx[0][order[0]];
+      for(let i=0;i<order.length-1;i++) t+=mx[order[i]][order[i+1]];
+      return t;
+    }
+
+    let bestOrder=[...idxs], bestTime=routeTime(idxs);
+
+    if(n<=8){
+      // Brute-force permutazioni
+      function* perms(arr){
+        if(arr.length<=1){yield arr.slice();return;}
+        for(let i=0;i<arr.length;i++){
+          [arr[0],arr[i]]=[arr[i],arr[0]];
+          for(const p of perms(arr.slice(1))) yield [arr[0],...p];
+          [arr[0],arr[i]]=[arr[i],arr[0]];
+        }
+      }
+      for(const p of perms([...idxs])){
+        const t=routeTime(p);
+        if(t<bestTime){bestTime=t;bestOrder=[...p];}
+      }
+    } else {
+      // Nearest neighbor per > 8 tappe
+      const rem=new Set(idxs);
+      bestOrder=[];
+      let cur=0;
+      while(rem.size){
+        let near=null,nearT=Infinity;
+        for(const j of rem) if(mx[cur][j]<nearT){nearT=mx[cur][j];near=j;}
+        bestOrder.push(near);rem.delete(near);cur=near;
+      }
+      bestTime=routeTime(bestOrder);
+    }
+
+    const currentTime=routeTime(idxs);
+    const saving=Math.round((currentTime-bestTime)/60);
+    const changed=bestOrder.some((v,i)=>v!==idxs[i]);
+
+    if(!changed){
+      rDiv.innerHTML=`<span style="color:#22c55e;font-size:12px"><i class="fas fa-check-circle"></i> L'ordine attuale è già ottimale (${_fmtMins(Math.round(bestTime/60))})</span>`;
+      return;
+    }
+
+    const ordineNomi=bestOrder.map(i=>tappe[i-1]);
+    const ordineEnc=encodeURIComponent(JSON.stringify(ordineNomi));
+    rDiv.innerHTML=`
+      <div style="font-size:12px;color:#4f46e5;margin-bottom:6px"><i class="fas fa-wand-magic-sparkles"></i> <strong>Ordine ottimale trovato</strong> — risparmio ${saving>0?saving+' min':'minimo'} rispetto all'ordine attuale</div>
+      <div style="font-size:12px;color:#374151;margin-bottom:8px">${['Partenza: <strong>'+esc(partenza)+'</strong>',...ordineNomi.map((n,i)=>`${i+1}. ${esc(n)}`)].join(' → ')}</div>
+      <button type="button" onclick="applicaOrdineOttimale(JSON.parse(decodeURIComponent('${ordineEnc}')))" style="font-size:12px;padding:4px 14px;border-radius:6px;border:none;background:#4f46e5;color:#fff;cursor:pointer"><i class="fas fa-check"></i> Applica questo ordine</button>
+      <button type="button" onclick="calcolaPercorso()" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;color:#374151;cursor:pointer;margin-left:6px">Annulla</button>`;
+  } catch(e){
+    rDiv.innerHTML=`<span style="color:#dc2626;font-size:12px"><i class="fas fa-exclamation-circle"></i> ${esc(e.message)}</span>`;
+  }
+}
+
+function applicaOrdineOttimale(ordineNomi){
+  _trasfTappe=ordineNomi;
+  renderTappe();
+  document.getElementById('percorso-risultato').style.display='none';
+  M361.toast('Ordine ottimale applicato','ok');
 }
 
 function spostaTappa(idx, dir){
