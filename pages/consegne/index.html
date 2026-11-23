@@ -976,6 +976,10 @@ function buildFormCns(c, dataDefault, tipoForzato){
           <i class="fas fa-plus"></i>
         </button>
       </div>
+      <div id="percorso-risultato" style="display:none;font-size:13px;background:#f1f5f9;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="calcolaPercorso()" style="margin-top:8px;width:100%;justify-content:center">
+        <i class="fas fa-route"></i> Calcola percorso e pedaggi
+      </button>
     </div>` : ''}
 
     <!-- DESTINAZIONE -->
@@ -1228,6 +1232,66 @@ function aggiungiTappa(){
 function rimuoviTappa(idx){
   _trasfTappe.splice(idx,1);
   renderTappe();
+}
+
+async function calcolaPercorso(){
+  const partenza = document.getElementById('fc-emp-part')?.value.trim();
+  const tappe = _getTappe();
+  const rDiv = document.getElementById('percorso-risultato');
+  if(!partenza||!tappe.length){
+    M361.toast('Aggiungi partenza e almeno una tappa','warn'); return;
+  }
+  rDiv.style.display='block';
+  rDiv.innerHTML='<span style="color:#64748b"><i class="fas fa-spinner fa-spin"></i> Calcolo percorso…</span>';
+
+  // Geocode un indirizzo via Nominatim (usa indirizzo sede se noto)
+  async function geocode(nome, i){
+    const sede=_sediPartenza.find(s=>s.nome===nome);
+    const q=sede?.indirizzo ? `${sede.indirizzo}, ${sede.comune}, Italia` : `${nome}, Italia`;
+    if(i>0) await new Promise(r=>setTimeout(r,400)); // Nominatim: max 1 req/s
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=it`);
+    const data=await res.json();
+    if(!data.length) throw new Error(`"${nome}" non trovato`);
+    return [parseFloat(data[0].lon), parseFloat(data[0].lat)];
+  }
+
+  try {
+    const stops=[partenza,...tappe];
+    const coords=[];
+    for(let i=0;i<stops.length;i++) coords.push(await geocode(stops[i],i));
+
+    // OSRM routing con steps per rilevare autostrade
+    const coordStr=coords.map(c=>c.join(',')).join(';');
+    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=false&steps=true`);
+    const d=await r.json();
+    if(d.code!=='Ok') throw new Error('Errore routing: '+d.message);
+
+    const route=d.routes[0];
+    const km=route.distance/1000;
+    const mins=Math.round(route.duration/60);
+    const tempoStr=mins>=60?`${Math.floor(mins/60)}h ${mins%60}min`:`${mins} min`;
+
+    // Rileva tratte autostradali (nomi tipo A1, A4, A21, A22 ...)
+    const autoRe=/^A\d+(\s|$)/i;
+    let autoKm=0;
+    for(const leg of route.legs)
+      for(const step of (leg.steps||[]))
+        if(autoRe.test(step.name||step.ref||'')) autoKm+=step.distance/1000;
+
+    const tolls=autoKm*0.09; // ~€0.09/km media autostrade italiane per auto
+
+    rDiv.innerHTML=`
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+        <span><i class="fas fa-road" style="color:#64748b;margin-right:4px"></i><strong>${km.toFixed(1)} km</strong></span>
+        <span><i class="fas fa-clock" style="color:#64748b;margin-right:4px"></i><strong>${tempoStr}</strong></span>
+        ${autoKm>0.5
+          ? `<span><i class="fas fa-ticket" style="color:#f59e0b;margin-right:4px"></i><strong style="color:#b45309">~€${tolls.toFixed(2)}</strong><span style="font-size:11px;color:#94a3b8;margin-left:4px">stima pedaggi (${autoKm.toFixed(0)} km autostrada)</span></span>`
+          : `<span style="font-size:11px;color:#22c55e"><i class="fas fa-check-circle"></i> Nessuna autostrada rilevata</span>`
+        }
+      </div>`;
+  } catch(e){
+    rDiv.innerHTML=`<span style="color:#dc2626;font-size:12px"><i class="fas fa-exclamation-circle"></i> ${esc(e.message)}</span>`;
+  }
 }
 
 function spostaTappa(idx, dir){
