@@ -978,6 +978,12 @@ function buildFormCns(c, dataDefault, tipoForzato){
           <i class="fas fa-plus"></i>
         </button>
       </div>
+      <div style="text-align:center;margin-top:6px">
+        <a href="#" style="font-size:11px;color:#6366f1;text-decoration:none" onclick="event.preventDefault();const d=document.getElementById('maps-paste-trasf');d.style.display=d.style.display==='none'?'block':'none'"><i class="fas fa-location-dot"></i> Importa percorso da Google Maps</a>
+      </div>
+      <div id="maps-paste-trasf" style="display:none;margin-top:6px">
+        <input type="text" class="form-inp" placeholder="Incolla link Google Maps…" autocomplete="off" style="font-size:12px" oninput="onMapsPasteTrasf(this.value)">
+      </div>
       <div id="percorso-risultato" style="display:none;font-size:13px;background:#f1f5f9;border-radius:8px;padding:8px 12px;margin-top:8px"></div>
       <button type="button" class="btn btn-outline btn-sm" onclick="calcolaPercorso()" style="margin-top:8px;width:100%;justify-content:center">
         <i class="fas fa-route"></i> Calcola percorso e pedaggi
@@ -1031,7 +1037,10 @@ function buildFormCns(c, dataDefault, tipoForzato){
         </div>
         <div class="form-row r1">
           <div class="form-field">
-            <label class="form-lbl">Indirizzo</label>
+            <label class="form-lbl" style="display:flex;justify-content:space-between;align-items:center">Indirizzo<a href="#" style="font-size:11px;color:#6366f1;font-weight:normal;text-decoration:none" onclick="event.preventDefault();const d=document.getElementById('maps-paste-dest');d.style.display=d.style.display==='none'?'block':'none'"><i class="fas fa-location-dot"></i> da Maps</a></label>
+            <div id="maps-paste-dest" style="display:none;margin-bottom:6px">
+              <input type="text" class="form-inp" placeholder="Incolla link Google Maps…" autocomplete="off" style="font-size:12px" oninput="onMapsPasteDest(this.value)">
+            </div>
             <input id="fc-dest-ind" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_indirizzo||''):''}">
           </div>
         </div>
@@ -1234,6 +1243,117 @@ function aggiungiTappa(){
 function rimuoviTappa(idx){
   _trasfTappe.splice(idx,1);
   renderTappe();
+}
+
+function parseMapsUrl(raw){
+  raw=(raw||'').trim();
+  if(!raw) return null;
+  // Short URL: impossibile risolvere lato browser
+  if(/goo\.gl|maps\.app\.goo\.gl/.test(raw)) return {type:'short'};
+  let url; try{url=new URL(raw);}catch(e){return null;}
+  const path=url.pathname;
+  // Format query: ?api=1&origin=...&destination=...&waypoints=...
+  const origin=url.searchParams.get('origin'), dest=url.searchParams.get('destination'), wps=url.searchParams.get('waypoints');
+  if(origin||dest){
+    const stops=[origin,...(wps?wps.split('|'):[]),dest].filter(Boolean).map(s=>s.trim());
+    return {type:'dir',stops};
+  }
+  // Format path: /maps/dir/ORIGIN/WP.../DEST/
+  const dirM=path.match(/^\/maps\/dir\/(.+)/);
+  if(dirM){
+    const parts=dirM[1].split('/').map(p=>decodeURIComponent(p.replace(/\+/g,' ')).trim())
+      .filter(p=>p&&!p.startsWith('@')&&!/^data=/.test(p)&&!/^am=/.test(p)&&!/^place_id:/.test(p));
+    if(parts.length>=1) return {type:'dir',stops:parts};
+  }
+  // Place: /maps/place/NAME/@lat,lon
+  const placeM=path.match(/^\/maps\/place\/([^/@]+)/);
+  if(placeM){
+    const name=decodeURIComponent(placeM[1].replace(/\+/g,' ')).trim();
+    const cm=path.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    return {type:'place',name,coords:cm?{lat:+cm[1],lon:+cm[2]}:null};
+  }
+  // Search: /maps/search/QUERY
+  const searchM=path.match(/^\/maps\/search\/([^/@]+)/);
+  if(searchM){
+    const name=decodeURIComponent(searchM[1].replace(/\+/g,' ')).trim();
+    const cm=path.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    return {type:'place',name,coords:cm?{lat:+cm[1],lon:+cm[2]}:null};
+  }
+  // Legacy: maps?q=...
+  const q=url.searchParams.get('q');
+  if(q) return {type:'place',name:q};
+  // Fallback: solo coordinate @lat,lon
+  const cm=raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if(cm) return {type:'place',name:'',coords:{lat:+cm[1],lon:+cm[2]}};
+  return null;
+}
+
+function onMapsPasteTrasf(val){
+  if(!val.includes('maps')) return;
+  const r=parseMapsUrl(val);
+  if(!r) return;
+  if(r.type==='short'){
+    M361.toast('Apri il link nel browser, copia l\'URL dalla barra degli indirizzi e incollalo qui','warn');
+    return;
+  }
+  if(r.type==='dir'&&r.stops.length>=1){
+    const [part,...tappe]=r.stops;
+    const el=document.getElementById('fc-emp-part');
+    if(el) el.value=part;
+    _trasfTappe=tappe;
+    renderTappe();
+    document.getElementById('maps-paste-trasf').style.display='none';
+    M361.toast(`Percorso importato: partenza + ${tappe.length} tapp${tappe.length===1?'a':'e'}`,'ok');
+  } else if(r.type==='place'){
+    const nome=r.name||(r.coords?`${r.coords.lat},${r.coords.lon}`:'');
+    if(nome){_trasfTappe.push(nome);renderTappe();document.getElementById('maps-paste-trasf').style.display='none';M361.toast('Tappa aggiunta','ok');}
+  }
+}
+
+async function onMapsPasteDest(val){
+  if(!val.includes('maps')) return;
+  const r=parseMapsUrl(val);
+  if(!r) return;
+  if(r.type==='short'){
+    M361.toast('Apri il link nel browser, copia l\'URL dalla barra degli indirizzi e incollalo qui','warn');
+    return;
+  }
+  const indEl=document.getElementById('fc-dest-ind');
+  const citEl=document.getElementById('fc-dest-cit');
+  const capEl=document.getElementById('fc-dest-cap');
+  if(!indEl) return;
+
+  if(r.coords){
+    try{
+      const wait=400-(Date.now()-_lastGeocode);
+      if(wait>0) await new Promise(res=>setTimeout(res,wait));
+      _lastGeocode=Date.now();
+      const resp=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${r.coords.lat}&lon=${r.coords.lon}&format=json&addressdetails=1`);
+      const d=await resp.json();
+      const a=d.address||{};
+      indEl.value=[a.road,a.house_number].filter(Boolean).join(' ')||r.name||'';
+      if(citEl) citEl.value=a.city||a.town||a.village||a.municipality||'';
+      if(capEl) capEl.value=(a.postcode||'').substring(0,5);
+      document.getElementById('maps-paste-dest').style.display='none';
+      M361.toast('Indirizzo importato da Maps','ok');
+    }catch(e){
+      indEl.value=r.name||'';
+      document.getElementById('maps-paste-dest').style.display='none';
+      M361.toast('Indirizzo importato','ok');
+    }
+    return;
+  }
+  // Solo nome: prova a separare "Via Roma 1, Cremona"
+  const src=(r.type==='dir'&&r.stops.length?r.stops[r.stops.length-1]:r.name)||'';
+  if(src){
+    const parts=src.split(',').map(s=>s.trim()).filter(Boolean);
+    indEl.value=parts[0]||src;
+    if(citEl&&parts[1]) citEl.value=parts[1].replace(/^\d{5}\s*/,'').replace(/\s+[A-Z]{2}$/,'').trim();
+    const capM=src.match(/\b(\d{5})\b/);
+    if(capEl&&capM) capEl.value=capM[1];
+    document.getElementById('maps-paste-dest').style.display='none';
+    M361.toast('Indirizzo importato da Maps','ok');
+  }
 }
 
 async function _geocodeStop(nome){
