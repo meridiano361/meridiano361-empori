@@ -1396,7 +1396,7 @@ async function calcolaPercorso(){
       for(const step of (leg.steps||[]))
         if(autoRe.test(step.name||step.ref||'')) autoKm+=step.distance/1000;
     const tolls=autoKm*0.09;
-    const ottBtn=tappe.length>=2
+    const ottBtn=tappe.length>=3
       ?`<button type="button" onclick="ottimizzaPercorso()" style="margin-left:auto;font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #6366f1;color:#6366f1;background:#fff;cursor:pointer"><i class="fas fa-wand-magic-sparkles"></i> Ottimizza ordine</button>`:'';
     rDiv.innerHTML=`
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
@@ -1417,14 +1417,14 @@ async function ottimizzaPercorso(){
   const partenza=document.getElementById('fc-emp-part')?.value.trim();
   const tappe=_getTappe();
   const rDiv=document.getElementById('percorso-risultato');
-  if(!partenza||tappe.length<2){M361.toast('Servono almeno 2 tappe per ottimizzare','warn');return;}
+  // Servono almeno 3 tappe: 2+ intermedie da riordinare + 1 fissa finale
+  if(!partenza||tappe.length<3){M361.toast('Servono almeno 3 tappe per ottimizzare (l\'ultima è fissa come arrivo)','warn');return;}
   rDiv.innerHTML='<span style="color:#64748b"><i class="fas fa-spinner fa-spin"></i> Ottimizzazione in corso…</span>';
   try {
     const stops=[partenza,...tappe];
     const coords=[];
     for(const s of stops) coords.push(await _geocodeStop(s));
 
-    // Matrice tempi OSRM Table
     const coordStr=coords.map(c=>c.join(',')).join(';');
     const r=await fetch(`https://router.project-osrm.org/table/v1/driving/${coordStr}?annotations=duration`);
     const d=await r.json();
@@ -1432,18 +1432,23 @@ async function ottimizzaPercorso(){
     const mx=d.durations; // mx[i][j] = secondi da i a j
 
     const n=tappe.length;
-    const idxs=Array.from({length:n},(_,i)=>i+1); // indici 1..n (0=partenza)
+    // Ultima tappa fissa come destinazione finale (indice n nel matrix)
+    // Si permutano solo le intermedie: indici 1..n-1
+    const fixedEnd=n; // indice dell'ultima tappa
+    const intermedie=Array.from({length:n-1},(_,i)=>i+1); // [1, 2, ..., n-1]
 
+    // Tempo totale: 0→perm[0]→...→perm[m-1]→fixedEnd
     function routeTime(order){
       let t=mx[0][order[0]];
       for(let i=0;i<order.length-1;i++) t+=mx[order[i]][order[i+1]];
+      t+=mx[order[order.length-1]][fixedEnd];
       return t;
     }
 
-    let bestOrder=[...idxs], bestTime=routeTime(idxs);
+    let bestOrder=[...intermedie], bestTime=routeTime(intermedie);
+    const m=intermedie.length; // numero di tappe intermedie da permutare
 
-    if(n<=8){
-      // Brute-force permutazioni
+    if(m<=8){
       function* perms(arr){
         if(arr.length<=1){yield arr.slice();return;}
         for(let i=0;i<arr.length;i++){
@@ -1452,13 +1457,12 @@ async function ottimizzaPercorso(){
           [arr[0],arr[i]]=[arr[i],arr[0]];
         }
       }
-      for(const p of perms([...idxs])){
+      for(const p of perms([...intermedie])){
         const t=routeTime(p);
         if(t<bestTime){bestTime=t;bestOrder=[...p];}
       }
     } else {
-      // Nearest neighbor per > 8 tappe
-      const rem=new Set(idxs);
+      const rem=new Set(intermedie);
       bestOrder=[];
       let cur=0;
       while(rem.size){
@@ -1469,20 +1473,27 @@ async function ottimizzaPercorso(){
       bestTime=routeTime(bestOrder);
     }
 
-    const currentTime=routeTime(idxs);
+    const currentTime=routeTime(intermedie);
     const saving=Math.round((currentTime-bestTime)/60);
-    const changed=bestOrder.some((v,i)=>v!==idxs[i]);
+    const changed=bestOrder.some((v,i)=>v!==intermedie[i]);
+
+    const arrivoNome=tappe[n-1];
+    const ordineCompleto=[...bestOrder.map(i=>tappe[i-1]), arrivoNome]; // intermedie riordinate + arrivo fisso
+    const ordineEnc=encodeURIComponent(JSON.stringify(ordineCompleto));
 
     if(!changed){
-      rDiv.innerHTML=`<span style="color:#22c55e;font-size:12px"><i class="fas fa-check-circle"></i> L'ordine attuale è già ottimale (${_fmtMins(Math.round(bestTime/60))})</span>`;
+      rDiv.innerHTML=`<span style="color:#22c55e;font-size:12px"><i class="fas fa-check-circle"></i> Le tappe intermedie sono già nell'ordine ottimale (${_fmtMins(Math.round(bestTime/60))} · arrivo: <strong>${esc(arrivoNome)}</strong>)</span>`;
       return;
     }
 
-    const ordineNomi=bestOrder.map(i=>tappe[i-1]);
-    const ordineEnc=encodeURIComponent(JSON.stringify(ordineNomi));
+    const preview=['Partenza: <strong>'+esc(partenza)+'</strong>',
+      ...bestOrder.map((idx,i)=>`${i+1}. ${esc(tappe[idx-1])}`),
+      `${bestOrder.length+1}. <strong>${esc(arrivoNome)}</strong> <span style="font-size:10px;color:#6366f1;background:#ede9fe;padding:1px 5px;border-radius:4px">arrivo</span>`
+    ].join(' → ');
+
     rDiv.innerHTML=`
-      <div style="font-size:12px;color:#4f46e5;margin-bottom:6px"><i class="fas fa-wand-magic-sparkles"></i> <strong>Ordine ottimale trovato</strong> — risparmio ${saving>0?saving+' min':'minimo'} rispetto all'ordine attuale</div>
-      <div style="font-size:12px;color:#374151;margin-bottom:8px">${['Partenza: <strong>'+esc(partenza)+'</strong>',...ordineNomi.map((n,i)=>`${i+1}. ${esc(n)}`)].join(' → ')}</div>
+      <div style="font-size:12px;color:#4f46e5;margin-bottom:6px"><i class="fas fa-wand-magic-sparkles"></i> <strong>Ordine ottimale trovato</strong> — risparmio ${saving>0?saving+' min':'minimo'} · <span style="color:#64748b">ultima tappa fissa come arrivo</span></div>
+      <div style="font-size:12px;color:#374151;margin-bottom:8px;line-height:1.6">${preview}</div>
       <button type="button" onclick="applicaOrdineOttimale(JSON.parse(decodeURIComponent('${ordineEnc}')))" style="font-size:12px;padding:4px 14px;border-radius:6px;border:none;background:#4f46e5;color:#fff;cursor:pointer"><i class="fas fa-check"></i> Applica questo ordine</button>
       <button type="button" onclick="calcolaPercorso()" style="font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;color:#374151;cursor:pointer;margin-left:6px">Annulla</button>`;
   } catch(e){
