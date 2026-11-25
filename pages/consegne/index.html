@@ -489,6 +489,7 @@ let _statoId     = null;
 let _fattorini   = [];
 let _currentTipoDocumento   = null; // null | 'scontrinato' | 'regalo' | 'scontrinato_regalo' | 'fatturato' | 'fatturato_regalo'
 let _currentTipoPagamento   = null; // null | 'pagato' | 'da_pagare'
+let _currentTempoPagamento  = null; // null | 'subito' | 'dopo'
 let _currentMetodoPagamento = null;
 let _rubricaOpen  = false;
 let _trasfTappe   = [];
@@ -845,6 +846,7 @@ function renderGiorno(){
     if(c.fattorino) html+=`<span><i class="fas fa-person-biking"></i> ${esc(c.fattorino)}</span>`;
     if(c.colli) html+=`<span><i class="fas fa-boxes-stacked"></i> ${c.colli} colli</span>`;
     if(c.tipo_destinazione!=='emporio'&&c.emporio_partenza) html+=`<span><i class="fas fa-store"></i> Da ${esc(c.emporio_partenza)}</span>`;
+    if(c.telefono_azienda) html+=`<span><a href="tel:${esc(c.telefono_azienda)}" style="color:inherit"><i class="fas fa-building"></i> ${esc(c.telefono_azienda)}</a></span>`;
     if(c.destinatario_telefono) html+=`<span><a href="tel:${esc(c.destinatario_telefono)}" style="color:inherit"><i class="fas fa-phone"></i> ${esc(c.destinatario_telefono)}</a></span>`;
     html+=`</div>`;
     if(c.merce) html+=`<div class="di-merce"><i class="fas fa-box" style="color:#94a3b8;margin-right:5px"></i>${esc(c.merce)}</div>`;
@@ -942,6 +944,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
 
   _currentTipoDocumento   = isEdit ? (c.tipo_documento   || null) : null;
   _currentTipoPagamento   = isEdit ? (c.tipo_pagamento   || null) : null;
+  _currentTempoPagamento  = isEdit ? (c.tempo_pagamento  || null) : null;
   _currentMetodoPagamento = isEdit ? (c.metodo_pagamento || null) : null;
   _rubricaOpen = false;
   _trasfTappe = isTrasf ? (isEdit&&Array.isArray(c.tappe) ? [...c.tappe] : []) : [];
@@ -980,19 +983,23 @@ function buildFormCns(c, dataDefault, tipoForzato){
   const oraFineVal   = isEdit&&c.ora_fine     ? c.ora_fine.slice(0,5)     : '';
   const oraInizioOpts = _oraOpts(oraInizioVal);
   const oraFineOpts   = _oraOpts(oraFineVal);
-  const showPagWrap    = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
+  const showTempoWrap  = _currentTipoPagamento==='da_pagare' ? '' : 'display:none';
+  const showPagWrap    = _currentTipoPagamento==='da_pagare' && _currentTempoPagamento==='subito' ? '' : 'display:none';
 
   const _hasSc  = _currentTipoDocumento==='scontrinato'||_currentTipoDocumento==='scontrinato_regalo';
   const _hasRe  = _currentTipoDocumento==='regalo'||_currentTipoDocumento==='scontrinato_regalo'||_currentTipoDocumento==='fatturato_regalo';
   const _hasFat = _currentTipoDocumento==='fatturato'||_currentTipoDocumento==='fatturato_regalo';
   const docTypeOpts=
     `<button type="button" class="pag-btn${_hasSc?' active':''}" data-val="scontrinato" onclick="onDocChange(this)">Scontrinato</button>` +
-    `<button type="button" class="pag-btn${_hasFat?' active':''}" data-val="fatturato" onclick="onDocChange(this)">Fatturato</button>`;
-  const regaloOpt=
-    `<button type="button" class="pag-btn${_hasRe?' active':''}" data-val="regalo" onclick="onDocChange(this)" style="width:100%">Regalo</button>`;
+    `<button type="button" class="pag-btn${_hasFat?' active':''}" data-val="fatturato" onclick="onDocChange(this)">Fatturato</button>` +
+    `<button type="button" class="pag-btn${_hasRe?' active':''}" data-val="regalo" onclick="onDocChange(this)" style="margin-left:auto;font-size:11px;padding:4px 9px;border-color:${_hasRe?'var(--red)':'#e2e8f0'}">🎁 Regalo</button>`;
   const pagOpts=
     [['pagato','Pagato'],['da_pagare','Da pagare']].map(([val,label])=>
       `<button type="button" class="pag-btn${_currentTipoPagamento===val?' active':''}" data-val="${val}" onclick="onPagChange(this)">${label}</button>`
+    ).join('');
+  const tempoOpts=
+    [['subito','Subito'],['dopo','Dopo']].map(([val,label])=>
+      `<button type="button" class="pag-btn${_currentTempoPagamento===val?' active':''}" data-val="${val}" onclick="onTempoChange(this)">${label}</button>`
     ).join('');
 
   const body=document.getElementById('modal-cns-body');
@@ -1109,13 +1116,17 @@ function buildFormCns(c, dataDefault, tipoForzato){
         </div>
       </div>
       <div id="dest-pers" style="${showPersDest}">
-        <div class="form-row r1" id="fc-azienda-row" style="${tipo==='azienda'?'':'display:none'}">
+        <div class="form-row" id="fc-azienda-row" style="${tipo==='azienda'?'':'display:none'}">
           <div class="form-field">
             <label class="form-lbl">Nome azienda</label>
             <input id="fc-dest-azienda" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_azienda||''):''}" autocomplete="off">
           </div>
+          <div class="form-field">
+            <label class="form-lbl">Tel. azienda</label>
+            <input id="fc-dest-tel-az" class="form-inp" type="tel" inputmode="tel" value="${isEdit?esc(c.telefono_azienda||''):''}">
+          </div>
         </div>
-        <div class="form-row r1">
+        <div class="form-row">
           <div class="form-field" style="position:relative">
             <label class="form-lbl" id="lbl-dest-nome">${tipo==='azienda'?'Referente':'Nome destinatario'}</label>
             <div style="display:flex;gap:6px">
@@ -1126,13 +1137,10 @@ function buildFormCns(c, dataDefault, tipoForzato){
             </div>
             <div id="rubrica-panel" class="rubrica-panel" style="display:none"></div>
           </div>
-        </div>
-        <div class="form-row">
           <div class="form-field">
-            <label class="form-lbl">Telefono</label>
+            <label class="form-lbl" id="lbl-dest-tel">${tipo==='azienda'?'Tel. referente':'Telefono'}</label>
             <input id="fc-dest-tel" class="form-inp" type="tel" inputmode="tel" value="${isEdit?esc(c.destinatario_telefono||''):''}">
           </div>
-          <div></div>
         </div>
         <div class="form-row r1">
           <div class="form-field">
@@ -1195,10 +1203,12 @@ function buildFormCns(c, dataDefault, tipoForzato){
     <!-- PAGAMENTO -->
     ${!isTrasf ? `<div class="form-sec">
       <div class="form-sec-title">Pagamento</div>
-      <div class="pag-sel" style="margin-bottom:6px">${docTypeOpts}</div>
-      <div class="pag-sel" style="margin-bottom:6px">${regaloOpt}</div>
-      <div class="pag-sel">${pagOpts}</div>
-      <div id="fc-pagamento-wrap" style="${showPagWrap};margin-top:12px">
+      <div class="pag-sel" style="margin-bottom:8px;display:flex;align-items:center;gap:6px">${docTypeOpts}</div>
+      <div class="pag-sel" style="margin-bottom:8px">${pagOpts}</div>
+      <div id="fc-tempo-wrap" style="${showTempoWrap};margin-bottom:8px">
+        <div class="pag-sel">${tempoOpts}</div>
+      </div>
+      <div id="fc-pagamento-wrap" style="${showPagWrap};margin-top:4px">
         <div class="form-row">
           <div class="form-field">
             <label class="form-lbl">Importo €</label>
@@ -1640,6 +1650,8 @@ function onTipoChange(el,tipo){
   document.getElementById('dest-pers').style.display    = tipo!=='emporio'?'':'none';
   const lbl=document.getElementById('lbl-dest-nome');
   if(lbl) lbl.textContent=tipo==='azienda'?'Referente':'Nome destinatario';
+  const lblTel=document.getElementById('lbl-dest-tel');
+  if(lblTel) lblTel.textContent=tipo==='azienda'?'Tel. referente':'Telefono';
   const azRow=document.getElementById('fc-azienda-row');
   if(azRow) azRow.style.display=tipo==='azienda'?'':'none';
 }
@@ -1691,8 +1703,21 @@ function onPagChange(el){
   el.closest('.pag-sel').querySelectorAll('.pag-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   _currentTipoPagamento=el.dataset.val;
-  const wrap=document.getElementById('fc-pagamento-wrap');
-  if(wrap) wrap.style.display=_currentTipoPagamento==='da_pagare'?'':'none';
+  const tempoWrap=document.getElementById('fc-tempo-wrap');
+  const pagWrap=document.getElementById('fc-pagamento-wrap');
+  const isDaPagare=_currentTipoPagamento==='da_pagare';
+  if(tempoWrap) tempoWrap.style.display=isDaPagare?'':'none';
+  if(!isDaPagare){ _currentTempoPagamento=null; if(pagWrap) pagWrap.style.display='none'; }
+  // reset selezione subito/dopo se si cambia
+  if(isDaPagare&&tempoWrap) tempoWrap.querySelectorAll('.pag-btn').forEach(b=>b.classList.toggle('active',b.dataset.val===_currentTempoPagamento));
+}
+
+function onTempoChange(el){
+  el.closest('.pag-sel').querySelectorAll('.pag-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  _currentTempoPagamento=el.dataset.val;
+  const pagWrap=document.getElementById('fc-pagamento-wrap');
+  if(pagWrap) pagWrap.style.display=_currentTempoPagamento==='subito'?'':'none';
 }
 
 function onMetodoChange(el){
@@ -1835,6 +1860,8 @@ async function salvaConsegna(){
       fascia_trasferimento:        tipo==='emporio'?(()=>{const m=document.getElementById('fc-trasf-mattino')?.checked,p=document.getElementById('fc-trasf-pomeriggio')?.checked;return(m&&p)?'entrambi':m?'mattino':p?'pomeriggio':null;})():null,
       tappe:                       tipo==='emporio'?(()=>{const t=_getTappe();return t.length>0?t:null;})():null,
       destinatario_azienda:        tipo==='azienda'?(document.getElementById('fc-dest-azienda')?.value.trim()||null):null,
+      telefono_azienda:            tipo==='azienda'?(document.getElementById('fc-dest-tel-az')?.value.trim()||null):null,
+      tempo_pagamento:             tipo!=='emporio'&&_currentTipoPagamento==='da_pagare'?(_currentTempoPagamento||null):null,
       destinatario_nome:           tipo!=='emporio'?(document.getElementById('fc-dest-nome')?.value.trim()||null):null,
       destinatario_telefono:       tipo!=='emporio'?(document.getElementById('fc-dest-tel')?.value.trim()||null):null,
       destinatario_indirizzo:      tipo!=='emporio'?(document.getElementById('fc-dest-ind')?.value.trim()||null):null,
@@ -1847,7 +1874,7 @@ async function salvaConsegna(){
       tipo_documento:              _currentTipoDocumento||null,
       tipo_pagamento:              _currentTipoPagamento||null,
       importo:                     _currentTipoPagamento==='da_pagare'?(parseFloat(document.getElementById('fc-importo')?.value)||null):null,
-      metodo_pagamento:            _currentTipoPagamento==='da_pagare'?(_currentMetodoPagamento||null):null,
+      metodo_pagamento:            (_currentTipoPagamento==='da_pagare'&&_currentTempoPagamento==='subito')?(_currentMetodoPagamento||null):null,
       note:                        document.getElementById('fc-note')?.value.trim()||null,
       stato,
       motivo:                      ['rinviato','annullato'].includes(stato)?(document.getElementById('fc-motivo')?.value.trim()||null):null,
