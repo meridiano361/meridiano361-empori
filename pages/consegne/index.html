@@ -24,6 +24,16 @@
     .page-title{font-size:17px;font-weight:800;color:#1e293b}
     .wip-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px}
 
+    /* ── Luoghi modal ── */
+    .luogo-row{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;overflow:hidden}
+    .luogo-row-hdr{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:#fff;transition:background .12s}
+    .luogo-row-hdr:hover{background:#f8fafc}
+    .luogo-row-nome{font-size:13px;font-weight:700;color:#1e293b;flex:1}
+    .luogo-row-addr{font-size:11px;color:#94a3b8;flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .luogo-row-body{display:none;padding:10px 12px;border-top:1px solid #f1f5f9;background:#fafafa}
+    .luogo-row-body.open{display:block}
+    .luogo-del-btn{flex-shrink:0;background:none;border:none;cursor:pointer;color:#ef4444;font-size:14px;padding:2px 4px;line-height:1}
+
     /* ── Month calendar ── */
     .mese-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e2e8f0;border-radius:12px;overflow:hidden;margin:12px 14px}
     .mese-hdr{background:#f8fafc;text-align:center;font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;padding:7px 0;letter-spacing:.05em}
@@ -312,6 +322,9 @@
         <i class="fas fa-circle-info" style="color:#3b82f6"></i>
       </button>
       <div style="margin-left:auto;display:flex;gap:6px;flex-shrink:0">
+        <button id="btn-luoghi" class="btn btn-ghost" onclick="apriLuoghi()" style="display:none">
+          <i class="fas fa-map-pin"></i> Luoghi
+        </button>
         <button class="btn btn-outline" onclick="apriNuovaTrasf(null)">
           <i class="fas fa-right-left"></i> Trasferimento
         </button>
@@ -404,6 +417,21 @@
       <button class="btn btn-red" id="btn-salva-cns" onclick="salvaConsegna()">
         <i class="fas fa-check"></i> Salva
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: GESTISCI LUOGHI ══ -->
+<div id="modal-luoghi" class="modal-ov" style="display:none" onclick="if(event.target===this)chiudiLuoghi()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-hdr">
+      <h2>Luoghi</h2>
+      <button class="modal-close" onclick="chiudiLuoghi()">×</button>
+    </div>
+    <div class="modal-body" id="modal-luoghi-body"></div>
+    <div class="modal-ftr">
+      <button class="btn btn-outline" onclick="chiudiLuoghi()">Chiudi</button>
+      <button class="btn btn-red" onclick="aggiungiLuogo()"><i class="fas fa-plus"></i> Aggiungi luogo</button>
     </div>
   </div>
 </div>
@@ -502,6 +530,10 @@ async function init(){
   _sb = window.supabase.createClient(SB_URL, SB_KEY);
   await Promise.all([loadFattorini(), loadSediPartenza()]);
   await loadAndRender();
+  if(getRuoloLoggato() !== 'fattorino'){
+    const btn=document.getElementById('btn-luoghi');
+    if(btn) btn.style.display='';
+  }
 }
 
 async function loadSediPartenza(){
@@ -2030,6 +2062,116 @@ async function eliminaConsegna(id){
   M361.toast('Consegna eliminata','ok');
   chiudiModalCns();
   await loadAndRender();
+}
+
+/* ── Luoghi modal ───────────────────────────────────────── */
+
+function apriLuoghi(){
+  document.getElementById('modal-luoghi').style.display='flex';
+  renderLuoghiModal();
+}
+function chiudiLuoghi(){
+  document.getElementById('modal-luoghi').style.display='none';
+}
+
+function renderLuoghiModal(){
+  const body=document.getElementById('modal-luoghi-body');
+  if(!_sediPartenza.length){body.innerHTML='<p style="text-align:center;color:#94a3b8;padding:24px 0">Nessun luogo trovato.</p>';return;}
+  body.innerHTML=_sediPartenza.map(s=>{
+    const addr=[s.indirizzo,s.cap&&s.comune?s.cap+' '+s.comune:s.comune||''].filter(Boolean).join(', ');
+    return `<div class="luogo-row" id="luogo-row-${s.id}">
+      <div class="luogo-row-hdr" onclick="toggleLuogoEdit(${s.id})">
+        <div class="luogo-row-nome">${esc(s.nome)}</div>
+        <div class="luogo-row-addr">${esc(addr||'—')}</div>
+        <i class="fas fa-chevron-down" id="luogo-chev-${s.id}" style="font-size:10px;color:#94a3b8;transition:transform .15s;flex-shrink:0"></i>
+      </div>
+      <div class="luogo-row-body" id="luogo-body-${s.id}">
+        <div class="form-row r1"><div class="form-field">
+          <label class="form-lbl">Nome</label>
+          <input id="ln-nome-${s.id}" class="form-inp" value="${esc(s.nome||'')}">
+        </div></div>
+        <div class="form-row r1"><div class="form-field">
+          <label class="form-lbl">Indirizzo</label>
+          <input id="ln-ind-${s.id}" class="form-inp" value="${esc(s.indirizzo||'')}">
+        </div></div>
+        <div class="form-row">
+          <div class="form-field"><label class="form-lbl">Comune</label>
+            <input id="ln-com-${s.id}" class="form-inp" value="${esc(s.comune||'')}">
+          </div>
+          <div class="form-field"><label class="form-lbl">CAP</label>
+            <input id="ln-cap-${s.id}" class="form-inp" maxlength="5" inputmode="numeric" value="${esc(s.cap||'')}">
+          </div>
+        </div>
+        ${s.indirizzo||s.comune?`<a href="https://maps.google.com/?q=${encodeURIComponent([s.indirizzo,s.cap&&s.comune?s.cap+' '+s.comune:s.comune].filter(Boolean).join(', '))}" target="_blank" rel="noopener" style="font-size:11px;color:#1a73e8;text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:8px"><i class="fas fa-map-location-dot"></i> Verifica su Maps</a>`:''}
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-red" style="flex:1;justify-content:center;padding:8px" onclick="salvaLuogo(${s.id})"><i class="fas fa-check"></i> Salva</button>
+          <button class="btn btn-outline" style="color:#ef4444;border-color:#fecaca;padding:8px 14px" onclick="eliminaLuogo(${s.id})"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleLuogoEdit(id){
+  const body=document.getElementById('luogo-body-'+id);
+  const chev=document.getElementById('luogo-chev-'+id);
+  if(!body) return;
+  const open=body.classList.toggle('open');
+  if(chev) chev.style.transform=open?'rotate(180deg)':'';
+}
+
+async function salvaLuogo(id){
+  const nome=document.getElementById('ln-nome-'+id)?.value.trim();
+  if(!nome){M361.toast('Nome obbligatorio','warn');return;}
+  const {error}=await _sb.from('sedi_partenza').update({
+    nome,
+    indirizzo: document.getElementById('ln-ind-'+id)?.value.trim()||null,
+    comune:    document.getElementById('ln-com-'+id)?.value.trim()||null,
+    cap:       document.getElementById('ln-cap-'+id)?.value.trim()||null,
+  }).eq('id',id);
+  if(error){M361.toast('Errore: '+error.message,'err');return;}
+  M361.toast('Luogo salvato','ok');
+  await _ricaricaSedi();
+  renderLuoghiModal();
+}
+
+async function eliminaLuogo(id){
+  const s=_sediPartenza.find(x=>x.id===id);
+  if(!confirm(`Eliminare "${s?.nome||'questo luogo'}"?`)) return;
+  const {error}=await _sb.from('sedi_partenza').delete().eq('id',id);
+  if(error){M361.toast('Errore: '+error.message,'err');return;}
+  M361.toast('Luogo eliminato','ok');
+  await _ricaricaSedi();
+  renderLuoghiModal();
+}
+
+async function aggiungiLuogo(){
+  const nome=prompt('Nome del nuovo luogo:');
+  if(!nome?.trim()) return;
+  const {data,error}=await _sb.from('sedi_partenza').insert({
+    nome:nome.trim(), attiva:true, ordine:999
+  }).select().single();
+  if(error){M361.toast('Errore: '+error.message,'err');return;}
+  M361.toast('Luogo aggiunto','ok');
+  await _ricaricaSedi();
+  renderLuoghiModal();
+  // Espandi subito la riga nuova per compilare l'indirizzo
+  setTimeout(()=>toggleLuogoEdit(data.id),80);
+}
+
+async function _ricaricaSedi(){
+  try{
+    const {data}=await _sb.from('sedi_partenza').select('id,nome,indirizzo,comune,cap').eq('attiva',true).order('ordine');
+    _sediPartenza=data||[];
+    // Aggiorna le select/datalist nel form trasferimento se aperto
+    const dl=document.getElementById('dl-sedi-partenza');
+    if(dl) dl.innerHTML=_sediPartenza.map(s=>`<option value="${esc(s.nome)}">`).join('');
+    const sel=document.getElementById('fc-emp-part');
+    if(sel){
+      const cur=sel.value;
+      sel.innerHTML=_sediPartenza.map(s=>`<option value="${esc(s.nome)}"${s.nome===cur?' selected':''}>${esc(s.nome)}</option>`).join('');
+    }
+  }catch(e){console.warn('_ricaricaSedi',e);}
 }
 
 /* ── Status modal ────────────────────────────────────────── */
