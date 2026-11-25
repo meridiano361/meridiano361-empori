@@ -871,7 +871,7 @@ function renderGiorno(){
     if(c.tipo_destinazione!=='emporio') html+=`<button class="btn btn-outline btn-sm" onclick="stampaEtichetta('${c.id}')"><i class="fas fa-tag"></i> Etichetta</button>`;
     if(c.tipo_destinazione==='emporio'&&c.emporio_partenza){
       const _stops=[c.emporio_partenza,...(Array.isArray(c.tappe)&&c.tappe.length?c.tappe:[c.emporio_destinazione||''].filter(Boolean))];
-      const _mu='https://www.google.com/maps/dir/'+_stops.map(s=>encodeURIComponent(s)).join('/');
+      const _mu='https://www.google.com/maps/dir/'+_stops.map(s=>{const _sd=_sediPartenza.find(x=>x.nome===s);const _a=_sd?.indirizzo?[_sd.indirizzo,_sd.cap&&_sd.comune?_sd.cap+' '+_sd.comune:_sd.comune].filter(Boolean).join(', '):s;return encodeURIComponent(_a);}).join('/');
       html+=`<a href="${_mu}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="text-decoration:none"><i class="fas fa-map-location-dot"></i> Maps</a>`;
     }
     html+=`<button class="btn btn-outline btn-sm" onclick="duplicaConsegna('${c.id}')"><i class="fas fa-copy"></i> Duplica</button>`;
@@ -1303,7 +1303,10 @@ function renderTappe(){
   const n = _trasfTappe.length;
   list.innerHTML = n===0
     ? '<div style="font-size:12px;color:#94a3b8;padding:4px 0">Nessuna tappa aggiunta</div>'
-    : _trasfTappe.map((t,i)=>`
+    : _trasfTappe.map((t,i)=>{
+      const _sd=_sediPartenza.find(s=>s.nome===t);
+      const _mq=_sd?.indirizzo?[_sd.indirizzo,_sd.cap&&_sd.comune?_sd.cap+' '+_sd.comune:_sd.comune].filter(Boolean).join(', '):t;
+      return `
       <div style="display:flex;align-items:center;gap:5px;background:#f1f5f9;border-radius:8px;padding:5px 8px;margin-bottom:4px">
         <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
           <button type="button" onclick="spostaTappa(${i},-1)" ${i===0?'disabled':''} style="background:none;border:none;cursor:pointer;color:${i===0?'#e2e8f0':'#94a3b8'};font-size:11px;padding:0;line-height:1;height:12px" title="Su"><i class="fas fa-chevron-up"></i></button>
@@ -1311,11 +1314,12 @@ function renderTappe(){
         </div>
         <span style="font-size:12px;font-weight:700;color:#64748b;min-width:16px">${i+1}.</span>
         <span data-tappa="${esc(t)}" style="font-size:13px;font-weight:600;color:#1e293b;flex:1">${esc(t)}</span>
-        <a href="https://maps.google.com/maps?q=${encodeURIComponent(t)}" target="_blank" rel="noopener" style="color:#94a3b8;font-size:13px;text-decoration:none;line-height:1;padding:0 2px;display:flex;align-items:center" title="Apri in Google Maps"><i class="fas fa-map-location-dot"></i></a>
+        <a href="https://maps.google.com/maps?q=${encodeURIComponent(_mq)}" target="_blank" rel="noopener" style="color:#94a3b8;font-size:13px;text-decoration:none;line-height:1;padding:0 2px;display:flex;align-items:center" title="Apri in Google Maps"><i class="fas fa-map-location-dot"></i></a>
         <button type="button" onclick="rimuoviTappa(${i})" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;padding:0;line-height:1" title="Rimuovi">
           <i class="fas fa-xmark"></i>
         </button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 }
 
 function _getTappe(){
