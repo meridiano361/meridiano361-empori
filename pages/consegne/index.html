@@ -8,14 +8,14 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="../../assets/style/nav-style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <title>Consegne Fattorino</title>
+  <title>Consegne</title>
   <style>
     :root { --red:#B5453A; }
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'CenturyGothic','Century Gothic',sans-serif;background:#f8fafc}
     a{color:inherit;text-decoration:none}
 
-    .page-wrap{padding-top:64px;padding-bottom:72px;min-height:100vh}
+    .page-wrap{padding-top:0;padding-bottom:72px;min-height:100vh}
 
     /* ── Sticky header ── */
     #hdr{position:sticky;top:64px;z-index:100;background:#fff;border-bottom:1px solid #e2e8f0}
@@ -23,6 +23,19 @@
     .hdr-r2{padding:8px 14px 8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
     .page-title{font-size:17px;font-weight:800;color:#1e293b}
     .wip-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px}
+
+    /* ── Month calendar ── */
+    .mese-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e2e8f0;border-radius:12px;overflow:hidden;margin:12px 14px}
+    .mese-hdr{background:#f8fafc;text-align:center;font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;padding:7px 0;letter-spacing:.05em}
+    .mese-cell{background:#fff;min-height:52px;padding:5px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .12s}
+    .mese-cell:hover{background:#f8f5ff}
+    .mese-cell.mese-empty{background:#f8fafc;cursor:default;pointer-events:none}
+    .mese-cell.mese-today{background:#fff9f9}
+    .mese-day-num{font-size:13px;font-weight:700;color:#334155;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+    .mese-today .mese-day-num{background:var(--red);color:#fff}
+    .mese-count{font-size:10px;font-weight:800;background:#dbeafe;color:#1e40af;border-radius:5px;padding:1px 5px;min-width:16px;text-align:center;line-height:1.5}
+    .mese-count.has-trasf{background:#ede9fe;color:#4f46e5}
+    @media(max-width:400px){.mese-cell{min-height:42px}.mese-day-num{font-size:12px;width:22px;height:22px}}
 
     /* ── Period nav ── */
     .period-nav{display:flex;align-items:center;gap:4px}
@@ -289,6 +302,7 @@
       <div class="view-tabs">
         <button id="tab-giorno" class="view-tab active"  onclick="setView('giorno')">Giorno</button>
         <button id="tab-sett"   class="view-tab"         onclick="setView('settimana')">Settimana</button>
+        <button id="tab-mese"   class="view-tab"         onclick="setView('mese')">Mese</button>
       </div>
       <!-- filtri + guida + nuova -->
       <button id="btn-filtri" class="btn-filtri" onclick="toggleFiltri()">
@@ -521,6 +535,9 @@ async function loadAndRender(){
   if(_view==='settimana'){
     const mon=getMonday(_curDate);
     from=dateKey(mon); to=dateKey(addDays(mon,6));
+  } else if(_view==='mese'){
+    const y=_curDate.getFullYear(),m=_curDate.getMonth();
+    from=dateKey(new Date(y,m,1)); to=dateKey(new Date(y,m+1,0));
   } else {
     from=to=dateKey(_curDate);
   }
@@ -569,13 +586,25 @@ function getFiltered(){
 
 function setView(v){
   _view=v;
-  document.getElementById('tab-sett').classList.toggle('active',v==='settimana');
   document.getElementById('tab-giorno').classList.toggle('active',v==='giorno');
+  document.getElementById('tab-sett').classList.toggle('active',v==='settimana');
+  document.getElementById('tab-mese').classList.toggle('active',v==='mese');
   loadAndRender();
 }
 
-function navPrev(){ _curDate=addDays(_curDate,_view==='settimana'?-7:-1); loadAndRender(); }
-function navNext(){ _curDate=addDays(_curDate,_view==='settimana'? 7: 1); loadAndRender(); }
+function _addMonths(d,n){const r=new Date(d);r.setDate(1);r.setMonth(r.getMonth()+n);return r;}
+function navPrev(){
+  if(_view==='settimana') _curDate=addDays(_curDate,-7);
+  else if(_view==='mese') _curDate=_addMonths(_curDate,-1);
+  else _curDate=addDays(_curDate,-1);
+  loadAndRender();
+}
+function navNext(){
+  if(_view==='settimana') _curDate=addDays(_curDate,7);
+  else if(_view==='mese') _curDate=_addMonths(_curDate,1);
+  else _curDate=addDays(_curDate,1);
+  loadAndRender();
+}
 function goToday(){ _curDate=new Date(); loadAndRender(); }
 function goToDay(dk){ _curDate=new Date(dk+'T00:00:00'); setView('giorno'); }
 
@@ -609,8 +638,43 @@ function resetFiltri(){
 
 function render(){
   updatePeriodo();
-  if(_view==='settimana') renderSettimana(); else renderGiorno();
-  _prependUndatedSection();
+  if(_view==='settimana') renderSettimana();
+  else if(_view==='mese') renderMese();
+  else renderGiorno();
+  if(_view!=='mese') _prependUndatedSection();
+}
+
+function renderMese(){
+  const y=_curDate.getFullYear(), m=_curDate.getMonth();
+  const firstDay=new Date(y,m,1);
+  const lastDay=new Date(y,m+1,0);
+  const today=dateKey(new Date());
+  const filt=getFiltered();
+
+  // Mappa data → {consegne, trasferimenti}
+  const cm={};
+  filt.forEach(c=>{
+    if(!c.data_consegna) return;
+    if(!cm[c.data_consegna]) cm[c.data_consegna]={tot:0,trasf:0};
+    cm[c.data_consegna].tot++;
+    if(c.tipo_destinazione==='emporio') cm[c.data_consegna].trasf++;
+  });
+
+  const startOffset=(firstDay.getDay()+6)%7; // 0=lun
+  let html='<div class="mese-grid">';
+  ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(g=>{ html+=`<div class="mese-hdr">${g}</div>`; });
+  for(let i=0;i<startOffset;i++) html+='<div class="mese-cell mese-empty"></div>';
+  for(let d=1;d<=lastDay.getDate();d++){
+    const dk=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=dk===today;
+    const info=cm[dk];
+    html+=`<div class="mese-cell${isToday?' mese-today':''}" onclick="goToDay('${dk}')">
+      <div class="mese-day-num">${d}</div>
+      ${info?`<div class="mese-count${info.trasf===info.tot?' has-trasf':''}">${info.tot}</div>`:''}
+    </div>`;
+  }
+  html+='</div>';
+  document.getElementById('view-container').innerHTML=html;
 }
 
 function _prependUndatedSection(){
@@ -645,6 +709,8 @@ function updatePeriodo(){
     } else {
       el.textContent=`${mon.getDate()} ${MESI[mon.getMonth()].slice(0,3)} – ${sun.getDate()} ${MESI[sun.getMonth()].slice(0,3)} ${sun.getFullYear()}`;
     }
+  } else if(_view==='mese'){
+    el.textContent=`${MESI[_curDate.getMonth()]} ${_curDate.getFullYear()}`;
   } else {
     const d=_curDate;
     el.textContent=`${GIORNI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
@@ -1037,10 +1103,7 @@ function buildFormCns(c, dataDefault, tipoForzato){
         </div>
         <div class="form-row r1">
           <div class="form-field">
-            <label class="form-lbl" style="display:flex;justify-content:space-between;align-items:center">Indirizzo<a href="#" style="font-size:11px;color:#6366f1;font-weight:normal;text-decoration:none" onclick="event.preventDefault();const d=document.getElementById('maps-paste-dest');d.style.display=d.style.display==='none'?'block':'none'"><i class="fas fa-location-dot"></i> da Maps</a></label>
-            <div id="maps-paste-dest" style="display:none;margin-bottom:6px">
-              <input type="text" class="form-inp" placeholder="Incolla link Google Maps…" autocomplete="off" style="font-size:12px" oninput="onMapsPasteDest(this.value)">
-            </div>
+            <label class="form-lbl">Indirizzo</label>
             <input id="fc-dest-ind" class="form-inp" type="text" value="${isEdit?esc(c.destinatario_indirizzo||''):''}">
           </div>
         </div>
@@ -1054,14 +1117,13 @@ function buildFormCns(c, dataDefault, tipoForzato){
             <input id="fc-dest-cap" class="form-inp" type="text" maxlength="5" inputmode="numeric" value="${isEdit?esc(c.destinatario_cap||''):''}">
           </div>
         </div>
-        ${isEdit&&(c.destinatario_indirizzo||c.destinatario_citta)?`
-        <div style="margin-top:8px">
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([c.destinatario_indirizzo,c.destinatario_cap,c.destinatario_citta].filter(Boolean).join(', '))}"
-            target="_blank" rel="noopener" title="Apri in Google Maps"
-            style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid #d1d5db;text-decoration:none;color:#1a73e8;background:#fff">
-            <i class="fas fa-map-location-dot" style="font-size:15px"></i>
-          </a>
-        </div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button type="button" onclick="toggleMapsPasteDest()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border-radius:9px;border:1px solid #6366f1;color:#6366f1;background:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit"><i class="fas fa-location-dot"></i> Da Maps</button>
+          <button type="button" onclick="cercaSuMaps()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border-radius:9px;border:1px solid #1a73e8;color:#1a73e8;background:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit"><i class="fas fa-map-location-dot"></i> Cerca su Maps</button>
+        </div>
+        <div id="maps-paste-dest" style="display:none;margin-top:6px">
+          <input type="text" class="form-inp" placeholder="Incolla link Google Maps…" autocomplete="off" style="font-size:12px" oninput="onMapsPasteDest(this.value)">
+        </div>
         <div class="form-row r1">
           <div class="form-field">
             <label class="form-lbl">Note</label>
@@ -1308,6 +1370,23 @@ function onMapsPasteTrasf(val){
     const nome=r.name||(r.coords?`${r.coords.lat},${r.coords.lon}`:'');
     if(nome){_trasfTappe.push(nome);renderTappe();document.getElementById('maps-paste-trasf').style.display='none';M361.toast('Tappa aggiunta','ok');}
   }
+}
+
+function toggleMapsPasteDest(){
+  const d=document.getElementById('maps-paste-dest');
+  if(!d) return;
+  const show=d.style.display==='none';
+  d.style.display=show?'block':'none';
+  if(show) d.querySelector('input')?.focus();
+}
+
+function cercaSuMaps(){
+  const ind=document.getElementById('fc-dest-ind')?.value.trim();
+  const cit=document.getElementById('fc-dest-cit')?.value.trim();
+  const cap=document.getElementById('fc-dest-cap')?.value.trim();
+  const q=[ind,cap&&cit?cap+' '+cit:cit||cap].filter(Boolean).join(', ');
+  if(!q){M361.toast('Inserisci almeno un indirizzo','warn');return;}
+  window.open('https://maps.google.com/?q='+encodeURIComponent(q),'_blank','noopener,noreferrer');
 }
 
 async function onMapsPasteDest(val){
