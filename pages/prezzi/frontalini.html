@@ -1836,7 +1836,7 @@ function exportCatalogCSV() {
 async function svuotaCatalogo() {
   if (!confirm(`Eliminare TUTTI i ${_catalogo.length} prodotti dal catalogo?\nQuesta operazione non può essere annullata.`)) return;
   if (!confirm('Ultima conferma: vuoi davvero eliminare tutto il catalogo?')) return;
-  const { error } = await db.from('frontalini_catalogo').delete().neq('id', 0);
+  const { error } = await db.from('prodotti_catalogo').delete().eq('source_sheet', 'Frontalini');
   if (error) { alert('Errore: ' + error.message); return; }
   await loadCatalogo();
   R();
@@ -2006,15 +2006,17 @@ async function confirmImport() {
     bio:               r.bio,
     senza_glutine:     r.senza_glutine,
     vegano:            r.vegano,
+    source_sheet:      'Frontalini',
+    active:            true,
   }));
 
   if (toInsert.length === 0) { closeImportModal(); return; }
 
-  // Inserisci a blocchi di 100
+  // Inserisci a blocchi di 100 (ignoreDuplicates per evitare errori su prodotti già presenti)
   let _importErr = false;
   for (let i=0; i<toInsert.length; i+=100) {
     const batch = toInsert.slice(i, i+100);
-    const { error } = await db.from('frontalini_catalogo').insert(batch);
+    const { error } = await db.from('prodotti_catalogo').upsert(batch, { onConflict: 'upper(trim(descrizione))', ignoreDuplicates: true });
     if (error) { alert('Errore importazione: ' + error.message); _importErr = true; break; }
   }
 
@@ -2080,7 +2082,7 @@ async function saveBulkEditModal() {
   const btn = g('be-save-btn');
   if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Salvataggio…'; }
 
-  const { error } = await db.from('frontalini_catalogo').update(update).in('id', ids);
+  const { error } = await db.from('prodotti_catalogo').update(update).in('id', ids);
 
   if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Applica a tutti'; }
   if (error) { alert('Errore: ' + error.message); return; }
