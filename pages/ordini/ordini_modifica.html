@@ -527,6 +527,14 @@
                 </div>
             </div>
 
+            <!-- Chi sta modificando -->
+            <div id="chi-modifica-bar" style="display:flex;align-items:center;gap:10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap">
+                <i class="fas fa-user-edit" style="color:#94a3b8;font-size:13px"></i>
+                <span style="font-size:12px;color:#64748b">Stai modificando come:</span>
+                <strong id="chi-modifica-label" style="font-size:13px;color:#1e293b;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</strong>
+                <button type="button" onclick="apriModalChiModifica()" style="font-size:11px;font-weight:700;color:#B5453A;border:1.5px solid #fecaca;background:#fff5f5;border-radius:8px;padding:5px 11px;cursor:pointer;white-space:nowrap"><i class="fas fa-exchange-alt" style="margin-right:4px"></i>Cambia</button>
+            </div>
+
             <div style="display:flex;gap:12px;flex-wrap:wrap">
                 <button type="submit" id="submit-btn" data-tip="Salva le modifiche all'ordine" class="btn-submit" style="flex:1">
                     <i class="fas fa-sync-alt mr-2"></i> Aggiorna Ordine
@@ -537,6 +545,21 @@
                 </button>
             </div>
         </form>
+
+        <!-- Modal: chi sta modificando -->
+        <div id="modal-chi-modifica" class="hidden fixed inset-0 z-[9200] flex items-center justify-center bg-black/40">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-sm mx-4 p-6" style="width:100%">
+                <h3 class="font-bold text-lg text-slate-800 mb-1">Chi sta modificando?</h3>
+                <p class="text-sm text-slate-500 mb-4">Seleziona il tuo nome dall'elenco operatori.</p>
+                <select id="select-chi-modifica" class="form-select w-full mb-5">
+                    <option value="">Seleziona operatore…</option>
+                </select>
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="document.getElementById('modal-chi-modifica').classList.add('hidden')" class="text-sm font-bold border border-slate-200 rounded-xl px-4 py-2 text-slate-600 hover:bg-slate-50 transition-colors">Annulla</button>
+                    <button type="button" onclick="confermaChiModifica()" class="text-sm font-bold bg-[#B5453A] text-white rounded-xl px-4 py-2 hover:bg-[#9c3a30] transition-colors">Conferma</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Modal avviso uscita (BLOCCO 5) -->
         <div id="modal-uscita" class="hidden fixed inset-0 z-[9100] flex items-center justify-center bg-black/40">
@@ -637,6 +660,46 @@
         });
 
         let _operatoriCache = null;
+        let _chiModifica    = null; // nome operatore che sta modificando ora
+        let _modificheLog   = [];  // log caricato dal DB, aggiornato al salvataggio
+        const _SS_KEY       = 'ordini_chi_modifica';
+
+        function _setChiModifica(nome){
+            _chiModifica = nome;
+            document.getElementById('chi-modifica-label').textContent = nome || '—';
+            if(nome) sessionStorage.setItem(_SS_KEY, nome);
+        }
+
+        async function apriModalChiModifica(){
+            if(!_operatoriCache){
+                const{data}=await _supabase.from('operatori')
+                    .select('nome, emporio, empori_aggiuntivi')
+                    .or('attivo.eq.true,attivo.is.null').order('nome');
+                _operatoriCache=data||[];
+            }
+            const sel=document.getElementById('select-chi-modifica');
+            sel.innerHTML='<option value="">Seleziona operatore…</option>';
+            _operatoriCache.forEach(op=>{
+                const opt=document.createElement('option');
+                opt.value=op.nome; opt.text=op.nome;
+                if(op.nome===_chiModifica) opt.selected=true;
+                sel.add(opt);
+            });
+            document.getElementById('modal-chi-modifica').classList.remove('hidden');
+        }
+
+        function confermaChiModifica(){
+            const nome=document.getElementById('select-chi-modifica').value;
+            if(!nome) return;
+            _setChiModifica(nome);
+            document.getElementById('modal-chi-modifica').classList.add('hidden');
+        }
+
+        function _fmtLogDate(iso){
+            if(!iso) return '';
+            const d=new Date(iso);
+            return d.toLocaleDateString('it-IT')+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+        }
 
         // GET ORDER ID FROM URL
         function getOrderIdFromURL() {
@@ -767,10 +830,17 @@
                 setValueSafe('select-canale', order.canale);
             }
             
-            // Operatore
+            // Operatore (mantieni il creatore nel select)
             setTimeout(() => {
                 setValueSafe('select-operatore', order.operatore);
             }, 100);
+
+            // Carica log modifiche esistente
+            _modificheLog = Array.isArray(order.modifiche_log) ? order.modifiche_log : [];
+
+            // Chi sta modificando ora
+            const saved = sessionStorage.getItem(_SS_KEY);
+            _setChiModifica(saved || order.operatore || '');
             
             // Date
             if (order.data_ordine) {
@@ -1667,7 +1737,8 @@
                     note_cliente: document.getElementById('order-notes-cliente').value,
                     titolo: document.getElementById('titolo-ordine')?.value || '',
                     articoli: articoli,
-                    stato: articoli.length > 0 && articoli.every(a => (parseInt(a.merce_pronta) || 0) >= (parseInt(a.qta) || 0)) ? 'merce_pronta' : 'in_corso'
+                    stato: articoli.length > 0 && articoli.every(a => (parseInt(a.merce_pronta) || 0) >= (parseInt(a.qta) || 0)) ? 'merce_pronta' : 'in_corso',
+                    modifiche_log: [..._modificheLog, {operatore: _chiModifica||'', at: new Date().toISOString()}]
                 };
 
                 const src = getSrcFromURL();
@@ -1681,6 +1752,7 @@
 
                 if (error) throw error;
 
+                sessionStorage.setItem(_SS_KEY, _chiModifica || '');
                 modificheNonSalvate = false;
                 alert('Ordine aggiornato con successo!');
                 window.location.href = backPage;
