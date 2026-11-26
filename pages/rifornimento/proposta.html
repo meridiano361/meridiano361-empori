@@ -800,14 +800,21 @@ async function salva(manual = false) {
   // Salva solo le righe toccate (upsert per codice)
   const toUpsert = codes
     .filter(code => righe[code] !== undefined)
-    .map(code => ({
-      proposal_id:       propId,
-      catalog_product_id: catalogo.find(p => p.codice === code)?.id || null,
-      product_code: code,
-      description:       catalogo.find(p => p.codice === code)?.descrizione || code,
-      quantity:          righe[code].qty || 0,
-      notes:             righe[code].notes || '',
-    }));
+    .map(code => {
+      const p = catalogo.find(cp => cp.codice === code);
+      return {
+        proposal_id:        propId,
+        catalog_product_id: null,   // non usiamo più il FK a rifornimento_catalogo
+        product_code:       code,
+        description:        p?.descrizione || code,
+        fornitore:          p?.fornitore   || '',
+        category:           p?.category    || '',
+        pvp:                p?.prezzo      ?? null,
+        sort_order:         p?.sort_order  ?? 9999,
+        quantity:           righe[code].qty || 0,
+        notes:              righe[code].notes || '',
+      };
+    });
 
   if (!toUpsert.length) { showBadge('saved', 'Salvato'); return; }
 
