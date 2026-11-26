@@ -24,6 +24,22 @@
     .page-title{font-size:17px;font-weight:800;color:#1e293b}
     .wip-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:6px}
 
+    /* ── Ricerca destinatari ── */
+    #search-panel{background:#fff;border-bottom:2px solid #e2e8f0;padding:10px 14px 0}
+    #search-panel .search-wrap{display:flex;gap:8px;align-items:center}
+    #search-panel input[type=search]{flex:1;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-family:inherit;outline:none;transition:border-color .15s}
+    #search-panel input[type=search]:focus{border-color:#6366f1}
+    #search-results{max-height:52vh;overflow-y:auto;padding-bottom:6px;margin-top:8px}
+    .sr-item{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .1s;border-radius:8px}
+    .sr-item:hover{background:#f8f5ff}
+    .sr-item:last-child{border-bottom:none}
+    .sr-icon{width:30px;height:30px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:#6366f1}
+    .sr-name{font-size:13px;font-weight:700;color:#1e293b;line-height:1.2}
+    .sr-sub{font-size:11px;color:#94a3b8;margin-top:1px}
+    .sr-date{font-size:11px;font-weight:700;color:#334155;text-align:right;flex-shrink:0;white-space:nowrap}
+    .sr-stato{font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 5px;border-radius:4px;margin-top:2px;letter-spacing:.04em}
+    .sr-empty{text-align:center;padding:20px 0;color:#94a3b8;font-size:13px}
+
     /* ── Luoghi modal ── */
     .luogo-row{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;overflow:hidden}
     .luogo-row-hdr{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:#fff;transition:background .12s}
@@ -315,6 +331,9 @@
         <button id="tab-mese"   class="view-tab"         onclick="setView('mese')">Mese</button>
       </div>
       <!-- filtri + guida + nuova -->
+      <button id="btn-search" class="btn-ghost" onclick="toggleSearch()" title="Cerca destinatario" style="padding:6px 10px">
+        <i class="fas fa-magnifying-glass"></i>
+      </button>
       <button id="btn-filtri" class="btn-filtri" onclick="toggleFiltri()">
         <i class="fas fa-filter"></i> Filtri
       </button>
@@ -366,6 +385,18 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ══ PANNELLO RICERCA ══ -->
+  <div id="search-panel" style="display:none">
+    <div class="search-wrap">
+      <i class="fas fa-magnifying-glass" style="color:#94a3b8;flex-shrink:0"></i>
+      <input id="search-input" type="search" placeholder="Cerca destinatario, azienda…"
+        oninput="onSearchInput(this.value)"
+        onkeydown="if(event.key==='Escape')toggleSearch()">
+      <button class="btn-ghost" onclick="toggleSearch()" style="flex-shrink:0;padding:5px 8px"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div id="search-results"></div>
   </div>
 
   <!-- ══ BARRA FILTRI ══ -->
@@ -640,6 +671,83 @@ function navNext(){
 }
 function goToday(){ _curDate=new Date(); loadAndRender(); }
 function goToDay(dk){ _curDate=new Date(dk+'T00:00:00'); setView('giorno'); }
+
+/* ── Search ──────────────────────────────────────────────── */
+
+let _searchTimeout = null;
+
+function toggleSearch(){
+  const panel = document.getElementById('search-panel');
+  const btn   = document.getElementById('btn-search');
+  const show  = panel.style.display === 'none';
+  panel.style.display = show ? '' : 'none';
+  btn.classList.toggle('has-active', show);
+  if(show){
+    setTimeout(()=>document.getElementById('search-input')?.focus(), 60);
+  } else {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-results').innerHTML = '';
+  }
+}
+
+function onSearchInput(val){
+  clearTimeout(_searchTimeout);
+  const q = val.trim();
+  if(q.length < 2){
+    document.getElementById('search-results').innerHTML = '';
+    return;
+  }
+  _searchTimeout = setTimeout(()=>eseguiRicerca(q), 350);
+}
+
+async function eseguiRicerca(q){
+  const res = document.getElementById('search-results');
+  res.innerHTML = '<div class="sr-empty"><i class="fas fa-spinner fa-spin"></i></div>';
+  const {data, error} = await _sb.from('consegne')
+    .select('id,data_consegna,ora_prevista,tipo_destinazione,destinatario_nome,destinatario_azienda,stato,emporio_partenza,da_concordare')
+    .or(`destinatario_nome.ilike.%${q}%,destinatario_azienda.ilike.%${q}%`)
+    .order('data_consegna', {ascending: true, nullsFirst: false})
+    .limit(30);
+  if(error){ res.innerHTML=`<div class="sr-empty">Errore: ${esc(error.message)}</div>`; return; }
+  if(!data?.length){ res.innerHTML='<div class="sr-empty">Nessun risultato</div>'; return; }
+
+  res.innerHTML = data.map(c=>{
+    const st  = STATI[c.stato] || STATI.da_programmare;
+    const nome = c.tipo_destinazione==='azienda'&&c.destinatario_azienda
+      ? esc(c.destinatario_azienda) + (c.destinatario_nome?` <span style="font-weight:500;color:#94a3b8">· ${esc(c.destinatario_nome)}</span>`:'')
+      : esc(c.destinatario_nome||'—');
+    const icon = c.tipo_destinazione==='azienda'?'fa-building':'fa-user';
+    let dataStr;
+    if(c.da_concordare && !c.data_consegna){
+      dataStr = '<span style="color:#ea580c">Da concordare</span>';
+    } else if(c.data_consegna){
+      const d = new Date(c.data_consegna+'T00:00:00');
+      dataStr = `${GIORNI_BREVI[d.getDay()]} ${d.getDate()} ${MESI[d.getMonth()].slice(0,3)}`;
+      if(c.ora_prevista) dataStr += `<br><span style="color:#6366f1">${c.ora_prevista.slice(0,5)}</span>`;
+    } else {
+      dataStr = '—';
+    }
+    return `<div class="sr-item" onclick="apriDaRicerca('${c.id}','${c.data_consegna||''}')">
+      <div class="sr-icon"><i class="fas ${icon}"></i></div>
+      <div style="flex:1;min-width:0">
+        <div class="sr-name">${nome}</div>
+        <div class="sr-sub">${esc(c.emporio_partenza||'')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="sr-date">${dataStr}</div>
+        <div class="sr-stato" style="background:${st.bg};color:${st.c}">${st.label}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function apriDaRicerca(id, dk){
+  toggleSearch();
+  if(dk){ _curDate=new Date(dk+'T00:00:00'); setView('giorno'); }
+  // Attendi il render, poi apri la consegna
+  await new Promise(r=>setTimeout(r,200));
+  apriModifica(id);
+}
 
 /* ── Filters ─────────────────────────────────────────────── */
 
