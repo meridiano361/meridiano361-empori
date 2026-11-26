@@ -209,22 +209,26 @@ function acRender(results,targetId){
     if(!drop)return;
     if(!results.length){drop.classList.remove('open');return;}
     _acIdx=-1;
+    drop._results=results;
     drop.innerHTML=results.map((p,i)=>`
-        <div class="ac-item" data-i="${i}" onmousedown="acSelect(${JSON.stringify(JSON.stringify(p))})">
+        <div class="ac-item" data-i="${i}">
             <div class="ac-item-desc">${escH(p.descrizione)}</div>
             <div class="ac-item-meta">${p.codice?'cod '+escH(p.codice)+' · ':''}${escH(p.marchio||p.fornitore||'')}${p.prezzo!=null?' · €'+p.prezzo.toFixed(2):''}
             </div>
         </div>`).join('');
     drop.classList.add('open');
-    drop._results=results;
-}
-function acSelect(pJson){
-    const p=JSON.parse(pJson);
-    const cod=g('f-cod'),desc=g('f-desc'),prezzo=g('f-prezzo');
-    if(cod)  cod.value  =p.codice||'';
-    if(desc) desc.value =p.descrizione||'';
-    if(prezzo&&p.prezzo!=null) prezzo.value=p.prezzo.toFixed(2);
-    acCloseAll();
+    drop.onmousedown=e=>{
+        const item=e.target.closest('.ac-item');
+        if(!item)return;
+        e.preventDefault();
+        const p=drop._results[Number(item.dataset.i)];
+        if(!p)return;
+        const cod=g('f-cod'),desc=g('f-desc'),prezzo=g('f-prezzo');
+        if(cod)  cod.value  =p.codice||'';
+        if(desc) desc.value =p.descrizione||'';
+        if(prezzo&&p.prezzo!=null) prezzo.value=p.prezzo.toFixed(2);
+        acCloseAll();
+    };
 }
 function acCloseAll(){
     document.querySelectorAll('.ac-drop').forEach(d=>d.classList.remove('open'));

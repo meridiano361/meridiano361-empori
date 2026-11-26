@@ -459,6 +459,10 @@
       <h2>Luoghi</h2>
       <button class="modal-close" onclick="chiudiLuoghi()">×</button>
     </div>
+    <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center">
+      <input id="luoghi-search" class="form-inp" placeholder="🔍 Cerca luogo…" style="flex:1;font-size:13px;padding:7px 10px" oninput="filterLuoghi(this.value)" autocomplete="off">
+      <button id="btn-sort-luoghi" onclick="toggleSortLuoghi()" title="Ordina A-Z" style="border:1.5px solid var(--s200);background:var(--s100);color:var(--s500);border-radius:9px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">A↓Z</button>
+    </div>
     <div class="modal-body" id="modal-luoghi-body"></div>
     <div class="modal-ftr">
       <button class="btn btn-outline" onclick="chiudiLuoghi()">Chiudi</button>
@@ -675,6 +679,8 @@ function goToDay(dk){ _curDate=new Date(dk+'T00:00:00'); setView('giorno'); }
 /* ── Search ──────────────────────────────────────────────── */
 
 let _searchTimeout = null;
+let _luoghiFilter  = '';
+let _luoghiSorted  = false;
 
 function toggleSearch(){
   const panel = document.getElementById('search-panel');
@@ -2206,17 +2212,36 @@ async function eliminaConsegna(id){
 /* ── Luoghi modal ───────────────────────────────────────── */
 
 function apriLuoghi(){
+  _luoghiFilter='';
+  _luoghiSorted=false;
+  const si=document.getElementById('luoghi-search');
+  if(si) si.value='';
+  const sb=document.getElementById('btn-sort-luoghi');
+  if(sb) sb.style.background='var(--s100)';
   document.getElementById('modal-luoghi').style.display='flex';
   renderLuoghiModal();
 }
 function chiudiLuoghi(){
   document.getElementById('modal-luoghi').style.display='none';
 }
+function filterLuoghi(val){
+  _luoghiFilter=val.toLowerCase().trim();
+  renderLuoghiModal();
+}
+function toggleSortLuoghi(){
+  _luoghiSorted=!_luoghiSorted;
+  const sb=document.getElementById('btn-sort-luoghi');
+  if(sb) sb.style.background=_luoghiSorted?'var(--red-light)':'var(--s100)';
+  renderLuoghiModal();
+}
 
 function renderLuoghiModal(){
   const body=document.getElementById('modal-luoghi-body');
-  if(!_sediPartenza.length){body.innerHTML='<p style="text-align:center;color:#94a3b8;padding:24px 0">Nessun luogo trovato.</p>';return;}
-  body.innerHTML=_sediPartenza.map(s=>{
+  let sedi=[..._sediPartenza];
+  if(_luoghiFilter) sedi=sedi.filter(s=>(s.nome||'').toLowerCase().includes(_luoghiFilter)||(s.indirizzo||'').toLowerCase().includes(_luoghiFilter)||(s.comune||'').toLowerCase().includes(_luoghiFilter));
+  if(_luoghiSorted) sedi=[...sedi].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','it'));
+  if(!sedi.length){body.innerHTML='<p style="text-align:center;color:#94a3b8;padding:24px 0">Nessun luogo trovato.</p>';return;}
+  body.innerHTML=sedi.map(s=>{
     const addr=[s.indirizzo,s.cap&&s.comune?s.cap+' '+s.comune:s.comune||''].filter(Boolean).join(', ');
     return `<div class="luogo-row" id="luogo-row-${s.id}">
       <div class="luogo-row-hdr" onclick="toggleLuogoEdit(${s.id})">
