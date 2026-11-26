@@ -5612,12 +5612,12 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const btn = document.getElementById('btn-deduplica');
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:5px"></i>Pulizia in corso…'; }
 
-        const [{ data: all, error: e1 }, { data: rif, error: e2 }] = await Promise.all([
+        const [{ data: all, error: e1 }] = await Promise.all([
             db.from('prodotti_catalogo').select('id,codice,descrizione,category,pack_size,assortment_cremona,assortment_casalmaggiore,assortment_viadana').order('id'),
-            db.from('rifornimento_catalogo').select('product_code,description,category,pack_size,assortment_cremona,assortment_casalmaggiore,assortment_viadana')
         ]);
-        if (e1 || e2 || !all) {
-            showToast('Errore caricamento dati: ' + (e1||e2)?.message, 'err');
+        const rif = [];
+        if (e1 || !all) {
+            showToast('Errore caricamento dati: ' + e1?.message, 'err');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-broom" style="margin-right:5px"></i>Deduplicazione + backfill dati fornitura'; }
             return;
         }
@@ -5662,13 +5662,12 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
 
     async function caricaProdotti() {
-        const [{ data: fr }, { data: rf }, { data: pu }] = await Promise.all([
+        const [{ data: fr }, { data: pu }] = await Promise.all([
             db.from('frontalini_catalogo').select('*').order('descrizione'),
-            db.from('rifornimento_catalogo').select('*').order('description'),
             db.from('prodotti_catalogo').select('*').order('descrizione'),
         ]);
         _prodFrontalini = fr || [];
-        _prodFornitura  = rf || [];
+        _prodFornitura  = [];
         _prodUnificati  = pu || [];
         _aggiornaFiltriProd();
         renderProdAll();
@@ -5983,8 +5982,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (!confirm(msg)) return;
         const ops = [];
         if (frIds.length) ops.push(db.from('frontalini_catalogo').delete().in('id', frIds));
-        if (rfIds.length) ops.push(db.from('rifornimento_catalogo').delete().in('id', rfIds));
-        if (puIds.length) ops.push(db.from('prodotti_catalogo').delete().in('id', puIds));
+        if ([...rfIds, ...puIds].length) ops.push(db.from('prodotti_catalogo').delete().in('id', [...rfIds, ...puIds]));
         const results = await Promise.all(ops);
         const err = results.find(r => r.error);
         if (err) { showToast('Errore: ' + err.error.message, 'err'); return; }
@@ -6052,8 +6050,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         btn.disabled = true; btn.textContent = 'Salvataggio…';
         const ops = [];
         if (frIds.length && Object.keys(frPay).length) ops.push(db.from('frontalini_catalogo').update(frPay).in('id', frIds));
-        if (rfIds.length && Object.keys(rfPay).length) ops.push(db.from('rifornimento_catalogo').update(rfPay).in('id', rfIds));
-        if (puIds.length && Object.keys(puPay).length) ops.push(db.from('prodotti_catalogo').update(puPay).in('id', puIds));
+        const allPuIds = [...rfIds, ...puIds];
+        if (allPuIds.length && Object.keys(puPay).length) ops.push(db.from('prodotti_catalogo').update(puPay).in('id', allPuIds));
         if (!ops.length) {
             btn.disabled=false; btn.textContent='Salva modifiche';
             const msg=document.getElementById('modal-be-msg');
@@ -6246,17 +6244,16 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const btn = document.getElementById('modal-rif-prod-save');
         btn.disabled = true; btn.textContent = 'Salvataggio…';
         const payload = {
-            product_code:            code,
-            source_sheet:            document.getElementById('prif-sheet').value.trim() || '',
-            description:             desc,
-            fornitore:               document.getElementById('prif-forn').value.trim() || '',
-            category:                document.getElementById('prif-cat').value.trim() || '',
+            codice:                  code,
+            source_sheet:            'Fornitura',
+            descrizione:             desc,
+            fornitore:               document.getElementById('prif-forn').value.trim() || null,
+            category:                document.getElementById('prif-cat').value.trim() || null,
             marchio:                 document.getElementById('prif-marchio').value.trim() || null,
             linea:                   document.getElementById('prif-linea').value.trim() || null,
-            pvp:                     parseFloat(document.getElementById('prif-pvp').value) || null,
+            prezzo:                  parseFloat(document.getElementById('prif-pvp').value) || null,
             pack_size:               parseInt(document.getElementById('prif-pack').value) || null,
-            quantita:                parseFloat(document.getElementById('prif-qty').value) || null,
-            unita_misura:            document.getElementById('prif-um').value.trim() || null,
+            unita:                   document.getElementById('prif-um').value.trim() || null,
             assortment_cremona:      document.getElementById('prif-cr').checked,
             assortment_casalmaggiore:document.getElementById('prif-ca').checked,
             assortment_viadana:      document.getElementById('prif-vi').checked,
@@ -6267,8 +6264,8 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             foto_url:                _prifFotoUrl || null,
         };
         const { error } = _prodEditRifId != null
-            ? await db.from('rifornimento_catalogo').update(payload).eq('id', _prodEditRifId)
-            : await db.from('rifornimento_catalogo').insert(payload);
+            ? await db.from('prodotti_catalogo').update(payload).eq('id', _prodEditRifId)
+            : await db.from('prodotti_catalogo').insert(payload);
         btn.disabled = false; btn.textContent = 'Salva';
         if (error) { _showProdMsg('rif', error.message, 'error'); return; }
         chiudiModalFornituraProd();
@@ -6277,7 +6274,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
     }
     async function eliminaProdFornitura(id) {
         if (!confirm('Eliminare questo prodotto dal catalogo fornitura?')) return;
-        const { error } = await db.from('rifornimento_catalogo').delete().eq('id', id);
+        const { error } = await db.from('prodotti_catalogo').delete().eq('id', id);
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         showToast('Prodotto eliminato', 'ok');
         await caricaProdotti();
@@ -6340,7 +6337,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (!payload.descrizione) { _showProdMsg('rif', 'La descrizione è obbligatoria', 'error'); return; }
         const { error: insErr } = await db.from('prodotti_catalogo').insert(payload);
         if (insErr) { _showProdMsg('rif', insErr.message, 'error'); return; }
-        const { error: delErr } = await db.from('rifornimento_catalogo').delete().eq('id', _prodEditRifId);
+        const { error: delErr } = await db.from('prodotti_catalogo').delete().eq('id', _prodEditRifId);
         if (delErr) { showToast('Inserito ma errore eliminazione originale: ' + delErr.message, 'err'); }
         chiudiModalFornituraProd();
         showToast('Prodotto spostato nel Catalogo Prodotti', 'ok');
