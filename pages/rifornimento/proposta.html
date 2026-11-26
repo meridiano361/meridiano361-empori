@@ -895,29 +895,32 @@ function chiudiPdfModal() {
   document.getElementById('pdf-modal').style.display = 'none';
 }
 
+async function _authHeader() {
+  const { data: { session } } = await db.auth.getSession();
+  const token = session?.access_token || SUPA_KEY;
+  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': SUPA_KEY };
+}
+
+async function _sendNotif(payload) {
+  const hdrs = await _authHeader();
+  const res = await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
+    method: 'POST', headers: hdrs, body: JSON.stringify(payload),
+  });
+  if (!res.ok) console.error('Notifica fallita:', res.status, await res.text().catch(()=>''));
+}
+
 async function _notificaRespAcquisti() {
   const emporio = proposta.emporio || '';
   const [{ data: resps }, { data: admins }] = await Promise.all([
     db.from('operatori').select('id').eq('is_resp_acquisti', true),
     db.from('operatori').select('id').eq('ruolo', 'admin'),
   ]);
-
   const ids = [...new Set([...(resps || []).map(r => r.id), ...(admins || []).map(a => a.id)])];
   if (!ids.length) return;
-
-  const mittente = user?.nome || 'Operatore';
-
-  await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}`, 'apikey': SUPA_KEY },
-    body: JSON.stringify({
-      operatore_ids: ids,
-      target:        'tutti',
-      titolo:        'Meridiano 361',
-      testo:         `Proposta rifornimento — ${emporio}, inviata da ${mittente}`,
-      tipo:          'ordini',
-      url:           `/pages/rifornimento/proposte.html`,
-    }),
+  await _sendNotif({
+    operatore_ids: ids, target: 'tutti', titolo: 'Meridiano 361',
+    testo: `Proposta rifornimento — ${emporio}, inviata da ${user?.nome || 'Operatore'}`,
+    tipo: 'ordini', url: '/pages/rifornimento/proposte.html',
   });
 }
 
@@ -928,17 +931,10 @@ async function _notificaRespAcquistiOrdine(emporio, mittente) {
   ]);
   const ids = [...new Set([...(resps || []).map(r => r.id), ...(admins || []).map(a => a.id)])];
   if (!ids.length) return;
-  await fetch(`${SUPA_URL}/functions/v1/send-notification`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}`, 'apikey': SUPA_KEY },
-    body: JSON.stringify({
-      operatore_ids: ids,
-      target:        'tutti',
-      titolo:        'Meridiano 361',
-      testo:         `Nuovo ordine rifornimento — ${emporio}, da ${mittente}`,
-      tipo:          'ordini',
-      url:           `/pages/rifornimento/proposte.html`,
-    }),
+  await _sendNotif({
+    operatore_ids: ids, target: 'tutti', titolo: 'Meridiano 361',
+    testo: `Nuovo ordine rifornimento — ${emporio}, da ${mittente}`,
+    tipo: 'ordini', url: '/pages/rifornimento/proposte.html',
   });
 }
 
