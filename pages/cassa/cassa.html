@@ -2631,7 +2631,7 @@ function renderSpeseEditor(turno, id, label, area, btn) {
     actRow.append(saveBtn,colBtn); ed.appendChild(actRow);
     area.appendChild(ed);
     updateSum();
-    renderFotoWrap(turno, 'spese');
+    renderFotoWrap(turno, 'spese', true);
   }
 
   function updateSum() {
@@ -2673,14 +2673,20 @@ function renderSpeseSavedView(turno, id, area, btn) {
   const fotoSpese = photosMap[turno+'_spese'] || [];
   if (fotoSpese.length > 0) {
     const fotoDiv = document.createElement('div');
-    fotoDiv.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:2px 0';
+    fotoDiv.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:2px 0;align-items:flex-end';
     fotoSpese.forEach(path => {
       const url = getFotoUrl(path);
-      const img = document.createElement('img');
-      img.src=url; img.alt='Scontrino spesa'; img.title='Apri foto scontrino';
-      img.style.cssText='width:40px;height:52px;object-fit:cover;border-radius:6px;border:1.5px solid #e2e8f0;cursor:pointer;flex-shrink:0';
-      img.addEventListener('click',()=>window.open(url,'_blank'));
-      fotoDiv.appendChild(img);
+      if (_isImgPath(path)) {
+        const img = document.createElement('img');
+        img.src=url; img.alt='Allegato spesa'; img.title='Apri allegato';
+        img.style.cssText='width:40px;height:52px;object-fit:cover;border-radius:6px;border:1.5px solid #e2e8f0;cursor:pointer;flex-shrink:0';
+        img.addEventListener('click',()=>window.open(url,'_blank'));
+        fotoDiv.appendChild(img);
+      } else {
+        const docEl = document.createElement('div');
+        docEl.innerHTML = _allegatoThumbHTML(url, path, _allegatoColor(path), _allegatoIcon(path));
+        fotoDiv.appendChild(docEl.firstElementChild);
+      }
     });
     wrap.appendChild(fotoDiv);
   }
@@ -2749,6 +2755,26 @@ function getFotoUrl(path) {
   const { data } = db.storage.from(FOTO_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
+function _isImgPath(p) { return /\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|tiff?)$/i.test(p); }
+function _allegatoIcon(p) {
+  return /\.pdf$/i.test(p) ? 'fas fa-file-pdf'
+       : /\.docx?$/i.test(p) ? 'fas fa-file-word'
+       : /\.xlsx?$/i.test(p) ? 'fas fa-file-excel'
+       : 'fas fa-file-alt';
+}
+function _allegatoColor(p) {
+  return /\.pdf$/i.test(p) ? '#dc2626'
+       : /\.docx?$/i.test(p) ? '#2563eb'
+       : /\.xlsx?$/i.test(p) ? '#16a34a'
+       : '#64748b';
+}
+function _allegatoThumbHTML(url, path, color, icon) {
+  const fname = path.split('/').pop().replace(/^[^_]+_[^_]+_\d+_[a-z0-9]+\./, 'doc.');
+  return `<div style="width:44px;min-height:56px;border-radius:8px;border:1.5px solid #e2e8f0;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px;cursor:pointer;flex-shrink:0;text-align:center" onclick="window.open('${url}','_blank')" title="${fname}">
+    <i class="${icon}" style="font-size:18px;color:${color}"></i>
+    <span style="font-size:7px;color:#64748b;word-break:break-all;line-height:1.1;max-width:38px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fname}</span>
+  </div>`;
+}
 
 async function downloadFoto(url, fname) {
   try {
@@ -2765,7 +2791,7 @@ async function downloadFoto(url, fname) {
   }
 }
 
-function renderFotoWrap(turno, tipo) {
+function renderFotoWrap(turno, tipo, allowDocs=false) {
   const wrap = document.getElementById(turno+'-foto-'+tipo);
   if (!wrap) return;
   const key = turno+'_'+tipo;
@@ -2776,29 +2802,41 @@ function renderFotoWrap(turno, tipo) {
     const url = getFotoUrl(path);
     const thumb = document.createElement('div');
     thumb.className = 'foto-thumb';
-    const img = document.createElement('img');
-    img.src = url; img.className = 'foto-img'; img.alt = 'Scontrino';
-    img.addEventListener('click', () => window.open(url, '_blank'));
+    if (_isImgPath(path)) {
+      const img = document.createElement('img');
+      img.src = url; img.className = 'foto-img'; img.alt = 'Allegato';
+      img.addEventListener('click', () => window.open(url, '_blank'));
+      thumb.appendChild(img);
+    } else {
+      thumb.innerHTML = _allegatoThumbHTML(url, path, _allegatoColor(path), _allegatoIcon(path));
+    }
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'foto-del-btn'; del.textContent = '×';
-    del.title = 'Rimuovi foto';
+    del.title = 'Rimuovi allegato';
     del.addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm('Eliminare questa foto?')) return;
+      if (!confirm('Eliminare questo allegato?')) return;
       await db.storage.from(FOTO_BUCKET).remove([path]);
       photosMap[key] = photosMap[key].filter(p => p !== path);
-      renderFotoWrap(turno, tipo);
+      renderFotoWrap(turno, tipo, allowDocs);
       markDirty();
     });
-    thumb.append(img, del);
+    thumb.appendChild(del);
     wrap.appendChild(thumb);
   });
 
   const label = document.createElement('label');
-  label.className = 'foto-add-label'; label.title = 'Aggiungi foto';
-  label.innerHTML = '<i class="fas fa-camera"></i>';
+  label.className = 'foto-add-label';
+  label.title = allowDocs ? 'Aggiungi foto o documento (PDF, Word, Excel…)' : 'Aggiungi foto';
+  label.innerHTML = allowDocs
+    ? '<i class="fas fa-paperclip"></i>'
+    : '<i class="fas fa-camera"></i>';
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.style.display = 'none';
+  inp.type = 'file';
+  inp.accept = allowDocs
+    ? 'image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.odt,.ods'
+    : 'image/*';
+  inp.multiple = true; inp.style.display = 'none';
   inp.addEventListener('change', async e => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -2811,7 +2849,7 @@ function renderFotoWrap(turno, tipo) {
       return path;
     }));
     results.forEach(p => { if(p) photosMap[key].push(p); });
-    renderFotoWrap(turno, tipo);
+    renderFotoWrap(turno, tipo, allowDocs);
     markDirty();
     e.target.value = '';
   });
