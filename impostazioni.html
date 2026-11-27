@@ -1322,12 +1322,6 @@
           <div id="prod-tab-prodotti">
             <div class="prod-toolbar">
               <input id="prod-all-search" placeholder="🔍  Cerca descrizione / codice…" oninput="renderProdAll()" style="flex:1;min-width:160px">
-              <select id="prod-all-src" onchange="renderProdAll()" style="max-width:140px">
-                <option value="">Tutte le fonti</option>
-                <option value="frontalini">Frontalini</option>
-                <option value="fornitura">Fornitura</option>
-                <option value="prodotti">Prodotti (unif.)</option>
-              </select>
               <select id="prod-all-forn" onchange="renderProdAll()" style="max-width:150px"><option value="">Tutti i fornitori</option></select>
               <select id="prod-all-marc" onchange="renderProdAll()" style="max-width:140px"><option value="">Tutti i marchi</option></select>
               <select id="prod-all-cat" onchange="renderProdAll()" style="max-width:140px"><option value="">Tutte le categorie</option></select>
@@ -1348,7 +1342,6 @@
               <table class="prod-tbl">
                 <thead><tr id="prod-all-thead">
                   <th style="width:32px;text-align:center"><input type="checkbox" id="prod-sel-all" onchange="_selTutti(this.checked)" style="accent-color:#3b82f6;cursor:pointer"></th>
-                  <th>Fonte</th>
                   <th class="sortable" onclick="sortProdAll('codice')">Codice<i class="sort-arrow" id="sa-codice">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('descrizione')">Descrizione<i class="sort-arrow" id="sa-descrizione">↕</i></th>
                   <th class="sortable" onclick="sortProdAll('pvp')">PVP<i class="sort-arrow" id="sa-pvp">↕</i></th>
@@ -1359,7 +1352,7 @@
                   <th class="sortable" onclick="sortProdAll('attivo')">Attivo<i class="sort-arrow" id="sa-attivo">↕</i></th>
                   <th>Peso/Unità</th><th>Attr.</th><th>Foto</th><th></th>
                 </tr></thead>
-                <tbody id="prod-all-tbody"><tr><td colspan="14" class="prod-empty">Caricamento…</td></tr></tbody>
+                <tbody id="prod-all-tbody"><tr><td colspan="13" class="prod-empty">Caricamento…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -5796,28 +5789,23 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
 
     function renderProdAll() {
         const q    = (document.getElementById('prod-all-search')?.value || '').toLowerCase();
-        const src  = document.getElementById('prod-all-src')?.value  || '';
         const forn = document.getElementById('prod-all-forn')?.value || '';
         const marc = document.getElementById('prod-all-marc')?.value || '';
         const cat  = document.getElementById('prod-all-cat')?.value  || '';
 
-        const showFro = src === 'frontalini' || !src;
-        const showFor = src === 'fornitura'  || !src;
-        const showPro = src === 'prodotti'   || !src;
-
-        const frItems = !showFro ? [] : _prodFrontalini.map(p => ({
+        const frItems = _prodFrontalini.map(p => ({
             _src:'frontalini', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:null, ca:null, vi:null, attivo:true,
             peso:p.peso, unita:p.unita||'', bio:!!p.bio, sg:!!p.senza_glutine, veg:!!p.vegano, foto:p.foto_url||null, sito:p.sito_url||null,
         }));
-        const rfItems = !showFor ? [] : _prodFornitura.map(p => ({
+        const rfItems = _prodFornitura.map(p => ({
             _src:'fornitura', _id:p.id, codice:p.product_code||'', descrizione:p.description||'',
             pvp:p.pvp, pack:p.pack_size, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
             peso:p.quantita, unita:p.unita_misura||'', bio:false, sg:false, veg:false, foto:p.foto_url||null, sito:null,
         }));
-        const puItems = !showPro ? [] : _prodUnificati.map(p => ({
+        const puItems = _prodUnificati.map(p => ({
             _src:'prodotti', _id:p.id, codice:p.codice||'', descrizione:p.descrizione||'',
             pvp:p.prezzo, pack:p.pack_size??null, fornitore:p.fornitore||'', marchio:p.marchio||'', categoria:p.category||'',
             cr:p.assortment_cremona, ca:p.assortment_casalmaggiore, vi:p.assortment_viadana, attivo:p.active!==false,
@@ -5849,7 +5837,7 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         if (count) count.textContent = items.length + ' / ' + total + ' prodotti';
         const tbody = document.getElementById('prod-all-tbody');
         if (!tbody) return;
-        if (!items.length) { tbody.innerHTML = `<tr><td colspan="14" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
+        if (!items.length) { tbody.innerHTML = `<tr><td colspan="13" class="prod-empty">Nessun prodotto trovato</td></tr>`; _aggiornaSelBar(); return; }
 
         const srcBadge = s => s === 'frontalini'
             ? `<span style="background:#eff6ff;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;text-transform:uppercase">FRO</span>`
@@ -5885,7 +5873,6 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             const emporiCell = `<span style="font-size:10px;letter-spacing:.5px;white-space:nowrap">${ec(p.cr,'CR')} ${ec(p.ca,'CA')} ${ec(p.vi,'VI')}</span>`;
             return `<tr data-sel-key="${selKey}" style="${_selProd.has(selKey)?'background:#eff6ff':''}" >
               <td style="text-align:center"><input type="checkbox" ${checked} onchange="_toggleSelProd('${selKey}',this.checked)" style="accent-color:#3b82f6;cursor:pointer"></td>
-              <td>${srcBadge(p._src)}</td>
               <td style="color:#94a3b8;font-size:10px;font-family:monospace;white-space:nowrap">${escHtml(p.codice||'—')}</td>
               <td style="font-weight:700;color:#1e293b;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(p.descrizione)}">${escHtml(p.descrizione)}</td>
               <td style="font-weight:600;white-space:nowrap">${p.pvp != null ? _fmtP(p.pvp) : '<span style="color:#cbd5e1">—</span>'}</td>
