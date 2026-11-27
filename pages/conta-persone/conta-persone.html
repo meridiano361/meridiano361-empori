@@ -549,10 +549,15 @@
 // SETUP
 // ════════════════════════════════════════════════
 const { createClient } = supabase;
-const db = createClient(
-  'https://hsalynvxazxqtmsvjrzc.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
-);
+// Usa il client condiviso con nav-script.js (gestisce il token refresh)
+const db = window._supabase || (() => {
+  const c = createClient(
+    'https://hsalynvxazxqtmsvjrzc.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
+  );
+  window.db = c; // rende il client trovabile da nav-script.js
+  return c;
+})();
 
 const SK = 'm361_conta_sessione';
 const GIORNI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -930,17 +935,26 @@ async function salvaRilevamento() {
     nota_finale:     eid('rl-nota')?.value?.trim() || null,
   };
 
-  let err;
-  if (s.id) {
-    const { error: upErr, data: upData } = await db.from('conta_persone_rilevamenti').update(payload).eq('id', s.id).select();
-    if (!upErr && (!upData || upData.length === 0)) {
-      // UPDATE bloccato da RLS (0 righe aggiornate) → prova INSERT
-      ({ error: err } = await db.from('conta_persone_rilevamenti').insert(payload));
+  async function _doSave() {
+    if (s.id) {
+      const { error: upErr, data: upData } = await db.from('conta_persone_rilevamenti').update(payload).eq('id', s.id).select();
+      if (!upErr && (!upData || upData.length === 0)) {
+        // UPDATE bloccato da RLS (0 righe aggiornate) → prova INSERT
+        return (await db.from('conta_persone_rilevamenti').insert(payload)).error;
+      }
+      return upErr;
     } else {
-      err = upErr;
+      return (await db.from('conta_persone_rilevamenti').insert(payload)).error;
     }
-  } else {
-    ({ error: err } = await db.from('conta_persone_rilevamenti').insert(payload));
+  }
+
+  let err = await _doSave();
+
+  // Se errore RLS (sessione scaduta): refresh token e riprova una volta
+  if (err && err.code === '42501') {
+    console.warn('[conta-persone] RLS error — refreshing session and retrying...');
+    await db.auth.refreshSession();
+    err = await _doSave();
   }
 
   if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> Salva rilevamento' }
