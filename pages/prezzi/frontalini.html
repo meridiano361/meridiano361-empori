@@ -488,11 +488,11 @@ const DEFAULT_STYLE = {
   fontFamily:  'Arial,Helvetica,sans-serif',
   bandWidthMm: 4,
   layout: { row1: 50, row2: 38 },
-  desc:   { size: 13, bold: true,  italic: false, color: '#000000', fit: false },
-  prezzo: { size: 16, bold: true,  italic: false, color: '#000000' },
+  desc:   { size: 13, bold: true,  italic: false, color: '#000000', fit: false, alignH: 'C' },
+  prezzo: { size: 16, bold: true,  italic: false, color: '#000000', alignH: 'C' },
   euro:   { size: 10, bold: false, italic: false, color: '#000000' },
   attr:   { size:  6, bold: true,  italic: false, color: '#000000' },
-  sec:    { size:  4, bold: false, italic: false, color: '#333333' },
+  sec:    { size:  4, bold: false, italic: false, color: '#333333', alignH: 'C' },
   brand:  { size:  3, bold: true,  italic: false, color: null },
 };
 const DS = DEFAULT_STYLE;
@@ -769,8 +769,8 @@ function frontalino(item, forPrint = false, scale = 1) {
       <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bfColor};font-weight:${bfBold};font-style:${bfItalic}">${escH(brand)}</span>
     </div>
     <div class="fr-body" style="grid-template-rows:${st.layout?.row1??50}% ${st.layout?.row2??38}% ${Math.max(0,100-(st.layout?.row1??50)-(st.layout?.row2??38))}%">
-      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${st.desc.fit?'unset':'1'};white-space:${st.desc.fit?'nowrap':'normal'};font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}" ${st.desc.fit?'data-autofit="1"':''}>${escH(item.descrizione)}</div>
-      <div class="fr-mid">
+      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${st.desc.fit?'unset':'1'};white-space:${st.desc.fit?'nowrap':'normal'};font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color};text-align:${st.desc.alignH==='L'?'left':st.desc.alignH==='R'?'right':'center'}" ${st.desc.fit?'data-autofit="1"':''}>${escH(item.descrizione)}</div>
+      <div class="fr-mid" style="justify-content:${st.prezzo.alignH==='L'?'flex-start':st.prezzo.alignH==='R'?'flex-end':'center'}">
         <div class="fr-price-grp">
           ${prezzo
             ? `<span class="fr-prezzo" style="font-size:${preSz}pt;font-weight:${st.prezzo.bold?'900':'400'};font-style:${st.prezzo.italic?'italic':'normal'};color:${st.prezzo.color}">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt;font-weight:${st.euro.bold?'700':'400'};font-style:${st.euro.italic?'italic':'normal'};color:${st.euro.color}">€</span>`
@@ -778,7 +778,7 @@ function frontalino(item, forPrint = false, scale = 1) {
         </div>
         <div class="fr-attrs-sq">${attrs.map(a=>`<span class="fr-attr-sq ${a.on?a.cls:''}" style="font-size:${attrSz}pt;${a.on?'':'visibility:hidden'}">${a.lbl}</span>`).join('')}</div>
       </div>
-      <div class="fr-sec" style="font-size:${secSz}pt;font-weight:${st.sec.bold?'700':'400'};font-style:${st.sec.italic?'italic':'normal'};color:${st.sec.color}">
+      <div class="fr-sec" style="font-size:${secSz}pt;font-weight:${st.sec.bold?'700':'400'};font-style:${st.sec.italic?'italic':'normal'};color:${st.sec.color};justify-content:${st.sec.alignH==='L'?'flex-start':st.sec.alignH==='R'?'flex-end':'center'}">
         ${pu  ? `<span>${escH(puStr)}</span>` : ''}
         ${pd  ? `<span>${escH(pd)}</span>`   : ''}
         ${item.codice ? `<span>cod ${escH(item.codice)}</span>` : ''}
@@ -1591,6 +1591,7 @@ function rImpostazioni() {
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Corsivo</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Colore</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px" title="Rimpicciolisce il testo per farlo stare su una riga">Adatta</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:72px">Allinea</th>
               </tr>
             </thead>
             <tbody>
@@ -1628,6 +1629,15 @@ function rImpostazioni() {
                 <td style="padding:4px 6px;text-align:center">
                   ${k==='desc'
                     ? `<input type="checkbox" id="st-desc-fit" ${el.fit?'checked':''} onchange="previewStyle()" title="Rimpicciolisce il testo per farlo stare tutto su una riga" style="accent-color:var(--red);width:15px;height:15px;cursor:pointer">`
+                    : ''}
+                </td>
+                <td style="padding:4px 6px;text-align:center">
+                  ${['desc','prezzo','sec'].includes(k)
+                    ? `<div style="display:flex;gap:2px;justify-content:center">
+                        ${['L','C','R'].map(a => `<button id="st-${k}-alignH-${a}" onclick="setAlignH('${k}','${a}')"
+                          style="width:22px;height:22px;border:1.5px solid ${(el.alignH||'C')===a?'var(--red)':'var(--s200)'};border-radius:4px;background:${(el.alignH||'C')===a?'var(--red)':'transparent'};color:${(el.alignH||'C')===a?'#fff':'var(--s500)'};font-size:9px;cursor:pointer;padding:0;line-height:1"
+                          title="${a==='L'?'Sinistra':a==='R'?'Destra':'Centro'}">${a==='L'?'◀':a==='R'?'▶':'●'}</button>`).join('')}
+                       </div>`
                     : ''}
                 </td>
               </tr>`).join('')}
@@ -1712,7 +1722,8 @@ function readStyleFields() {
       italic: g(`st-${k}-italic`)?.checked ?? def.italic,
       color:  g(`st-${k}-color`)?.value   || def.color,
     };
-    if (k === 'desc') obj.fit = g('st-desc-fit')?.checked ?? def.fit;
+    if (k === 'desc')   obj.fit    = g('st-desc-fit')?.checked ?? def.fit;
+    if (['desc','prezzo','sec'].includes(k)) obj.alignH = _style[k]?.alignH || def.alignH || 'C';
     return obj;
   }
   const brandEl = el('brand');
@@ -1730,6 +1741,21 @@ function readStyleFields() {
     sec:    el('sec'),
     brand:  brandEl,
   };
+}
+
+function setAlignH(k, val) {
+  _style[k] = _style[k] || {};
+  _style[k].alignH = val;
+  // Aggiorna visivamente i bottoni
+  ['L','C','R'].forEach(a => {
+    const btn = g(`st-${k}-alignH-${a}`);
+    if (!btn) return;
+    const active = a === val;
+    btn.style.borderColor  = active ? 'var(--red)' : 'var(--s200)';
+    btn.style.background   = active ? 'var(--red)' : 'transparent';
+    btn.style.color        = active ? '#fff' : 'var(--s500)';
+  });
+  previewStyle();
 }
 
 function previewStyle() {
