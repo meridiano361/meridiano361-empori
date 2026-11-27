@@ -410,6 +410,11 @@ const db = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzYWx5bnZ4YXp4cXRtc3ZqcnpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjQ3MjcsImV4cCI6MjA5MzMwMDcyN30.JW4nsMrrfuI8BTg4bn2v74seVJ-_prfxZ1PQp5T18a8'
 );
 
+// Solo ruolo 'admin' (non dipendente) può modificare l'anagrafica prodotti
+function _isProdAdmin() {
+  try { return JSON.parse(localStorage.getItem('m361_user')||'null')?.ruolo?.toLowerCase() === 'admin'; } catch { return false; }
+}
+
 const DRAFT_KEY    = 'm361_frontalini_bozza';
 const CFG_KEY      = 'm361_frontalini_cfg';
 const PAPER_SIZES  = { A4P:{w:210,h:297}, A4L:{w:297,h:210}, A3P:{w:297,h:420}, A3L:{w:420,h:297} };
@@ -659,6 +664,7 @@ function filteredBozza() {
 
 // ── MODIFICA CATALOGO ──────────────────────────────────────────────────────
 function openCatEditModal(id) {
+  if (!_isProdAdmin()) return;
   const p = _catalogo.find(c => c.id === id);
   if (!p) return;
   _catEditId = id;
@@ -683,6 +689,7 @@ function closeCatEditModal() {
 }
 
 async function saveCatEditModal() {
+  if (!_isProdAdmin()) return;
   const desc = g('ce-desc').value.trim().toUpperCase();
   if (!desc) { alert('La descrizione è obbligatoria.'); g('ce-desc')?.focus(); return; }
   const btn = g('modal-cat-edit').querySelector('.btn-red');
@@ -709,6 +716,7 @@ async function saveCatEditModal() {
 }
 
 async function deleteCatItem() {
+  if (!_isProdAdmin()) return;
   const p = _catalogo.find(c => c.id === _catEditId);
   if (!p) return;
   if (!confirm(`Eliminare "${p.descrizione}" dal catalogo?\nL'azione non può essere annullata.`)) return;
@@ -721,6 +729,7 @@ async function deleteCatItem() {
 }
 
 async function quickDeleteCat(id) {
+  if (!_isProdAdmin()) return;
   const p = _catalogo.find(c => c.id === id);
   if (!p) return;
   if (!confirm(`Eliminare "${p.descrizione}" dal catalogo?`)) return;
@@ -799,7 +808,7 @@ function frontalino_empty(scale=1) {
 
 function rTabs() {
   const nc = draftTotalCopies();
-  const admin = typeof isAdmin==='function' && isAdmin();
+  const admin = _isProdAdmin();
   const tabs = [
     { k:'selezione',    icon:'fas fa-search',   lbl:'Prodotti'   },
     { k:'bozza',        icon:'fas fa-list',      lbl:'Selezione', badge: nc || '' },
@@ -837,7 +846,7 @@ function _rCatItem(p) {
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
       ${p.prezzo != null ? `<div class="cat-price">${fmtN(p.prezzo)} €</div>` : '<div class="cat-price" style="color:var(--s300)">—</div>'}
-      ${typeof isAdmin==='function'&&isAdmin() ? `<div style="display:flex;gap:3px"><button class="btn btn-out btn-xs" onclick="event.stopPropagation();openCatEditModal(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button><button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="event.stopPropagation();quickDeleteCat(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button></div>` : ''}
+      ${_isProdAdmin() ? `<div style="display:flex;gap:3px"><button class="btn btn-out btn-xs" onclick="event.stopPropagation();openCatEditModal(${p.id})" title="Modifica"><i class="fas fa-pencil"></i></button><button class="btn btn-xs" style="background:#fee2e2;color:#991b1b" onclick="event.stopPropagation();quickDeleteCat(${p.id})" title="Elimina"><i class="fas fa-trash"></i></button></div>` : ''}
     </div>
   </div>`;
 }
@@ -881,7 +890,7 @@ function rSelezione() {
           <input class="inp" id="fl-search" placeholder="Cerca descrizione, codice, fornitore…" value="${escH(_search)}" oninput="onSearch(this.value)">
         </div>
         <button class="btn btn-out btn-sm" onclick="openManModal(null)"><i class="fas fa-plus"></i> Frontalino manuale</button>
-        ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-blue btn-sm" onclick="openImportModal()"><i class="fas fa-file-excel"></i> Importa Excel</button>` : ''}
+        ${_isProdAdmin() ? `<button class="btn btn-blue btn-sm" onclick="openImportModal()"><i class="fas fa-file-excel"></i> Importa Excel</button>` : ''}
       </div>
       <div style="padding:0 14px 8px;overflow-x:auto">
         <div style="display:flex;gap:6px;align-items:center;min-width:max-content">
@@ -915,7 +924,7 @@ function rSelezione() {
     <div class="add-float">
       <span style="flex:1;font-size:13px;font-weight:800"><span class="add-float-n">${nSel}</span> prodott${nSel===1?'o':'i'} selezionat${nSel===1?'o':'i'}</span>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        ${typeof isAdmin==='function'&&isAdmin() ? `<button class="btn btn-amber btn-sm" onclick="openBulkEditModal()"><i class="fas fa-pencil"></i> Modifica tutti</button>` : ''}
+        ${_isProdAdmin() ? `<button class="btn btn-amber btn-sm" onclick="openBulkEditModal()"><i class="fas fa-pencil"></i> Modifica tutti</button>` : ''}
         <span style="font-size:11px;color:#94a3b8">Copie:</span>
         <input type="number" min="1" value="${_addCopie}" style="width:46px;text-align:center;padding:5px;border:1.5px solid #475569;border-radius:7px;background:#334155;color:#fff;font-family:inherit;font-size:14px;font-weight:900" id="add-copie-inp" onchange="_addCopie=Math.max(1,parseInt(this.value)||1)">
         <button class="btn btn-red btn-sm" onclick="aggiungiSelezionati()"><i class="fas fa-plus-circle"></i> Aggiungi alla selezione</button>
@@ -1223,8 +1232,7 @@ function aggiungiSelezionati() {
 // ── MODAL MANUALE ──────────────────────────────────────────────────────────
 function openManModal(draftId) {
   _manEditId = draftId;
-  const isAdmin_ = typeof isAdmin === 'function' && isAdmin();
-  g('man-save-cat-wrap').style.display = (!draftId && isAdmin_) ? '' : 'none';
+  g('man-save-cat-wrap').style.display = (!draftId && _isProdAdmin()) ? '' : 'none';
 
   if (draftId) {
     // Modifica item esistente
@@ -1320,8 +1328,8 @@ async function saveManModal() {
     saveDraft();
   }
 
-  // Salva nel catalogo se richiesto
-  const saveCat = !_manEditId && g('man-save-cat')?.checked;
+  // Salva nel catalogo se richiesto (solo admin)
+  const saveCat = !_manEditId && _isProdAdmin() && g('man-save-cat')?.checked;
   if (saveCat) {
     const tbl = 'prodotti_catalogo';
     const { error } = await db.from(tbl).insert([{
@@ -1908,6 +1916,7 @@ function exportCatalogCSV() {
 }
 
 async function svuotaCatalogo() {
+  if (!_isProdAdmin()) return;
   if (!confirm(`Eliminare TUTTI i ${_catalogo.length} prodotti dal catalogo?\nQuesta operazione non può essere annullata.`)) return;
   if (!confirm('Ultima conferma: vuoi davvero eliminare tutto il catalogo?')) return;
   const { error } = await db.from('prodotti_catalogo').delete().eq('source_sheet', 'Frontalini');
@@ -1917,7 +1926,7 @@ async function svuotaCatalogo() {
 }
 
 // ── IMPORTAZIONE EXCEL ─────────────────────────────────────────────────────
-function openImportModal() { g('modal-import').classList.add('open'); }
+function openImportModal() { if (!_isProdAdmin()) return; g('modal-import').classList.add('open'); }
 function closeImportModal(){ g('modal-import').classList.remove('open'); resetImport(); }
 function resetImport() {
   _importRows = [];
@@ -2102,6 +2111,7 @@ async function confirmImport() {
 
 // ── MODIFICA MASSIVA CATALOGO ──────────────────────────────────────────────
 function openBulkEditModal() {
+  if (!_isProdAdmin()) return;
   const n = _sel.size;
   if (!n) return;
   g('be-subtitle').textContent = `Verranno modificati ${n} prodott${n===1?'o':'i'} selezionat${n===1?'o':'i'}.`;

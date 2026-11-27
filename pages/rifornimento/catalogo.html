@@ -452,7 +452,7 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const db = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 const user  = JSON.parse(localStorage.getItem('m361_user') || 'null');
-const admin = ['admin','dipendente'].includes(user?.ruolo?.toLowerCase());
+const admin = user?.ruolo?.toLowerCase() === 'admin';
 
 let catalogo = [];
 let editingId = null;
@@ -760,6 +760,7 @@ function setAssValue(campo, val) {
 
 // ── MODAL ─────────────────────────────────────────────────────────
 function apriModaleProdotto(id, defaultForn = '', defaultCat = '') {
+  if (!admin) return;
   editingId = id;
   bypassValidation = false;
   const modal = document.getElementById('modal');
@@ -823,6 +824,7 @@ function assValToDb(v) {
 }
 
 async function salvaProdotto() {
+  if (!admin) return;
   const fornitore = document.getElementById('m-fornitore').value.trim();
   const category  = document.getElementById('m-categoria').value.trim();
   const code      = document.getElementById('m-codice').value.trim();
@@ -931,6 +933,7 @@ function duplicaProdotto(id) {
 
 // ── ATTIVA / NASCONDI ─────────────────────────────────────────────
 async function toggleActive(id, currentlyActive) {
+  if (!admin) return;
   const newVal = !currentlyActive;
   const { error } = await db.from('prodotti_catalogo').update({ active: newVal }).eq('id', id);
   if (error) { alert('Errore: ' + error.message); return; }
@@ -945,6 +948,7 @@ async function toggleActive(id, currentlyActive) {
 
 // ── ELIMINA ───────────────────────────────────────────────────────
 async function eliminaProdotto(id) {
+  if (!admin) return;
   const prod = catalogo.find(p => p.id === id);
   const desc = prod?.descrizione || `prodotto #${id}`;
   if (!confirm(`Eliminare "${desc}"?`)) return;
@@ -1017,6 +1021,7 @@ document.getElementById('modal-bulk').addEventListener('click', e => {
 });
 
 async function saveBulkEdit() {
+  if (!admin) return;
   const patch = {};
   const forn    = document.getElementById('be-fornitore').value.trim();
   const cat     = document.getElementById('be-categoria').value.trim();
@@ -1060,6 +1065,7 @@ async function saveBulkEdit() {
 }
 
 async function deleteSelected() {
+  if (!admin) return;
   const n = selectedIds.size;
   if (!confirm(`Eliminare ${n} prodott${n === 1 ? 'o' : 'i'} selezionat${n === 1 ? 'o' : 'i'}?`)) return;
   const { error } = await db.from('prodotti_catalogo').delete().in('id', [...selectedIds]);
