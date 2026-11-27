@@ -107,8 +107,8 @@
     .fr-side{display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:1px}
     .fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.5px;text-align:center;overflow:hidden;white-space:nowrap}
     .fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;min-width:0;padding:2px 1px 1px 1px;overflow:hidden;background:#fff}
-    .fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:start;padding-top:2px;text-align:center;word-break:break-word}
-    .fr-mid{display:flex;align-items:center;overflow:visible;gap:3px;min-width:0}
+    .fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:center;padding-top:0;text-align:center;word-break:break-word}
+    .fr-mid{display:flex;align-items:center;justify-content:center;overflow:visible;gap:3px;min-width:0}
     .fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
     .fr-prezzo{line-height:1}
     .fr-attrs-sq{display:flex;gap:2px;margin-left:auto;align-self:center;align-items:stretch;flex-shrink:0;height:120%}
@@ -211,7 +211,7 @@
   <div class="modal-box">
     <h3 id="modal-man-title">Frontalino manuale</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Descrizione *</label><input class="inp" id="man-desc" placeholder="Es: PASTA DI FARRO 500G" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Nome *</label><input class="inp" id="man-desc" placeholder="Es: PASTA DI FARRO 500G" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="f-g"><label class="lbl">Codice</label><input class="inp" id="man-codice" placeholder="Es: 7599"></div>
       <div class="f-g"><label class="lbl">Prezzo €</label><input class="inp" id="man-prezzo" type="number" step="0.01" min="0" placeholder="0,00"></div>
       <div class="f-g"><label class="lbl">Quantità</label><input class="inp" id="man-peso" type="number" min="0" step="any" placeholder="Es: 500"></div>
@@ -319,7 +319,7 @@
   <div class="modal-box">
     <h3>✏️ Modifica prodotto catalogo</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Descrizione *</label><input class="inp" id="ce-desc" placeholder="Es: PASTA DI FARRO 500G" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="f-g" style="grid-column:1/-1"><label class="lbl">Nome *</label><input class="inp" id="ce-desc" placeholder="Es: PASTA DI FARRO 500G" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="f-g"><label class="lbl">Codice</label><input class="inp" id="ce-codice" placeholder="Es: 7599"></div>
       <div class="f-g"><label class="lbl">Prezzo €</label><input class="inp" id="ce-prezzo" type="number" step="0.01" min="0" placeholder="0,00"></div>
       <div class="f-g"><label class="lbl">Quantità</label><input class="inp" id="ce-peso" type="number" min="0" step="any" placeholder="Es: 500"></div>
@@ -487,6 +487,7 @@ const STYLE_KEY = 'm361_frontalini_style';
 const DEFAULT_STYLE = {
   fontFamily:  'Arial,Helvetica,sans-serif',
   bandWidthMm: 4,
+  layout: { row1: 50, row2: 38 },
   desc:   { size: 13, bold: true,  italic: false, color: '#000000', fit: false },
   prezzo: { size: 16, bold: true,  italic: false, color: '#000000' },
   euro:   { size: 10, bold: false, italic: false, color: '#000000' },
@@ -496,6 +497,7 @@ const DEFAULT_STYLE = {
 };
 const DS = DEFAULT_STYLE;
 let _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
+  layout:{...DS.layout},
   desc:{...DS.desc}, prezzo:{...DS.prezzo}, euro:{...DS.euro},
   attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand} };
 function loadStyle() {
@@ -506,6 +508,7 @@ function loadStyle() {
     if (saved.descRatio !== undefined) { localStorage.removeItem(STYLE_KEY); return; }
     if (saved.fontFamily)                _style.fontFamily  = saved.fontFamily;
     if (saved.bandWidthMm !== undefined) _style.bandWidthMm = saved.bandWidthMm;
+    if (saved.layout && typeof saved.layout === 'object') Object.assign(_style.layout, saved.layout);
     ['desc','prezzo','euro','attr','sec','brand'].forEach(k => {
       if (saved[k] && typeof saved[k] === 'object') Object.assign(_style[k], saved[k]);
     });
@@ -765,7 +768,7 @@ function frontalino(item, forPrint = false, scale = 1) {
     <div class="fr-side" style="width:${sideW}mm;background:${bandBg}">
       <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bfColor};font-weight:${bfBold};font-style:${bfItalic}">${escH(brand)}</span>
     </div>
-    <div class="fr-body">
+    <div class="fr-body" style="grid-template-rows:${st.layout?.row1??50}% ${st.layout?.row2??38}% ${Math.max(0,100-(st.layout?.row1??50)-(st.layout?.row2??38))}%">
       <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${st.desc.fit?'unset':'1'};white-space:${st.desc.fit?'nowrap':'normal'};font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color}" ${st.desc.fit?'data-autofit="1"':''}>${escH(item.descrizione)}</div>
       <div class="fr-mid">
         <div class="fr-price-grp">
@@ -1405,8 +1408,8 @@ function frontalinoCss(scope = '') {
     ${p}.fr-side{display:flex;align-items:center;justify-content:center;padding:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     ${p}.fr-brand{writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.5px;text-align:center;overflow:hidden;white-space:nowrap}
     ${p}.fr-body{flex:1;display:grid;grid-template-rows:50% 38% 12%;padding:2px 3px 1px 3px;overflow:hidden;min-width:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    ${p}.fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:start;padding-top:2px;text-align:center;word-break:break-word}
-    ${p}.fr-mid{display:flex;align-items:center;overflow:visible;gap:3px;min-width:0}
+    ${p}.fr-desc{line-height:1.1;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;align-self:center;padding-top:0;text-align:center;word-break:break-word}
+    ${p}.fr-mid{display:flex;align-items:center;justify-content:center;overflow:visible;gap:3px;min-width:0}
     ${p}.fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
     ${p}.fr-prezzo{line-height:1}
     ${p}.fr-attrs-sq{display:flex;gap:2px;margin-left:auto;align-self:center;align-items:stretch;flex-shrink:0;height:120%}
@@ -1592,7 +1595,7 @@ function rImpostazioni() {
             </thead>
             <tbody>
               ${[
-                ['desc',   'Descrizione',    _style.desc  ],
+                ['desc',   'Nome',           _style.desc  ],
                 ['prezzo', 'Prezzo',          _style.prezzo],
                 ['euro',   'Simbolo €',       _style.euro  ],
                 ['attr',   'Attributi (BIO…)',_style.attr  ],
@@ -1630,6 +1633,24 @@ function rImpostazioni() {
               </tr>`).join('')}
             </tbody>
           </table>
+        </div>
+        <!-- POSIZIONE ELEMENTI -->
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--s400);margin-bottom:8px;margin-top:4px">Posizione elementi</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--s600);display:block;margin-bottom:3px">Spazio nome <span id="st-row1-val" style="color:var(--red)">${_style.layout.row1}%</span></label>
+            <input type="range" id="st-row1" min="20" max="70" step="1" value="${_style.layout.row1}"
+              oninput="document.getElementById('st-row1-val').textContent=this.value+'%';previewStyle()"
+              style="width:100%;accent-color:var(--red)">
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--s400)"><span>in alto</span><span>in basso</span></div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--s600);display:block;margin-bottom:3px">Spazio prezzo <span id="st-row2-val" style="color:var(--red)">${_style.layout.row2}%</span></label>
+            <input type="range" id="st-row2" min="20" max="70" step="1" value="${_style.layout.row2}"
+              oninput="document.getElementById('st-row2-val').textContent=this.value+'%';previewStyle()"
+              style="width:100%;accent-color:var(--red)">
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--s400)"><span>compresso</span><span>espanso</span></div>
+          </div>
         </div>
         <div id="st-preview" style="margin-bottom:12px;overflow:auto"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1696,9 +1717,12 @@ function readStyleFields() {
   }
   const brandEl = el('brand');
   if (g('st-brand-color-auto')?.checked) brandEl.color = null;
+  const r1 = parseInt(g('st-row1')?.value) || DEFAULT_STYLE.layout.row1;
+  const r2 = parseInt(g('st-row2')?.value) || DEFAULT_STYLE.layout.row2;
   return {
     fontFamily:  g('st-font')?.value || DEFAULT_STYLE.fontFamily,
     bandWidthMm: parseFloat(g('st-band-mm')?.value) || DEFAULT_STYLE.bandWidthMm,
+    layout: { row1: r1, row2: r2 },
     desc:   el('desc'),
     prezzo: el('prezzo'),
     euro:   el('euro'),
@@ -1728,6 +1752,7 @@ function saveStyleSettings() {
 function resetStyle() {
   if (!confirm('Ripristinare le impostazioni di stile ai valori di default?')) return;
   _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
+    layout:{...DS.layout},
     desc:{...DS.desc}, prezzo:{...DS.prezzo}, euro:{...DS.euro},
     attr:{...DS.attr}, sec:{...DS.sec}, brand:{...DS.brand},
   };
