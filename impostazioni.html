@@ -5870,9 +5870,14 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
             const fotoCell = p.foto
                 ? `<img src="${escHtml(p.foto)}" style="width:30px;height:30px;border-radius:4px;object-fit:cover;border:1px solid #e2e8f0;display:block">`
                 : '<span style="color:#cbd5e1">—</span>';
-            const attBadge = p.attivo
-                ? '<span class="prod-attr att">Sì</span>'
-                : '<span class="prod-attr dis">No</span>';
+            const toggleTable = p._src === 'frontalini' ? 'frontalini_catalogo' : 'prodotti_catalogo';
+            const attBadge = `<button onclick="toggleActiveProd('${toggleTable}',${p._id},${p.attivo})"
+              title="${p.attivo ? 'Clicca per disattivare' : 'Clicca per attivare'}"
+              style="border:none;background:none;cursor:pointer;padding:0">
+              ${p.attivo
+                ? '<span class="prod-attr att" style="cursor:pointer">Attivo</span>'
+                : '<span class="prod-attr dis" style="cursor:pointer">Inattivo</span>'}
+            </button>`;
             const editFn = p._src === 'frontalini' ? `apriModalFrontalinoProd(${p._id})` : p._src === 'fornitura' ? `apriModalFornituraProd(${p._id})` : `apriModalProdUnif(${p._id})`;
             const delFn  = p._src === 'frontalini' ? `eliminaProdFrontalino(${p._id})`  : p._src === 'fornitura' ? `eliminaProdFornitura(${p._id})`  : `eliminaProdUnif(${p._id})`;
             const copyBtn = _isAdmin ? `<button class="prod-row-btn" onclick="copiaProdUnif('${p._src}',${p._id})" title="Copia prodotto"><i class="fas fa-copy"></i></button>` : '';
@@ -6277,6 +6282,13 @@ create policy "auth write"   on prodotti_catalogo for all using (auth.role() = '
         const { error } = await db.from('prodotti_catalogo').delete().eq('id', id);
         if (error) { showToast('Errore: ' + error.message, 'err'); return; }
         showToast('Prodotto eliminato', 'ok');
+        await caricaProdotti();
+    }
+    async function toggleActiveProd(table, id, currentActive) {
+        const newActive = !currentActive;
+        const { error } = await db.from(table).update({ active: newActive }).eq('id', id);
+        if (error) { showToast('Errore: ' + error.message, 'err'); return; }
+        showToast(newActive ? 'Prodotto attivato' : 'Prodotto disattivato', 'ok');
         await caricaProdotti();
     }
 
