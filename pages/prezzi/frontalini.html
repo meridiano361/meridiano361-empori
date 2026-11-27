@@ -111,8 +111,8 @@
     .fr-mid{display:flex;align-items:center;justify-content:center;overflow:visible;gap:3px;min-width:0}
     .fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
     .fr-prezzo{line-height:1}
-    .fr-attrs-sq{display:flex;gap:2px;margin-left:auto;align-self:center;align-items:stretch;flex-shrink:0;height:120%}
-    .fr-attr-sq{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:900;text-transform:uppercase;letter-spacing:.2px;line-height:1.15;word-break:break-word;border:0.5pt solid #999;aspect-ratio:1;flex-shrink:0}
+    .fr-attrs-sq{display:flex;gap:2px;align-self:center;align-items:stretch;flex-shrink:0;height:120%}
+    .fr-attr-sq{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-transform:uppercase;letter-spacing:.2px;line-height:1.15;word-break:break-word;border:0.5pt solid #999;aspect-ratio:1;flex-shrink:0}
     .fr-at-bio{background:#99cc00;color:#333;border-color:#99cc00}
     .fr-at-sg{background:#f0dc00;color:#333;border-color:#d4c200}
     .fr-at-veg{background:#008000;color:#fff;border-color:#008000}
@@ -488,12 +488,12 @@ const DEFAULT_STYLE = {
   fontFamily:  'Arial,Helvetica,sans-serif',
   bandWidthMm: 4,
   layout: { row1: 50, row2: 38 },
-  desc:   { size: 13, bold: true,  italic: false, color: '#000000', fit: false, alignH: 'C' },
-  prezzo: { size: 16, bold: true,  italic: false, color: '#000000', alignH: 'C' },
-  euro:   { size: 10, bold: false, italic: false, color: '#000000' },
-  attr:   { size:  6, bold: true,  italic: false, color: '#000000' },
-  sec:    { size:  4, bold: false, italic: false, color: '#333333', alignH: 'C' },
-  brand:  { size:  3, bold: true,  italic: false, color: null },
+  desc:   { size: 13, weight: 700, bold: true,  italic: false, color: '#000000', fit: false, alignH: 'C' },
+  prezzo: { size: 16, weight: 700, bold: true,  italic: false, color: '#000000', alignH: 'C' },
+  euro:   { size: 10, weight: 400, bold: false, italic: false, color: '#000000' },
+  attr:   { size:  6, weight: 700, bold: true,  italic: false, color: '#000000' },
+  sec:    { size:  4, weight: 400, bold: false, italic: false, color: '#333333', alignH: 'C' },
+  brand:  { size:  3, weight: 700, bold: true,  italic: false, color: null },
 };
 const DS = DEFAULT_STYLE;
 let _style = { fontFamily: DS.fontFamily, bandWidthMm: DS.bandWidthMm,
@@ -510,7 +510,11 @@ function loadStyle() {
     if (saved.bandWidthMm !== undefined) _style.bandWidthMm = saved.bandWidthMm;
     if (saved.layout && typeof saved.layout === 'object') Object.assign(_style.layout, saved.layout);
     ['desc','prezzo','euro','attr','sec','brand'].forEach(k => {
-      if (saved[k] && typeof saved[k] === 'object') Object.assign(_style[k], saved[k]);
+      if (saved[k] && typeof saved[k] === 'object') {
+        Object.assign(_style[k], saved[k]);
+        if (saved[k].weight === undefined && saved[k].bold !== undefined)
+          _style[k].weight = saved[k].bold ? (DEFAULT_STYLE[k]?.weight || 700) : 400;
+      }
     });
   } catch {}
 }
@@ -757,7 +761,7 @@ function frontalino(item, forPrint = false, scale = 1) {
   const bandTx = bandTextColor(bandBg);
   const bf = getBrandFont(item.marchio, item.fornitore);
   const bfColor  = (bf.color  != null) ? bf.color  : (st.brand.color != null ? st.brand.color : bandTx);
-  const bfBold   = bf.bold   != null ? (bf.bold   ? '700' : '400') : (st.brand.bold   ? '700' : '400');
+  const bfBold   = bf.bold   != null ? (bf.bold   ? '700' : '400') : String(st.brand.weight||(st.brand.bold?700:400));
   const bfItalic = bf.italic != null ? (bf.italic ? 'italic' : 'normal') : (st.brand.italic ? 'italic' : 'normal');
   const warnClass = missingUnit ? ' fr-warn-miss' : '';
 
@@ -769,16 +773,16 @@ function frontalino(item, forPrint = false, scale = 1) {
       <span class="fr-brand" style="font-size:${brandSz}pt;max-height:${(cw*scale - 6)*0.98}mm;color:${bfColor};font-weight:${bfBold};font-style:${bfItalic}">${escH(brand)}</span>
     </div>
     <div class="fr-body" style="grid-template-rows:${st.layout?.row1??50}% ${st.layout?.row2??38}% ${Math.max(0,100-(st.layout?.row1??50)-(st.layout?.row2??38))}%">
-      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${st.desc.fit?'unset':'1'};white-space:${st.desc.fit?'nowrap':'normal'};font-weight:${st.desc.bold?'900':'400'};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color};text-align:${st.desc.alignH==='L'?'left':st.desc.alignH==='R'?'right':'center'}" ${st.desc.fit?'data-autofit="1"':''}>${escH(item.descrizione)}</div>
+      <div class="fr-desc" style="font-size:${descSz}pt;-webkit-line-clamp:${st.desc.fit?'unset':'1'};white-space:${st.desc.fit?'nowrap':'normal'};font-weight:${st.desc.weight||(st.desc.bold?900:400)};font-style:${st.desc.italic?'italic':'normal'};color:${st.desc.color};text-align:${st.desc.alignH==='L'?'left':st.desc.alignH==='R'?'right':'center'}" ${st.desc.fit?'data-autofit="1"':''}>${escH(item.descrizione)}</div>
       <div class="fr-mid" style="justify-content:${st.prezzo.alignH==='L'?'flex-start':st.prezzo.alignH==='R'?'flex-end':'center'}">
         <div class="fr-price-grp">
           ${prezzo
-            ? `<span class="fr-prezzo" style="font-size:${preSz}pt;font-weight:${st.prezzo.bold?'900':'400'};font-style:${st.prezzo.italic?'italic':'normal'};color:${st.prezzo.color}">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt;font-weight:${st.euro.bold?'700':'400'};font-style:${st.euro.italic?'italic':'normal'};color:${st.euro.color}">€</span>`
+            ? `<span class="fr-prezzo" style="font-size:${preSz}pt;font-weight:${st.prezzo.weight||(st.prezzo.bold?900:400)};font-style:${st.prezzo.italic?'italic':'normal'};color:${st.prezzo.color}">${escH(prezzo)}</span><span class="fr-euro" style="font-size:${eurSz}pt;font-weight:${st.euro.weight||(st.euro.bold?700:400)};font-style:${st.euro.italic?'italic':'normal'};color:${st.euro.color}">€</span>`
             : `<span style="font-size:${secSz}pt;color:#999">—</span>`}
         </div>
-        <div class="fr-attrs-sq">${attrs.map(a=>`<span class="fr-attr-sq ${a.on?a.cls:''}" style="font-size:${attrSz}pt;${a.on?'':'visibility:hidden'}">${a.lbl}</span>`).join('')}</div>
+        <div class="fr-attrs-sq">${attrs.map(a=>`<span class="fr-attr-sq ${a.on?a.cls:''}" style="font-size:${attrSz}pt;font-weight:${st.attr.weight||(st.attr.bold?900:400)};${a.on?'':'visibility:hidden'}">${a.lbl}</span>`).join('')}</div>
       </div>
-      <div class="fr-sec" style="font-size:${secSz}pt;font-weight:${st.sec.bold?'700':'400'};font-style:${st.sec.italic?'italic':'normal'};color:${st.sec.color};justify-content:${st.sec.alignH==='L'?'flex-start':st.sec.alignH==='R'?'flex-end':'center'}">
+      <div class="fr-sec" style="font-size:${secSz}pt;font-weight:${st.sec.weight||(st.sec.bold?700:400)};font-style:${st.sec.italic?'italic':'normal'};color:${st.sec.color};justify-content:${st.sec.alignH==='L'?'flex-start':st.sec.alignH==='R'?'flex-end':'center'}">
         ${pu  ? `<span>${escH(puStr)}</span>` : ''}
         ${pd  ? `<span>${escH(pd)}</span>`   : ''}
         ${item.codice ? `<span>cod ${escH(item.codice)}</span>` : ''}
@@ -1412,8 +1416,8 @@ function frontalinoCss(scope = '') {
     ${p}.fr-mid{display:flex;align-items:center;justify-content:center;overflow:visible;gap:3px;min-width:0}
     ${p}.fr-price-grp{display:flex;align-items:baseline;gap:1px;flex-shrink:0}
     ${p}.fr-prezzo{line-height:1}
-    ${p}.fr-attrs-sq{display:flex;gap:2px;margin-left:auto;align-self:center;align-items:stretch;flex-shrink:0;height:120%}
-    ${p}.fr-attr-sq{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:900;text-transform:uppercase;letter-spacing:.2px;line-height:1.15;word-break:break-word;border:0.5pt solid #999;aspect-ratio:1;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    ${p}.fr-attrs-sq{display:flex;gap:2px;align-self:center;align-items:stretch;flex-shrink:0;height:120%}
+    ${p}.fr-attr-sq{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-transform:uppercase;letter-spacing:.2px;line-height:1.15;word-break:break-word;border:0.5pt solid #999;aspect-ratio:1;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     ${p}.fr-at-bio{background:#99cc00 !important;color:#333 !important;border-color:#99cc00 !important}
     ${p}.fr-at-sg {background:#f0dc00 !important;color:#333 !important;border-color:#d4c200 !important}
     ${p}.fr-at-veg{background:#008000 !important;color:#fff !important;border-color:#008000 !important}
@@ -1587,7 +1591,7 @@ function rImpostazioni() {
               <tr style="border-bottom:1.5px solid var(--s200)">
                 <th style="text-align:left;padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500)">Elemento</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">pt</th>
-                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Bold</th>
+                <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:72px">Peso</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Corsivo</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px">Colore</th>
                 <th style="padding:5px 8px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--s500);text-align:center;width:60px" title="Rimpicciolisce il testo per farlo stare su una riga">Adatta</th>
@@ -1610,7 +1614,11 @@ function rImpostazioni() {
                     oninput="previewStyle()" style="width:48px;text-align:center;padding:3px 4px;border:1.5px solid var(--s200);border-radius:6px;font-size:12px;font-family:inherit">
                 </td>
                 <td style="padding:4px 6px;text-align:center">
-                  <input type="checkbox" id="st-${k}-bold" ${el.bold?'checked':''} onchange="previewStyle()" style="accent-color:var(--red);width:15px;height:15px;cursor:pointer">
+                  <div style="display:flex;gap:2px;justify-content:center">
+                    ${[400,600,700].map(w => `<button id="st-${k}-weight-${w}" onclick="setWeight('${k}',${w})"
+                      style="width:22px;height:22px;border:1.5px solid ${(el.weight||400)===w?'var(--red)':'var(--s200)'};border-radius:4px;background:${(el.weight||400)===w?'var(--red)':'transparent'};color:${(el.weight||400)===w?'#fff':'var(--s500)'};font-size:9px;cursor:pointer;padding:0;line-height:1"
+                      title="${'w'==='' ? '' : w===400?'Normale':w===600?'Semibold':'Grassetto'}">${w===400?'N':w===600?'S':'G'}</button>`).join('')}
+                  </div>
                 </td>
                 <td style="padding:4px 6px;text-align:center">
                   <input type="checkbox" id="st-${k}-italic" ${el.italic?'checked':''} onchange="previewStyle()" style="accent-color:var(--red);width:15px;height:15px;cursor:pointer">
@@ -1718,7 +1726,8 @@ function readStyleFields() {
     const def = DEFAULT_STYLE[k];
     const obj = {
       size:   parseFloat(g(`st-${k}-size`)?.value)  || def.size,
-      bold:   g(`st-${k}-bold`)?.checked  ?? def.bold,
+      weight: _style[k]?.weight ?? def.weight ?? 400,
+      bold:   (_style[k]?.weight ?? def.weight ?? 400) >= 600,
       italic: g(`st-${k}-italic`)?.checked ?? def.italic,
       color:  g(`st-${k}-color`)?.value   || def.color,
     };
@@ -1746,7 +1755,6 @@ function readStyleFields() {
 function setAlignH(k, val) {
   _style[k] = _style[k] || {};
   _style[k].alignH = val;
-  // Aggiorna visivamente i bottoni
   ['L','C','R'].forEach(a => {
     const btn = g(`st-${k}-alignH-${a}`);
     if (!btn) return;
@@ -1754,6 +1762,21 @@ function setAlignH(k, val) {
     btn.style.borderColor  = active ? 'var(--red)' : 'var(--s200)';
     btn.style.background   = active ? 'var(--red)' : 'transparent';
     btn.style.color        = active ? '#fff' : 'var(--s500)';
+  });
+  previewStyle();
+}
+
+function setWeight(k, val) {
+  _style[k] = _style[k] || {};
+  _style[k].weight = val;
+  _style[k].bold   = val >= 600;
+  [400, 600, 700].forEach(w => {
+    const btn = g(`st-${k}-weight-${w}`);
+    if (!btn) return;
+    const active = w === val;
+    btn.style.borderColor = active ? 'var(--red)' : 'var(--s200)';
+    btn.style.background  = active ? 'var(--red)' : 'transparent';
+    btn.style.color       = active ? '#fff' : 'var(--s500)';
   });
   previewStyle();
 }
