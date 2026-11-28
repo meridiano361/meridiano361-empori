@@ -5712,13 +5712,14 @@ async function inviaWADopoConversione() {
 
     if (tel) window.open(_waUrl(tel, waMsg), '_blank');
 
-    await _sb.from('movimenti_tessera').insert({
+    const { error: errMov } = await _sb.from('movimenti_tessera').insert({
       tessera_id:      t.id,
       importo,
       timbri_aggiunti: timbriSpesa,
       sconto_generato: scontoGen,
       operatore:       _user?.nome || ''
-    }).then(({ error }) => { if (error) console.warn('[movimenti_tessera]', error.message); });
+    });
+    if (errMov) { alert('Errore salvataggio spesa: ' + errMov.message); chiudiConvertiModal(); return; }
 
     const updateData = {
       timbri_attuali: cicliNuovi > 0 ? timbriResto : timbriRaw,
@@ -5727,7 +5728,8 @@ async function inviaWADopoConversione() {
     };
     if (cicliNuovi > 0) updateData.cicli_completati = (t.cicli_completati || 0) + cicliNuovi;
 
-    await _sb.from('tessere').update(updateData).eq('id', t.id);
+    const { error: errUpd } = await _sb.from('tessere').update(updateData).eq('id', t.id);
+    if (errUpd) { alert('Errore aggiornamento timbri: ' + errUpd.message); chiudiConvertiModal(); return; }
 
     const idx = allTessere.findIndex(x => x.id === t.id);
     if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updateData };
@@ -5755,17 +5757,19 @@ async function registraSoloSpesaConversione() {
   const timbriResto = timbriRaw % DIG_TIMBRI_MAX;
   const scontoGen   = cicliNuovi * scontoPerCiclo;
 
-  await _sb.from('movimenti_tessera').insert({
+  const { error: errMov2 } = await _sb.from('movimenti_tessera').insert({
     tessera_id: t.id, importo, timbri_aggiunti: timbriSpesa,
     sconto_generato: scontoGen, operatore: _user?.nome || ''
   });
+  if (errMov2) { alert('Errore salvataggio spesa: ' + errMov2.message); chiudiConvertiModal(); return; }
   const updateData = {
     timbri_attuali: cicliNuovi > 0 ? timbriResto : timbriRaw,
     totale_spesa:   (t.totale_spesa || 0) + importo,
     saldo_sconto:   (t.saldo_sconto || 0) + scontoGen,
   };
   if (cicliNuovi > 0) updateData.cicli_completati = (t.cicli_completati || 0) + cicliNuovi;
-  await _sb.from('tessere').update(updateData).eq('id', t.id);
+  const { error: errUpd2 } = await _sb.from('tessere').update(updateData).eq('id', t.id);
+  if (errUpd2) { alert('Errore aggiornamento timbri: ' + errUpd2.message); chiudiConvertiModal(); return; }
   const idx = allTessere.findIndex(x => x.id === t.id);
   if (idx >= 0) allTessere[idx] = { ...allTessere[idx], ...updateData };
   showToast(`✓ Spesa €${importo.toFixed(2)} registrata`);
